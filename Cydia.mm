@@ -2,6 +2,9 @@
 #include <UIKit/UIKit.h>
 #import <GraphicsServices/GraphicsServices.h>
 
+#include <sstream>
+#include <ext/stdio_filebuf.h>
+
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/algorithms.h>
@@ -11,20 +14,29 @@
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/sourcelist.h>
+#include <apt-pkg/sptr.h>
 
+#include <errno.h>
 #include <pcre.h>
 #include <string.h>
 /* }}} */
 /* Extension Keywords {{{ */
-#define _trace() printf("_trace()@%s:%u[%s]\n", __FILE__, __LINE__, __FUNCTION__)
+#define _trace() fprintf(stderr, "_trace()@%s:%u[%s]\n", __FILE__, __LINE__, __FUNCTION__)
 
 #define _assert(test) do \
     if (!(test)) { \
-        printf("_assert(%s)@%s:%u[%s]\n", #test, __FILE__, __LINE__, __FUNCTION__); \
+        fprintf(stderr, "_assert(%d:%s)@%s:%u[%s]\n", errno, #test, __FILE__, __LINE__, __FUNCTION__); \
         exit(-1); \
     } \
 while (false)
 /* }}} */
+
+@protocol ProgressDelegate
+- (void) setError:(NSString *)error;
+- (void) setTitle:(NSString *)title;
+- (void) setPercent:(float)percent;
+- (void) addOutput:(NSString *)output;
+@end
 
 /* Status Delegation {{{ */
 class Status :
@@ -52,7 +64,7 @@ class Status :
     }
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusFetch) withObject:nil waitUntilDone:YES];
+        [delegate_ setTitle:[NSString stringWithCString:item.Description.c_str()]];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
@@ -64,16 +76,21 @@ class Status :
     }
 
     virtual bool Pulse(pkgAcquire *Owner) {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusPulse) withObject:nil waitUntilDone:YES];
-        return true;
+        bool value = pkgAcquireStatus::Pulse(Owner);
+
+        float percent(
+            double(CurrentBytes + CurrentItems) /
+            double(TotalBytes + TotalItems)
+        );
+
+        [delegate_ setPercent:percent];
+        return value;
     }
 
     virtual void Start() {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusStart) withObject:nil waitUntilDone:YES];
     }
 
     virtual void Stop() {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusStop) withObject:nil waitUntilDone:YES];
     }
 };
 /* }}} */
@@ -86,7 +103,8 @@ class Progress :
 
   protected:
     virtual void Update() {
-        printf("Update(): %f (%s)\n", Percent, Op.c_str());
+        [delegate_ setTitle:[NSString stringWithCString:Op.c_str()]];
+        [delegate_ setPercent:(Percent / 100)];
     }
 
   public:
@@ -100,7 +118,7 @@ class Progress :
     }
 
     virtual void Done() {
-        printf("Done()\n");
+        [delegate_ setPercent:1];
     }
 };
 /* }}} */
@@ -124,6 +142,8 @@ extern NSString *kUIButtonBarButtonType;
     NSString *email_;
 }
 
+- (void) dealloc;
+
 - (NSString *) name;
 - (NSString *) email;
 
@@ -132,6 +152,12 @@ extern NSString *kUIButtonBarButtonType;
 @end
 
 @implementation Address
+
+- (void) dealloc {
+    [name_ release];
+    [email_ release];
+    [super dealloc];
+}
 
 - (NSString *) name {
     return name_;
@@ -142,30 +168,29 @@ extern NSString *kUIButtonBarButtonType;
 }
 
 + (Address *) addressWithString:(NSString *)string {
-    return [[[Address alloc] initWithString:string] retain];
+    return [[[Address alloc] initWithString:string] autorelease];
 }
 
 - (Address *) initWithString:(NSString *)string {
     if ((self = [super init]) != nil) {
         const char *error;
         int offset;
-
         pcre *code = pcre_compile("^\"?(.*)\"? <([^>]*)>$", 0, &error, &offset, NULL);
 
         if (code == NULL) {
-            printf("%d:%s\n", offset, error);
+            fprintf(stderr, "%d:%s\n", offset, error);
             _assert(false);
         }
 
         pcre_extra *study = NULL;
         int capture;
         pcre_fullinfo(code, study, PCRE_INFO_CAPTURECOUNT, &capture);
+        int matches[(capture + 1) * 3];
 
         size_t size = [string length];
         const char *data = [string UTF8String];
 
-        int matches[(capture + 1) * 3];
-        pcre_exec(code, study, data, size, 0, 0, matches, sizeof(matches) / sizeof(matches[0]));
+        _assert(pcre_exec(code, study, data, size, 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
 
         name_ = [[NSString stringWithCString:(data + matches[2]) length:(matches[3] - matches[2])] retain];
         email_ = [[NSString stringWithCString:(data + matches[4]) length:(matches[5] - matches[4])] retain];
@@ -217,14 +242,21 @@ extern NSString *kUIButtonBarButtonType;
 
 @end
 /* }}} */
+/* Linear Algebra {{{ */
+inline float interpolate(float begin, float end, float fraction) {
+    return (end - begin) * fraction + begin;
+}
+/* }}} */
 
 @interface Database : NSObject {
     pkgCacheFile cache_;
     pkgRecords *records_;
     pkgProblemResolver *resolver_;
 
+    id delegate_;
     Status status_;
     Progress progress_;
+    int statusfd_;
 }
 
 - (Database *) init;
@@ -232,8 +264,11 @@ extern NSString *kUIButtonBarButtonType;
 - (pkgRecords *) records;
 - (pkgProblemResolver *) resolver;
 - (void) reloadData;
+
+- (void) perform;
 - (void) update;
 - (void) upgrade;
+
 - (void) setDelegate:(id)delegate;
 @end
 
@@ -241,7 +276,6 @@ extern NSString *kUIButtonBarButtonType;
 @interface Package : NSObject {
     pkgCache::PkgIterator iterator_;
     Database *database_;
-    UITableCell *cell_;
     pkgRecords::Parser *parser_;
     pkgCache::VerIterator version_;
     pkgCache::VerFileIterator file_;
@@ -258,8 +292,6 @@ extern NSString *kUIButtonBarButtonType;
 - (size_t) size;
 - (NSString *) tagline;
 - (NSString *) description;
-- (UITableCell *) cell;
-- (void) setCell:(UITableCell *)cell;
 - (NSComparisonResult) compareBySectionAndName:(Package *)package;
 
 - (void) install;
@@ -272,7 +304,6 @@ extern NSString *kUIButtonBarButtonType;
     if ((self = [super init]) != nil) {
         iterator_ = iterator;
         database_ = database;
-        cell_ = nil;
 
         version_ = version;
         file_ = file;
@@ -283,7 +314,12 @@ extern NSString *kUIButtonBarButtonType;
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
     for (pkgCache::VerIterator version = iterator.VersionList(); !version.end(); ++version)
         for (pkgCache::VerFileIterator file = version.FileList(); !file.end(); ++file)
-            return [[Package alloc] initWithIterator:iterator database:database version:version file:file];
+            return [[[Package alloc]
+                initWithIterator:iterator 
+                database:database
+                version:version
+                file:file]
+            autorelease];
     return nil;
 }
 
@@ -319,14 +355,6 @@ extern NSString *kUIButtonBarButtonType;
     return [NSString stringWithCString:parser_->LongDesc().c_str()];
 }
 
-- (UITableCell *) cell {
-    return cell_;
-}
-
-- (void) setCell:(UITableCell *)cell {
-    cell_ = cell;
-}
-
 - (NSComparisonResult) compareBySectionAndName:(Package *)package {
     NSComparisonResult result = [[self section] compare:[package section]];
     if (result != NSOrderedSame)
@@ -346,7 +374,7 @@ extern NSString *kUIButtonBarButtonType;
     resolver->Clear(iterator_);
     resolver->Protect(iterator_);
     resolver->Remove(iterator_);
-    [database_ cache]->MarkDelete(iterator_, false);
+    [database_ cache]->MarkDelete(iterator_, true);
 }
 
 @end
@@ -358,6 +386,8 @@ extern NSString *kUIButtonBarButtonType;
     NSMutableArray *packages_;
 }
 
+- (void) dealloc;
+
 - (Section *) initWithName:(NSString *)name row:(size_t)row;
 - (NSString *) name;
 - (size_t) row;
@@ -365,6 +395,12 @@ extern NSString *kUIButtonBarButtonType;
 @end
 
 @implementation Section
+
+- (void) dealloc {
+    [name_ release];
+    [packages_ release];
+    [super dealloc];
+}
 
 - (Section *) initWithName:(NSString *)name row:(size_t)row {
     if ((self = [super init]) != nil) {
@@ -405,6 +441,8 @@ extern NSString *kUIButtonBarButtonType;
     NSMutableArray *cells_;
 }
 
+- (void) dealloc;
+
 - (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table;
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group;
 - (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group;
@@ -414,6 +452,14 @@ extern NSString *kUIButtonBarButtonType;
 @end
 
 @implementation PackageView
+
+- (void) dealloc {
+    if (package_ != nil)
+        [package_ release];
+    [database_ release];
+    [cells_ release];
+    [super dealloc];
+}
 
 - (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
     return 2;
@@ -497,7 +543,7 @@ extern NSString *kUIButtonBarButtonType;
         case 1: switch (row) {
             case 0:
                 cell = [cells_ objectAtIndex:5];
-                [cell setTitle:@"Tagline"];
+                [cell setTitle:nil];
                 [cell setValue:[package_ tagline]];
             break;
 
@@ -516,14 +562,14 @@ extern NSString *kUIButtonBarButtonType;
 
 - (PackageView *) initWithFrame:(struct CGRect)frame database:(Database *)database {
     if ((self = [super initWithFrame:frame]) != nil) {
-        database_ = database;
+        database_ = [database retain];
         [self setDataSource:self];
 
         cells_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         for (unsigned i = 0; i != 6; ++i) {
             struct CGRect frame = [self frameOfPreferencesCellAtRow:0 inGroup:0];
-            UIPreferencesTableCell *cell = [[UIPreferencesTableCell alloc] init];
+            UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
             [cell setShowSelection:NO];
             [cells_ addObject:cell];
         }
@@ -531,8 +577,113 @@ extern NSString *kUIButtonBarButtonType;
 }
 
 - (void) setPackage:(Package *)package {
-    package_ = package;
+    package_ = [package retain];
     [self reloadData];
+}
+
+@end
+/* }}} */
+/* Package Cell {{{ */
+@interface PackageCell : UITableCell {
+    UITextLabel *name_;
+    UIRightTextLabel *version_;
+    UITextLabel *description_;
+}
+
+- (void) dealloc;
+
+- (PackageCell *) initWithPackage:(Package *)package;
+
+- (void) _setSelected:(float)fraction;
+- (void) setSelected:(BOOL)selected;
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
+- (void) _setSelectionFadeFraction:(float)fraction;
+
+@end
+
+@implementation PackageCell
+
+- (void) dealloc {
+    [name_ release];
+    [version_ release];
+    [description_ release];
+    [super dealloc];
+}
+
+- (PackageCell *) initWithPackage:(Package *)package {
+    if ((self = [super init]) != nil) {
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
+        GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
+        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
+
+        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+        float clear[] = {0, 0, 0, 0};
+
+        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 7, 250, 25)];
+        [name_ setText:[package name]];
+        [name_ setBackgroundColor:CGColorCreate(space, clear)];
+        [name_ setFont:bold];
+
+        version_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(290, 7, 70, 25)];
+        [version_ setText:[package version]];
+        [version_ setBackgroundColor:CGColorCreate(space, clear)];
+        [version_ setFont:large];
+
+        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 315, 20)];
+        [description_ setText:[package tagline]];
+        [description_ setBackgroundColor:CGColorCreate(space, clear)];
+        [description_ setFont:small];
+
+        [self addSubview:name_];
+        [self addSubview:version_];
+        [self addSubview:description_];
+
+        CFRelease(small);
+        CFRelease(large);
+        CFRelease(bold);
+    } return self;
+}
+
+- (void) _setSelected:(float)fraction {
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+
+    float black[] = {
+        interpolate(0.0, 1.0, fraction),
+        interpolate(0.0, 1.0, fraction),
+        interpolate(0.0, 1.0, fraction),
+    1.0};
+
+    float blue[] = {
+        interpolate(0.2, 1.0, fraction),
+        interpolate(0.2, 1.0, fraction),
+        interpolate(1.0, 1.0, fraction),
+    1.0};
+
+    float gray[] = {
+        interpolate(0.4, 1.0, fraction),
+        interpolate(0.4, 1.0, fraction),
+        interpolate(0.4, 1.0, fraction),
+    1.0};
+
+    [name_ setColor:CGColorCreate(space, black)];
+    [version_ setColor:CGColorCreate(space, blue)];
+    [description_ setColor:CGColorCreate(space, gray)];
+}
+
+- (void) setSelected:(BOOL)selected {
+    [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    if (!fade)
+        [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected withFade:fade];
+}
+
+- (void) _setSelectionFadeFraction:(float)fraction {
+    [self _setSelected:fraction];
+    [super _setSelectionFadeFraction:fraction];
 }
 
 @end
@@ -540,10 +691,86 @@ extern NSString *kUIButtonBarButtonType;
 
 @implementation Database
 
+- (void) _readStatus:(NSNumber *)fd {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
+    std::istream is(&ib);
+    std::string line;
+
+    const char *error;
+    int offset;
+    pcre *code = pcre_compile("^([^:]*):([^:]*):([^:]*):(.*)$", 0, &error, &offset, NULL);
+
+    pcre_extra *study = NULL;
+    int capture;
+    pcre_fullinfo(code, study, PCRE_INFO_CAPTURECOUNT, &capture);
+    int matches[(capture + 1) * 3];
+
+    while (std::getline(is, line)) {
+        const char *data(line.c_str());
+        fprintf(stderr, "fd(%s)\n", data);
+
+        _assert(pcre_exec(code, study, data, line.size(), 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
+
+        std::string type(line.substr(matches[2], matches[3] - matches[2]));
+
+        std::istringstream buffer(line.substr(matches[6], matches[7] - matches[6]));
+        float percent;
+        buffer >> percent;
+        [delegate_ setPercent:(percent / 100)];
+
+        NSString *string = [NSString stringWithCString:(data + matches[8]) length:(matches[9] - matches[8])];
+
+        if (type == "pmerror")
+            [delegate_ setError:string];
+        else if (type == "pmstatus")
+            [delegate_ setTitle:string];
+    }
+
+    [pool release];
+}
+
+- (void) _readOutput:(NSNumber *)fd {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
+    std::istream is(&ib);
+    std::string line;
+
+    while (std::getline(is, line))
+        [delegate_ addOutput:[NSString stringWithCString:line.c_str()]];
+
+    [pool release];
+}
+
 - (Database *) init {
     if ((self = [super init]) != nil) {
         records_ = NULL;
         resolver_ = NULL;
+
+        int fds[2];
+
+        _assert(pipe(fds) != -1);
+        printf("%d %d\n", fds[0], fds[1]);
+        statusfd_ = fds[1];
+
+        [NSThread
+            detachNewThreadSelector:@selector(_readStatus:)
+            toTarget:self
+            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+        ];
+
+        _assert(pipe(fds) != -1);
+        printf("%d %d\n", fds[0], fds[1]);
+        _assert(dup2(fds[1], 1) != -1);
+        _assert(close(fds[1]) != -1);
+
+        [NSThread
+            detachNewThreadSelector:@selector(_readOutput:)
+            toTarget:self
+            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+        ];
     } return self;
 }
 
@@ -560,17 +787,56 @@ extern NSString *kUIButtonBarButtonType;
 }
 
 - (void) reloadData {
+    _trace();
+    _error->Discard();
+    _trace();
     delete resolver_;
+    _trace();
     delete records_;
+    _trace();
     cache_.Close();
+    _trace();
     cache_.Open(progress_, true);
+    _trace();
     records_ = new pkgRecords(cache_);
+    _trace();
     resolver_ = new pkgProblemResolver(cache_);
+    _trace();
+}
+
+- (void) perform {
+    _trace();
+    pkgRecords records(cache_);
+
+    _trace();
+    FileFd lock;
+    lock.Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
+    _assert(!_error->PendingError());
+
+    _trace();
+    pkgAcquire fetcher(&status_);
+    pkgSourceList list;
+    _assert(list.ReadMainList());
+
+    _trace();
+    SPtr<pkgPackageManager> manager(_system->CreatePM(cache_));
+    _assert(manager->GetArchives(&fetcher, &list, &records));
+    _assert(!_error->PendingError());
+    _assert(fetcher.Run() != pkgAcquire::Failed);
+
+    _trace();
+    _system->UnLock();
+    pkgPackageManager::OrderResult result = manager->DoInstall(statusfd_);
+
+    if (result == pkgPackageManager::Failed)
+        return;
+    if (_error->PendingError())
+        return;
+    if (result != pkgPackageManager::Completed)
+        return;
 }
 
 - (void) update {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
     pkgSourceList list;
     _assert(list.ReadMainList());
 
@@ -593,13 +859,9 @@ extern NSString *kUIButtonBarButtonType;
         _assert(fetcher.Clean(_config->FindDir("Dir::State::lists")));
         _assert(fetcher.Clean(_config->FindDir("Dir::State::lists") + "partial/"));
     }
-
-    [pool release];
 }
 
 - (void) upgrade {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
     _assert(cache_->DelCount() == 0 && cache_->InstCount() == 0);
     _assert(pkgApplyStatus(cache_));
 
@@ -612,11 +874,10 @@ extern NSString *kUIButtonBarButtonType;
     _assert(pkgDistUpgrade(cache_));
 
     //InstallPackages(cache_, true);
-
-    [pool release];
 }
 
 - (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
     status_.setDelegate(delegate);
     progress_.setDelegate(delegate);
 }
@@ -661,55 +922,141 @@ extern NSString *kUIButtonBarButtonType;
 
 @end
 /* }}} */
-
-@interface ProgressView : UIView {
+/* Progress View {{{ */
+@interface ProgressView : UIView <
+    ProgressDelegate
+> {
     UIView *view_;
     UITransitionView *transition_;
-    UIView *progress_;
+    UIView *overlay_;
     UINavigationBar *navbar_;
+    UIProgressBar *progress_;
+    UITextView *output_;
+    UITextLabel *status_;
+    id delegate_;
+    UIAlertSheet *alert_;
 }
 
-- (ProgressView *) initWithFrame:(struct CGRect)frame;
+- (void) dealloc;
+
+- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate;
 - (void) setContentView:(UIView *)view;
 - (void) resetView;
 
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
+
+- (void) _retachThread;
 - (void) _detachNewThreadData:(ProgressData *)data;
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object;
 
+- (void) setError:(NSString *)error;
+- (void) _setError:(NSString *)error;
+
+- (void) setTitle:(NSString *)title;
+- (void) _setTitle:(NSString *)title;
+
+- (void) setPercent:(float)percent;
+- (void) _setPercent:(NSNumber *)percent;
+
+- (void) addOutput:(NSString *)output;
+- (void) _addOutput:(NSString *)output;
+
 - (void) setStatusIMSHit;
-- (void) setStatusFetch;
 - (void) setStatusDone;
 - (void) setStatusFail;
-- (void) setStatusPulse;
 
 - (void) setStatusStart;
 - (void) setStatusStop;
 @end
 
+@protocol ProgressViewDelegate
+- (void) progressViewIsComplete:(ProgressView *)sender;
+@end
+
 @implementation ProgressView
 
-- (ProgressView *) initWithFrame:(struct CGRect)frame {
+- (void) dealloc {
+    [view_ release];
+    [transition_ release];
+    [overlay_ release];
+    [navbar_ release];
+    [progress_ release];
+    [output_ release];
+    [status_ release];
+    [super dealloc];
+}
+
+- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate {
     if ((self = [super initWithFrame:frame]) != nil) {
+        delegate_ = delegate;
+        alert_ = nil;
+
         transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
         [self addSubview:transition_];
 
-        progress_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-
         CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
         float black[] = {0.0, 0.0, 0.0, 1.0};
-        [progress_ setBackgroundColor:CGColorCreate(space, black)];
+        float white[] = {1.0, 1.0, 1.0, 1.0};
+        float clear[] = {0.0, 0.0, 0.0, 0.0};
+
+        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
+        [overlay_ setBackgroundColor:CGColorCreate(space, black)];
 
         CGSize navsize = [UINavigationBar defaultSize];
         CGRect navrect = {{0, 0}, navsize};
 
         navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        [progress_ addSubview:navbar_];
+        [overlay_ addSubview:navbar_];
 
         [navbar_ setBarStyle:1];
         [navbar_ setDelegate:self];
 
-        UINavigationItem *navitem = [[UINavigationItem alloc] initWithTitle:nil];
+        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Running..."] autorelease];
         [navbar_ pushNavigationItem:navitem];
+
+        CGRect bounds = [overlay_ bounds];
+        CGSize prgsize = [UIProgressBar defaultSize];
+
+        CGRect prgrect = {{
+            (bounds.size.width - prgsize.width) / 2,
+            bounds.size.height - prgsize.height - 20
+        }, prgsize};
+
+        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
+        [overlay_ addSubview:progress_];
+
+        status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(
+            10,
+            bounds.size.height - prgsize.height - 50,
+            bounds.size.width - 20,
+            24
+        )];
+
+        [status_ setColor:CGColorCreate(space, white)];
+        [status_ setBackgroundColor:CGColorCreate(space, clear)];
+
+        [status_ setCentersHorizontally:YES];
+
+        output_ = [[UITextView alloc] initWithFrame:CGRectMake(
+            10,
+            navrect.size.height + 20,
+            bounds.size.width - 20,
+            bounds.size.height - navsize.height - 62 - navrect.size.height
+        )];
+
+        //[output_ setTextFont:@"Courier New"];
+        [output_ setTextSize:12];
+
+        [output_ setTextColor:CGColorCreate(space, white)];
+        [output_ setBackgroundColor:CGColorCreate(space, clear)];
+
+        [output_ setMarginTop:0];
+        [output_ setAllowsRubberBanding:YES];
+
+        [overlay_ addSubview:output_];
+        [overlay_ addSubview:status_];
+
+        [progress_ setStyle:0];
     } return self;
 }
 
@@ -719,19 +1066,42 @@ extern NSString *kUIButtonBarButtonType;
 
 - (void) resetView {
     [transition_ transition:6 toView:view_];
+    _trace();
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [alert_ dismiss];
+    [alert_ release];
+    alert_ = nil;
+}
+
+- (void) _retachThread {
+    _trace();
+    [delegate_ progressViewIsComplete:self];
+    _trace();
+    [self resetView];
+    _trace();
 }
 
 - (void) _detachNewThreadData:(ProgressData *)data {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
+    _trace();
     [[data target] performSelector:[data selector] withObject:[data object]];
-    [self performSelectorOnMainThread:@selector(resetView) withObject:nil waitUntilDone:YES];
+    _trace();
+    [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
+    _trace();
 
+    [data release];
     [pool release];
 }
 
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object {
-    [transition_ transition:6 toView:progress_];
+    [status_ setText:nil];
+    [output_ setText:@""];
+    [progress_ setProgress:0];
+
+    [transition_ transition:6 toView:overlay_];
 
     [NSThread
         detachNewThreadSelector:@selector(_detachNewThreadData:)
@@ -748,10 +1118,6 @@ extern NSString *kUIButtonBarButtonType;
     _trace();
 }
 
-- (void) setStatusFetch {
-    _trace();
-}
-
 - (void) setStatusDone {
     _trace();
 }
@@ -760,8 +1126,63 @@ extern NSString *kUIButtonBarButtonType;
     _trace();
 }
 
-- (void) setStatusPulse {
-    _trace();
+- (void) setError:(NSString *)error {
+    [self
+        performSelectorOnMainThread:@selector(_setError:)
+        withObject:error
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _setError:(NSString *)error {
+    _assert(alert_ == nil);
+
+    alert_ = [[UIAlertSheet alloc]
+        initWithTitle:@"Package Error"
+        buttons:[NSArray arrayWithObjects:@"Okay", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:self
+    ];
+
+    [alert_ setBodyText:error];
+    [alert_ popupAlertAnimated:YES];
+}
+
+- (void) setTitle:(NSString *)title {
+    [self
+        performSelectorOnMainThread:@selector(_setTitle:)
+        withObject:title
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _setTitle:(NSString *)title {
+    [status_ setText:[title stringByAppendingString:@"..."]];
+}
+
+- (void) setPercent:(float)percent {
+    [self
+        performSelectorOnMainThread:@selector(_setPercent:)
+        withObject:[NSNumber numberWithFloat:percent]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _setPercent:(NSNumber *)percent {
+    [progress_ setProgress:[percent floatValue]];
+}
+
+- (void) addOutput:(NSString *)output {
+    [self
+        performSelectorOnMainThread:@selector(_addOutput:)
+        withObject:output
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _addOutput:(NSString *)output {
+    [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
 }
 
 - (void) setStatusStart {
@@ -773,10 +1194,11 @@ extern NSString *kUIButtonBarButtonType;
 }
 
 @end
+/* }}} */
 
 @protocol PackagesDelegate
 
-- (void) viewPackage:(Package *)package;
+- (void) perform;
 
 @end
 
@@ -810,8 +1232,7 @@ extern NSString *kUIButtonBarButtonType;
 
 - (Packages *) initWithFrame:(struct CGRect)frame title:(NSString *)title database:(Database *)database filter:(bool (*)(Package *))filter selector:(SEL)selector;
 - (void) setDelegate:(id)delegate;
-- (void) addPackage:(Package *)package;
-- (NSMutableArray *) packages;
+- (void) deselect;
 - (void) reloadData;
 @end
 
@@ -838,57 +1259,8 @@ extern NSString *kUIButtonBarButtonType;
 }
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
-    Package *package = [packages_ objectAtIndex:row]; {
-        UITableCell *cell = [package cell];
-        if (cell != nil)
-            return cell;
-    }
-
-#if 0
-    UIImageAndTextTableCell *cell_ = [[UIImageAndTextTableCell alloc] init];
-    [package setCell:cell_];
-
-    [cell_ setTitle:[package name]];
-    return cell_;
-#endif
-
-    UITableCell *cell = [[UITableCell alloc] init];
-    [package setCell:cell];
-
-    GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
-    GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
-    GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
-
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    float blue[] = {0.2, 0.2, 1.0, 1.0};
-    float gray[] = {0.4, 0.4, 0.4, 1.0};
-    float clear[] = {0, 0, 0, 0};
-
-    UITextLabel *name = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 7, 250, 25)];
-    [name setText:[package name]];
-    [name setBackgroundColor:CGColorCreate(space, clear)];
-    [name setFont:bold];
-
-    UIRightTextLabel *version = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(290, 7, 70, 25)];
-    [version setText:[package version]];
-    [version setColor:CGColorCreate(space, blue)];
-    [version setBackgroundColor:CGColorCreate(space, clear)];
-    [version setFont:large];
-
-    UITextLabel *description = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 315, 20)];
-    [description setText:[package tagline]];
-    [description setColor:CGColorCreate(space, gray)];
-    [description setBackgroundColor:CGColorCreate(space, clear)];
-    [description setFont:small];
-
-    [cell addSubview:name];
-    [cell addSubview:version];
-    [cell addSubview:description];
-
-    CFRelease(small);
-    CFRelease(large);
-    CFRelease(bold);
-
+    Package *package = [packages_ objectAtIndex:row];
+    PackageCell *cell = [[[PackageCell alloc] initWithPackage:package] autorelease];
     return cell;
 }
 
@@ -910,12 +1282,10 @@ extern NSString *kUIButtonBarButtonType;
 
     [pkgview_ setPackage:package_];
     [transition_ transition:1 toView:pkgview_];
-
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
     if (button == 0) {
-        printf("bef:%ld\n", [database_ cache]->InstCount());
         [package_ performSelector:selector_];
 
         pkgProblemResolver *resolver = [database_ resolver];
@@ -924,31 +1294,21 @@ extern NSString *kUIButtonBarButtonType;
         if (!resolver->Resolve(true))
             _error->Discard();
 
-        printf("aft:%ld\n", [database_ cache]->InstCount());
-        _assert(false);
+        [delegate_ perform];
     }
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar poppedItem:(UINavigationItem *)item {
-    [transition_ transition:2 toView:list_];
+    [self deselect];
     [navbar_ showButtonsWithLeftTitle:nil rightTitle:nil];
-    UITable *table = [list_ table];
-    [table selectRow:-1 byExtendingSelection:NO withFade:YES];
-    //UITableCell *cell = [table cellAtRow:[table selectedRow] column:0];
-    //[table selectCell:nil inRow:-1 column:-1 withFade:YES];
-    //[table highlightRow:-1];
-    //[cell setSelected:NO withFade:YES];
-    package_ = nil;
 }
 
 - (Packages *) initWithFrame:(struct CGRect)frame title:(NSString *)title database:(Database *)database filter:(bool (*)(Package *))filter selector:(SEL)selector {
     if ((self = [super initWithFrame:frame]) != nil) {
-        title_ = title;
-        database_ = database;
+        title_ = [title retain];
+        database_ = [database retain];
         filter_ = filter;
         selector_ = selector;
-
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         struct CGRect bounds = [self bounds];
         CGSize navsize = [UINavigationBar defaultSize];
@@ -960,7 +1320,7 @@ extern NSString *kUIButtonBarButtonType;
         [navbar_ setBarStyle:1];
         [navbar_ setDelegate:self];
 
-        UINavigationItem *navitem = [[UINavigationItem alloc] initWithTitle:title];
+        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:title] autorelease];
         [navbar_ pushNavigationItem:navitem];
         [navitem setBackButtonTitle:@"Packages"];
 
@@ -994,41 +1354,61 @@ extern NSString *kUIButtonBarButtonType;
     delegate_ = delegate;
 }
 
-- (void) addPackage:(Package *)package {
-    _assert(sections_ == nil);
-    [packages_ addObject:package];
-}
-
-- (NSMutableArray *) packages {
-    return packages_;
+- (void) deselect {
+    [transition_ transition:2 toView:list_];
+    UITable *table = [list_ table];
+    [table selectRow:-1 byExtendingSelection:NO withFade:YES];
+    package_ = nil;
 }
 
 - (void) reloadData {
+    packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
+
+    _trace();
+    if (sections_ != nil) {
+        [sections_ release];
+        sections_ = nil;
+    }
+
+    _trace();
     for (pkgCache::PkgIterator iterator = [database_ cache]->PkgBegin(); !iterator.end(); ++iterator) {
         Package *package = [Package packageWithIterator:iterator database:database_];
         if (package == nil)
             continue;
         if (filter_(package))
-            [self addPackage:package];
+            [packages_ addObject:package];
     }
 
+    _trace();
     [packages_ sortUsingSelector:@selector(compareBySectionAndName:)];
     sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
+    _trace();
     Section *section = nil;
+    _trace();
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
+        _trace();
         Package *package = [packages_ objectAtIndex:offset];
+        _trace();
         NSString *name = [package section];
 
+        _trace();
         if (section == nil || ![[section name] isEqual:name]) {
             section = [[Section alloc] initWithName:name row:offset];
             [sections_ addObject:section];
         }
 
+        _trace();
         [section addPackage:package];
+        _trace();
     }
 
+    _trace();
     [list_ reloadData];
+    _trace();
+    if (package_ != nil)
+        [navbar_ popNavigationItem];
+    _trace();
 }
 
 @end
@@ -1041,9 +1421,14 @@ bool IsNotInstalled(Package *package) {
     return ![package installed];
 }
 
-@interface Cydia : UIApplication <PackagesDelegate> {
+@interface Cydia : UIApplication <
+    PackagesDelegate,
+    ProgressViewDelegate
+> {
     UIWindow *window_;
     UITransitionView *transition_;
+    UIButtonBar *buttonbar_;
+    UIAlertSheet *alert_;
 
     Database *database_;
     ProgressView *progress_;
@@ -1060,14 +1445,16 @@ bool IsNotInstalled(Package *package) {
 
 - (void) loadNews;
 - (void) reloadData;
+- (void) perform;
+
+- (void) progressViewIsComplete:(ProgressView *)progress;
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
 - (void) buttonBarItemTapped:(id)sender;
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame;
 - (void) view:(UIView *)view didDrawInRect:(CGRect)rect duration:(float)duration;
-
-- (void) viewPackage:(Package *)package;
 
 - (void) applicationDidFinishLaunching:(id)unused;
 @end
@@ -1083,9 +1470,28 @@ bool IsNotInstalled(Package *package) {
 }
 
 - (void) reloadData {
+    _trace();
     [database_ reloadData];
+    _trace();
     [install_ reloadData];
+    _trace();
     [uninstall_ reloadData];
+    _trace();
+}
+
+- (void) perform {
+    _trace();
+    [progress_
+        detachNewThreadSelector:@selector(perform)
+        toTarget:database_
+        withObject:nil
+    ];
+}
+
+- (void) progressViewIsComplete:(ProgressView *)progress {
+    _trace();
+    [self reloadData];
+    _trace();
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
@@ -1095,8 +1501,46 @@ bool IsNotInstalled(Package *package) {
         break;
 
         case 1:
+            _assert(alert_ == nil);
+
+            alert_ = [[UIAlertSheet alloc]
+                initWithTitle:@"About Cydia Packager"
+                buttons:[NSArray arrayWithObjects:@"Close", nil]
+                defaultButtonIndex:0
+                delegate:self
+                context:self
+            ];
+
+            [alert_ setBodyText:
+                @"Copyright (C) 2007\n"
+                "Jay Freeman (saurik)\n"
+                "saurik@saurik.com\n"
+                "http://www.saurik.com/\n"
+                "\n"
+                "The Okori Group\n"
+                "http://www.theokorigroup.com/\n"
+                "\n"
+                "College of Creative Studies,\n"
+                "University of California,\n"
+                "Santa Barbara\n"
+                "http://www.ccs.ucsb.edu/\n"
+                "\n"
+                "Special Thanks:\n"
+                "bad_, BHSPitMonkey, Cobra, core,\n"
+                "Corona, cromas, Darken, dtzWill,\n"
+                "francis, Godores, jerry, Kingstone,\n"
+                "lounger, rockabilly, tman, Wbiggs"
+            ];
+
+            [alert_ presentSheetFromButtonBar:buttonbar_];
         break;
     }
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [alert_ dismiss];
+    [alert_ release];
+    alert_ = nil;
 }
 
 - (void) buttonBarItemTapped:(id)sender {
@@ -1122,10 +1566,6 @@ bool IsNotInstalled(Package *package) {
     [scroller_ setContentSize:[webview_ bounds].size];
 }
 
-- (void) viewPackage:(Package *)package {
-    _assert(false);
-}
-
 - (void) applicationDidFinishLaunching:(id)unused {
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
@@ -1137,8 +1577,7 @@ bool IsNotInstalled(Package *package) {
     [window_ makeKey: self];
     [window_ _setHidden: NO];
 
-    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds]];
-    [database_ setDelegate:progress_];
+    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] delegate:self];
     [window_ setContentView:progress_];
 
     UIView *view = [[UIView alloc] initWithFrame:[progress_ bounds]];
@@ -1247,7 +1686,7 @@ bool IsNotInstalled(Package *package) {
         nil],
     nil];
 
-    UIButtonBar *buttonbar = [[UIButtonBar alloc]
+    buttonbar_ = [[UIButtonBar alloc]
         initInView:view
         withFrame:CGRectMake(
             0, screenrect.size.height - 48,
@@ -1256,25 +1695,26 @@ bool IsNotInstalled(Package *package) {
         withItemList:buttonitems
     ];
 
-    [buttonbar setDelegate:self];
-    [buttonbar setBarStyle:1];
-    [buttonbar setButtonBarTrackingMode:2];
+    [buttonbar_ setDelegate:self];
+    [buttonbar_ setBarStyle:1];
+    [buttonbar_ setButtonBarTrackingMode:2];
 
     int buttons[5] = {1, 2, 3, 4, 5};
-    [buttonbar registerButtonGroup:0 withButtons:buttons withCount:5];
-    [buttonbar showButtonGroup:0 withDuration:0];
+    [buttonbar_ registerButtonGroup:0 withButtons:buttons withCount:5];
+    [buttonbar_ showButtonGroup:0 withDuration:0];
 
     for (int i = 0; i != 5; ++i)
-        [[buttonbar viewWithTag:(i + 1)] setFrame:CGRectMake(
+        [[buttonbar_ viewWithTag:(i + 1)] setFrame:CGRectMake(
             i * 64 + 2, 1, 60, 48
         )];
 
-    [buttonbar showSelectionForButton:1];
+    [buttonbar_ showSelectionForButton:1];
     [transition_ transition:0 toView:featured_];
 
-    [view addSubview:buttonbar];
+    [view addSubview:buttonbar_];
 
     database_ = [[Database alloc] init];
+    [database_ setDelegate:progress_];
 
     install_ = [[Packages alloc] initWithFrame:[transition_ bounds] title:@"Install" database:database_ filter:&IsNotInstalled selector:@selector(install)];
     [install_ setDelegate:self];
@@ -1283,6 +1723,7 @@ bool IsNotInstalled(Package *package) {
     [uninstall_ setDelegate:self];
 
 #if 0
+
     UIAlertSheet *alert = [[UIAlertSheet alloc]
         initWithTitle:@"Alert Title"
         buttons:[NSArray arrayWithObjects:@"Yes", nil]
@@ -1298,13 +1739,13 @@ bool IsNotInstalled(Package *package) {
     [alert addTextFieldWithValue:@"Title" label:@"Label"];
     [alert setShowsOverSpringBoardAlerts:YES];
     [alert setBodyText:@"This is an alert."];
-    [alert presentSheetFromButtonBar:buttonbar];
+    [alert presentSheetFromButtonBar:buttonbar_];
     //[alert popupAlertAnimated:YES];
+
 #endif
 
     [self reloadData];
     [progress_ resetView];
-    //[progress_ detachNewThreadSelector:@selector(reloadData) toTarget:self withObject:nil];
 }
 
 @end

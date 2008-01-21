@@ -1,4 +1,5 @@
 /* #include Directives {{{ */
+#include <Foundation/NSURL.h>
 #include <UIKit/UIKit.h>
 #import <GraphicsServices/GraphicsServices.h>
 
@@ -31,6 +32,10 @@
 while (false)
 /* }}} */
 
+@interface NSString (CydiaBypass)
+- (NSString *) stringByAddingPercentEscapes;
+@end
+
 @protocol ProgressDelegate
 - (void) setError:(NSString *)error;
 - (void) setTitle:(NSString *)title;
@@ -60,15 +65,13 @@ class Status :
     }
 
     virtual void IMSHit(pkgAcquire::ItemDesc &item) {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusIMSHit) withObject:nil waitUntilDone:YES];
     }
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
-        [delegate_ setTitle:[NSString stringWithCString:item.Description.c_str()]];
+        [delegate_ setTitle:[NSString stringWithCString:("Downloading " + item.ShortDesc).c_str()]];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusDone) withObject:nil waitUntilDone:YES];
     }
 
     virtual void Fail(pkgAcquire::ItemDesc &item) {
@@ -246,6 +249,33 @@ extern NSString *kUIButtonBarButtonType;
 inline float interpolate(float begin, float end, float fraction) {
     return (end - begin) * fraction + begin;
 }
+/* }}} */
+
+/* Reset View {{{ */
+@interface ResetView : UIView {
+    UINavigationBar *navbar_;
+    bool resetting_;
+}
+
+- (void) dealloc;
+- (void) resetView;
+@end
+
+@implementation ResetView
+
+- (void) dealloc {
+    [navbar_ release];
+    [super dealloc];
+}
+
+- (void) resetView {
+    resetting_ = true;
+    while ([[navbar_ navigationItems] count] != 1)
+        [navbar_ popNavigationItem];
+    resetting_ = false;
+}
+
+@end
 /* }}} */
 
 @interface Database : NSObject {
@@ -435,10 +465,12 @@ inline float interpolate(float begin, float end, float fraction) {
 @end
 /* }}} */
 /* Package View {{{ */
-@interface PackageView : UIPreferencesTable {
+@interface PackageView : UIView {
+    UIPreferencesTable *table_;
     Package *package_;
     Database *database_;
     NSMutableArray *cells_;
+    id delegate_;
 }
 
 - (void) dealloc;
@@ -447,8 +479,12 @@ inline float interpolate(float begin, float end, float fraction) {
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group;
 - (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group;
 
-- (PackageView *) initWithFrame:(struct CGRect)frame database:(Database *)database;
+- (BOOL) canSelectRow:(int)row;
+- (void) tableRowSelected:(NSNotification *)notification;
+
+- (id) initWithFrame:(struct CGRect)frame database:(Database *)database;
 - (void) setPackage:(Package *)package;
+- (void) setDelegate:(id)delegate;
 @end
 
 @implementation PackageView
@@ -456,6 +492,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (void) dealloc {
     if (package_ != nil)
         [package_ release];
+    [table_ release];
     [database_ release];
     [cells_ release];
     [super dealloc];
@@ -560,15 +597,35 @@ inline float interpolate(float begin, float end, float fraction) {
     return cell;
 }
 
-- (PackageView *) initWithFrame:(struct CGRect)frame database:(Database *)database {
+- (BOOL) canSelectRow:(int)row {
+    return YES;
+}
+
+- (void) tableRowSelected:(NSNotification *)notification {
+    switch ([table_ selectedRow]) {
+        case 5:
+            [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
+                [[package_ maintainer] email],
+                [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
+            ]]];
+        break;
+    }
+}
+
+- (id) initWithFrame:(struct CGRect)frame database:(Database *)database {
     if ((self = [super initWithFrame:frame]) != nil) {
         database_ = [database retain];
-        [self setDataSource:self];
+
+        table_ = [[UIPreferencesTable alloc] initWithFrame:[self bounds]];
+        [self addSubview:table_];
+
+        [table_ setDataSource:self];
+        [table_ setDelegate:self];
 
         cells_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         for (unsigned i = 0; i != 6; ++i) {
-            struct CGRect frame = [self frameOfPreferencesCellAtRow:0 inGroup:0];
+            struct CGRect frame = [table_ frameOfPreferencesCellAtRow:0 inGroup:0];
             UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
             [cell setShowSelection:NO];
             [cells_ addObject:cell];
@@ -578,7 +635,11 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) setPackage:(Package *)package {
     package_ = [package retain];
-    [self reloadData];
+    [table_ reloadData];
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
 }
 
 @end
@@ -688,6 +749,86 @@ inline float interpolate(float begin, float end, float fraction) {
 
 @end
 /* }}} */
+/* Sources View {{{ */
+@interface SourcesView : ResetView {
+    UISectionList *list_;
+    Database *database_;
+    id delegate_;
+    NSMutableArray *sources_;
+}
+
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
+- (void) dealloc;
+- (id) initWithFrame:(CGRect)frame database:(Database *)database;
+- (void) setDelegate:(id)delegate;
+- (void) reloadData;
+@end
+
+@implementation SourcesView
+
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
+    switch (button) {
+        case 0:
+        break;
+
+        case 1:
+            [delegate_ update];
+        break;
+    }
+}
+
+- (void) dealloc {
+    if (sources_ != nil)
+        [sources_ release];
+    [list_ release];
+    [super dealloc];
+}
+
+- (id) initWithFrame:(CGRect)frame database:(Database *)database {
+    if ((self = [super initWithFrame:frame]) != nil) {
+        database_ = database;
+        sources_ = nil;
+
+        CGSize navsize = [UINavigationBar defaultSize];
+        CGRect navrect = {{0, 0}, navsize};
+        CGRect bounds = [self bounds];
+
+        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
+        [self addSubview:navbar_];
+
+        [navbar_ setBarStyle:1];
+        [navbar_ setDelegate:self];
+
+        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Sources"] autorelease];
+        [navbar_ pushNavigationItem:navitem];
+
+        [navbar_ showButtonsWithLeftTitle:@"Refresh All" rightTitle:@"Edit"];
+
+        list_ = [[UISectionList alloc] initWithFrame:CGRectMake(
+            0, navsize.height, bounds.size.width, bounds.size.height - navsize.height
+        )];
+
+        [list_ setDataSource:self];
+    } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (void) reloadData {
+    pkgSourceList list;
+    _assert(list.ReadMainList());
+
+    sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
+
+    for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source) {
+        fprintf(stderr, "\"%s\" \"%s\" \"%s\"\n", (*source)->GetURI().c_str(), (*source)->GetDist().c_str(), (*source)->GetType());
+    }
+}
+
+@end
+/* }}} */
 
 @implementation Database
 
@@ -709,11 +850,8 @@ inline float interpolate(float begin, float end, float fraction) {
 
     while (std::getline(is, line)) {
         const char *data(line.c_str());
-        fprintf(stderr, "fd(%s)\n", data);
 
         _assert(pcre_exec(code, study, data, line.size(), 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
-
-        std::string type(line.substr(matches[2], matches[3] - matches[2]));
 
         std::istringstream buffer(line.substr(matches[6], matches[7] - matches[6]));
         float percent;
@@ -721,11 +859,15 @@ inline float interpolate(float begin, float end, float fraction) {
         [delegate_ setPercent:(percent / 100)];
 
         NSString *string = [NSString stringWithCString:(data + matches[8]) length:(matches[9] - matches[8])];
+        std::string type(line.substr(matches[2], matches[3] - matches[2]));
 
         if (type == "pmerror")
             [delegate_ setError:string];
         else if (type == "pmstatus")
             [delegate_ setTitle:string];
+        else if (type == "pmconffile")
+            ;
+        else _assert(false);
     }
 
     [pool release];
@@ -752,7 +894,6 @@ inline float interpolate(float begin, float end, float fraction) {
         int fds[2];
 
         _assert(pipe(fds) != -1);
-        printf("%d %d\n", fds[0], fds[1]);
         statusfd_ = fds[1];
 
         [NSThread
@@ -762,7 +903,6 @@ inline float interpolate(float begin, float end, float fraction) {
         ];
 
         _assert(pipe(fds) != -1);
-        printf("%d %d\n", fds[0], fds[1]);
         _assert(dup2(fds[1], 1) != -1);
         _assert(close(fds[1]) != -1);
 
@@ -787,44 +927,31 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) reloadData {
-    _trace();
     _error->Discard();
-    _trace();
     delete resolver_;
-    _trace();
     delete records_;
-    _trace();
     cache_.Close();
-    _trace();
     cache_.Open(progress_, true);
-    _trace();
     records_ = new pkgRecords(cache_);
-    _trace();
     resolver_ = new pkgProblemResolver(cache_);
-    _trace();
 }
 
 - (void) perform {
-    _trace();
     pkgRecords records(cache_);
 
-    _trace();
     FileFd lock;
     lock.Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
     _assert(!_error->PendingError());
 
-    _trace();
     pkgAcquire fetcher(&status_);
     pkgSourceList list;
     _assert(list.ReadMainList());
 
-    _trace();
     SPtr<pkgPackageManager> manager(_system->CreatePM(cache_));
     _assert(manager->GetArchives(&fetcher, &list, &records));
     _assert(!_error->PendingError());
     _assert(fetcher.Run() != pkgAcquire::Failed);
 
-    _trace();
     _system->UnLock();
     pkgPackageManager::OrderResult result = manager->DoInstall(statusfd_);
 
@@ -927,6 +1054,7 @@ inline float interpolate(float begin, float end, float fraction) {
     ProgressDelegate
 > {
     UIView *view_;
+    UIView *background_;
     UITransitionView *transition_;
     UIView *overlay_;
     UINavigationBar *navbar_;
@@ -961,12 +1089,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (void) addOutput:(NSString *)output;
 - (void) _addOutput:(NSString *)output;
 
-- (void) setStatusIMSHit;
-- (void) setStatusDone;
 - (void) setStatusFail;
-
-- (void) setStatusStart;
-- (void) setStatusStop;
 @end
 
 @protocol ProgressViewDelegate
@@ -977,6 +1100,7 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) dealloc {
     [view_ release];
+    [background_ release];
     [transition_ release];
     [overlay_ release];
     [navbar_ release];
@@ -991,16 +1115,19 @@ inline float interpolate(float begin, float end, float fraction) {
         delegate_ = delegate;
         alert_ = nil;
 
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [self addSubview:transition_];
-
         CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
         float black[] = {0.0, 0.0, 0.0, 1.0};
         float white[] = {1.0, 1.0, 1.0, 1.0};
         float clear[] = {0.0, 0.0, 0.0, 0.0};
 
+        background_ = [[UIView alloc] initWithFrame:[self bounds]];
+        [background_ setBackgroundColor:CGColorCreate(space, black)];
+        [self addSubview:background_];
+
+        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
+        [self addSubview:transition_];
+
         overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-        [overlay_ setBackgroundColor:CGColorCreate(space, black)];
 
         CGSize navsize = [UINavigationBar defaultSize];
         CGRect navrect = {{0, 0}, navsize};
@@ -1036,6 +1163,7 @@ inline float interpolate(float begin, float end, float fraction) {
         [status_ setBackgroundColor:CGColorCreate(space, clear)];
 
         [status_ setCentersHorizontally:YES];
+        //[status_ setFont:font];
 
         output_ = [[UITextView alloc] initWithFrame:CGRectMake(
             10,
@@ -1066,7 +1194,6 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) resetView {
     [transition_ transition:6 toView:view_];
-    _trace();
 }
 
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
@@ -1076,21 +1203,15 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) _retachThread {
-    _trace();
     [delegate_ progressViewIsComplete:self];
-    _trace();
     [self resetView];
-    _trace();
 }
 
 - (void) _detachNewThreadData:(ProgressData *)data {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    _trace();
     [[data target] performSelector:[data selector] withObject:[data object]];
-    _trace();
     [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
-    _trace();
 
     [data release];
     [pool release];
@@ -1114,16 +1235,7 @@ inline float interpolate(float begin, float end, float fraction) {
     ];
 }
 
-- (void) setStatusIMSHit {
-    _trace();
-}
-
-- (void) setStatusDone {
-    _trace();
-}
-
 - (void) setStatusFail {
-    _trace();
 }
 
 - (void) setError:(NSString *)error {
@@ -1183,26 +1295,21 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) _addOutput:(NSString *)output {
     [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
-}
-
-- (void) setStatusStart {
-    _trace();
-}
-
-- (void) setStatusStop {
-    _trace();
+    CGSize size = [output_ contentSize];
+    CGRect rect = {{0, size.height}, {size.width, 0}};
+    [output_ scrollRectToVisible:rect animated:YES];
 }
 
 @end
 /* }}} */
 
 @protocol PackagesDelegate
-
 - (void) perform;
-
+- (void) update;
+- (void) openURL:(NSString *)url;
 @end
 
-@interface Packages : UIView {
+@interface Packages : ResetView {
     NSString *title_;
     Database *database_;
     bool (*filter_)(Package *package);
@@ -1210,7 +1317,6 @@ inline float interpolate(float begin, float end, float fraction) {
     NSMutableArray *sections_;
     id delegate_;
     UISectionList *list_;
-    UINavigationBar *navbar_;
     UITransitionView *transition_;
     Package *package_;
     PackageView *pkgview_;
@@ -1352,25 +1458,24 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
+    [pkgview_ setDelegate:delegate];
 }
 
 - (void) deselect {
-    [transition_ transition:2 toView:list_];
+    [transition_ transition:(resetting_ ? 0 : 2) toView:list_];
     UITable *table = [list_ table];
-    [table selectRow:-1 byExtendingSelection:NO withFade:YES];
+    [table selectRow:-1 byExtendingSelection:NO withFade:(resetting_ ? NO : YES)];
     package_ = nil;
 }
 
 - (void) reloadData {
     packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-    _trace();
     if (sections_ != nil) {
         [sections_ release];
         sections_ = nil;
     }
 
-    _trace();
     for (pkgCache::PkgIterator iterator = [database_ cache]->PkgBegin(); !iterator.end(); ++iterator) {
         Package *package = [Package packageWithIterator:iterator database:database_];
         if (package == nil)
@@ -1379,36 +1484,24 @@ inline float interpolate(float begin, float end, float fraction) {
             [packages_ addObject:package];
     }
 
-    _trace();
     [packages_ sortUsingSelector:@selector(compareBySectionAndName:)];
     sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-    _trace();
     Section *section = nil;
-    _trace();
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
-        _trace();
         Package *package = [packages_ objectAtIndex:offset];
-        _trace();
         NSString *name = [package section];
 
-        _trace();
         if (section == nil || ![[section name] isEqual:name]) {
             section = [[Section alloc] initWithName:name row:offset];
             [sections_ addObject:section];
         }
 
-        _trace();
         [section addPackage:package];
-        _trace();
     }
 
-    _trace();
     [list_ reloadData];
-    _trace();
-    if (package_ != nil)
-        [navbar_ popNavigationItem];
-    _trace();
+    [self resetView];
 }
 
 @end
@@ -1441,11 +1534,13 @@ bool IsNotInstalled(Package *package) {
 
     Packages *install_;
     Packages *uninstall_;
+    SourcesView *sources_;
 }
 
 - (void) loadNews;
 - (void) reloadData;
 - (void) perform;
+- (void) update;
 
 - (void) progressViewIsComplete:(ProgressView *)progress;
 
@@ -1470,17 +1565,13 @@ bool IsNotInstalled(Package *package) {
 }
 
 - (void) reloadData {
-    _trace();
     [database_ reloadData];
-    _trace();
     [install_ reloadData];
-    _trace();
     [uninstall_ reloadData];
-    _trace();
+    [sources_ reloadData];
 }
 
 - (void) perform {
-    _trace();
     [progress_
         detachNewThreadSelector:@selector(perform)
         toTarget:database_
@@ -1488,10 +1579,16 @@ bool IsNotInstalled(Package *package) {
     ];
 }
 
+- (void) update {
+    [progress_
+        detachNewThreadSelector:@selector(update)
+        toTarget:database_
+        withObject:nil
+    ];
+}
+
 - (void) progressViewIsComplete:(ProgressView *)progress {
-    _trace();
     [self reloadData];
-    _trace();
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
@@ -1550,11 +1647,14 @@ bool IsNotInstalled(Package *package) {
         case 1: view = featured_; break;
         case 2: view = install_; break;
         case 4: view = uninstall_; break;
+        case 5: view = sources_; break;
 
         default:
             _assert(false);
     }
 
+    if ([view respondsToSelector:@selector(resetView)])
+        [(id) view resetView];
     [transition_ transition:0 toView:view];
 }
 
@@ -1721,6 +1821,9 @@ bool IsNotInstalled(Package *package) {
 
     uninstall_ = [[Packages alloc] initWithFrame:[transition_ bounds] title:@"Uninstall" database:database_ filter:&IsInstalled selector:@selector(remove)];
     [uninstall_ setDelegate:self];
+
+    sources_ = [[SourcesView alloc] initWithFrame:[transition_ bounds] database:database_];
+    [sources_ setDelegate:self];
 
 #if 0
 

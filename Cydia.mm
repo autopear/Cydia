@@ -54,6 +54,18 @@ const char *SerialNumber_ = NULL;
 - (void) addOutput:(NSString *)output;
 @end
 
+NSString *SizeString(double size) {
+    unsigned power = 0;
+    while (size > 1024) {
+        size /= 1024;
+        ++power;
+    }
+
+    static const char *powers_[] = {"B", "kB", "MB", "GB"};
+
+    return [NSString stringWithFormat:@"%.1f%s", size, powers_[power]];
+}
+
 /* Status Delegation {{{ */
 class Status :
     public pkgAcquireStatus
@@ -323,6 +335,9 @@ inline float interpolate(float begin, float end, float fraction) {
     pkgCacheFile cache_;
     pkgRecords *records_;
     pkgProblemResolver *resolver_;
+    pkgAcquire *fetcher_;
+    FileFd *lock_;
+    SPtr<pkgPackageManager> manager_;
 
     id delegate_;
     Status status_;
@@ -339,8 +354,10 @@ inline float interpolate(float begin, float end, float fraction) {
 - (pkgCacheFile &) cache;
 - (pkgRecords *) records;
 - (pkgProblemResolver *) resolver;
+- (pkgAcquire &) fetcher;
 - (void) reloadData;
 
+- (void) prepare;
 - (void) perform;
 - (void) update;
 - (void) upgrade;
@@ -502,6 +519,30 @@ inline float interpolate(float begin, float end, float fraction) {
 /* }}} */
 
 /* Confirmation View {{{ */
+void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString *key) {
+    if ([packages count] == 0)
+        return;
+
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    float clear[] = {0, 0, 0, 0};
+    float blue[] = {0, 0, 0.4, 1};
+
+    UITextView *text([[[UITextView alloc] initWithFrame: CGRectMake(110, 3, 200, 60)] autorelease]);
+    [text setEditable:NO];
+    [text setTextSize:16];
+    [text setBackgroundColor:CGColorCreate(space, clear)];
+    [text setTextColor:CGColorCreate(space, blue)];
+    [text setText:([packages count] == 0 ? @"n/a" : [packages componentsJoinedByString:@", "])];
+    [text setEnabled:NO];
+
+    CGRect frame([text frame]);
+    CGSize size([text contentSize]);
+    frame.size.height = size.height;
+    [text setFrame:frame];
+
+    [fields setObject:text forKey:key];
+}
+
 @protocol ConfirmationViewDelegate
 - (void) cancel;
 - (void) confirm;
@@ -514,12 +555,22 @@ inline float interpolate(float begin, float end, float fraction) {
     UIView *overlay_;
     UINavigationBar *navbar_;
     UIPreferencesTable *table_;
+    NSMutableDictionary *fields_;
+    UIAlertSheet *essential_;
 }
 
 - (void) dealloc;
+- (void) cancel;
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
+
+- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table;
+- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group;
+- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed;
+- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group;
+- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group;
 
 - (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate;
 
@@ -532,7 +583,15 @@ inline float interpolate(float begin, float end, float fraction) {
     [overlay_ release];
     [navbar_ release];
     [table_ release];
+    [fields_ release];
+    if (essential_ != nil)
+        [essential_ release];
     [super dealloc];
+}
+
+- (void) cancel {
+    [transition_ transition:7 toView:nil];
+    [delegate_ cancel];
 }
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
@@ -543,14 +602,96 @@ inline float interpolate(float begin, float end, float fraction) {
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
     switch (button) {
         case 0:
-            [delegate_ confirm];
+            if (essential_ != nil)
+                [essential_ popupAlertAnimated:YES];
+            else
+                [delegate_ confirm];
         break;
 
         case 1:
-            [transition_ transition:7 toView:nil];
-            [delegate_ cancel];
+            [self cancel];
         break;
     }
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [essential_ dismiss];
+    [self cancel];
+}
+
+- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
+    return 2;
+}
+
+- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
+    switch (group) {
+        case 0: return @"Statistics";
+        case 1: return @"Modifications";
+
+        default: _assert(false);
+    }
+}
+
+- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
+    switch (group) {
+        case 0: return 3;
+        case 1: return [fields_ count];
+
+        default: _assert(false);
+    }
+}
+
+- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
+    if (group != 1 || row == -1)
+        return proposed;
+    else {
+        _assert(size_t(row) < [fields_ count]);
+        fprintf(stderr, "%f\n", [[[fields_ allValues] objectAtIndex:row] contentSize].height);
+        return [[[fields_ allValues] objectAtIndex:row] contentSize].height;
+    }
+}
+
+- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
+    UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
+    [cell setShowSelection:NO];
+
+    switch (group) {
+        case 0: switch (row) {
+            case 0: {
+                [cell setTitle:@"Downloading"];
+                [cell setValue:SizeString([database_ fetcher].FetchNeeded())];
+            } break;
+
+            case 1: {
+                [cell setTitle:@"Resuming At"];
+                [cell setValue:SizeString([database_ fetcher].PartialPresent())];
+            } break;
+
+            case 2: {
+                double size([database_ cache]->UsrSize());
+
+                if (size < 0) {
+                    [cell setTitle:@"Disk Freeing"];
+                    [cell setValue:SizeString(-size)];
+                } else {
+                    [cell setTitle:@"Disk Using"];
+                    [cell setValue:SizeString(size)];
+                }
+            } break;
+
+            default: _assert(false);
+        } break;
+
+        case 1:
+            _assert(size_t(row) < [fields_ count]);
+            [cell setTitle:[[fields_ allKeys] objectAtIndex:row]];
+            [cell addSubview:[[fields_ allValues] objectAtIndex:row]];
+        break;
+
+        default: _assert(false);
+    }
+
+    return cell;
 }
 
 - (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate {
@@ -575,11 +716,53 @@ inline float interpolate(float begin, float end, float fraction) {
         [navbar_ pushNavigationItem:navitem];
         [navbar_ showButtonsWithLeftTitle:@"Cancel" rightTitle:@"Confirm"];
 
+        fields_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
+
+        NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *removing = [NSMutableArray arrayWithCapacity:16];
+
+        bool essential(false);
+
+        pkgCacheFile &cache([database_ cache]);
+        for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
+            NSString *name([NSString stringWithCString:iterator.Name()]);
+            if (cache[iterator].NewInstall())
+                [installing addObject:name];
+            else if (cache[iterator].Upgrade())
+                [upgrading addObject:name];
+            else if (cache[iterator].Delete()) {
+                [removing addObject:name];
+                if ((iterator->Flags & pkgCache::Flag::Essential) != 0)
+                    essential = true;
+            }
+        }
+
+        if (!essential)
+            essential_ = nil;
+        else {
+            essential_ = [[UIAlertSheet alloc]
+                initWithTitle:@"Unable to Comply"
+                buttons:[NSArray arrayWithObjects:@"Okay", nil]
+                defaultButtonIndex:0
+                delegate:self
+                context:self
+            ];
+
+            [essential_ setBodyText:@"One or more of the packages you are about to remove are marked 'Essential' and cannot be removed by Cydia. Please use apt-get."];
+        }
+
+        AddTextView(fields_, installing, @"Installing");
+        AddTextView(fields_, upgrading, @"Upgrading");
+        AddTextView(fields_, removing, @"Removing");
+
         table_ = [[UIPreferencesTable alloc] initWithFrame:CGRectMake(
             0, navsize.height, bounds.size.width, bounds.size.height - navsize.height
         )];
 
+        [table_ setReusesTableCells:YES];
         [table_ setDataSource:self];
+        [table_ reloadData];
 
         [overlay_ addSubview:navbar_];
         [overlay_ addSubview:table_];
@@ -608,6 +791,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (void) dealloc;
 
 - (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table;
+- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group;
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group;
 - (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group;
 
@@ -636,13 +820,8 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
     switch (group) {
-        case 0:
-            return @"Specifics";
-        break;
-
-        case 1:
-            return @"Description";
-        break;
+        case 0: return @"Specifics";
+        case 1: return @"Description";
 
         default: _assert(false);
     }
@@ -650,13 +829,8 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
     switch (group) {
-        case 0:
-            return 6;
-        break;
-
-        case 1:
-            return 1;
-        break;
+        case 0: return 6;
+        case 1: return 1;
 
         default: _assert(false);
     }
@@ -692,18 +866,11 @@ inline float interpolate(float begin, float end, float fraction) {
                 [cell setValue:[package_ section]];
             break;
 
-            case 4: {
-                double size = [package_ size];
-                unsigned power = 0;
-                while (size > 1024) {
-                    size /= 1024;
-                    ++power;
-                }
-
+            case 4:
                 cell = [cells_ objectAtIndex:4];
                 [cell setTitle:@"Size"];
-                [cell setValue:[NSString stringWithFormat:@"%.1f%c", size, "bkMG"[power]]];
-            } break;
+                [cell setValue:SizeString([package_ size])];
+            break;
 
             case 5:
                 cell = [cells_ objectAtIndex:5];
@@ -764,7 +931,6 @@ inline float interpolate(float begin, float end, float fraction) {
         cells_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         for (unsigned i = 0; i != 8; ++i) {
-            struct CGRect frame = [table_ frameOfPreferencesCellAtRow:0 inGroup:0];
             UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
             [cell setShowSelection:NO];
             [cells_ addObject:cell];
@@ -784,6 +950,10 @@ inline float interpolate(float begin, float end, float fraction) {
 @end
 /* }}} */
 /* Package Cell {{{ */
+@protocol PackageCellDelegate
+- (NSString *) versionWithPackage:(Package *)package;
+@end
+
 @interface PackageCell : UITableCell {
     UITextLabel *name_;
     UIRightTextLabel *version_;
@@ -792,7 +962,7 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) dealloc;
 
-- (PackageCell *) initWithPackage:(Package *)package;
+- (PackageCell *) initWithPackage:(Package *)package delegate:(id)delegate;
 
 - (void) _setSelected:(float)fraction;
 - (void) setSelected:(BOOL)selected;
@@ -810,7 +980,7 @@ inline float interpolate(float begin, float end, float fraction) {
     [super dealloc];
 }
 
-- (PackageCell *) initWithPackage:(Package *)package {
+- (PackageCell *) initWithPackage:(Package *)package delegate:(id)delegate {
     if ((self = [super init]) != nil) {
         GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
         GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
@@ -825,7 +995,7 @@ inline float interpolate(float begin, float end, float fraction) {
         [name_ setFont:bold];
 
         version_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(290, 7, 70, 25)];
-        [version_ setText:[package latest]];
+        [version_ setText:[delegate versionWithPackage:package]];
         [version_ setBackgroundColor:CGColorCreate(space, clear)];
         [version_ setFont:large];
 
@@ -1065,6 +1235,8 @@ inline float interpolate(float begin, float end, float fraction) {
     if ((self = [super init]) != nil) {
         records_ = NULL;
         resolver_ = NULL;
+        fetcher_ = NULL;
+        lock_ = NULL;
 
         int fds[2];
 
@@ -1101,34 +1273,46 @@ inline float interpolate(float begin, float end, float fraction) {
     return resolver_;
 }
 
+- (pkgAcquire &) fetcher {
+    return *fetcher_;
+}
+
 - (void) reloadData {
     _error->Discard();
+    manager_ = NULL;
+    delete lock_;
+    delete fetcher_;
     delete resolver_;
     delete records_;
     cache_.Close();
     cache_.Open(progress_, true);
     records_ = new pkgRecords(cache_);
     resolver_ = new pkgProblemResolver(cache_);
+    fetcher_ = new pkgAcquire(&status_);
+    lock_ = NULL;
 }
 
-- (void) perform {
+- (void) prepare {
     pkgRecords records(cache_);
 
-    FileFd lock;
-    lock.Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
+    lock_ = new FileFd();
+    lock_->Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
     _assert(!_error->PendingError());
 
-    pkgAcquire fetcher(&status_);
     pkgSourceList list;
     _assert(list.ReadMainList());
 
-    SPtr<pkgPackageManager> manager(_system->CreatePM(cache_));
-    _assert(manager->GetArchives(&fetcher, &list, &records));
+    manager_ = (_system->CreatePM(cache_));
+    _assert(manager_->GetArchives(fetcher_, &list, &records));
     _assert(!_error->PendingError());
-    _assert(fetcher.Run(PulseInterval_) != pkgAcquire::Failed);
+}
+
+- (void) perform {
+    if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue)
+        return;
 
     _system->UnLock();
-    pkgPackageManager::OrderResult result = manager->DoInstall(statusfd_);
+    pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
 
     if (result == pkgPackageManager::Failed)
         return;
@@ -1485,7 +1669,9 @@ inline float interpolate(float begin, float end, float fraction) {
 @end
 
 /* PackagesView {{{ */
-@interface PackagesView : ResetView {
+@interface PackagesView : ResetView <
+    PackageCellDelegate
+> {
     Database *database_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
@@ -1493,6 +1679,7 @@ inline float interpolate(float begin, float end, float fraction) {
     UISectionList *list_;
     UITransitionView *transition_;
     Package *package_;
+    NSString *pkgname_;
     PackageView *pkgview_;
 }
 
@@ -1512,11 +1699,12 @@ inline float interpolate(float begin, float end, float fraction) {
 - (id) initWithFrame:(struct CGRect)frame database:(Database *)database;
 - (void) setDelegate:(id)delegate;
 - (void) deselect;
-- (void) reloadData;
+- (void) reloadData:(BOOL)reset;
 
 - (NSString *) title;
 - (void) perform:(Package *)package;
 - (void) addPackage:(Package *)package;
+- (NSString *) versionWithPackage:(Package *)package;
 @end
 
 @implementation PackagesView
@@ -1543,7 +1731,7 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
     Package *package = [packages_ objectAtIndex:row];
-    PackageCell *cell = [[[PackageCell alloc] initWithPackage:package] autorelease];
+    PackageCell *cell = [[[PackageCell alloc] initWithPackage:package delegate:self] autorelease];
     return cell;
 }
 
@@ -1557,6 +1745,7 @@ inline float interpolate(float begin, float end, float fraction) {
         return;
 
     package_ = [packages_ objectAtIndex:row];
+    pkgname_ = [[package_ name] retain];
 
     UINavigationItem *navitem = [[UINavigationItem alloc] initWithTitle:[package_ name]];
     [navbar_ pushNavigationItem:navitem];
@@ -1643,7 +1832,7 @@ inline float interpolate(float begin, float end, float fraction) {
     package_ = nil;
 }
 
-- (void) reloadData {
+- (void) reloadData:(BOOL)reset {
     packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
     if (sections_ != nil) {
@@ -1672,7 +1861,12 @@ inline float interpolate(float begin, float end, float fraction) {
     }
 
     [list_ reloadData];
-    [self resetView];
+    if (reset)
+        [self resetView];
+    else if (package_ != nil) {
+        package_ = [database_ packageWithName:pkgname_];
+        [pkgview_ setPackage:package_];
+    }
 }
 
 - (NSString *) title {
@@ -1686,6 +1880,10 @@ inline float interpolate(float begin, float end, float fraction) {
     [packages_ addObject:package];
 }
 
+- (NSString *) versionWithPackage:(Package *)package {
+    return nil;
+}
+
 @end
 /* }}} */
 
@@ -1696,6 +1894,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (NSString *) title;
 - (void) addPackage:(Package *)package;
 - (void) perform:(Package *)package;
+- (NSString *) versionWithPackage:(Package *)package;
 @end
 
 @implementation InstallView
@@ -1713,6 +1912,10 @@ inline float interpolate(float begin, float end, float fraction) {
     [package install];
 }
 
+- (NSString *) versionWithPackage:(Package *)package {
+    return [package latest];
+}
+
 @end
 /* }}} */
 /* UpgradeView {{{ */
@@ -1723,6 +1926,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (NSString *) leftTitle;
 - (void) addPackage:(Package *)package;
 - (void) perform:(Package *)package;
+- (NSString *) versionWithPackage:(Package *)package;
 @end
 
 @implementation UpgradeView
@@ -1745,6 +1949,10 @@ inline float interpolate(float begin, float end, float fraction) {
     [package install];
 }
 
+- (NSString *) versionWithPackage:(Package *)package {
+    return [package latest];
+}
+
 @end
 /* }}} */
 /* UninstallView {{{ */
@@ -1754,6 +1962,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (NSString *) title;
 - (void) addPackage:(Package *)package;
 - (void) perform:(Package *)package;
+- (NSString *) versionWithPackage:(Package *)package;
 @end
 
 @implementation UninstallView
@@ -1769,6 +1978,10 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) perform:(Package *)package {
     [package remove];
+}
+
+- (NSString *) versionWithPackage:(Package *)package {
+    return [package installed];
 }
 
 @end
@@ -1804,7 +2017,7 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) loadNews;
-- (void) reloadData;
+- (void) reloadData:(BOOL)reset;
 - (void) perform;
 - (void) cancel;
 - (void) confirm;
@@ -1839,19 +2052,21 @@ inline float interpolate(float begin, float end, float fraction) {
     [webview_ loadRequest:request];
 }
 
-- (void) reloadData {
+- (void) reloadData:(BOOL)reset {
     [database_ reloadData];
-    [install_ reloadData];
-    [upgrade_ reloadData];
-    [uninstall_ reloadData];
+    [install_ reloadData:reset];
+    [upgrade_ reloadData:reset];
+    [uninstall_ reloadData:reset];
     [sources_ reloadData];
 }
 
 - (void) perform {
+    [database_ prepare];
     confirm_ = [[ConfirmationView alloc] initWithView:underlay_ database:database_ delegate:self];
 }
 
 - (void) cancel {
+    [self reloadData:NO];
     [confirm_ release];
     confirm_ = nil;
 }
@@ -1875,7 +2090,7 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) progressViewIsComplete:(ProgressView *)progress {
-    [self reloadData];
+    [self reloadData:YES];
 
     if (confirm_ != nil) {
         [underlay_ addSubview:overlay_];
@@ -2148,7 +2363,7 @@ inline float interpolate(float begin, float end, float fraction) {
 
 #endif
 
-    [self reloadData];
+    [self reloadData:NO];
     [progress_ resetView];
 
     Package *package([database_ packageWithName:@"cydia"]);

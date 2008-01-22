@@ -646,7 +646,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         return proposed;
     else {
         _assert(size_t(row) < [fields_ count]);
-        fprintf(stderr, "%f\n", [[[fields_ allValues] objectAtIndex:row] contentSize].height);
         return [[[fields_ allValues] objectAtIndex:row] contentSize].height;
     }
 }
@@ -1358,8 +1357,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 
     _assert(pkgDistUpgrade(cache_));
-
-    //InstallPackages(cache_, true);
 }
 
 - (void) setDelegate:(id)delegate {
@@ -1922,6 +1919,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @interface UpgradeView : PackagesView {
 }
 
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
+
 - (NSString *) title;
 - (NSString *) leftTitle;
 - (void) addPackage:(Package *)package;
@@ -1930,6 +1929,15 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 
 @implementation UpgradeView
+
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
+    if (button != 1)
+        [super navigationBar:navbar buttonClicked:button];
+    else {
+        [database_ upgrade];
+        [delegate_ perform];
+    }
+}
 
 - (NSString *) title {
     return @"Upgrade";

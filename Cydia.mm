@@ -1949,7 +1949,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (NSString *) leftTitle {
-    return @"Upgrade All";
+    return [packages_ count] == 0 ? nil : @"Upgrade All";
 }
 
 - (void) addPackage:(Package *)package {
@@ -2042,8 +2042,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
 - (void) buttonBarItemTapped:(id)sender;
 
-- (void) view:(UIView *)sender didSetFrame:(CGRect)frame;
-- (void) view:(UIView *)view didDrawInRect:(CGRect)rect duration:(float)duration;
+- (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old;
 
 - (void) applicationDidFinishLaunching:(id)unused;
 @end
@@ -2192,12 +2191,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [transition_ transition:0 toView:view];
 }
 
-- (void) view:(UIView *)view didSetFrame:(CGRect)frame {
+- (void) view:(UIView *)view didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
     [scroller_ setContentSize:frame.size];
-}
-
-- (void) view:(UIView *)view didDrawInRect:(CGRect)rect duration:(float)duration {
-    [scroller_ setContentSize:[webview_ bounds].size];
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {

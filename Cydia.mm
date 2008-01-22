@@ -1698,6 +1698,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) deselect;
 - (void) reloadData:(BOOL)reset;
 
+- (NSMutableArray *) packages;
 - (NSString *) title;
 - (void) perform:(Package *)package;
 - (void) addPackage:(Package *)package;
@@ -1864,6 +1865,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         package_ = [database_ packageWithName:pkgname_];
         [pkgview_ setPackage:package_];
     }
+}
+
+- (NSMutableArray *) packages {
+    return packages_;
 }
 
 - (NSString *) title {
@@ -2066,6 +2071,17 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [upgrade_ reloadData:reset];
     [uninstall_ reloadData:reset];
     [sources_ reloadData];
+
+    if (size_t count = [[upgrade_ packages] count]) {
+        NSString *badge([[NSNumber numberWithInt:count] stringValue]);
+        [buttonbar_ setBadgeValue:badge forButton:3];
+        [buttonbar_ setBadgeAnimated:YES forButton:3];
+        [self setApplicationBadge:badge];
+    } else {
+        [buttonbar_ setBadgeValue:nil forButton:3];
+        [buttonbar_ setBadgeAnimated:NO forButton:3];
+        [self removeApplicationBadge];
+    }
 }
 
 - (void) perform {

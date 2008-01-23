@@ -98,7 +98,13 @@ class Status :
     }
 
     virtual void Fail(pkgAcquire::ItemDesc &item) {
-        [delegate_ performSelectorOnMainThread:@selector(setStatusFail) withObject:nil waitUntilDone:YES];
+        if (
+            item.Owner->Status == pkgAcquire::Item::StatIdle ||
+            item.Owner->Status == pkgAcquire::Item::StatDone
+        )
+            return;
+
+        [delegate_ setError:[NSString stringWithCString:item.Owner->ErrorText.c_str()]];
     }
 
     virtual bool Pulse(pkgAcquire *Owner) {
@@ -957,11 +963,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UITextLabel *name_;
     UIRightTextLabel *version_;
     UITextLabel *description_;
+    id delegate_;
 }
 
 - (void) dealloc;
 
-- (PackageCell *) initWithPackage:(Package *)package delegate:(id)delegate;
+- (PackageCell *) initWithDelegate:(id)delegate;
+- (void) setPackage:(Package *)package;
 
 - (void) _setSelected:(float)fraction;
 - (void) setSelected:(BOOL)selected;
@@ -979,8 +987,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [super dealloc];
 }
 
-- (PackageCell *) initWithPackage:(Package *)package delegate:(id)delegate {
+- (PackageCell *) initWithDelegate:(id)delegate {
     if ((self = [super init]) != nil) {
+        delegate_ = delegate;
+
         GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
         GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
         GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
@@ -991,17 +1001,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 7, 250, 25)];
         [name_ setBackgroundColor:CGColorCreate(space, clear)];
         [name_ setFont:bold];
-        [name_ setText:[package name]];
 
         version_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(290, 7, 70, 25)];
         [version_ setBackgroundColor:CGColorCreate(space, clear)];
         [version_ setFont:large];
-        [version_ setText:[delegate versionWithPackage:package]];
 
         description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 315, 20)];
         [description_ setBackgroundColor:CGColorCreate(space, clear)];
         [description_ setFont:small];
-        [description_ setText:[package tagline]];
 
         [self addSubview:name_];
         [self addSubview:version_];
@@ -1011,6 +1018,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         CFRelease(large);
         CFRelease(bold);
     } return self;
+}
+
+- (void) setPackage:(Package *)package {
+    [name_ setText:[package name]];
+    [version_ setText:[delegate_ versionWithPackage:package]];
+    [description_ setText:[package tagline]];
 }
 
 - (void) _setSelected:(float)fraction {
@@ -1706,7 +1719,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UITextView *output_;
     UITextLabel *status_;
     id delegate_;
-    UIAlertSheet *alert_;
 }
 
 - (void) dealloc;
@@ -1732,8 +1744,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (void) addOutput:(NSString *)output;
 - (void) _addOutput:(NSString *)output;
-
-- (void) setStatusFail;
 @end
 
 @protocol ProgressViewDelegate
@@ -1757,7 +1767,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate {
     if ((self = [super initWithFrame:frame]) != nil) {
         delegate_ = delegate;
-        alert_ = nil;
 
         CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
         float black[] = {0.0, 0.0, 0.0, 1.0};
@@ -1841,9 +1850,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    [alert_ dismiss];
-    [alert_ release];
-    alert_ = nil;
+    [sheet dismiss];
 }
 
 - (void) _retachThread {
@@ -1879,9 +1886,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     ];
 }
 
-- (void) setStatusFail {
-}
-
 - (void) setError:(NSString *)error {
     [self
         performSelectorOnMainThread:@selector(_setError:)
@@ -1891,18 +1895,16 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) _setError:(NSString *)error {
-    _assert(alert_ == nil);
-
-    alert_ = [[UIAlertSheet alloc]
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
         initWithTitle:@"Package Error"
         buttons:[NSArray arrayWithObjects:@"Okay", nil]
         defaultButtonIndex:0
         delegate:self
         context:self
-    ];
+    ] autorelease];
 
-    [alert_ setBodyText:error];
-    [alert_ popupAlertAnimated:YES];
+    [sheet setBodyText:error];
+    [sheet popupAlertAnimated:YES];
 }
 
 - (void) setTitle:(NSString *)title {
@@ -1974,7 +1976,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (int) numberOfRowsInTable:(UITable *)table;
 - (float) table:(UITable *)table heightForRow:(int)row;
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col;
+- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing;
 - (BOOL) table:(UITable *)table showDisclosureForRow:(int)row;
 - (void) tableRowSelected:(NSNotification*)notification;
 
@@ -2015,8 +2017,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     return 64;
 }
 
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
-    return [[[PackageCell alloc] initWithPackage:[packages_ objectAtIndex:row] delegate:self] autorelease];
+- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
+    if (reusing == nil)
+        reusing = [[PackageCell alloc] initWithDelegate:self];
+    [(PackageCell *)reusing setPackage:[packages_ objectAtIndex:row]];
+    return reusing;
 }
 
 - (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
@@ -2099,6 +2104,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [table setSeparatorStyle:1];
         [table addTableColumn:column];
         [table setDelegate:self];
+        [table setReusesTableCells:YES];
 
         pkgview_ = [[PackageView alloc] initWithFrame:[transition_ bounds] database:database_];
     } return self;
@@ -2297,7 +2303,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UITransitionView *transition_;
     UIButtonBar *buttonbar_;
 
-    UIAlertSheet *alert_;
     ConfirmationView *confirm_;
 
     Database *database_;
@@ -2418,17 +2423,15 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         break;
 
         case 1:
-            _assert(alert_ == nil);
-
-            alert_ = [[UIAlertSheet alloc]
+            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
                 initWithTitle:@"About Cydia Packager"
                 buttons:[NSArray arrayWithObjects:@"Close", nil]
                 defaultButtonIndex:0
                 delegate:self
                 context:self
-            ];
+            ] autorelease];
 
-            [alert_ setBodyText:
+            [sheet setBodyText:
                 @"Copyright (C) 2007\n"
                 "Jay Freeman (saurik)\n"
                 "saurik@saurik.com\n"
@@ -2449,15 +2452,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 "lounger, rockabilly, tman, Wbiggs"
             ];
 
-            [alert_ presentSheetFromButtonBar:buttonbar_];
+            [sheet presentSheetFromButtonBar:buttonbar_];
         break;
     }
 }
 
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    [alert_ dismiss];
-    [alert_ release];
-    alert_ = nil;
+    [sheet dismiss];
 }
 
 - (void) buttonBarItemTapped:(id)sender {
@@ -2488,7 +2489,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
 
-    alert_ = nil;
     confirm_ = nil;
 
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];

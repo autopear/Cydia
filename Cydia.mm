@@ -586,6 +586,7 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) _resetView {
+    [navbar_ showButtonsWithLeftTitle:nil rightTitle:nil];
 }
 
 - (void) setPrompt {
@@ -2703,7 +2704,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) _resetView {
     [navbar_ showButtonsWithLeftTitle:(count_ == 0 ? nil : @"Upgrade All") rightTitle:nil];
-    [super _resetView];
 }
 
 - (size_t) count {

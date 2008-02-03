@@ -2560,8 +2560,17 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    if (button == 1)
-        [delegate_ upgrade];
+    switch (button) {
+        case 0:
+            [[view_ package] install];
+            [delegate_ resolve];
+            [delegate_ perform];
+        break;
+
+        case 1:
+            [delegate_ upgrade];
+        break;
+    }
 }
 
 - (void) packageTable:(id)table packageSelected:(Package *)package {

@@ -189,7 +189,6 @@ NSString *GetLastUpdate() {
     CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
 
     CFRelease(formatter);
-    CFRelease(formatted);
     CFRelease(locale);
 
     return [(NSString *) formatted autorelease];

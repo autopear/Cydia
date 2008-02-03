@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+cd "$(dirname "$0")"
+scp -p saurik@carrier.saurik.com:menes/cydia/Cydia 
+chmod +s Cydia
+su -c ./Cydia mobile

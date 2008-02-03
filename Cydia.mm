@@ -172,6 +172,8 @@ static const int PulseInterval_ = 50000;
 const char *Machine_ = NULL;
 const char *SerialNumber_ = NULL;
 
+bool bootstrap_ = false;
+
 static NSMutableDictionary *Metadata_;
 static NSMutableDictionary *Packages_;
 static NSDate *now_;
@@ -1771,6 +1773,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) dealloc;
 
+- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
+
 - (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate;
 - (void) setContentView:(UIView *)view;
 - (void) resetView;
@@ -1802,7 +1806,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) dealloc {
     [view_ release];
-    [background_ release];
+    if (background_ != nil)
+        [background_ release];
     [transition_ release];
     [overlay_ release];
     [navbar_ release];
@@ -1810,6 +1815,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [output_ release];
     [status_ release];
     [super dealloc];
+}
+
+- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
+    if (bootstrap_ && from == overlay_ && to == view_)
+        exit(0);
 }
 
 - (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate {
@@ -1822,14 +1832,20 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         CGColor white(space, 1.0, 1.0, 1.0, 1.0);
         CGColor clear(space, 0.0, 0.0, 0.0, 0.0);
 
-        background_ = [[UIView alloc] initWithFrame:[self bounds]];
-        [background_ setBackgroundColor:black];
-        [self addSubview:background_];
-
         transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [self addSubview:transition_];
+        [transition_ setDelegate:self];
 
         overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
+
+        if (bootstrap_)
+            [overlay_ setBackgroundColor:black];
+        else {
+            background_ = [[UIView alloc] initWithFrame:[self bounds]];
+            [background_ setBackgroundColor:black];
+            [self addSubview:background_];
+        }
+
+        [self addSubview:transition_];
 
         CGSize navsize = [UINavigationBar defaultSize];
         CGRect navrect = {{0, 0}, navsize};
@@ -3175,6 +3191,22 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     ];
 }
 
+- (void) bootstrap_ {
+    [database_ update];
+    [database_ upgrade];
+    [database_ prepare];
+    [database_ perform];
+}
+
+- (void) bootstrap {
+    [progress_
+        detachNewThreadSelector:@selector(bootstrap_)
+        toTarget:self
+        withObject:nil
+        title:@"Bootstrap Install..."
+    ];
+}
+
 - (void) update {
     [progress_
         detachNewThreadSelector:@selector(update)
@@ -3277,7 +3309,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     confirm_ = nil;
     restart_ = false;
 
-    _trace();
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
     window_ = [[UIWindow alloc] initWithContentRect:screenrect];
 
@@ -3292,7 +3323,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [progress_ setContentView:underlay_];
 
     overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];
-    [underlay_ addSubview:overlay_];
+
+    if (!bootstrap_)
+        [underlay_ addSubview:overlay_];
 
     transition_ = [[UITransitionView alloc] initWithFrame:CGRectMake(
         0, 0, screenrect.size.width, screenrect.size.height - 48
@@ -3425,57 +3458,47 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [buttonbar_ showSelectionForButton:1];
     [transition_ transition:0 toView:featured_];
 
-    _trace();
     [overlay_ addSubview:buttonbar_];
 
-    _trace();
     [UIKeyboard initImplementationNow];
 
-    _trace();
     CGRect edtrect = [overlay_ bounds];
     edtrect.origin.y += navsize.height;
     edtrect.size.height -= navsize.height;
 
-    _trace();
     CGSize keysize = [UIKeyboard defaultSize];
     CGRect keyrect = {{0, [overlay_ bounds].size.height - keysize.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
 
-    _trace();
     database_ = [[Database alloc] init];
     [database_ setDelegate:progress_];
 
-    _trace();
     install_ = [[InstallView alloc] initWithFrame:[transition_ bounds]];
     [install_ setDelegate:self];
 
-    _trace();
     changes_ = [[ChangesView alloc] initWithFrame:[transition_ bounds]];
     [changes_ setDelegate:self];
 
-    _trace();
     manage_ = [[ManageView alloc] initWithFrame:[transition_ bounds]];
     [manage_ setDelegate:self];
 
-    _trace();
     search_ = [[SearchView alloc] initWithFrame:[transition_ bounds]];
     [search_ setDelegate:self];
 
-    _trace();
     [self reloadData:NO];
-    _trace();
-    [progress_ resetView];
 
-    _trace();
     Package *package([database_ packageWithName:@"cydia"]);
     NSString *application = package == nil ? @"Cydia" : [NSString stringWithFormat:@"Cydia/%@", [package installed]];
     WebView *webview = [webview_ webView];
     [webview setApplicationNameForUserAgent:application];
 
-    _trace();
     url_ = [NSURL URLWithString:@"http://cydia.saurik.com/"];
     [self loadNews];
-    _trace();
+
+    [progress_ resetView];
+
+    if (bootstrap_)
+        [self bootstrap];
 }
 
 - (void) showKeyboard:(BOOL)show {
@@ -3542,6 +3565,8 @@ int main(int argc, char *argv[]) {
     nlist("/usr/lib/libc.dylib", nl);
     if (nl[0].n_type != N_UNDF)
         *(int *) nl[0].n_value = 0;
+
+    bootstrap_ = argc > 1 && strcmp(argv[1], "--bootstrap") == 0;
 
     setuid(0);
     setgid(0);

@@ -178,6 +178,23 @@ static NSMutableDictionary *Metadata_;
 static NSMutableDictionary *Packages_;
 static NSDate *now_;
 
+NSString *GetLastUpdate() {
+    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
+
+    if (update == nil)
+        return @"Never or Unknown";
+
+    CFLocaleRef locale = CFLocaleCopyCurrent();
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
+
+    CFRelease(formatter);
+    CFRelease(formatted);
+    CFRelease(locale);
+
+    return [(NSString *) formatted autorelease];
+}
+
 @protocol ProgressDelegate
 - (void) setError:(NSString *)error;
 - (void) setTitle:(NSString *)title;
@@ -590,17 +607,7 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) setPrompt {
-    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
-
-    CFLocaleRef locale = CFLocaleCopyCurrent();
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
-
-    [navbar_ setPrompt:[NSString stringWithFormat:@"Last Updated: %@", (NSString *) formatted]];
-
-    CFRelease(formatter);
-    CFRelease(formatted);
-    CFRelease(locale);
+    [navbar_ setPrompt:[NSString stringWithFormat:@"Last Updated: %@", GetLastUpdate()]];
 }
 
 @end
@@ -898,6 +905,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *tagline_;
     NSString *icon_;
     NSString *bundle_;
+    NSString *website_;
 }
 
 - (void) dealloc;
@@ -922,6 +930,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) tagline;
 - (NSString *) icon;
 - (NSString *) bundle;
+- (NSString *) website;
 
 - (BOOL) matches:(NSString *)text;
 
@@ -978,6 +987,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         bundle_ = Scour("Bundle", begin, end);
         if (bundle_ != nil)
             bundle_ = [bundle_ retain];
+        website_ = Scour("Website", begin, end);
+        if (website_ != nil)
+            website_ = [website_ retain];
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
         if (metadata == nil) {
@@ -1072,6 +1084,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) bundle {
     return bundle_;
+}
+
+- (NSString *) website {
+    return website_;
 }
 
 - (BOOL) matches:(NSString *)text {
@@ -3142,17 +3158,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) setPrompt {
-    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
-
-    CFLocaleRef locale = CFLocaleCopyCurrent();
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
-
-    [navbar_ setPrompt:[NSString stringWithFormat:@"Last Updated: %@", (NSString *) formatted]];
-
-    CFRelease(formatter);
-    CFRelease(formatted);
-    CFRelease(locale);
+    [navbar_ setPrompt:[NSString stringWithFormat:@"Last Updated: %@", GetLastUpdate()]];
 }
 
 - (void) resolve {

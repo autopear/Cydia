@@ -43,6 +43,8 @@ while (false)
 /* Miscellaneous Messages {{{ */
 @interface WebView
 - (void) setApplicationNameForUserAgent:(NSString *)applicationName;
+- (id) frameLoadDelegate;
+- (void) setFrameLoadDelegate:(id)delegate;
 @end
 
 @interface NSString (Cydia)
@@ -487,6 +489,7 @@ inline float interpolate(float begin, float end, float fraction) {
 
 /* Reset View {{{ */
 @interface ResetView : UIView {
+    UIPushButton *configure_;
     UIPushButton *reload_;
     NSMutableArray *views_;
     UINavigationBar *navbar_;
@@ -501,11 +504,13 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (id) initWithFrame:(CGRect)frame;
 - (void) setDelegate:(id)delegate;
+
+- (void) configurePushed;
 - (void) reloadPushed;
 
 - (void) pushView:(UIView *)view withTitle:(NSString *)title backButtonTitle:(NSString *)back rightButton:(NSString *)right;
 - (void) popViews:(unsigned)views;
-- (void) resetView;
+- (void) resetView:(BOOL)clear;
 - (void) _resetView;
 - (void) setPrompt;
 @end
@@ -513,6 +518,7 @@ inline float interpolate(float begin, float end, float fraction) {
 @implementation ResetView
 
 - (void) dealloc {
+    [configure_ release];
     [reload_ release];
     [transition_ release];
     [navbar_ release];
@@ -524,11 +530,11 @@ inline float interpolate(float begin, float end, float fraction) {
     [views_ removeLastObject];
     UIView *view([views_ lastObject]);
     [view resetViewAnimated:!resetting_];
-    if (!resetting_)
-        [transition_ transition:2 toView:view];
 
-    if ([views_ count] == 1)
+    if (!resetting_) {
+        [transition_ transition:2 toView:view];
         [self _resetView];
+    }
 }
 
 - (id) initWithFrame:(CGRect)frame {
@@ -549,12 +555,19 @@ inline float interpolate(float begin, float end, float fraction) {
             bounds.origin.x, bounds.origin.y + navsize.height, bounds.size.width, bounds.size.height - navsize.height
         )];
 
-        //reload_ = [[UIPushButton alloc] initWithFrame:CGRectMake(284, 8, 29, 23)];
-        reload_ = [[UIPushButton alloc] initWithFrame:CGRectMake(282, 5, 29, 23)];
+        //configure_ = [[UIPushButton alloc] initWithFrame:CGRectMake(15, 9, 17, 18)];
+        configure_ = [[UIPushButton alloc] initWithFrame:CGRectMake(10, 9, 17, 18)];
+        [configure_ setShowPressFeedback:YES];
+        [configure_ setImage:[UIImage applicationImageNamed:@"configure.png"]];
+        [configure_ addTarget:self action:@selector(configurePushed) forEvents:1];
+
+        //reload_ = [[UIPushButton alloc] initWithFrame:CGRectMake(288, 5, 18, 22)];
+        reload_ = [[UIPushButton alloc] initWithFrame:CGRectMake(293, 5, 18, 22)];
         [reload_ setShowPressFeedback:YES];
         [reload_ setImage:[UIImage applicationImageNamed:@"reload.png"]];
         [reload_ addTarget:self action:@selector(reloadPushed) forEvents:1];
 
+        [navbar_ addSubview:configure_];
         [navbar_ addSubview:reload_];
 
         [self addSubview:transition_];
@@ -563,6 +576,9 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
+}
+
+- (void) configurePushed {
 }
 
 - (void) reloadPushed {
@@ -586,19 +602,26 @@ inline float interpolate(float begin, float end, float fraction) {
         [navbar_ popNavigationItem];
     resetting_ = false;
 
+    [self _resetView];
     [transition_ transition:2 toView:[views_ lastObject]];
 }
 
-- (void) resetView {
+- (void) resetView:(BOOL)clear {
     resetting_ = true;
-    if ([[navbar_ navigationItems] count] == 1)
-        [self _resetView];
-    else do
-        [navbar_ popNavigationItem];
-    while ([[navbar_ navigationItems] count] != 1);
+
+    if ([views_ count] > 1) {
+        [navbar_ disableAnimation];
+        while ([views_ count] != (clear ? 1 : 2))
+            [navbar_ popNavigationItem];
+        [navbar_ enableAnimation];
+        if (!clear)
+            [navbar_ popNavigationItem];
+    }
+
     resetting_ = false;
 
-    [transition_ transition:0 toView:[views_ lastObject]];
+    [self _resetView];
+    [transition_ transition:(clear ? 0 : 2) toView:[views_ lastObject]];
 }
 
 - (void) _resetView {
@@ -659,6 +682,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 
 @implementation ConfirmationView
+#include "internals.h"
 
 - (void) dealloc {
     [transition_ release];
@@ -1276,7 +1300,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
     switch (group) {
-        case 0: return 2;
+        case 0: return [package_ website] == nil ? 2 : 3;
         case 1: return 5;
         case 2: return 0;
 
@@ -1297,6 +1321,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
             case 1:
                 [cell addSubview:description_];
+            break;
+
+            case 2:
+                [cell setTitle:@"More Information"];
+                [cell setShowDisclosure:YES];
+                [cell setShowSelection:YES];
             break;
 
             default: _assert(false);
@@ -1348,7 +1378,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) tableRowSelected:(NSNotification *)notification {
-    printf("%d\n", [table_ selectedRow]);
     switch ([table_ selectedRow]) {
         case 8:
             [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
@@ -2711,14 +2740,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [view_ setPackage:npackage];
     else if (package_ != nil)
         [self popViews:1];
-    if ([views_ count] == 1)
-        [self _resetView];
 
+    [self _resetView];
     [self setPrompt];
 }
 
 - (void) _resetView {
-    [navbar_ showButtonsWithLeftTitle:(count_ == 0 ? nil : @"Upgrade All") rightTitle:nil];
+    if ([views_ count] == 1)
+        [navbar_ showButtonsWithLeftTitle:(count_ == 0 ? nil : @"Upgrade All") rightTitle:nil];
 }
 
 - (size_t) count {
@@ -2990,7 +3019,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
         /* XXX: for the love of god just fix this */
         [navbar_ removeFromSuperview];
+        [reload_ removeFromSuperview];
+        [configure_ removeFromSuperview];
         [self addSubview:navbar_];
+        [self addSubview:reload_];
+        [self addSubview:configure_];
     } return self;
 }
 
@@ -3075,6 +3108,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     SearchView *search_;
 
     bool restart_;
+    unsigned tag_;
 
     UIKeyboard *keyboard_;
 }
@@ -3099,11 +3133,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old;
 
+- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame;
+
 - (void) applicationWillSuspend;
 - (void) applicationDidFinishLaunching:(id)unused;
 @end
 
 @implementation Cydia
+#include "internals.h"
 
 - (void) loadNews {
     NSMutableURLRequest *request = [NSMutableURLRequest
@@ -3116,7 +3153,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [request addValue:[NSString stringWithCString:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
 
     [webview_ loadRequest:request];
-    [indicator_ startAnimation];
 }
 
 - (void) reloadData:(BOOL)reset {
@@ -3140,7 +3176,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [changes_ setPackages:packages];
     [manage_ setPackages:packages];
     [search_ setPackages:packages];
-    //[self setPrompt];
 
     if (size_t count = [changes_ count]) {
         NSString *badge([[NSNumber numberWithInt:count] stringValue]);
@@ -3280,8 +3315,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) buttonBarItemTapped:(id)sender {
     UIView *view;
+    unsigned tag = [sender tag];
 
-    switch ([sender tag]) {
+    switch (tag) {
         case 1: view = featured_; break;
         case 2: view = install_; break;
         case 3: view = changes_; break;
@@ -3292,19 +3328,30 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             _assert(false);
     }
 
-    if ([view respondsToSelector:@selector(resetView)])
-        [(id) view resetView];
+    if ([view respondsToSelector:@selector(resetView:)])
+        [(id) view resetView:(tag == tag_ ? NO : YES)];
+    tag_ = tag;
     [transition_ transition:0 toView:view];
 }
 
-- (void) view:(UIView *)view didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
+- (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
     [scroller_ setContentSize:frame.size];
     [indicator_ stopAnimation];
+}
+
+- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
+    [navbar_ setPrompt:title];
+}
+
+- (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
+    [navbar_ setPrompt:@"Loading..."];
+    [indicator_ startAnimation];
 }
 
 - (void) applicationWillSuspend {
     if (restart_)
         system("launchctl stop com.apple.SpringBoard");
+    [super applicationWillSuspend];
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -3313,6 +3360,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     confirm_ = nil;
     restart_ = false;
+    tag_ = 1;
 
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
     window_ = [[UIWindow alloc] initWithContentRect:screenrect];
@@ -3348,7 +3396,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     [navbar_ setBarStyle:1];
     [navbar_ setDelegate:self];
-    [navbar_ setPrompt:@"Welcome to Cydia Packager"];
 
     [navbar_ showButtonsWithLeftTitle:@"About" rightTitle:@"Reload"];
 
@@ -3373,7 +3420,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [scroller_ setScrollDecelerationFactor:0.99];
     [scroller_ setDelegate:self];
 
-    webview_ = [[UIWebView alloc] initWithFrame:[scroller_ bounds]];
+    CGRect webrect = [scroller_ bounds];
+    webrect.size.height = 0;
+
+    webview_ = [[UIWebView alloc] initWithFrame:webrect];
     [scroller_ addSubview:webview_];
 
     [webview_ setTilingEnabled:YES];
@@ -3494,8 +3544,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     Package *package([database_ packageWithName:@"cydia"]);
     NSString *application = package == nil ? @"Cydia" : [NSString stringWithFormat:@"Cydia/%@", [package installed]];
+
     WebView *webview = [webview_ webView];
     [webview setApplicationNameForUserAgent:application];
+    [webview setFrameLoadDelegate:self];
 
     url_ = [NSURL URLWithString:@"http://cydia.saurik.com/"];
     [self loadNews];

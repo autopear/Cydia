@@ -501,6 +501,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (void) dealloc;
 
 - (void) navigationBar:(UINavigationBar *)navbar poppedItem:(UINavigationItem *)item;
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
 
 - (id) initWithFrame:(CGRect)frame;
 - (void) setDelegate:(id)delegate;
@@ -535,6 +536,10 @@ inline float interpolate(float begin, float end, float fraction) {
         [transition_ transition:2 toView:view];
         [self _resetView];
     }
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [sheet dismiss];
 }
 
 - (id) initWithFrame:(CGRect)frame {
@@ -579,6 +584,16 @@ inline float interpolate(float begin, float end, float fraction) {
 }
 
 - (void) configurePushed {
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:@"Sources Unimplemented"
+        buttons:[NSArray arrayWithObjects:@"Okay", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:self
+    ] autorelease];
+
+    [sheet setBodyText:@"This feature will be implemented soon. In the mean time, you may add sources by adding .list files to '/etc/apt/sources.list.d' or modifying '/etc/apt/sources.list'."];
+    [sheet popupAlertAnimated:YES];
 }
 
 - (void) reloadPushed {
@@ -1135,7 +1150,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSComparisonResult) compareBySectionAndName:(Package *)package {
-    NSComparisonResult result = [[self section] caseInsensitiveCompare:[package section]];
+    NSComparisonResult result = [[self section] compare:[package section]];
     if (result != NSOrderedSame)
         return result;
     return [self compareByName:package];
@@ -3180,11 +3195,13 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if (size_t count = [changes_ count]) {
         NSString *badge([[NSNumber numberWithInt:count] stringValue]);
         [buttonbar_ setBadgeValue:badge forButton:3];
-        [buttonbar_ setBadgeAnimated:YES forButton:3];
+        if ([buttonbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
+            [buttonbar_ setBadgeAnimated:YES forButton:3];
         [self setApplicationBadge:badge];
     } else {
         [buttonbar_ setBadgeValue:nil forButton:3];
-        [buttonbar_ setBadgeAnimated:NO forButton:3];
+        if ([buttonbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
+            [buttonbar_ setBadgeAnimated:NO forButton:3];
         [self removeApplicationBadge];
     }
 
@@ -3657,6 +3674,8 @@ int main(int argc, char *argv[]) {
         Metadata_ = [[NSMutableDictionary alloc] initWithCapacity:2];
     else
         Packages_ = [Metadata_ objectForKey:@"Packages"];
+
+    system("dpkg --configure -a");
 
     UIApplicationMain(argc, argv, [Cydia class]);
     [pool release];

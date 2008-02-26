@@ -1,0 +1,3 @@
+#!/bin/bash
+Cydia=$(dirname "$0")
+"${Cydia}"/Cydia_ 2>>/tmp/cydia.log

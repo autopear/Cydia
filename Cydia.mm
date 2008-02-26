@@ -697,7 +697,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 
 @implementation ConfirmationView
-#include "internals.h"
 
 - (void) dealloc {
     [transition_ release];
@@ -1393,13 +1392,13 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) tableRowSelected:(NSNotification *)notification {
-    switch ([table_ selectedRow]) {
-        case 8:
-            [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
-                [[package_ maintainer] email],
-                [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
-            ]]];
-        break;
+    int row = [table_ selectedRow];
+
+    if (row == ([package_ website] == nil ? 8 : 9)) {
+        [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
+            [[package_ maintainer] email],
+            [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
+        ]]];
     }
 }
 
@@ -3155,7 +3154,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 @end
 
 @implementation Cydia
-#include "internals.h"
 
 - (void) loadNews {
     NSMutableURLRequest *request = [NSMutableURLRequest
@@ -3667,8 +3665,8 @@ int main(int argc, char *argv[]) {
             IOObjectRelease(service);
         }
 
-    AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
-    AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");
+    /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
+    AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/
 
     if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)
         Metadata_ = [[NSMutableDictionary alloc] initWithCapacity:2];

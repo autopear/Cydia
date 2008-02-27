@@ -19,6 +19,7 @@
 #include <apt-pkg/sptr.h>
 
 #include <sys/sysctl.h>
+#include <notify.h>
 
 extern "C" {
 #include <mach-o/nlist.h>
@@ -171,8 +172,19 @@ class GSFont {
 /* }}} */
 
 static const int PulseInterval_ = 50000;
+
+const char *Firmware_ = NULL;
 const char *Machine_ = NULL;
 const char *SerialNumber_ = NULL;
+
+unsigned Major_;
+unsigned Minor_;
+unsigned BugFix_;
+
+#define FW_LEAST(major, minor, bugfix) \
+    (major > Major_ || major == Major_ && \
+        (minor > Minor_ || minor == Minor_ && \
+            bugfix >= BugFix_))
 
 bool bootstrap_ = false;
 
@@ -941,7 +953,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *name_;
     NSString *tagline_;
     NSString *icon_;
-    NSString *bundle_;
     NSString *website_;
 }
 
@@ -966,7 +977,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) name;
 - (NSString *) tagline;
 - (NSString *) icon;
-- (NSString *) bundle;
 - (NSString *) website;
 
 - (BOOL) matches:(NSString *)text;
@@ -992,8 +1002,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [tagline_ release];
     if (icon_ != nil)
         [icon_ release];
-    if (bundle_ != nil)
-        [bundle_ release];
     [super dealloc];
 }
 
@@ -1021,9 +1029,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         icon_ = Scour("Icon", begin, end);
         if (icon_ != nil)
             icon_ = [icon_ retain];
-        bundle_ = Scour("Bundle", begin, end);
-        if (bundle_ != nil)
-            bundle_ = [bundle_ retain];
         website_ = Scour("Website", begin, end);
         if (website_ != nil)
             website_ = [website_ retain];
@@ -1083,7 +1088,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSString *) index {
-    return [[[self name] substringToIndex:1] uppercaseString];
+    NSString *index = [[[self name] substringToIndex:1] uppercaseString];
+    return [index length] != 0 && isalpha([index characterAtIndex:0]) ? index : @"123";
 }
 
 - (NSDate *) seen {
@@ -1119,10 +1125,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return icon_;
 }
 
-- (NSString *) bundle {
-    return bundle_;
-}
-
 - (NSString *) website {
     return website_;
 }
@@ -1132,6 +1134,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         return NO;
 
     NSRange range;
+
+    range = [[self id] rangeOfString:text options:NSCaseInsensitiveSearch];
+    if (range.location != NSNotFound)
+        return YES;
 
     range = [[self name] rangeOfString:text options:NSCaseInsensitiveSearch];
     if (range.location != NSNotFound)
@@ -1145,7 +1151,20 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSComparisonResult) compareByName:(Package *)package {
-    return [[self name] caseInsensitiveCompare:[package name]];
+    NSString *lhs = [self name];
+    NSString *rhs = [package name];
+
+    if ([lhs length] != 0 && [rhs length] != 0) {
+        unichar lhc = [lhs characterAtIndex:0];
+        unichar rhc = [rhs characterAtIndex:0];
+
+        if (isalpha(lhc) && !isalpha(rhc))
+            return NSOrderedAscending;
+        else if (!isalpha(lhc) && isalpha(rhc))
+            return NSOrderedDescending;
+    }
+
+    return [lhs caseInsensitiveCompare:rhs];
 }
 
 - (NSComparisonResult) compareBySectionAndName:(Package *)package {
@@ -1393,13 +1412,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [table_ selectedRow];
+    NSString *website = [package_ website];
 
-    if (row == ([package_ website] == nil ? 8 : 9)) {
+    if (row == (website == nil ? 8 : 9))
         [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
             [[package_ maintainer] email],
             [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
         ]]];
-    }
+    else if (website != nil && row == 3)
+        [delegate_ openURL:[NSURL URLWithString:website]];
 }
 
 - (Package *) package {
@@ -1499,7 +1520,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [version_ setBackgroundColor:clear];
         [version_ setFont:large];
 
-        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 315, 20)];
+        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 280, 20)];
         [description_ setBackgroundColor:clear];
         [description_ setFont:small];
 
@@ -2534,7 +2555,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     else if (package_ != nil)
         ++views;
 
-    if (nsection != nil)
+    if (table_ != nil && section_ == nil) 
+        [table_ setPackages:packages_];
+    else if (nsection != nil)
         [table_ setPackages:[nsection packages]];
     else if (section_ != nil)
         ++views;
@@ -3162,6 +3185,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         timeoutInterval:30.0
     ];
 
+    [request addValue:[NSString stringWithCString:Firmware_] forHTTPHeaderField:@"X-Firmware"];
     [request addValue:[NSString stringWithCString:Machine_] forHTTPHeaderField:@"X-Machine"];
     [request addValue:[NSString stringWithCString:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
 
@@ -3366,6 +3390,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) applicationWillSuspend {
     if (restart_)
         system("launchctl stop com.apple.SpringBoard");
+
     [super applicationWillSuspend];
 }
 
@@ -3558,7 +3583,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [self reloadData:NO];
 
     Package *package([database_ packageWithName:@"cydia"]);
-    NSString *application = package == nil ? @"Cydia" : [NSString stringWithFormat:@"Cydia/%@", [package installed]];
+    NSString *application = package == nil ? @"Cydia" : [NSString
+        stringWithFormat:@"Cydia/%@",
+        [package installed]
+    ];
 
     WebView *webview = [webview_ webView];
     [webview setApplicationNameForUserAgent:application];
@@ -3648,6 +3676,17 @@ int main(int argc, char *argv[]) {
     alloc->method_imp = (IMP) &Alloc_;*/
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    if (NSDictionary *sysver = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"]) {
+        if (NSString *prover = [sysver valueForKey:@"ProductVersion"]) {
+            Firmware_ = strdup([prover cString]);
+            NSArray *versions = [prover componentsSeparatedByString:@"."];
+            int count = [versions count];
+            Major_ = count > 0 ? [[versions objectAtIndex:0] intValue] : 0;
+            Minor_ = count > 1 ? [[versions objectAtIndex:0] intValue] : 0;
+            BugFix_ = count > 2 ? [[versions objectAtIndex:0] intValue] : 0;
+        }
+    }
 
     size_t size;
     sysctlbyname("hw.machine", NULL, &size, NULL, 0);

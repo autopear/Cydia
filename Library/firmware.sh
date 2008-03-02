@@ -32,6 +32,8 @@ Name: Apple iPhone Firmware
 EOF
 fi && mv -f /var/lib/dpkg/status{_,}
 
+echo "/." >/var/lib/dpkg/info/firmware.list
+
 if [[ ${version} = 1.0* || ${version} = 1.1.[012] ]]; then
     user=root
 else

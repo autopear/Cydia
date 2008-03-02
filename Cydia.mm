@@ -3724,7 +3724,8 @@ int main(int argc, char *argv[]) {
         Packages_ = [Metadata_ objectForKey:@"Packages"];
 
     setenv("CYDIA", "", _not(int));
-    system("/usr/libexec/cydia/firmware.sh");
+    if (access("/User", F_OK) != 0)
+        system("/usr/libexec/cydia/firmware.sh");
     system("dpkg --configure -a");
 
     UIApplicationMain(argc, argv, [Cydia class]);

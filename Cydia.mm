@@ -40,6 +40,8 @@ extern "C" {
         exit(-1); \
     } \
 while (false)
+
+#define _not(type) ((type) ~ (type) 0)
 /* }}} */
 /* Miscellaneous Messages {{{ */
 @interface WebView
@@ -853,23 +855,31 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
         NSMutableArray *removing = [NSMutableArray arrayWithCapacity:16];
 
-        bool essential(false);
+        bool install(false);
+        bool upgrade(false);
+        bool remove(false);
 
         pkgCacheFile &cache([database_ cache]);
         for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
             NSString *name([NSString stringWithCString:iterator.Name()]);
-            if (cache[iterator].NewInstall())
+            bool essential((iterator->Flags & pkgCache::Flag::Essential) != 0);
+
+            if (cache[iterator].NewInstall()) {
+                if (essential)
+                    install = true;
                 [installing addObject:name];
-            else if (cache[iterator].Upgrade())
+            } else if (cache[iterator].Upgrade()) {
+                if (essential)
+                    upgrade = true;
                 [upgrading addObject:name];
-            else if (cache[iterator].Delete()) {
+            } else if (cache[iterator].Delete()) {
+                if (essential)
+                    remove = true;
                 [removing addObject:name];
-                if ((iterator->Flags & pkgCache::Flag::Essential) != 0)
-                    essential = true;
             }
         }
 
-        if (!essential)
+        if (!remove)
             essential_ = nil;
         else {
             essential_ = [[UIAlertSheet alloc]
@@ -2562,7 +2572,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     else if (section_ != nil)
         ++views;
 
-    [self popViews:views];
+    if (views != 0)
+        [self popViews:views];
     [self setPrompt];
 }
 
@@ -3712,6 +3723,7 @@ int main(int argc, char *argv[]) {
     else
         Packages_ = [Metadata_ objectForKey:@"Packages"];
 
+    setenv("CYDIA", "", _not(int));
     system("dpkg --configure -a");
 
     UIApplicationMain(argc, argv, [Cydia class]);

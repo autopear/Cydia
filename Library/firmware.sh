@@ -27,7 +27,7 @@ Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: darwin-arm
 Version: ${version}
 Description: almost impressive Apple frameworks
-Name: Apple iPhone Firmware
+Name: iPhone Firmware
 
 EOF
 fi && mv -f /var/lib/dpkg/status{_,}

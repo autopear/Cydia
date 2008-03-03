@@ -1722,7 +1722,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     delete resolver_;
     delete records_;
     cache_.Close();
-    _assert(cache_.Open(progress_, true));
+
+    if (!cache_.Open(progress_, true)) {
+        fprintf(stderr, "repairing corrupted database...\n");
+        _error->Discard();
+        [self update];
+        _assert(cache_.Open(progress_, true));
+    }
+
     records_ = new pkgRecords(cache_);
     resolver_ = new pkgProblemResolver(cache_);
     fetcher_ = new pkgAcquire(&status_);

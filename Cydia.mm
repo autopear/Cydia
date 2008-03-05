@@ -462,6 +462,7 @@ inline float interpolate(float begin, float end, float fraction) {
 /* }}} */
 
 @class Package;
+@class Source;
 
 /* Database Interface {{{ */
 @interface Database : NSObject {
@@ -471,6 +472,9 @@ inline float interpolate(float begin, float end, float fraction) {
     pkgAcquire *fetcher_;
     FileFd *lock_;
     SPtr<pkgPackageManager> manager_;
+    pkgSourceList *list_;
+
+    NSMutableDictionary *sources_;
 
     id delegate_;
     Status status_;
@@ -498,6 +502,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (void) upgrade;
 
 - (void) setDelegate:(id)delegate;
+- (Source *) getSource:(const pkgCache::PkgFileIterator &)file;
 @end
 /* }}} */
 
@@ -921,6 +926,128 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 
+/* Source Class {{{ */
+@interface Source : NSObject {
+    NSString *description_;
+    NSString *label_;
+    NSString *origin_;
+
+    NSString *uri_;
+    NSString *distribution_;
+    NSString *type_;
+    NSString *version_;
+
+    BOOL trusted_;
+}
+
+- (void) dealloc;
+
+- (Source *) initWithMetaIndex:(metaIndex *)index;
+
+- (BOOL) trusted;
+
+- (NSString *) uri;
+- (NSString *) distribution;
+- (NSString *) type;
+
+- (NSString *) description;
+- (NSString *) label;
+- (NSString *) origin;
+- (NSString *) version;
+@end
+
+@implementation Source
+
+- (void) dealloc {
+    [uri_ release];
+    [distribution_ release];
+    [type_ release];
+
+    if (description_ != nil)
+        [description_ release];
+    if (label_ != nil)
+        [label_ release];
+    if (origin_ != nil)
+        [origin_ release];
+    if (version_ != nil)
+        [version_ release];
+
+    [super dealloc];
+}
+
+- (Source *) initWithMetaIndex:(metaIndex *)index {
+    if ((self = [super init]) != nil) {
+        trusted_ = index->IsTrusted();
+
+        uri_ = [[NSString stringWithCString:index->GetURI().c_str()] retain];
+        distribution_ = [[NSString stringWithCString:index->GetDist().c_str()] retain];
+        type_ = [[NSString stringWithCString:index->GetType()] retain];
+
+        description_ = nil;
+        label_ = nil;
+        origin_ = nil;
+
+        debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
+        if (dindex != NULL) {
+            std::ifstream release(dindex->MetaIndexFile("Release").c_str());
+            std::string line;
+            while (std::getline(release, line)) {
+                std::string::size_type colon(line.find(':'));
+                if (colon == std::string::npos)
+                    continue;
+
+                std::string name(line.substr(0, colon));
+                std::string value(line.substr(colon + 1));
+                while (!value.empty() && value[0] == ' ')
+                    value = value.substr(1);
+
+                if (name == "Description")
+                    description_ = [[NSString stringWithCString:value.c_str()] retain];
+                else if (name == "Label")
+                    label_ = [[NSString stringWithCString:value.c_str()] retain];
+                else if (name == "Origin")
+                    origin_ = [[NSString stringWithCString:value.c_str()] retain];
+                else if (name == "Version")
+                    version_ = [[NSString stringWithCString:value.c_str()] retain];
+            }
+        }
+    } return self;
+}
+
+- (BOOL) trusted {
+    return trusted_;
+}
+
+- (NSString *) uri {
+    return uri_;
+}
+
+- (NSString *) distribution {
+    return distribution_;
+}
+
+- (NSString *) type {
+    return type_;
+}
+
+- (NSString *) description {
+    return description_;
+}
+
+- (NSString *) label {
+    return label_;
+}
+
+- (NSString *) origin {
+    return origin_;
+}
+
+- (NSString *) version {
+    return version_;
+}
+
+@end
+/* }}} */
 /* Package Class {{{ */
 NSString *Scour(const char *field, const char *begin, const char *end) {
     size_t i(0), l(strlen(field));
@@ -955,6 +1082,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     Database *database_;
     pkgCache::VerIterator version_;
     pkgCache::VerFileIterator file_;
+    Source *source_;
 
     NSString *latest_;
     NSString *installed_;
@@ -989,6 +1117,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) icon;
 - (NSString *) website;
 
+- (Source *) source;
+
 - (BOOL) matches:(NSString *)text;
 
 - (NSComparisonResult) compareByName:(Package *)package;
@@ -1012,6 +1142,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [tagline_ release];
     if (icon_ != nil)
         [icon_ release];
+    if (website_ != nil)
+        [website_ release];
+
+    if (source_ != nil)
+        [source_ release];
+
     [super dealloc];
 }
 
@@ -1042,6 +1178,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         website_ = Scour("Website", begin, end);
         if (website_ != nil)
             website_ = [website_ retain];
+
+        source_ = [[database_ getSource:file_.File()] retain];
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
         if (metadata == nil) {
@@ -1138,6 +1276,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) website {
     return website_;
+}
+
+- (Source *) source {
+    return source_;
 }
 
 - (BOOL) matches:(NSString *)text {
@@ -1332,14 +1474,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
-    return 2;
+    return 3;
 }
 
 - (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
     switch (group) {
         case 0: return nil;
-        case 1: return @"Details";
-        case 2: return @"Source";
+        case 1: return @"Package Details";
+        case 2: return @"Source Information";
 
         default: _assert(false);
     }
@@ -1356,7 +1498,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     switch (group) {
         case 0: return [package_ website] == nil ? 2 : 3;
         case 1: return 5;
-        case 2: return 0;
+        case 2: return 3;
 
         default: _assert(false);
     }
@@ -1420,6 +1562,21 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         } break;
 
         case 2: switch (row) {
+            case 0:
+                [cell setTitle:[[package_ source] label]];
+                [cell setValue:[[package_ source] version]];
+            break;
+
+            case 1:
+                [cell setValue:[[package_ source] description]];
+            break;
+
+            case 2:
+                [cell setTitle:@"Origin"];
+                [cell setValue:[[package_ source] origin]];
+            break;
+
+            default: _assert(false);
         } break;
 
         default: _assert(false);
@@ -1495,9 +1652,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 /* }}} */
 /* Package Cell {{{ */
 @interface PackageCell : UITableCell {
+    UIImageView *icon_;
     UITextLabel *name_;
-    UITextLabel *version_;
     UITextLabel *description_;
+    UITextLabel *source_;
+    UITextLabel *version_;
+    UIImageView *trusted_;
     SEL versioner_;
 }
 
@@ -1516,9 +1676,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 @implementation PackageCell
 
 - (void) dealloc {
+    [icon_ release];
     [name_ release];
-    [version_ release];
     [description_ release];
+    [source_ release];
+    [version_ release];
+    [trusted_ release];
     [super dealloc];
 }
 
@@ -1534,21 +1697,33 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
         CGColor clear(space, 0, 0, 0, 0);
 
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 7, 250, 25)];
+        icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
+
+        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 12, 240, 25)];
         [name_ setBackgroundColor:clear];
         [name_ setFont:bold];
 
-        version_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(286, 7, 70, 25)];
-        [version_ setBackgroundColor:clear];
-        [version_ setFont:large];
-
-        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 280, 20)];
+        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 46, 280, 20)];
         [description_ setBackgroundColor:clear];
         [description_ setFont:small];
 
+        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 72, 150, 20)];
+        [source_ setBackgroundColor:clear];
+        [source_ setFont:large];
+
+        version_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(286, 69, 70, 25)];
+        [version_ setBackgroundColor:clear];
+        [version_ setFont:large];
+
+        //trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(278, 7, 16, 16)];
+        trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(30, 30, 16, 16)];
+        [trusted_ setImage:[UIImage applicationImageNamed:@"trusted.png"]];
+
+        [self addSubview:icon_];
         [self addSubview:name_];
-        [self addSubview:version_];
         [self addSubview:description_];
+        [self addSubview:source_];
+        [self addSubview:version_];
 
         CGColorSpaceRelease(space);
 
@@ -1559,9 +1734,37 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) setPackage:(Package *)package {
+    UIImage *image = nil;
+    if (NSString *icon = [package icon])
+        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (image == nil)
+        image = [UIImage applicationImageNamed:@"unknown.png"];
+
+    [icon_ setImage:image];
+    [icon_ zoomToScale:0.5f];
+    [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
+
     [name_ setText:[package name]];
     [version_ setText:[package latest]];
     [description_ setText:[package tagline]];
+
+    Source *source = [package source];
+    NSString *label;
+    bool trusted;
+
+    if (source == nil) {
+        label = @"Apple";
+        trusted = false;
+    } else {
+        label = [source label];
+        trusted = [source trusted];
+    }
+
+    [source_ setText:[NSString stringWithFormat:@"from %@", label]];
+
+    [trusted_ removeFromSuperview];
+    if (trusted)
+        [self addSubview:trusted_];
 }
 
 - (void) _setSelected:(float)fraction {
@@ -1586,8 +1789,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     1.0);
 
     [name_ setColor:black];
-    [version_ setColor:blue];
     [description_ setColor:gray];
+    [source_ setColor:black];
+    [version_ setColor:blue];
 
     CGColorSpaceRelease(space);
 }
@@ -1687,6 +1891,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         fetcher_ = NULL;
         lock_ = NULL;
 
+        sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
+
         int fds[2];
 
         _assert(pipe(fds) != -1);
@@ -1728,6 +1934,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) reloadData {
     _error->Discard();
+    delete list_;
     manager_ = NULL;
     delete lock_;
     delete fetcher_;
@@ -1746,6 +1953,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     resolver_ = new pkgProblemResolver(cache_);
     fetcher_ = new pkgAcquire(&status_);
     lock_ = NULL;
+
+    list_ = new pkgSourceList();
+    _assert(list_->ReadMainList());
+
+    [sources_ removeAllObjects];
+    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+        std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
+        for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
+            [sources_
+                setObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]
+                forKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(*index)]
+            ];
+    }
 }
 
 - (void) prepare {
@@ -1822,6 +2042,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     delegate_ = delegate;
     status_.setDelegate(delegate);
     progress_.setDelegate(delegate);
+}
+
+- (Source *) getSource:(const pkgCache::PkgFileIterator &)file {
+    pkgIndexFile *index(NULL);
+    list_->FindIndex(file, index);
+    return [sources_ objectForKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(index)]];
 }
 
 @end
@@ -2192,7 +2418,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (float) table:(UITable *)table heightForRow:(int)row {
-    return 64;
+    return 100;
 }
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
@@ -2310,7 +2536,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         CGColor clear(space, 0, 0, 0, 0);
         CGColor white(space, 1, 1, 1, 1);
 
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(47, 9, 250, 25)];
+        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 9, 250, 25)];
         [name_ setBackgroundColor:clear];
         [name_ setFont:bold];
 
@@ -2669,7 +2895,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (float) table:(UITable *)table heightForRow:(int)row {
-    return 64;
+    return 100;
 }
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
@@ -3420,7 +3646,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) applicationWillSuspend {
     if (restart_)
-        system("launchctl stop com.apple.SpringBoard");
+        if (FW_LEAST(1,1,3))
+            notify_post("com.apple.language.changed");
+        else
+            system("launchctl stop com.apple.SpringBoard");
 
     [super applicationWillSuspend];
 }

@@ -1067,7 +1067,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSString *) section {
-    return [[NSString stringWithCString:iterator_.Section()] stringByReplacingCharacter:'_' withCharacter:' '];
+    const char *section = iterator_.Section();
+    return section == NULL ? nil : [[NSString stringWithCString:section] stringByReplacingCharacter:'_' withCharacter:' '];
 }
 
 - (Address *) maintainer {
@@ -1178,9 +1179,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSComparisonResult) compareBySectionAndName:(Package *)package {
-    NSComparisonResult result = [[self section] compare:[package section]];
-    if (result != NSOrderedSame)
-        return result;
+    NSString *lhs = [self section];
+    NSString *rhs = [package section];
+
+    if (lhs == NULL && rhs != NULL)
+        return NSOrderedAscending;
+    else if (lhs != NULL && rhs == NULL)
+        return NSOrderedDescending;
+    else if (lhs != NULL && rhs != NULL) {
+        NSComparisonResult result = [lhs compare:rhs];
+        if (result != NSOrderedSame)
+            return result;
+    }
+
     return [self compareByName:package];
 }
 
@@ -1387,10 +1398,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
                 [cell setValue:(installed == nil ? @"n/a" : installed)];
             } break;
 
-            case 2:
+            case 2: {
                 [cell setTitle:@"Section"];
-                [cell setValue:[package_ section]];
-            break;
+                NSString *section([package_ section]);
+                [cell setValue:(section == nil ? @"n/a" : section)];
+            } break;
 
             case 3:
                 [cell setTitle:@"Expanded Size"];
@@ -2329,7 +2341,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [name_ setText:@"All Packages"];
         [count_ setText:nil];
     } else {
-        [name_ setText:[section name]];
+        NSString *name = [section name];
+        [name_ setText:(name == nil ? @"(No Section)" : name)];
         [count_ setText:[NSString stringWithFormat:@"%d", [section count]]];
     }
 }
@@ -2544,10 +2557,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         Package *package = [packages_ objectAtIndex:offset];
         NSString *name = [package section];
 
-        if (section == nil || ![[section name] isEqual:name]) {
+        if (section == nil || name != nil && ![[section name] isEqual:name]) {
             section = [[[Section alloc] initWithName:name row:offset] autorelease];
 
-            if ([name isEqualToString:section_])
+            if (name == nil || [name isEqualToString:section_])
                 nsection = section;
             [sections addObject:section];
         }

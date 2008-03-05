@@ -184,9 +184,9 @@ unsigned Minor_;
 unsigned BugFix_;
 
 #define FW_LEAST(major, minor, bugfix) \
-    (major > Major_ || major == Major_ && \
-        (minor > Minor_ || minor == Minor_ && \
-            bugfix >= BugFix_))
+    (major < Major_ || major == Major_ && \
+        (minor < Minor_ || minor == Minor_ && \
+            bugfix <= BugFix_))
 
 bool bootstrap_ = false;
 
@@ -3701,8 +3701,8 @@ int main(int argc, char *argv[]) {
             NSArray *versions = [prover componentsSeparatedByString:@"."];
             int count = [versions count];
             Major_ = count > 0 ? [[versions objectAtIndex:0] intValue] : 0;
-            Minor_ = count > 1 ? [[versions objectAtIndex:0] intValue] : 0;
-            BugFix_ = count > 2 ? [[versions objectAtIndex:0] intValue] : 0;
+            Minor_ = count > 1 ? [[versions objectAtIndex:1] intValue] : 0;
+            BugFix_ = count > 2 ? [[versions objectAtIndex:2] intValue] : 0;
         }
     }
 

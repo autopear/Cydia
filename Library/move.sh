@@ -12,13 +12,9 @@ function df_() {
 
 function mv_() {
     src=$1
-    dst=$2
 
-    if [[ -e ${dst} ]]; then
-        dst=$(mktemp -d /var/cydia.XXXXXX)
-    else
-        mkdir -p "${dst}"
-    fi
+    mkdir -p /var/stash
+    dst=$(mktemp -d /var/stash/$(basename "${dir}").XXXXXX)
 
     if [[ -e ${src} ]]; then
         chmod --reference="${src}" "${dst}"
@@ -40,7 +36,6 @@ function mv_() {
 
 function shift_() {
     dir=$1
-    dst=$2
 
     if [[ -d ${dir} && ! -h ${dir} ]]; then
         used=$(du -bs "${dir}")
@@ -48,11 +43,11 @@ function shift_() {
         free=$(df_ /var)
 
         if [[ $((used + 524288)) -lt ${free} ]]; then
-            mv_ "${dir}" "${dst}"
+            mv_ "${dir}"
         fi
-    elif [[ -h ${dir} && ! -e ${dir} ]]; then
+    elif [[ ! -e ${dir} ]]; then
         rm -f "${dir}"
-        mv_ "${dir}" "${dst}"
+        mv_ "${dir}"
     fi
 }
 

@@ -937,6 +937,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSString *type_;
     NSString *version_;
 
+    NSString *defaultIcon_;
+
     BOOL trusted_;
 }
 
@@ -954,6 +956,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (NSString *) label;
 - (NSString *) origin;
 - (NSString *) version;
+
+- (NSString *) defaultIcon;
 @end
 
 @implementation Source
@@ -1001,7 +1005,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 while (!value.empty() && value[0] == ' ')
                     value = value.substr(1);
 
-                if (name == "Description")
+                if (name == "Default-Icon")
+                    defaultIcon_ = [[NSString stringWithCString:value.c_str()] retain];
+                else if (name == "Description")
                     description_ = [[NSString stringWithCString:value.c_str()] retain];
                 else if (name == "Label")
                     label_ = [[NSString stringWithCString:value.c_str()] retain];
@@ -1044,6 +1050,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (NSString *) version {
     return version_;
+}
+
+- (NSString *) defaultIcon {
+    return defaultIcon_;
 }
 
 @end
@@ -1707,7 +1717,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [description_ setBackgroundColor:clear];
         [description_ setFont:small];
 
-        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 72, 150, 20)];
+        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 72, 225, 20)];
         [source_ setBackgroundColor:clear];
         [source_ setFont:large];
 
@@ -1734,8 +1744,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) setPackage:(Package *)package {
+    Source *source = [package source];
+
     UIImage *image = nil;
     if (NSString *icon = [package icon])
+        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (image == nil) if (NSString *icon = [source defaultIcon])
         image = [UIImage imageAtPath:[icon substringFromIndex:6]];
     if (image == nil)
         image = [UIImage applicationImageNamed:@"unknown.png"];
@@ -1748,16 +1762,18 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [version_ setText:[package latest]];
     [description_ setText:[package tagline]];
 
-    Source *source = [package source];
     NSString *label;
     bool trusted;
 
-    if (source == nil) {
+    if (source != nil) {
+        label = [source label];
+        trusted = [source trusted];
+    } else if ([[package id] isEqualToString:@"firmware"]) {
         label = @"Apple";
         trusted = false;
     } else {
-        label = [source label];
-        trusted = [source trusted];
+        label = @"Unknown/Local";
+        trusted = false;
     }
 
     [source_ setText:[NSString stringWithFormat:@"from %@", label]];

@@ -56,6 +56,10 @@ while (false)
 @end
 /* }}} */
 
+#ifdef SRK_ASPEN
+#define UITable UITableView
+#endif
+
 /* Reset View (UIView) {{{ */
 @interface UIView (CYResetView)
 - (void) resetViewAnimated:(BOOL)animated;
@@ -475,6 +479,7 @@ inline float interpolate(float begin, float end, float fraction) {
     pkgSourceList *list_;
 
     NSMutableDictionary *sources_;
+    NSMutableArray *packages_;
 
     id delegate_;
     Status status_;
@@ -494,6 +499,7 @@ inline float interpolate(float begin, float end, float fraction) {
 - (pkgRecords *) records;
 - (pkgProblemResolver *) resolver;
 - (pkgAcquire &) fetcher;
+- (NSArray *) packages;
 - (void) reloadData;
 
 - (void) prepare;
@@ -1120,6 +1126,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) latest;
 - (NSString *) installed;
 - (BOOL) upgradable;
+- (BOOL) essential;
+- (BOOL) broken;
 
 - (NSString *) id;
 - (NSString *) name;
@@ -1264,8 +1272,18 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (BOOL) upgradable {
-    NSString *installed = [self installed];
-    return installed != nil && [[self latest] compare:installed] != NSOrderedSame ? YES : NO;
+    if (NSString *installed = [self installed])
+        return [[self latest] compare:installed] != NSOrderedSame ? YES : NO;
+    else
+        return [self essential];
+}
+
+- (BOOL) essential {
+    return (iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES;
+}
+
+- (BOOL) broken {
+    return (*[database_ cache])[iterator_].InstBroken();
 }
 
 - (NSString *) id {
@@ -1908,6 +1926,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         lock_ = NULL;
 
         sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
+        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         int fds[2];
 
@@ -1948,6 +1967,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return *fetcher_;
 }
 
+- (NSArray *) packages {
+    return packages_;
+}
+
 - (void) reloadData {
     _error->Discard();
     delete list_;
@@ -1982,6 +2005,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
                 forKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(*index)]
             ];
     }
+
+    [packages_ removeAllObjects];
+    for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
+        if (Package *package = [Package packageWithIterator:iterator database:self])
+            [packages_ addObject:package];
 }
 
 - (void) prepare {
@@ -3477,10 +3505,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     now_ = [NSDate date];
 
-    NSMutableArray *packages = [NSMutableArray arrayWithCapacity:count];
-    for (pkgCache::PkgIterator iterator = [database_ cache]->PkgBegin(); !iterator.end(); ++iterator)
-        if (Package *package = [Package packageWithIterator:iterator database:database_])
-            [packages addObject:package];
+    NSArray *packages = [database_ packages];
 
     [install_ setPackages:packages];
     [changes_ setPackages:packages];
@@ -3517,7 +3542,32 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) perform {
     [database_ prepare];
-    confirm_ = [[ConfirmationView alloc] initWithView:underlay_ database:database_ delegate:self];
+
+    if ([database_ cache]->BrokenCount() == 0)
+        confirm_ = [[ConfirmationView alloc] initWithView:underlay_ database:database_ delegate:self];
+    else {
+        NSMutableArray *broken = [NSMutableArray arrayWithCapacity:16];
+        NSArray *packages = [database_ packages];
+
+        for (size_t i(0); i != [packages count]; ++i) {
+            Package *package = [packages objectAtIndex:i];
+            if ([package broken])
+                [broken addObject:[package name]];
+        }
+
+        UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+            initWithTitle:[NSString stringWithFormat:@"%d Broken Packages", [database_ cache]->BrokenCount()]
+            buttons:[NSArray arrayWithObjects:@"Okay", nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:self
+        ] autorelease];
+
+        [sheet setBodyText:[NSString stringWithFormat:@"The following packages have unmet dependencies:\n\n%@", [broken componentsJoinedByString:@"\n"]]];
+        [sheet popupAlertAnimated:YES];
+
+        [self reloadData:NO];
+    }
 }
 
 - (void) upgrade {

@@ -1200,7 +1200,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         source_ = [[database_ getSource:file_.File()] retain];
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
-        if (metadata == nil) {
+        if (metadata == nil || [metadata count] == 0) {
             metadata = [NSMutableDictionary dictionaryWithObjectsAndKeys:
                 now_, @"FirstSeen",
             nil];
@@ -1987,6 +1987,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [self update];
         _assert(cache_.Open(progress_, true));
     }
+
+    now_ = [NSDate date];
 
     records_ = new pkgRecords(cache_);
     resolver_ = new pkgProblemResolver(cache_);
@@ -3049,11 +3051,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         else {
             NSDate *seen = [package seen];
 
-            CFLocaleRef locale = CFLocaleCopyCurrent();
-            CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-            CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
+            NSString *name;
+            CFStringRef formatted = NULL;
 
-            NSString *name = (NSString *) formatted;
+            if (seen == nil)
+                name = @"n/a ?";
+            else {
+                CFLocaleRef locale = CFLocaleCopyCurrent();
+                CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+                formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
+                name = (NSString *) formatted;
+                CFRelease(formatter);
+                CFRelease(locale);
+            }
 
             if (section == nil || ![[section name] isEqual:name]) {
                 section = [[[Section alloc] initWithName:name row:offset] autorelease];
@@ -3062,9 +3072,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
             [section addPackage:package];
 
-            CFRelease(formatter);
-            CFRelease(formatted);
-            CFRelease(locale);
+            if (formatted != NULL)
+                CFRelease(formatted);
         }
     }
 
@@ -3502,8 +3511,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         Packages_ = [[NSMutableDictionary alloc] initWithCapacity:count];
         [Metadata_ setObject:Packages_ forKey:@"Packages"];
     }
-
-    now_ = [NSDate date];
 
     NSArray *packages = [database_ packages];
 

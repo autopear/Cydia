@@ -1,7 +1,9 @@
 /* #include Directives {{{ */
 #include <Foundation/NSURL.h>
 #include <UIKit/UIKit.h>
-#import <GraphicsServices/GraphicsServices.h>
+#include <GraphicsServices/GraphicsServices.h>
+
+#include <objc/objc.h>
 
 #include <sstream>
 #include <ext/stdio_filebuf.h>
@@ -25,7 +27,8 @@ extern "C" {
 #include <mach-o/nlist.h>
 }
 
-#include <objc/objc-class.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <errno.h>
 #include <pcre.h>
@@ -60,6 +63,8 @@ while (false)
 #define UITable UITableView
 #endif
 
+OBJC_EXPORT const char *class_getName(Class cls);
+
 /* Reset View (UIView) {{{ */
 @interface UIView (CYResetView)
 - (void) resetViewAnimated:(BOOL)animated;
@@ -68,7 +73,7 @@ while (false)
 @implementation UIView (CYResetView)
 
 - (void) resetViewAnimated:(BOOL)animated {
-    fprintf(stderr, "%s\n", self->isa->name);
+    fprintf(stderr, "%s\n", class_getName(self->isa));
     _assert(false);
 }
 
@@ -2011,7 +2016,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [packages_ removeAllObjects];
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
         if (Package *package = [Package packageWithIterator:iterator database:self])
-            [packages_ addObject:package];
+            if ([package source] != nil || [package installed] != nil)
+                [packages_ addObject:package];
 }
 
 - (void) prepare {

@@ -1,7 +1,8 @@
 /* #include Directives {{{ */
-#include <Foundation/NSURL.h>
-#include <UIKit/UIKit.h>
+#include <CoreGraphics/CoreGraphics.h>
 #include <GraphicsServices/GraphicsServices.h>
+#include <Foundation/Foundation.h>
+#include <UIKit/UIKit.h>
 
 #include <objc/objc.h>
 
@@ -150,7 +151,7 @@ class Pcre {
     }
 };
 /* }}} */
-/* CoreGraphicsServices Primitives {{{ */
+/* CoreGraphics Primitives {{{ */
 class CGColor {
   private:
     CGColorRef color_;
@@ -176,7 +177,6 @@ class GSFont {
 
   public:
     ~GSFont() {
-        /* XXX: no GSFontRelease()? */
         CFRelease(font_);
     }
 };
@@ -352,6 +352,13 @@ class Progress :
     }
 };
 /* }}} */
+
+@protocol CydiaDelegate
+- (void) resolve;
+- (void) perform;
+- (void) upgrade;
+- (void) update;
+@end
 
 /* External Constants {{{ */
 extern NSString *kUIButtonBarButtonAction;
@@ -1689,7 +1696,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     UITextLabel *name_;
     UITextLabel *description_;
     UITextLabel *source_;
-    UITextLabel *version_;
     UIImageView *trusted_;
     SEL versioner_;
 }
@@ -1713,7 +1719,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [name_ release];
     [description_ release];
     [source_ release];
-    [version_ release];
     [trusted_ release];
     [super dealloc];
 }
@@ -1744,10 +1749,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [source_ setBackgroundColor:clear];
         [source_ setFont:large];
 
-        version_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(286, 69, 70, 25)];
-        [version_ setBackgroundColor:clear];
-        [version_ setFont:large];
-
         //trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(278, 7, 16, 16)];
         trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(30, 30, 16, 16)];
         [trusted_ setImage:[UIImage applicationImageNamed:@"trusted.png"]];
@@ -1756,7 +1757,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [self addSubview:name_];
         [self addSubview:description_];
         [self addSubview:source_];
-        [self addSubview:version_];
 
         CGColorSpaceRelease(space);
 
@@ -1782,7 +1782,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
 
     [name_ setText:[package name]];
-    [version_ setText:[package latest]];
     [description_ setText:[package tagline]];
 
     NSString *label;
@@ -1815,12 +1814,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         interpolate(0.0, 1.0, fraction),
     1.0);
 
-    CGColor blue(space,
-        interpolate(0.2, 1.0, fraction),
-        interpolate(0.2, 1.0, fraction),
-        interpolate(1.0, 1.0, fraction),
-    1.0);
-
     CGColor gray(space,
         interpolate(0.4, 1.0, fraction),
         interpolate(0.4, 1.0, fraction),
@@ -1830,7 +1823,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [name_ setColor:black];
     [description_ setColor:gray];
     [source_ setColor:black];
-    [version_ setColor:blue];
 
     CGColorSpaceRelease(space);
 }
@@ -1919,7 +1911,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (Package *) packageWithName:(NSString *)name {
-    pkgCache::PkgIterator iterator(cache_->FindPkg([name cString]));
+    pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
     return iterator.end() ? nil : [Package packageWithIterator:iterator database:self];
 }
 
@@ -3435,7 +3427,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 @interface Cydia : UIApplication <
     ConfirmationViewDelegate,
     ProgressViewDelegate,
-    SearchViewDelegate
+    SearchViewDelegate,
+    CydiaDelegate
 > {
     UIWindow *window_;
     UIView *underlay_;
@@ -4000,7 +3993,7 @@ id Alloc_(id self, SEL selector) {
 int main(int argc, char *argv[]) {
     struct nlist nl[2];
     memset(nl, 0, sizeof(nl));
-    nl[0].n_un.n_name = "_useMDNSResponder";
+    nl[0].n_un.n_name = (char *) "_useMDNSResponder";
     nlist("/usr/lib/libc.dylib", nl);
     if (nl[0].n_type != N_UNDF)
         *(int *) nl[0].n_value = 0;
@@ -4018,7 +4011,7 @@ int main(int argc, char *argv[]) {
 
     if (NSDictionary *sysver = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"]) {
         if (NSString *prover = [sysver valueForKey:@"ProductVersion"]) {
-            Firmware_ = strdup([prover cString]);
+            Firmware_ = strdup([prover UTF8String]);
             NSArray *versions = [prover componentsSeparatedByString:@"."];
             int count = [versions count];
             Major_ = count > 0 ? [[versions objectAtIndex:0] intValue] : 0;

@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     if (NSDictionary *sysver = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"]) {
         if (NSString *prover = [sysver valueForKey:@"ProductVersion"]) {
-            Firmware_ = strdup([prover cString]);
+            Firmware_ = strdup([prover UTF8String]);
             NSArray *versions = [prover componentsSeparatedByString:@"."];
             int count = [versions count];
             Major_ = count > 0 ? [[versions objectAtIndex:0] intValue] : 0;

@@ -5,6 +5,7 @@
 #include <UIKit/UIKit.h>
 
 #include <objc/objc.h>
+#include <objc/runtime.h>
 
 #include <sstream>
 #include <ext/stdio_filebuf.h>
@@ -60,9 +61,50 @@ while (false)
 @end
 /* }}} */
 
-#ifdef SRK_ASPEN
-#define UITable UITableView
+/* iPhoneOS 2.0 Compatibility {{{ */
+#ifdef __OBJC2__
+@interface UICGColor : NSObject {
+}
+
+- (id) initWithCGColor:(CGColorRef)color;
+@end
+
+@interface UIFont {
+}
+
+- (UIFont *) fontWithSize:(CGFloat)size;
+@end
+
+@interface NSObject (iPhoneOS)
+- (CGColorRef) cgColor;
+- (void) set;
+@end
+
+@implementation NSObject (iPhoneOS)
+
+- (CGColorRef) cgColor {
+    return (CGColorRef) self;
+}
+
+- (void) set {
+    [[[[objc_getClass("UICGColor") alloc] initWithCGColor:[self cgColor]] autorelease] set];
+}
+
+@end
+
+@interface UITextView (iPhoneOS)
+- (void) setTextSize:(float)size;
+@end
+
+@implementation UITextView (iPhoneOS)
+
+- (void) setTextSize:(float)size {
+    [self setFont:[[self font] fontWithSize:size]];
+}
+
+@end
 #endif
+/* }}} */
 
 OBJC_EXPORT const char *class_getName(Class cls);
 
@@ -244,9 +286,9 @@ UITextView *GetTextView(NSString *value, float left, bool html) {
     UITextView *text([[[UITextView alloc] initWithFrame:CGRectMake(left, 3, 310 - left, 1000)] autorelease]);
     [text setEditable:NO];
     [text setTextSize:16];
-    if (html)
+    /*if (html)
         [text setHTML:value];
-    else
+    else*/
         [text setText:value];
     [text setEnabled:NO];
 
@@ -3277,7 +3319,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) packageTable:(id)table packageSelected:(Package *)package {
     if (package == nil) {
+#ifndef __OBJC2__
         [navbar_ setAccessoryView:accessory_ animate:(resetting_ ? NO : YES) goingBack:YES];
+#else
+        [navbar_ setAccessoryView:accessory_ animate:YES removeOnPop:NO];
+#endif
 
         [package_ release];
         package_ = nil;
@@ -3285,7 +3331,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [view_ release];
         view_ = nil;
     } else {
+#ifndef __OBJC2__
         [navbar_ setAccessoryView:nil animate:YES goingBack:NO];
+#else
+        [navbar_ setAccessoryView:nil animate:YES removeOnPop:YES];
+#endif
 
         _assert(package_ == nil);
         _assert(view_ == nil);
@@ -3352,9 +3402,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [field_ setPaddingTop:5];
         [field_ setDelegate:self];
 
+#ifndef __OBJC2__
         UITextTraits *traits = [field_ textTraits];
         [traits setEditingDelegate:self];
         [traits setReturnKeyType:6];
+#endif
 
         accessory_ = [[UIView alloc] initWithFrame:CGRectMake(6, 6, area.size.width, area.size.height + 30)];
         [accessory_ addSubview:field_];

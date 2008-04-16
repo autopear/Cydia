@@ -77,17 +77,22 @@ while (false)
 
 @interface NSObject (iPhoneOS)
 - (CGColorRef) cgColor;
+- (CGColorRef) CGColor;
 - (void) set;
 @end
 
 @implementation NSObject (iPhoneOS)
 
 - (CGColorRef) cgColor {
+    return [self CGColor];
+}
+
+- (CGColorRef) CGColor {
     return (CGColorRef) self;
 }
 
 - (void) set {
-    [[[[objc_getClass("UICGColor") alloc] initWithCGColor:[self cgColor]] autorelease] set];
+    [[[[objc_getClass("UICGColor") alloc] initWithCGColor:[self CGColor]] autorelease] set];
 }
 
 @end

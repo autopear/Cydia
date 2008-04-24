@@ -424,6 +424,9 @@ static CGColor Clear_;
 static CGColor Red_;
 static CGColor White_;
 
+static NSString *Home_;
+static BOOL Sounds_Keyboard_;
+
 const char *Firmware_ = NULL;
 const char *Machine_ = NULL;
 const char *SerialNumber_ = NULL;
@@ -4243,6 +4246,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     CGSize keysize = [UIKeyboard defaultSize];
     CGRect keyrect = {{0, [overlay_ bounds].size.height - keysize.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
+    [[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
 
     [self reloadData];
     [book_ update];
@@ -4324,7 +4328,18 @@ id Dealloc_(id self, SEL selector) {
 }*/
 
 int main(int argc, char *argv[]) {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
     bootstrap_ = argc > 1 && strcmp(argv[1], "--bootstrap") == 0;
+
+    Home_ = NSHomeDirectory();
+
+    {
+        NSString *plist = [Home_ stringByAppendingString:@"/Library/Preferences/com.apple.preferences.sounds.plist"];
+        if (NSDictionary *sounds = [NSDictionary dictionaryWithContentsOfFile:plist])
+            if (NSNumber *keyboard = [sounds objectForKey:@"keyboard"])
+                Sounds_Keyboard_ = [keyboard boolValue];
+    }
 
     setuid(0);
     setgid(0);
@@ -4336,8 +4351,6 @@ int main(int argc, char *argv[]) {
     /*Method dealloc = class_getClassMethod([NSObject class], @selector(dealloc));
     dealloc_ = dealloc->method_imp;
     dealloc->method_imp = (IMP) &Dealloc_;*/
-
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     if (NSDictionary *sysver = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"]) {
         if (NSString *prover = [sysver valueForKey:@"ProductVersion"]) {

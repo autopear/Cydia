@@ -1,8 +1,49 @@
+/* Cydia - iPhone UIKit Front-End for Debian APT
+ * Copyright (C) 2008  Jay Freeman (saurik)
+*/
+
+/*
+ *        Redistribution and use in source and binary
+ * forms, with or without modification, are permitted
+ * provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the
+ *    above copyright notice, this list of conditions
+ *    and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the
+ *    above copyright notice, this list of conditions
+ *    and the following disclaimer in the documentation
+ *    and/or other materials provided with the
+ *    distribution.
+ * 3. The name of the author may not be used to endorse
+ *    or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+ * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 /* #include Directives {{{ */
 #include <CoreGraphics/CoreGraphics.h>
 #include <GraphicsServices/GraphicsServices.h>
 #include <Foundation/Foundation.h>
 #include <UIKit/UIKit.h>
+#include <WebCore/DOMHTML.h>
+
+#include <WebKit/WebFrame.h>
+#include <WebKit/WebView.h>
 
 #include <objc/objc.h>
 #include <objc/runtime.h>
@@ -47,19 +88,37 @@ extern "C" {
 while (false)
 
 #define _not(type) ((type) ~ (type) 0)
-/* }}} */
-/* Miscellaneous Messages {{{ */
-@interface WebView
-- (void) setApplicationNameForUserAgent:(NSString *)applicationName;
-- (id) frameLoadDelegate;
-- (void) setFrameLoadDelegate:(id)delegate;
-@end
 
+#define _transient
+/* }}} */
+
+/* Miscellaneous Messages {{{ */
 @interface NSString (Cydia)
 - (NSString *) stringByAddingPercentEscapes;
 - (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
 @end
 /* }}} */
+/* External Constants {{{ */
+extern NSString *kUIButtonBarButtonAction;
+extern NSString *kUIButtonBarButtonInfo;
+extern NSString *kUIButtonBarButtonInfoOffset;
+extern NSString *kUIButtonBarButtonSelectedInfo;
+extern NSString *kUIButtonBarButtonStyle;
+extern NSString *kUIButtonBarButtonTag;
+extern NSString *kUIButtonBarButtonTarget;
+extern NSString *kUIButtonBarButtonTitle;
+extern NSString *kUIButtonBarButtonTitleVerticalHeight;
+extern NSString *kUIButtonBarButtonTitleWidth;
+extern NSString *kUIButtonBarButtonType;
+/* }}} */
+
+#if 1
+#define $_
+#define _$
+#else
+#define $_ fprintf(stderr, "+");_trace();
+#define _$ fprintf(stderr, "-");_trace();
+#endif
 
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
@@ -114,13 +173,19 @@ while (false)
 OBJC_EXPORT const char *class_getName(Class cls);
 
 /* Reset View (UIView) {{{ */
-@interface UIView (CYResetView)
+@interface UIView (RVBook)
 - (void) resetViewAnimated:(BOOL)animated;
+- (void) clearView;
 @end
 
-@implementation UIView (CYResetView)
+@implementation UIView (RVBook)
 
 - (void) resetViewAnimated:(BOOL)animated {
+    fprintf(stderr, "%s\n", class_getName(self->isa));
+    _assert(false);
+}
+
+- (void) clearView {
     fprintf(stderr, "%s\n", class_getName(self->isa));
     _assert(false);
 }
@@ -128,27 +193,37 @@ OBJC_EXPORT const char *class_getName(Class cls);
 @end
 /* }}} */
 /* Reset View (UITable) {{{ */
-@interface UITable (CYResetView)
+@interface UITable (RVBook)
 - (void) resetViewAnimated:(BOOL)animated;
+- (void) clearView;
 @end
 
-@implementation UITable (CYResetView)
+@implementation UITable (RVBook)
 
 - (void) resetViewAnimated:(BOOL)animated {
     [self selectRow:-1 byExtendingSelection:NO withFade:animated];
 }
 
+- (void) clearView {
+    [self clearAllData];
+}
+
 @end
 /* }}} */
 /* Reset View (UISectionList) {{{ */
-@interface UISectionList (CYResetView)
+@interface UISectionList (RVBook)
 - (void) resetViewAnimated:(BOOL)animated;
+- (void) clearView;
 @end
 
-@implementation UISectionList (CYResetView)
+@implementation UISectionList (RVBook)
 
 - (void) resetViewAnimated:(BOOL)animated {
     [[self table] resetViewAnimated:animated];
+}
+
+- (void) clearView {
+    [[self table] clearView];
 }
 
 @end
@@ -198,228 +273,6 @@ class Pcre {
     }
 };
 /* }}} */
-/* CoreGraphics Primitives {{{ */
-class CGColor {
-  private:
-    CGColorRef color_;
-
-  public:
-    CGColor(CGColorSpaceRef space, float red, float green, float blue, float alpha) {
-        float color[] = {red, green, blue, alpha};
-        color_ = CGColorCreate(space, color);
-    }
-
-    ~CGColor() {
-        CGColorRelease(color_);
-    }
-
-    operator CGColorRef() {
-        return color_;
-    }
-};
-
-class GSFont {
-  private:
-    GSFontRef font_;
-
-  public:
-    ~GSFont() {
-        CFRelease(font_);
-    }
-};
-/* }}} */
-
-static const int PulseInterval_ = 50000;
-
-const char *Firmware_ = NULL;
-const char *Machine_ = NULL;
-const char *SerialNumber_ = NULL;
-
-unsigned Major_;
-unsigned Minor_;
-unsigned BugFix_;
-
-#define FW_LEAST(major, minor, bugfix) \
-    (major < Major_ || major == Major_ && \
-        (minor < Minor_ || minor == Minor_ && \
-            bugfix <= BugFix_))
-
-bool bootstrap_ = false;
-
-static NSMutableDictionary *Metadata_;
-static NSMutableDictionary *Packages_;
-static NSDate *now_;
-
-NSString *GetLastUpdate() {
-    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
-
-    if (update == nil)
-        return @"Never or Unknown";
-
-    CFLocaleRef locale = CFLocaleCopyCurrent();
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
-
-    CFRelease(formatter);
-    CFRelease(locale);
-
-    return [(NSString *) formatted autorelease];
-}
-
-@protocol ProgressDelegate
-- (void) setError:(NSString *)error;
-- (void) setTitle:(NSString *)title;
-- (void) setPercent:(float)percent;
-- (void) addOutput:(NSString *)output;
-@end
-
-NSString *SizeString(double size) {
-    unsigned power = 0;
-    while (size > 1024) {
-        size /= 1024;
-        ++power;
-    }
-
-    static const char *powers_[] = {"B", "kB", "MB", "GB"};
-
-    return [NSString stringWithFormat:@"%.1f%s", size, powers_[power]];
-}
-
-static const float TextViewOffset_ = 22;
-
-UITextView *GetTextView(NSString *value, float left, bool html) {
-    UITextView *text([[[UITextView alloc] initWithFrame:CGRectMake(left, 3, 310 - left, 1000)] autorelease]);
-    [text setEditable:NO];
-    [text setTextSize:16];
-    /*if (html)
-        [text setHTML:value];
-    else*/
-        [text setText:value];
-    [text setEnabled:NO];
-
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGColor clear(space, 0, 0, 0, 0);
-    [text setBackgroundColor:clear];
-    CGColorSpaceRelease(space);
-
-    CGRect frame = [text frame];
-    [text setFrame:frame];
-    CGRect rect = [text visibleTextRect];
-    frame.size.height = rect.size.height;
-    [text setFrame:frame];
-
-    return text;
-}
-
-/* Status Delegation {{{ */
-class Status :
-    public pkgAcquireStatus
-{
-  private:
-    id delegate_;
-
-  public:
-    Status() :
-        delegate_(nil)
-    {
-    }
-
-    void setDelegate(id delegate) {
-        delegate_ = delegate;
-    }
-
-    virtual bool MediaChange(std::string media, std::string drive) {
-        return false;
-    }
-
-    virtual void IMSHit(pkgAcquire::ItemDesc &item) {
-    }
-
-    virtual void Fetch(pkgAcquire::ItemDesc &item) {
-        [delegate_ setTitle:[NSString stringWithCString:("Downloading " + item.ShortDesc).c_str()]];
-    }
-
-    virtual void Done(pkgAcquire::ItemDesc &item) {
-    }
-
-    virtual void Fail(pkgAcquire::ItemDesc &item) {
-        if (
-            item.Owner->Status == pkgAcquire::Item::StatIdle ||
-            item.Owner->Status == pkgAcquire::Item::StatDone
-        )
-            return;
-
-        [delegate_ setError:[NSString stringWithCString:item.Owner->ErrorText.c_str()]];
-    }
-
-    virtual bool Pulse(pkgAcquire *Owner) {
-        bool value = pkgAcquireStatus::Pulse(Owner);
-
-        float percent(
-            double(CurrentBytes + CurrentItems) /
-            double(TotalBytes + TotalItems)
-        );
-
-        [delegate_ setPercent:percent];
-        return value;
-    }
-
-    virtual void Start() {
-    }
-
-    virtual void Stop() {
-    }
-};
-/* }}} */
-/* Progress Delegation {{{ */
-class Progress :
-    public OpProgress
-{
-  private:
-    id delegate_;
-
-  protected:
-    virtual void Update() {
-        [delegate_ setTitle:[NSString stringWithCString:Op.c_str()]];
-        [delegate_ setPercent:(Percent / 100)];
-    }
-
-  public:
-    Progress() :
-        delegate_(nil)
-    {
-    }
-
-    void setDelegate(id delegate) {
-        delegate_ = delegate;
-    }
-
-    virtual void Done() {
-        [delegate_ setPercent:1];
-    }
-};
-/* }}} */
-
-@protocol CydiaDelegate
-- (void) resolve;
-- (void) perform;
-- (void) upgrade;
-- (void) update;
-@end
-
-/* External Constants {{{ */
-extern NSString *kUIButtonBarButtonAction;
-extern NSString *kUIButtonBarButtonInfo;
-extern NSString *kUIButtonBarButtonInfoOffset;
-extern NSString *kUIButtonBarButtonSelectedInfo;
-extern NSString *kUIButtonBarButtonStyle;
-extern NSString *kUIButtonBarButtonTag;
-extern NSString *kUIButtonBarButtonTarget;
-extern NSString *kUIButtonBarButtonTitle;
-extern NSString *kUIButtonBarButtonTitleVerticalHeight;
-extern NSString *kUIButtonBarButtonTitleWidth;
-extern NSString *kUIButtonBarButtonType;
-/* }}} */
 /* Mime Addresses {{{ */
 Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
 
@@ -427,8 +280,6 @@ Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
     NSString *name_;
     NSString *email_;
 }
-
-- (void) dealloc;
 
 - (NSString *) name;
 - (NSString *) email;
@@ -475,7 +326,53 @@ Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
 
 @end
 /* }}} */
+/* CoreGraphics Primitives {{{ */
+class CGColor {
+  private:
+    CGColorRef color_;
 
+  public:
+    CGColor() :
+        color_(NULL)
+    {
+    }
+
+    CGColor(CGColorSpaceRef space, float red, float green, float blue, float alpha) :
+        color_(NULL)
+    {
+        Set(space, red, green, blue, alpha);
+    }
+
+    void Clear() {
+        if (color_ != NULL)
+            CGColorRelease(color_);
+    }
+
+    ~CGColor() {
+        Clear();
+    }
+
+    void Set(CGColorSpaceRef space, float red, float green, float blue, float alpha) {
+        Clear();
+        float color[] = {red, green, blue, alpha};
+        color_ = CGColorCreate(space, color);
+    }
+
+    operator CGColorRef() {
+        return color_;
+    }
+};
+
+class GSFont {
+  private:
+    GSFontRef font_;
+
+  public:
+    ~GSFont() {
+        CFRelease(font_);
+    }
+};
+/* }}} */
 /* Right Alignment {{{ */
 @interface UIRightTextLabel : UITextLabel {
     float       _savedRightEdgeX;
@@ -518,14 +415,199 @@ Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
 
 @end
 /* }}} */
-/* Linear Algebra {{{ */
-inline float interpolate(float begin, float end, float fraction) {
+
+/* Random Global Variables {{{ */
+static const int PulseInterval_ = 50000;
+
+static CGColor Black_;
+static CGColor Clear_;
+static CGColor Red_;
+static CGColor White_;
+
+const char *Firmware_ = NULL;
+const char *Machine_ = NULL;
+const char *SerialNumber_ = NULL;
+
+unsigned Major_;
+unsigned Minor_;
+unsigned BugFix_;
+
+CGColorSpaceRef space_;
+
+#define FW_LEAST(major, minor, bugfix) \
+    (major < Major_ || major == Major_ && \
+        (minor < Minor_ || minor == Minor_ && \
+            bugfix <= BugFix_))
+
+bool bootstrap_;
+bool restart_;
+
+static NSMutableDictionary *Metadata_;
+static NSMutableDictionary *Packages_;
+static NSDate *now_;
+
+NSString *GetLastUpdate() {
+    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
+
+    if (update == nil)
+        return @"Never or Unknown";
+
+    CFLocaleRef locale = CFLocaleCopyCurrent();
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
+
+    CFRelease(formatter);
+    CFRelease(locale);
+
+    return [(NSString *) formatted autorelease];
+}
+/* }}} */
+/* Display Helpers {{{ */
+inline float Interpolate(float begin, float end, float fraction) {
     return (end - begin) * fraction + begin;
+}
+
+NSString *SizeString(double size) {
+    unsigned power = 0;
+    while (size > 1024) {
+        size /= 1024;
+        ++power;
+    }
+
+    static const char *powers_[] = {"B", "kB", "MB", "GB"};
+
+    return [NSString stringWithFormat:@"%.1f%s", size, powers_[power]];
+}
+
+static const float TextViewOffset_ = 22;
+
+UITextView *GetTextView(NSString *value, float left, bool html) {
+    UITextView *text([[[UITextView alloc] initWithFrame:CGRectMake(left, 3, 310 - left, 1000)] autorelease]);
+    [text setEditable:NO];
+    [text setTextSize:16];
+    /*if (html)
+        [text setHTML:value];
+    else*/
+        [text setText:value];
+    [text setEnabled:NO];
+
+    [text setBackgroundColor:Clear_];
+
+    CGRect frame = [text frame];
+    [text setFrame:frame];
+    CGRect rect = [text visibleTextRect];
+    frame.size.height = rect.size.height;
+    [text setFrame:frame];
+
+    return text;
 }
 /* }}} */
 
 @class Package;
 @class Source;
+
+@protocol ProgressDelegate
+- (void) setProgressError:(NSString *)error;
+- (void) setProgressTitle:(NSString *)title;
+- (void) setProgressPercent:(float)percent;
+- (void) addProgressOutput:(NSString *)output;
+@end
+
+@protocol CydiaDelegate
+- (void) installPackage:(Package *)package;
+- (void) removePackage:(Package *)package;
+- (void) slideUp:(UIAlertSheet *)alert;
+- (void) distUpgrade;
+@end
+
+/* Status Delegation {{{ */
+class Status :
+    public pkgAcquireStatus
+{
+  private:
+    _transient id<ProgressDelegate> delegate_;
+
+  public:
+    Status() :
+        delegate_(nil)
+    {
+    }
+
+    void setDelegate(id delegate) {
+        delegate_ = delegate;
+    }
+
+    virtual bool MediaChange(std::string media, std::string drive) {
+        return false;
+    }
+
+    virtual void IMSHit(pkgAcquire::ItemDesc &item) {
+    }
+
+    virtual void Fetch(pkgAcquire::ItemDesc &item) {
+        [delegate_ setProgressTitle:[NSString stringWithCString:("Downloading " + item.ShortDesc).c_str()]];
+    }
+
+    virtual void Done(pkgAcquire::ItemDesc &item) {
+    }
+
+    virtual void Fail(pkgAcquire::ItemDesc &item) {
+        if (
+            item.Owner->Status == pkgAcquire::Item::StatIdle ||
+            item.Owner->Status == pkgAcquire::Item::StatDone
+        )
+            return;
+
+        [delegate_ setProgressError:[NSString stringWithCString:item.Owner->ErrorText.c_str()]];
+    }
+
+    virtual bool Pulse(pkgAcquire *Owner) {
+        bool value = pkgAcquireStatus::Pulse(Owner);
+
+        float percent(
+            double(CurrentBytes + CurrentItems) /
+            double(TotalBytes + TotalItems)
+        );
+
+        [delegate_ setProgressPercent:percent];
+        return value;
+    }
+
+    virtual void Start() {
+    }
+
+    virtual void Stop() {
+    }
+};
+/* }}} */
+/* Progress Delegation {{{ */
+class Progress :
+    public OpProgress
+{
+  private:
+    _transient id<ProgressDelegate> delegate_;
+
+  protected:
+    virtual void Update() {
+        [delegate_ setProgressTitle:[NSString stringWithCString:Op.c_str()]];
+        [delegate_ setProgressPercent:(Percent / 100)];
+    }
+
+  public:
+    Progress() :
+        delegate_(nil)
+    {
+    }
+
+    void setDelegate(id delegate) {
+        delegate_ = delegate;
+    }
+
+    virtual void Done() {
+        [delegate_ setProgressPercent:1];
+    }
+};
+/* }}} */
 
 /* Database Interface {{{ */
 @interface Database : NSObject {
@@ -540,13 +622,11 @@ inline float interpolate(float begin, float end, float fraction) {
     NSMutableDictionary *sources_;
     NSMutableArray *packages_;
 
-    id delegate_;
+    _transient id delegate_;
     Status status_;
     Progress progress_;
     int statusfd_;
 }
-
-- (void) dealloc;
 
 - (void) _readStatus:(NSNumber *)fd;
 - (void) _readOutput:(NSNumber *)fd;
@@ -563,431 +643,13 @@ inline float interpolate(float begin, float end, float fraction) {
 
 - (void) prepare;
 - (void) perform;
-- (void) update;
 - (void) upgrade;
+- (void) update;
+
+- (void) updateWithStatus:(Status &)status;
 
 - (void) setDelegate:(id)delegate;
 - (Source *) getSource:(const pkgCache::PkgFileIterator &)file;
-@end
-/* }}} */
-
-/* Reset View {{{ */
-@interface ResetView : UIView {
-    UIPushButton *configure_;
-    UIPushButton *reload_;
-    NSMutableArray *views_;
-    UINavigationBar *navbar_;
-    UITransitionView *transition_;
-    bool resetting_;
-    id delegate_;
-}
-
-- (void) dealloc;
-
-- (void) navigationBar:(UINavigationBar *)navbar poppedItem:(UINavigationItem *)item;
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
-
-- (id) initWithFrame:(CGRect)frame;
-- (void) setDelegate:(id)delegate;
-
-- (void) configurePushed;
-- (void) reloadPushed;
-
-- (void) pushView:(UIView *)view withTitle:(NSString *)title backButtonTitle:(NSString *)back rightButton:(NSString *)right;
-- (void) popViews:(unsigned)views;
-- (void) resetView:(BOOL)clear;
-- (void) _resetView;
-- (void) setPrompt;
-@end
-
-@implementation ResetView
-
-- (void) dealloc {
-    [configure_ release];
-    [reload_ release];
-    [transition_ release];
-    [navbar_ release];
-    [views_ release];
-    [super dealloc];
-}
-
-- (void) navigationBar:(UINavigationBar *)navbar poppedItem:(UINavigationItem *)item {
-    [views_ removeLastObject];
-    UIView *view([views_ lastObject]);
-    [view resetViewAnimated:!resetting_];
-
-    if (!resetting_) {
-        [transition_ transition:2 toView:view];
-        [self _resetView];
-    }
-}
-
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    [sheet dismiss];
-}
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        views_ = [[NSMutableArray arrayWithCapacity:4] retain];
-
-        struct CGRect bounds = [self bounds];
-        CGSize navsize = [UINavigationBar defaultSizeWithPrompt];
-        CGRect navrect = {{0, 0}, navsize};
-
-        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        [self addSubview:navbar_];
-
-        [navbar_ setBarStyle:1];
-        [navbar_ setDelegate:self];
-
-        transition_ = [[UITransitionView alloc] initWithFrame:CGRectMake(
-            bounds.origin.x, bounds.origin.y + navsize.height, bounds.size.width, bounds.size.height - navsize.height
-        )];
-
-        //configure_ = [[UIPushButton alloc] initWithFrame:CGRectMake(15, 9, 17, 18)];
-        configure_ = [[UIPushButton alloc] initWithFrame:CGRectMake(10, 9, 17, 18)];
-        [configure_ setShowPressFeedback:YES];
-        [configure_ setImage:[UIImage applicationImageNamed:@"configure.png"]];
-        [configure_ addTarget:self action:@selector(configurePushed) forEvents:1];
-
-        //reload_ = [[UIPushButton alloc] initWithFrame:CGRectMake(288, 5, 18, 22)];
-        reload_ = [[UIPushButton alloc] initWithFrame:CGRectMake(293, 5, 18, 22)];
-        [reload_ setShowPressFeedback:YES];
-        [reload_ setImage:[UIImage applicationImageNamed:@"reload.png"]];
-        [reload_ addTarget:self action:@selector(reloadPushed) forEvents:1];
-
-        [navbar_ addSubview:configure_];
-        [navbar_ addSubview:reload_];
-
-        [self addSubview:transition_];
-    } return self;
-}
-
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
-- (void) configurePushed {
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
-        initWithTitle:@"Sources Unimplemented"
-        buttons:[NSArray arrayWithObjects:@"Okay", nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:self
-    ] autorelease];
-
-    [sheet setBodyText:@"This feature will be implemented soon. In the mean time, you may add sources by adding .list files to '/etc/apt/sources.list.d' or modifying '/etc/apt/sources.list'."];
-    [sheet popupAlertAnimated:YES];
-}
-
-- (void) reloadPushed {
-    [delegate_ update];
-}
-
-- (void) pushView:(UIView *)view withTitle:(NSString *)title backButtonTitle:(NSString *)back rightButton:(NSString *)right {
-    UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:title] autorelease];
-    [navbar_ pushNavigationItem:navitem];
-    [navitem setBackButtonTitle:back];
-
-    [navbar_ showButtonsWithLeftTitle:nil rightTitle:right];
-
-    [transition_ transition:([views_ count] == 0 ? 0 : 1) toView:view];
-    [views_ addObject:view];
-}
-
-- (void) popViews:(unsigned)views {
-    resetting_ = true;
-    for (unsigned i(0); i != views; ++i)
-        [navbar_ popNavigationItem];
-    resetting_ = false;
-
-    [self _resetView];
-    [transition_ transition:2 toView:[views_ lastObject]];
-}
-
-- (void) resetView:(BOOL)clear {
-    resetting_ = true;
-
-    if ([views_ count] > 1) {
-        [navbar_ disableAnimation];
-        while ([views_ count] != (clear ? 1 : 2))
-            [navbar_ popNavigationItem];
-        [navbar_ enableAnimation];
-        if (!clear)
-            [navbar_ popNavigationItem];
-    }
-
-    resetting_ = false;
-
-    [self _resetView];
-    [transition_ transition:(clear ? 0 : 2) toView:[views_ lastObject]];
-}
-
-- (void) _resetView {
-    [navbar_ showButtonsWithLeftTitle:nil rightTitle:nil];
-}
-
-- (void) setPrompt {
-    [navbar_ setPrompt:[NSString stringWithFormat:@"Last Updated: %@", GetLastUpdate()]];
-}
-
-@end
-/* }}} */
-/* Confirmation View {{{ */
-void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString *key) {
-    if ([packages count] == 0)
-        return;
-
-    UITextView *text = GetTextView([packages count] == 0 ? @"n/a" : [packages componentsJoinedByString:@", "], 110, false);
-    [fields setObject:text forKey:key];
-
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGColor blue(space, 0, 0, 0.4, 1);
-    [text setTextColor:blue];
-    CGColorSpaceRelease(space);
-}
-
-@protocol ConfirmationViewDelegate
-- (void) cancel;
-- (void) confirm;
-@end
-
-@interface ConfirmationView : UIView {
-    Database *database_;
-    id delegate_;
-    UITransitionView *transition_;
-    UIView *overlay_;
-    UINavigationBar *navbar_;
-    UIPreferencesTable *table_;
-    NSMutableDictionary *fields_;
-    UIAlertSheet *essential_;
-}
-
-- (void) dealloc;
-- (void) cancel;
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
-
-- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table;
-- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group;
-- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed;
-- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group;
-- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group;
-
-- (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate;
-
-@end
-
-@implementation ConfirmationView
-
-- (void) dealloc {
-    [transition_ release];
-    [overlay_ release];
-    [navbar_ release];
-    [table_ release];
-    [fields_ release];
-    if (essential_ != nil)
-        [essential_ release];
-    [super dealloc];
-}
-
-- (void) cancel {
-    [transition_ transition:7 toView:nil];
-    [delegate_ cancel];
-}
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
-    if (from != nil && to == nil)
-        [self removeFromSuperview];
-}
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    switch (button) {
-        case 0:
-            if (essential_ != nil)
-                [essential_ popupAlertAnimated:YES];
-            else
-                [delegate_ confirm];
-        break;
-
-        case 1:
-            [self cancel];
-        break;
-    }
-}
-
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    [essential_ dismiss];
-    [self cancel];
-}
-
-- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
-    return 2;
-}
-
-- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
-    switch (group) {
-        case 0: return @"Statistics";
-        case 1: return @"Modifications";
-
-        default: _assert(false);
-    }
-}
-
-- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
-    switch (group) {
-        case 0: return 3;
-        case 1: return [fields_ count];
-
-        default: _assert(false);
-    }
-}
-
-- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
-    if (group != 1 || row == -1)
-        return proposed;
-    else {
-        _assert(size_t(row) < [fields_ count]);
-        return [[[fields_ allValues] objectAtIndex:row] visibleTextRect].size.height + TextViewOffset_;
-    }
-}
-
-- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
-    UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
-    [cell setShowSelection:NO];
-
-    switch (group) {
-        case 0: switch (row) {
-            case 0: {
-                [cell setTitle:@"Downloading"];
-                [cell setValue:SizeString([database_ fetcher].FetchNeeded())];
-            } break;
-
-            case 1: {
-                [cell setTitle:@"Resuming At"];
-                [cell setValue:SizeString([database_ fetcher].PartialPresent())];
-            } break;
-
-            case 2: {
-                double size([database_ cache]->UsrSize());
-
-                if (size < 0) {
-                    [cell setTitle:@"Disk Freeing"];
-                    [cell setValue:SizeString(-size)];
-                } else {
-                    [cell setTitle:@"Disk Using"];
-                    [cell setValue:SizeString(size)];
-                }
-            } break;
-
-            default: _assert(false);
-        } break;
-
-        case 1:
-            _assert(size_t(row) < [fields_ count]);
-            [cell setTitle:[[fields_ allKeys] objectAtIndex:row]];
-            [cell addSubview:[[fields_ allValues] objectAtIndex:row]];
-        break;
-
-        default: _assert(false);
-    }
-
-    return cell;
-}
-
-- (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate {
-    if ((self = [super initWithFrame:[view bounds]]) != nil) {
-        database_ = database;
-        delegate_ = delegate;
-
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [self addSubview:transition_];
-
-        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-
-        CGSize navsize = [UINavigationBar defaultSize];
-        CGRect navrect = {{0, 0}, navsize};
-        CGRect bounds = [overlay_ bounds];
-
-        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        [navbar_ setBarStyle:1];
-        [navbar_ setDelegate:self];
-
-        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Confirm"] autorelease];
-        [navbar_ pushNavigationItem:navitem];
-        [navbar_ showButtonsWithLeftTitle:@"Cancel" rightTitle:@"Confirm"];
-
-        fields_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
-
-        NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
-        NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
-        NSMutableArray *removing = [NSMutableArray arrayWithCapacity:16];
-
-        bool install(false);
-        bool upgrade(false);
-        bool remove(false);
-
-        pkgCacheFile &cache([database_ cache]);
-        for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
-            NSString *name([NSString stringWithCString:iterator.Name()]);
-            bool essential((iterator->Flags & pkgCache::Flag::Essential) != 0);
-
-            if (cache[iterator].NewInstall()) {
-                if (essential)
-                    install = true;
-                [installing addObject:name];
-            } else if (cache[iterator].Upgrade()) {
-                if (essential)
-                    upgrade = true;
-                [upgrading addObject:name];
-            } else if (cache[iterator].Delete()) {
-                if (essential)
-                    remove = true;
-                [removing addObject:name];
-            }
-        }
-
-        if (!remove)
-            essential_ = nil;
-        else {
-            essential_ = [[UIAlertSheet alloc]
-                initWithTitle:@"Unable to Comply"
-                buttons:[NSArray arrayWithObjects:@"Okay", nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:self
-            ];
-
-            [essential_ setBodyText:@"One or more of the packages you are about to remove are marked 'Essential' and cannot be removed by Cydia. Please use apt-get."];
-        }
-
-        AddTextView(fields_, installing, @"Installing");
-        AddTextView(fields_, upgrading, @"Upgrading");
-        AddTextView(fields_, removing, @"Removing");
-
-        table_ = [[UIPreferencesTable alloc] initWithFrame:CGRectMake(
-            0, navsize.height, bounds.size.width, bounds.size.height - navsize.height
-        )];
-
-        [table_ setReusesTableCells:YES];
-        [table_ setDataSource:self];
-        [table_ reloadData];
-
-        [overlay_ addSubview:navbar_];
-        [overlay_ addSubview:table_];
-
-        [view addSubview:self];
-
-        [transition_ setDelegate:self];
-
-        UIView *blank = [[[UIView alloc] initWithFrame:[transition_ bounds]] autorelease];
-        [transition_ transition:0 toView:blank];
-        [transition_ transition:3 toView:overlay_];
-    } return self;
-}
-
 @end
 /* }}} */
 
@@ -1006,8 +668,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     BOOL trusted_;
 }
-
-- (void) dealloc;
 
 - (Source *) initWithMetaIndex:(metaIndex *)index;
 
@@ -1040,6 +700,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [origin_ release];
     if (version_ != nil)
         [version_ release];
+    if (defaultIcon_ != nil)
+        [defaultIcon_ release];
 
     [super dealloc];
 }
@@ -1055,6 +717,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         description_ = nil;
         label_ = nil;
         origin_ = nil;
+        version_ = nil;
+        defaultIcon_ = nil;
 
         debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
         if (dindex != NULL) {
@@ -1154,7 +818,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 @interface Package : NSObject {
     pkgCache::PkgIterator iterator_;
-    Database *database_;
+    _transient Database *database_;
     pkgCache::VerIterator version_;
     pkgCache::VerFileIterator file_;
     Source *source_;
@@ -1168,8 +832,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *icon_;
     NSString *website_;
 }
-
-- (void) dealloc;
 
 - (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database version:(pkgCache::VerIterator)version file:(pkgCache::VerFileIterator)file;
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database;
@@ -1199,11 +861,17 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (BOOL) matches:(NSString *)text;
 
 - (NSComparisonResult) compareByName:(Package *)package;
+- (NSComparisonResult) compareBySection:(Package *)package;
 - (NSComparisonResult) compareBySectionAndName:(Package *)package;
 - (NSComparisonResult) compareForChanges:(Package *)package;
 
 - (void) install;
 - (void) remove;
+
+- (NSNumber *) isSearchedForBy:(NSString *)search;
+- (NSNumber *) isInstalledInSection:(NSString *)section;
+- (NSNumber *) isUninstalledInSection:(NSString *)section;
+
 @end
 
 @implementation Package
@@ -1222,8 +890,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if (website_ != nil)
         [website_ release];
 
-    if (source_ != nil)
-        [source_ release];
+    [source_ release];
 
     [super dealloc];
 }
@@ -1407,6 +1074,23 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return [lhs caseInsensitiveCompare:rhs];
 }
 
+- (NSComparisonResult) compareBySection:(Package *)package {
+    NSString *lhs = [self section];
+    NSString *rhs = [package section];
+
+    if (lhs == NULL && rhs != NULL)
+        return NSOrderedAscending;
+    else if (lhs != NULL && rhs == NULL)
+        return NSOrderedDescending;
+    else if (lhs != NULL && rhs != NULL) {
+        NSComparisonResult result = [lhs compare:rhs];
+        if (result != NSOrderedSame)
+            return result;
+    }
+
+    return NSOrderedSame;
+}
+
 - (NSComparisonResult) compareBySectionAndName:(Package *)package {
     NSString *lhs = [self section];
     NSString *rhs = [package section];
@@ -1450,7 +1134,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
     resolver->Protect(iterator_);
-    [database_ cache]->MarkInstall(iterator_, false);
+    pkgCacheFile &cache([database_ cache]);
+    cache->MarkInstall(iterator_, false);
+    pkgDepCache::StateCache &state((*cache)[iterator_]);
+    if (!state.Install())
+        cache->SetReInstall(iterator_, true);
 }
 
 - (void) remove {
@@ -1461,30 +1149,39 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [database_ cache]->MarkDelete(iterator_, true);
 }
 
+- (NSNumber *) isSearchedForBy:(NSString *)search {
+    return [NSNumber numberWithBool:[self matches:search]];
+}
+
+- (NSNumber *) isInstalledInSection:(NSString *)section {
+    return [NSNumber numberWithBool:([self installed] != nil && (section == nil || [section isEqualToString:[self section]]))];
+}
+
+- (NSNumber *) isUninstalledInSection:(NSString *)section {
+    return [NSNumber numberWithBool:([self installed] == nil && (section == nil || [section isEqualToString:[self section]]))];
+}
+
 @end
 /* }}} */
 /* Section Class {{{ */
 @interface Section : NSObject {
     NSString *name_;
     size_t row_;
-    NSMutableArray *packages_;
+    size_t count_;
 }
-
-- (void) dealloc;
 
 - (Section *) initWithName:(NSString *)name row:(size_t)row;
 - (NSString *) name;
 - (size_t) row;
-- (NSArray *) packages;
 - (size_t) count;
-- (void) addPackage:(Package *)package;
+- (void) addToCount;
+
 @end
 
 @implementation Section
 
 - (void) dealloc {
     [name_ release];
-    [packages_ release];
     [super dealloc];
 }
 
@@ -1492,7 +1189,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if ((self = [super init]) != nil) {
         name_ = [name retain];
         row_ = row;
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
     } return self;
 }
 
@@ -1504,17 +1200,1380 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return row_;
 }
 
+- (size_t) count {
+    return count_;
+}
+
+- (void) addToCount {
+    ++count_;
+}
+
+@end
+/* }}} */
+
+/* Database Implementation {{{ */
+@implementation Database
+
+- (void) dealloc {
+    _assert(false);
+    [super dealloc];
+}
+
+- (void) _readStatus:(NSNumber *)fd {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
+    std::istream is(&ib);
+    std::string line;
+
+    const char *error;
+    int offset;
+    pcre *code = pcre_compile("^([^:]*):([^:]*):([^:]*):(.*)$", 0, &error, &offset, NULL);
+
+    pcre_extra *study = NULL;
+    int capture;
+    pcre_fullinfo(code, study, PCRE_INFO_CAPTURECOUNT, &capture);
+    int matches[(capture + 1) * 3];
+
+    while (std::getline(is, line)) {
+        const char *data(line.c_str());
+
+        _assert(pcre_exec(code, study, data, line.size(), 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
+
+        std::istringstream buffer(line.substr(matches[6], matches[7] - matches[6]));
+        float percent;
+        buffer >> percent;
+        [delegate_ setProgressPercent:(percent / 100)];
+
+        NSString *string = [NSString stringWithCString:(data + matches[8]) length:(matches[9] - matches[8])];
+        std::string type(line.substr(matches[2], matches[3] - matches[2]));
+
+        if (type == "pmerror")
+            [delegate_ setProgressError:string];
+        else if (type == "pmstatus")
+            [delegate_ setProgressTitle:string];
+        else if (type == "pmconffile")
+            ;
+        else _assert(false);
+    }
+
+    [pool release];
+    _assert(false);
+}
+
+- (void) _readOutput:(NSNumber *)fd {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
+    std::istream is(&ib);
+    std::string line;
+
+    while (std::getline(is, line))
+        [delegate_ addProgressOutput:[NSString stringWithCString:line.c_str()]];
+
+    [pool release];
+    _assert(false);
+}
+
+- (Package *) packageWithName:(NSString *)name {
+    pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
+    return iterator.end() ? nil : [Package packageWithIterator:iterator database:self];
+}
+
+- (Database *) init {
+    if ((self = [super init]) != nil) {
+        records_ = NULL;
+        resolver_ = NULL;
+        fetcher_ = NULL;
+        lock_ = NULL;
+
+        sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
+        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
+
+        int fds[2];
+
+        _assert(pipe(fds) != -1);
+        statusfd_ = fds[1];
+
+        [NSThread
+            detachNewThreadSelector:@selector(_readStatus:)
+            toTarget:self
+            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+        ];
+
+        _assert(pipe(fds) != -1);
+        _assert(dup2(fds[1], 1) != -1);
+        _assert(close(fds[1]) != -1);
+
+        [NSThread
+            detachNewThreadSelector:@selector(_readOutput:)
+            toTarget:self
+            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+        ];
+    } return self;
+}
+
+- (pkgCacheFile &) cache {
+    return cache_;
+}
+
+- (pkgRecords *) records {
+    return records_;
+}
+
+- (pkgProblemResolver *) resolver {
+    return resolver_;
+}
+
+- (pkgAcquire &) fetcher {
+    return *fetcher_;
+}
+
 - (NSArray *) packages {
     return packages_;
 }
 
-- (size_t) count {
-    return [packages_ count];
+- (void) reloadData {
+    _error->Discard();
+    delete list_;
+    manager_ = NULL;
+    delete lock_;
+    delete fetcher_;
+    delete resolver_;
+    delete records_;
+    cache_.Close();
+
+    if (!cache_.Open(progress_, true)) {
+        fprintf(stderr, "repairing corrupted database...\n");
+        _error->Discard();
+        [self updateWithStatus:status_];
+        _assert(cache_.Open(progress_, true));
+    }
+
+    now_ = [[NSDate date] retain];
+
+    records_ = new pkgRecords(cache_);
+    resolver_ = new pkgProblemResolver(cache_);
+    fetcher_ = new pkgAcquire(&status_);
+    lock_ = NULL;
+
+    list_ = new pkgSourceList();
+    _assert(list_->ReadMainList());
+
+    [sources_ removeAllObjects];
+    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+        std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
+        for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
+            [sources_
+                setObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]
+                forKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(*index)]
+            ];
+    }
+
+    [packages_ removeAllObjects];
+    for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
+        if (Package *package = [Package packageWithIterator:iterator database:self])
+            if ([package source] != nil || [package installed] != nil)
+                [packages_ addObject:package];
 }
 
-- (void) addPackage:(Package *)package {
-    [packages_ addObject:package];
+- (void) prepare {
+    pkgRecords records(cache_);
+
+    lock_ = new FileFd();
+    lock_->Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
+    _assert(!_error->PendingError());
+
+    pkgSourceList list;
+    // XXX: explain this with an error message
+    _assert(list.ReadMainList());
+
+    manager_ = (_system->CreatePM(cache_));
+    _assert(manager_->GetArchives(fetcher_, &list, &records));
+    _assert(!_error->PendingError());
 }
+
+- (void) perform {
+    if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue)
+        return;
+
+    _system->UnLock();
+    pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
+
+    if (result == pkgPackageManager::Failed)
+        return;
+    if (_error->PendingError())
+        return;
+    if (result != pkgPackageManager::Completed)
+        return;
+}
+
+- (void) upgrade {
+    _assert(cache_->DelCount() == 0 && cache_->InstCount() == 0);
+    _assert(pkgApplyStatus(cache_));
+
+    if (cache_->BrokenCount() != 0) {
+        _assert(pkgFixBroken(cache_));
+        _assert(cache_->BrokenCount() == 0);
+        _assert(pkgMinimizeUpgrade(cache_));
+    }
+
+    _assert(pkgDistUpgrade(cache_));
+}
+
+- (void) update {
+    [self updateWithStatus:status_];
+}
+
+- (void) updateWithStatus:(Status &)status {
+    pkgSourceList list;
+    _assert(list.ReadMainList());
+
+    FileFd lock;
+    lock.Fd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"));
+    _assert(!_error->PendingError());
+
+    pkgAcquire fetcher(&status);
+    _assert(list.GetIndexes(&fetcher));
+
+    if (fetcher.Run(PulseInterval_) != pkgAcquire::Failed) {
+        bool failed = false;
+        for (pkgAcquire::ItemIterator item = fetcher.ItemsBegin(); item != fetcher.ItemsEnd(); item++)
+            if ((*item)->Status != pkgAcquire::Item::StatDone) {
+                (*item)->Finished();
+                failed = true;
+            }
+
+        if (!failed && _config->FindB("APT::Get::List-Cleanup", true) == true) {
+            _assert(fetcher.Clean(_config->FindDir("Dir::State::lists")));
+            _assert(fetcher.Clean(_config->FindDir("Dir::State::lists") + "partial/"));
+        }
+
+        [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
+    }
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+    status_.setDelegate(delegate);
+    progress_.setDelegate(delegate);
+}
+
+- (Source *) getSource:(const pkgCache::PkgFileIterator &)file {
+    pkgIndexFile *index(NULL);
+    list_->FindIndex(file, index);
+    return [sources_ objectForKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(index)]];
+}
+
+@end
+/* }}} */
+
+/* RVPage Interface {{{ */
+@class RVBook;
+
+@interface RVPage : UIView {
+    _transient RVBook *book_;
+    _transient id delegate_;
+}
+
+- (NSString *) title;
+- (NSString *) backButtonTitle;
+- (NSString *) rightButtonTitle;
+- (NSString *) leftButtonTitle;
+- (UIView *) accessoryView;
+
+- (void) _rightButtonClicked;
+- (void) _leftButtonClicked;
+
+- (void) setPageActive:(BOOL)active;
+- (void) resetViewAnimated:(BOOL)animated;
+
+- (void) setTitle:(NSString *)title;
+- (void) setBackButtonTitle:(NSString *)title;
+
+- (void) reloadButtons;
+- (void) reloadData;
+
+- (id) initWithBook:(RVBook *)book;
+
+- (void) setDelegate:(id)delegate;
+
+@end
+/* }}} */
+/* Reset View {{{ */
+@protocol RVDelegate
+- (void) setPageActive:(BOOL)active with:(id)object;
+- (void) resetViewAnimated:(BOOL)animated with:(id)object;
+- (void) reloadDataWith:(id)object;
+@end
+
+@interface RVBook : UIView {
+    NSMutableArray *pages_;
+    UINavigationBar *navbar_;
+    UITransitionView *transition_;
+    BOOL resetting_;
+    _transient id delegate_;
+}
+
+- (id) initWithFrame:(CGRect)frame;
+- (void) setDelegate:(id)delegate;
+
+- (void) setPage:(RVPage *)page;
+
+- (void) pushPage:(RVPage *)page;
+- (void) popPages:(unsigned)pages;
+
+- (void) setPrompt:(NSString *)prompt;
+
+- (void) resetViewAnimated:(BOOL)animated;
+- (void) resetViewAnimated:(BOOL)animated toPage:(RVPage *)page;
+
+- (void) setTitle:(NSString *)title forPage:(RVPage *)page;
+- (void) setBackButtonTitle:(NSString *)title forPage:(RVPage *)page;
+- (void) reloadButtonsForPage:(RVPage *)page;
+
+- (void) reloadData;
+
+- (CGRect) pageBounds;
+
+@end
+
+@implementation RVBook
+
+- (void) dealloc {
+    [navbar_ setDelegate:nil];
+
+    [pages_ release];
+    [navbar_ release];
+    [transition_ release];
+    [super dealloc];
+}
+
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
+    _assert([pages_ count] != 0);
+    RVPage *page = [pages_ lastObject];
+    switch (button) {
+        case 0: [page _rightButtonClicked]; break;
+        case 1: [page _leftButtonClicked]; break;
+    }
+}
+
+- (void) navigationBar:(UINavigationBar *)navbar poppedItem:(UINavigationItem *)item {
+    _assert([pages_ count] != 0);
+    if (!resetting_)
+        [[pages_ lastObject] setPageActive:NO];
+    [pages_ removeLastObject];
+    if (!resetting_)
+        [self resetViewAnimated:YES toPage:[pages_ lastObject]];
+}
+
+- (id) initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame]) != nil) {
+        pages_ = [[NSMutableArray arrayWithCapacity:4] retain];
+
+        struct CGRect bounds = [self bounds];
+        CGSize navsize = [UINavigationBar defaultSizeWithPrompt];
+        CGRect navrect = {{0, 0}, navsize};
+
+        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
+        [self addSubview:navbar_];
+
+        [navbar_ setBarStyle:1];
+        [navbar_ setDelegate:self];
+
+        [navbar_ setPrompt:@""];
+
+        transition_ = [[UITransitionView alloc] initWithFrame:CGRectMake(
+            bounds.origin.x, bounds.origin.y + navsize.height, bounds.size.width, bounds.size.height - navsize.height
+        )];
+
+        [self addSubview:transition_];
+    } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (void) setPage:(RVPage *)page {
+    if ([pages_ count] != 0)
+        [[pages_ lastObject] setPageActive:NO];
+
+    [navbar_ disableAnimation];
+    resetting_ = true;
+    for (unsigned i(0), pages([pages_ count]); i != pages; ++i)
+        [navbar_ popNavigationItem];
+    resetting_ = false;
+
+    [self pushPage:page];
+    [navbar_ enableAnimation];
+}
+
+- (void) pushPage:(RVPage *)page {
+    if ([pages_ count] != 0)
+        [[pages_ lastObject] setPageActive:NO];
+
+    NSString *title = [page title]; {
+        const char *data = [title UTF8String];
+        size_t size = [title length];
+
+        Pcre title_r("^(.*?)( \\(.*\\))?$");
+        if (title_r(data, size))
+            title = title_r[1];
+    }
+
+    NSString *backButtonTitle = [page backButtonTitle];
+    if (backButtonTitle == nil)
+        backButtonTitle = title;
+
+    UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:title] autorelease];
+    [navitem setBackButtonTitle:backButtonTitle];
+    [navbar_ pushNavigationItem:navitem];
+
+    BOOL animated = [pages_ count] == 0 ? NO : YES;
+    [transition_ transition:(animated ? 1 : 0) toView:page];
+    [page setPageActive:YES];
+
+    [pages_ addObject:page];
+    [self reloadButtonsForPage:page];
+
+    [navbar_ setAccessoryView:[page accessoryView] animate:animated goingBack:NO];
+}
+
+- (void) popPages:(unsigned)pages {
+    if (pages == 0)
+        return;
+
+    [[pages_ lastObject] setPageActive:NO];
+
+    resetting_ = true;
+    for (unsigned i(0); i != pages; ++i)
+        [navbar_ popNavigationItem];
+    resetting_ = false;
+
+    [self resetViewAnimated:YES toPage:[pages_ lastObject]];
+}
+
+- (void) setPrompt:(NSString *)prompt {
+    [navbar_ setPrompt:prompt];
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    resetting_ = true;
+
+    if ([pages_ count] > 1) {
+        [navbar_ disableAnimation];
+        while ([pages_ count] != (animated ? 2 : 1))
+            [navbar_ popNavigationItem];
+        [navbar_ enableAnimation];
+        if (animated)
+            [navbar_ popNavigationItem];
+    }
+
+    resetting_ = false;
+
+    [self resetViewAnimated:animated toPage:[pages_ lastObject]];
+}
+
+- (void) resetViewAnimated:(BOOL)animated toPage:(RVPage *)page {
+    [page resetViewAnimated:animated];
+    [transition_ transition:(animated ? 2 : 0) toView:page];
+    [page setPageActive:YES];
+    [self reloadButtonsForPage:page];
+    [navbar_ setAccessoryView:[page accessoryView] animate:animated goingBack:YES];
+}
+
+- (void) setTitle:(NSString *)title forPage:(RVPage *)page {
+    if ([pages_ count] == 0 || page != [pages_ lastObject])
+        return;
+    UINavigationItem *navitem = [navbar_ topItem];
+    [navitem setTitle:title];
+}
+
+- (void) setBackButtonTitle:(NSString *)title forPage:(RVPage *)page {
+    if ([pages_ count] == 0 || page != [pages_ lastObject])
+        return;
+    UINavigationItem *navitem = [navbar_ topItem];
+    [navitem setBackButtonTitle:title];
+}
+
+- (void) reloadButtonsForPage:(RVPage *)page {
+    if ([pages_ count] == 0 || page != [pages_ lastObject])
+        return;
+    NSString *leftButtonTitle([pages_ count] == 1 ? [page leftButtonTitle] : nil);
+    [navbar_ showButtonsWithLeftTitle:leftButtonTitle rightTitle:[page rightButtonTitle]];
+}
+
+- (void) reloadData {
+    for (int i(0), e([pages_ count]); i != e; ++i) {
+        RVPage *page([pages_ objectAtIndex:(e - i - 1)]);
+        [page reloadData];
+    }
+}
+
+- (CGRect) pageBounds {
+    return [transition_ bounds];
+}
+
+@end
+/* }}} */
+/* RVPage Implementation {{{ */
+@implementation RVPage
+
+- (NSString *) title {
+    [self doesNotRecognizeSelector:_cmd];
+    return nil;
+}
+
+- (NSString *) backButtonTitle {
+    return nil;
+}
+
+- (NSString *) leftButtonTitle {
+    return nil;
+}
+
+- (NSString *) rightButtonTitle {
+    return nil;
+}
+
+- (void) _rightButtonClicked {
+    [self doesNotRecognizeSelector:_cmd];
+}
+
+- (void) _leftButtonClicked {
+    [self doesNotRecognizeSelector:_cmd];
+}
+
+- (UIView *) accessoryView {
+    return nil;
+}
+
+- (void) setPageActive:(BOOL)active {
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [self doesNotRecognizeSelector:_cmd];
+}
+
+- (void) setTitle:(NSString *)title {
+    [book_ setTitle:title forPage:self];
+}
+
+- (void) setBackButtonTitle:(NSString *)title {
+    [book_ setBackButtonTitle:title forPage:self];
+}
+
+- (void) reloadButtons {
+    [book_ reloadButtonsForPage:self];
+}
+
+- (void) reloadData {
+}
+
+- (id) initWithBook:(RVBook *)book {
+    if ((self = [super initWithFrame:[book pageBounds]]) != nil) {
+        book_ = book;
+    } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+@end
+/* }}} */
+
+/* Confirmation View {{{ */
+void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString *key) {
+    if ([packages count] == 0)
+        return;
+
+    UITextView *text = GetTextView([packages count] == 0 ? @"n/a" : [packages componentsJoinedByString:@", "], 120, false);
+    [fields setObject:text forKey:key];
+
+    CGColor blue(space_, 0, 0, 0.4, 1);
+    [text setTextColor:blue];
+}
+
+@protocol ConfirmationViewDelegate
+- (void) cancel;
+- (void) confirm;
+@end
+
+@interface ConfirmationView : UIView {
+    Database *database_;
+    id delegate_;
+    UITransitionView *transition_;
+    UIView *overlay_;
+    UINavigationBar *navbar_;
+    UIPreferencesTable *table_;
+    NSMutableDictionary *fields_;
+    UIAlertSheet *essential_;
+}
+
+- (void) cancel;
+
+- (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate;
+
+@end
+
+@implementation ConfirmationView
+
+- (void) dealloc {
+    [navbar_ setDelegate:nil];
+    [transition_ setDelegate:nil];
+    [table_ setDataSource:nil];
+
+    [transition_ release];
+    [overlay_ release];
+    [navbar_ release];
+    [table_ release];
+    [fields_ release];
+    if (essential_ != nil)
+        [essential_ release];
+    [super dealloc];
+}
+
+- (void) cancel {
+    [transition_ transition:7 toView:nil];
+    [delegate_ cancel];
+}
+
+- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
+    if (from != nil && to == nil)
+        [self removeFromSuperview];
+}
+
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
+    switch (button) {
+        case 0:
+            if (essential_ != nil)
+                [essential_ popupAlertAnimated:YES];
+            else
+                [delegate_ confirm];
+        break;
+
+        case 1:
+            [self cancel];
+        break;
+    }
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [essential_ dismiss];
+    [self cancel];
+}
+
+- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
+    return 2;
+}
+
+- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
+    switch (group) {
+        case 0: return @"Statistics";
+        case 1: return @"Modifications";
+
+        default: _assert(false);
+    }
+}
+
+- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
+    switch (group) {
+        case 0: return 3;
+        case 1: return [fields_ count];
+
+        default: _assert(false);
+    }
+}
+
+- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
+    if (group != 1 || row == -1)
+        return proposed;
+    else {
+        _assert(size_t(row) < [fields_ count]);
+        return [[[fields_ allValues] objectAtIndex:row] visibleTextRect].size.height + TextViewOffset_;
+    }
+}
+
+- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
+    UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
+    [cell setShowSelection:NO];
+
+    switch (group) {
+        case 0: switch (row) {
+            case 0: {
+                [cell setTitle:@"Downloading"];
+                [cell setValue:SizeString([database_ fetcher].FetchNeeded())];
+            } break;
+
+            case 1: {
+                [cell setTitle:@"Resuming At"];
+                [cell setValue:SizeString([database_ fetcher].PartialPresent())];
+            } break;
+
+            case 2: {
+                double size([database_ cache]->UsrSize());
+
+                if (size < 0) {
+                    [cell setTitle:@"Disk Freeing"];
+                    [cell setValue:SizeString(-size)];
+                } else {
+                    [cell setTitle:@"Disk Using"];
+                    [cell setValue:SizeString(size)];
+                }
+            } break;
+
+            default: _assert(false);
+        } break;
+
+        case 1:
+            _assert(size_t(row) < [fields_ count]);
+            [cell setTitle:[[fields_ allKeys] objectAtIndex:row]];
+            [cell addSubview:[[fields_ allValues] objectAtIndex:row]];
+        break;
+
+        default: _assert(false);
+    }
+
+    return cell;
+}
+
+- (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate {
+    if ((self = [super initWithFrame:[view bounds]]) != nil) {
+        database_ = database;
+        delegate_ = delegate;
+
+        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
+        [self addSubview:transition_];
+
+        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
+
+        CGSize navsize = [UINavigationBar defaultSize];
+        CGRect navrect = {{0, 0}, navsize};
+        CGRect bounds = [overlay_ bounds];
+
+        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
+        [navbar_ setBarStyle:1];
+        [navbar_ setDelegate:self];
+
+        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Confirm"] autorelease];
+        [navbar_ pushNavigationItem:navitem];
+        [navbar_ showButtonsWithLeftTitle:@"Cancel" rightTitle:@"Confirm"];
+
+        fields_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
+
+        NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *reinstalling = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *downgrading = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *removing = [NSMutableArray arrayWithCapacity:16];
+
+        bool remove(false);
+
+        pkgCacheFile &cache([database_ cache]);
+        for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
+            Package *package([Package packageWithIterator:iterator database:database_]);
+            NSString *name([package name]);
+            bool essential((iterator->Flags & pkgCache::Flag::Essential) != 0);
+            pkgDepCache::StateCache &state(cache[iterator]);
+
+            if (state.NewInstall())
+                [installing addObject:name];
+            else if (!state.Delete() && (state.iFlags & pkgDepCache::ReInstall) == pkgDepCache::ReInstall)
+                [reinstalling addObject:name];
+            else if (state.Upgrade())
+                [upgrading addObject:name];
+            else if (state.Downgrade())
+                [downgrading addObject:name];
+            else if (state.Delete()) {
+                if (essential)
+                    remove = true;
+                [removing addObject:name];
+            }
+        }
+
+        if (!remove)
+            essential_ = nil;
+        else {
+            essential_ = [[UIAlertSheet alloc]
+                initWithTitle:@"Unable to Comply"
+                buttons:[NSArray arrayWithObjects:@"Okay", nil]
+                defaultButtonIndex:0
+                delegate:self
+                context:self
+            ];
+
+            [essential_ setBodyText:@"One or more of the packages you are about to remove are marked 'Essential' and cannot be removed by Cydia. Please use apt-get."];
+        }
+
+        AddTextView(fields_, installing, @"Installing");
+        AddTextView(fields_, reinstalling, @"Reinstalling");
+        AddTextView(fields_, upgrading, @"Upgrading");
+        AddTextView(fields_, downgrading, @"Downgrading");
+        AddTextView(fields_, removing, @"Removing");
+
+        table_ = [[UIPreferencesTable alloc] initWithFrame:CGRectMake(
+            0, navsize.height, bounds.size.width, bounds.size.height - navsize.height
+        )];
+
+        [table_ setReusesTableCells:YES];
+        [table_ setDataSource:self];
+        [table_ reloadData];
+
+        [overlay_ addSubview:navbar_];
+        [overlay_ addSubview:table_];
+
+        [view addSubview:self];
+
+        [transition_ setDelegate:self];
+
+        UIView *blank = [[[UIView alloc] initWithFrame:[transition_ bounds]] autorelease];
+        [transition_ transition:0 toView:blank];
+        [transition_ transition:3 toView:overlay_];
+    } return self;
+}
+
+@end
+/* }}} */
+
+/* Progress Data {{{ */
+@interface ProgressData : NSObject {
+    SEL selector_;
+    id target_;
+    id object_;
+}
+
+- (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object;
+
+- (SEL) selector;
+- (id) target;
+- (id) object;
+@end
+
+@implementation ProgressData
+
+- (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object {
+    if ((self = [super init]) != nil) {
+        selector_ = selector;
+        target_ = target;
+        object_ = object;
+    } return self;
+}
+
+- (SEL) selector {
+    return selector_;
+}
+
+- (id) target {
+    return target_;
+}
+
+- (id) object {
+    return object_;
+}
+
+@end
+/* }}} */
+/* Progress View {{{ */
+@interface ProgressView : UIView <
+    ProgressDelegate
+> {
+    UIView *view_;
+    UIView *background_;
+    UITransitionView *transition_;
+    UIView *overlay_;
+    UINavigationBar *navbar_;
+    UIProgressBar *progress_;
+    UITextView *output_;
+    UITextLabel *status_;
+    id delegate_;
+}
+
+- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
+
+- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate;
+- (void) setContentView:(UIView *)view;
+- (void) resetView;
+
+- (void) _retachThread;
+- (void) _detachNewThreadData:(ProgressData *)data;
+- (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title;
+
+@end
+
+@protocol ProgressViewDelegate
+- (void) progressViewIsComplete:(ProgressView *)sender;
+@end
+
+@implementation ProgressView
+
+- (void) dealloc {
+    [transition_ setDelegate:nil];
+    [navbar_ setDelegate:nil];
+
+    [view_ release];
+    if (background_ != nil)
+        [background_ release];
+    [transition_ release];
+    [overlay_ release];
+    [navbar_ release];
+    [progress_ release];
+    [output_ release];
+    [status_ release];
+    [super dealloc];
+}
+
+- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
+    if (bootstrap_ && from == overlay_ && to == view_)
+        exit(0);
+}
+
+- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate {
+    if ((self = [super initWithFrame:frame]) != nil) {
+        delegate_ = delegate;
+
+        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
+        [transition_ setDelegate:self];
+
+        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
+
+        if (bootstrap_)
+            [overlay_ setBackgroundColor:Black_];
+        else {
+            background_ = [[UIView alloc] initWithFrame:[self bounds]];
+            [background_ setBackgroundColor:Black_];
+            [self addSubview:background_];
+        }
+
+        [self addSubview:transition_];
+
+        CGSize navsize = [UINavigationBar defaultSize];
+        CGRect navrect = {{0, 0}, navsize};
+
+        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
+        [overlay_ addSubview:navbar_];
+
+        [navbar_ setBarStyle:1];
+        [navbar_ setDelegate:self];
+
+        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:nil] autorelease];
+        [navbar_ pushNavigationItem:navitem];
+
+        CGRect bounds = [overlay_ bounds];
+        CGSize prgsize = [UIProgressBar defaultSize];
+
+        CGRect prgrect = {{
+            (bounds.size.width - prgsize.width) / 2,
+            bounds.size.height - prgsize.height - 20
+        }, prgsize};
+
+        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
+        [overlay_ addSubview:progress_];
+
+        status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(
+            10,
+            bounds.size.height - prgsize.height - 50,
+            bounds.size.width - 20,
+            24
+        )];
+
+        [status_ setColor:White_];
+        [status_ setBackgroundColor:Clear_];
+
+        [status_ setCentersHorizontally:YES];
+        //[status_ setFont:font];
+
+        output_ = [[UITextView alloc] initWithFrame:CGRectMake(
+            10,
+            navrect.size.height + 20,
+            bounds.size.width - 20,
+            bounds.size.height - navsize.height - 62 - navrect.size.height
+        )];
+
+        //[output_ setTextFont:@"Courier New"];
+        [output_ setTextSize:12];
+
+        [output_ setTextColor:White_];
+        [output_ setBackgroundColor:Clear_];
+
+        [output_ setMarginTop:0];
+        [output_ setAllowsRubberBanding:YES];
+
+        [overlay_ addSubview:output_];
+        [overlay_ addSubview:status_];
+
+        [progress_ setStyle:0];
+    } return self;
+}
+
+- (void) setContentView:(UIView *)view {
+    view_ = [view retain];
+}
+
+- (void) resetView {
+    [transition_ transition:6 toView:view_];
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [sheet dismiss];
+}
+
+- (void) _retachThread {
+    [delegate_ progressViewIsComplete:self];
+    [self resetView];
+}
+
+- (void) _detachNewThreadData:(ProgressData *)data {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    [[data target] performSelector:[data selector] withObject:[data object]];
+    [data release];
+
+    [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
+
+    [pool release];
+}
+
+- (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title {
+    [navbar_ popNavigationItem];
+    UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:title] autorelease];
+    [navbar_ pushNavigationItem:navitem];
+
+    [status_ setText:nil];
+    [output_ setText:@""];
+    [progress_ setProgress:0];
+
+    [transition_ transition:6 toView:overlay_];
+
+    [NSThread
+        detachNewThreadSelector:@selector(_detachNewThreadData:)
+        toTarget:self
+        withObject:[[ProgressData alloc]
+            initWithSelector:selector
+            target:target
+            object:object
+        ]
+    ];
+}
+
+- (void) setProgressError:(NSString *)error {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressError:)
+        withObject:error
+        waitUntilDone:YES
+    ];
+}
+
+- (void) setProgressTitle:(NSString *)title {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressTitle:)
+        withObject:title
+        waitUntilDone:YES
+    ];
+}
+
+- (void) setProgressPercent:(float)percent {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressPercent:)
+        withObject:[NSNumber numberWithFloat:percent]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) addProgressOutput:(NSString *)output {
+    [self
+        performSelectorOnMainThread:@selector(_addProgressOutput:)
+        withObject:output
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _setProgressError:(NSString *)error {
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:@"Package Error"
+        buttons:[NSArray arrayWithObjects:@"Okay", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:self
+    ] autorelease];
+
+    [sheet setBodyText:error];
+    [sheet popupAlertAnimated:YES];
+}
+
+- (void) _setProgressTitle:(NSString *)title {
+    [status_ setText:[title stringByAppendingString:@"..."]];
+}
+
+- (void) _setProgressPercent:(NSNumber *)percent {
+    [progress_ setProgress:[percent floatValue]];
+}
+
+- (void) _addProgressOutput:(NSString *)output {
+    [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
+    CGSize size = [output_ contentSize];
+    CGRect rect = {{0, size.height}, {size.width, 0}};
+    [output_ scrollRectToVisible:rect animated:YES];
+}
+
+@end
+/* }}} */
+
+/* Package Cell {{{ */
+@interface PackageCell : UITableCell {
+    UIImageView *icon_;
+    UITextLabel *name_;
+    UITextLabel *description_;
+    UITextLabel *source_;
+    UIImageView *trusted_;
+}
+
+- (PackageCell *) init;
+- (void) setPackage:(Package *)package;
+
+- (void) _setSelected:(float)fraction;
+- (void) setSelected:(BOOL)selected;
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
+- (void) _setSelectionFadeFraction:(float)fraction;
+
+@end
+
+@implementation PackageCell
+
+- (void) dealloc {
+    [icon_ release];
+    [name_ release];
+    [description_ release];
+    [source_ release];
+    [trusted_ release];
+    [super dealloc];
+}
+
+- (PackageCell *) init {
+    if ((self = [super init]) != nil) {
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 20);
+        GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
+        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
+
+        icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
+        [icon_ zoomToScale:0.5f];
+
+        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 8, 240, 25)];
+        [name_ setBackgroundColor:Clear_];
+        [name_ setFont:bold];
+
+        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(58, 28, 225, 20)];
+        [source_ setBackgroundColor:Clear_];
+        [source_ setFont:large];
+
+        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 46, 280, 20)];
+        [description_ setBackgroundColor:Clear_];
+        [description_ setFont:small];
+
+        trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(30, 30, 16, 16)];
+        [trusted_ setImage:[UIImage applicationImageNamed:@"trusted.png"]];
+
+        [self addSubview:icon_];
+        [self addSubview:name_];
+        [self addSubview:description_];
+        [self addSubview:source_];
+
+        CFRelease(small);
+        CFRelease(large);
+        CFRelease(bold);
+    } return self;
+}
+
+- (void) setPackage:(Package *)package {
+    Source *source = [package source];
+
+    UIImage *image = nil;
+    if (NSString *icon = [package icon])
+        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (image == nil) if (NSString *icon = [source defaultIcon])
+        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (image == nil)
+        image = [UIImage applicationImageNamed:@"unknown.png"];
+
+    [icon_ setImage:image];
+    [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
+
+    [name_ setText:[package name]];
+    [description_ setText:[package tagline]];
+
+    NSString *label;
+    bool trusted;
+
+    if (source != nil) {
+        label = [source label];
+        trusted = [source trusted];
+    } else if ([[package id] isEqualToString:@"firmware"]) {
+        label = @"Apple";
+        trusted = false;
+    } else {
+        label = @"Unknown/Local";
+        trusted = false;
+    }
+
+    [source_ setText:[NSString stringWithFormat:@"from %@", label]];
+
+    if (trusted)
+        [self addSubview:trusted_];
+    else
+        [trusted_ removeFromSuperview];
+}
+
+- (void) _setSelected:(float)fraction {
+    CGColor black(space_,
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+    1.0);
+
+    CGColor gray(space_,
+        Interpolate(0.4, 1.0, fraction),
+        Interpolate(0.4, 1.0, fraction),
+        Interpolate(0.4, 1.0, fraction),
+    1.0);
+
+    [name_ setColor:black];
+    [description_ setColor:gray];
+    [source_ setColor:black];
+}
+
+- (void) setSelected:(BOOL)selected {
+    [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    if (!fade)
+        [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected withFade:fade];
+}
+
+- (void) _setSelectionFadeFraction:(float)fraction {
+    [self _setSelected:fraction];
+    [super _setSelectionFadeFraction:fraction];
+}
+
+@end
+/* }}} */
+/* Section Cell {{{ */
+@interface SectionCell : UITableCell {
+    UITextLabel *name_;
+    UITextLabel *count_;
+}
+
+- (id) init;
+- (void) setSection:(Section *)section;
+
+- (void) _setSelected:(float)fraction;
+- (void) setSelected:(BOOL)selected;
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
+- (void) _setSelectionFadeFraction:(float)fraction;
+
+@end
+
+@implementation SectionCell
+
+- (void) dealloc {
+    [name_ release];
+    [count_ release];
+    [super dealloc];
+}
+
+- (id) init {
+    if ((self = [super init]) != nil) {
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
+        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 12);
+
+        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 9, 250, 25)];
+        [name_ setBackgroundColor:Clear_];
+        [name_ setFont:bold];
+
+        count_ = [[UITextLabel alloc] initWithFrame:CGRectMake(11, 7, 29, 32)];
+        [count_ setCentersHorizontally:YES];
+        [count_ setBackgroundColor:Clear_];
+        [count_ setFont:small];
+        [count_ setColor:White_];
+
+        UIImageView *folder = [[[UIImageView alloc] initWithFrame:CGRectMake(8, 7, 32, 32)] autorelease];
+        [folder setImage:[UIImage applicationImageNamed:@"folder.png"]];
+
+        [self addSubview:folder];
+        [self addSubview:name_];
+        [self addSubview:count_];
+
+        [self _setSelected:0];
+
+        CFRelease(small);
+        CFRelease(bold);
+    } return self;
+}
+
+- (void) setSection:(Section *)section {
+    if (section == nil) {
+        [name_ setText:@"All Packages"];
+        [count_ setText:nil];
+    } else {
+        NSString *name = [section name];
+        [name_ setText:(name == nil ? @"(No Section)" : name)];
+        [count_ setText:[NSString stringWithFormat:@"%d", [section count]]];
+    }
+}
+
+- (void) _setSelected:(float)fraction {
+    CGColor black(space_,
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+    1.0);
+
+    [name_ setColor:black];
+}
+
+- (void) setSelected:(BOOL)selected {
+    [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    if (!fade)
+        [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected withFade:fade];
+}
+
+- (void) _setSelectionFadeFraction:(float)fraction {
+    [self _setSelected:fraction];
+    [super _setSelectionFadeFraction:fraction];
+}
+
+@end
+/* }}} */
+
+/* Browser Interface {{{ */
+@interface BrowserView : RVPage {
+    _transient Database *database_;
+    UIScroller *scroller_;
+    UIWebView *webview_;
+    NSMutableArray *urls_;
+    UIProgressIndicator *indicator_;
+
+    NSString *title_;
+    bool loading_;
+}
+
+- (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;
+- (void) loadURL:(NSURL *)url;
+
+- (void) loadRequest:(NSURLRequest *)request;
+- (void) reloadURL;
+
+- (WebView *) webView;
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
 
 @end
 /* }}} */
@@ -1524,36 +2583,29 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) performPackage:(Package *)package;
 @end
 
-@interface PackageView : UIView {
+@interface PackageView : RVPage {
+    _transient Database *database_;
     UIPreferencesTable *table_;
     Package *package_;
+    NSString *name_;
     UITextView *description_;
-    id delegate_;
 }
 
-- (void) dealloc;
-
-- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table;
-- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group;
-- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed;
-- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group;
-- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group;
-
-- (BOOL) canSelectRow:(int)row;
-- (void) tableRowSelected:(NSNotification *)notification;
-
-- (Package *) package;
-
-- (id) initWithFrame:(struct CGRect)frame;
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
 - (void) setPackage:(Package *)package;
-- (void) setDelegate:(id)delegate;
+
 @end
 
 @implementation PackageView
 
 - (void) dealloc {
+    [table_ setDataSource:nil];
+    [table_ setDelegate:nil];
+
     if (package_ != nil)
         [package_ release];
+    if (name_ != nil)
+        [name_ release];
     if (description_ != nil)
         [description_ release];
     [table_ release];
@@ -1561,7 +2613,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
-    return 3;
+    return [package_ source] == nil ? 2 : 3;
 }
 
 - (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
@@ -1685,16 +2737,61 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             [[package_ maintainer] email],
             [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
         ]]];
-    else if (website != nil && row == 3)
-        [delegate_ openURL:[NSURL URLWithString:website]];
+    else if (website != nil && row == 3) {
+        NSURL *url = [NSURL URLWithString:website];
+        BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+        [browser setDelegate:delegate_];
+        [book_ pushPage:browser];
+        [browser loadURL:url];
+    }
 }
 
-- (Package *) package {
-    return package_;
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    switch (button) {
+        case 1: [delegate_ installPackage:package_]; break;
+        case 2: [delegate_ removePackage:package_]; break;
+    }
+
+    [sheet dismiss];
 }
 
-- (id) initWithFrame:(struct CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
+- (void) _rightButtonClicked {
+    if ([package_ installed] == nil)
+        [delegate_ installPackage:package_];
+    else {
+        NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:6];
+
+        if ([package_ upgradable])
+            [buttons addObject:@"Upgrade"];
+        else
+            [buttons addObject:@"Reinstall"];
+
+        [buttons addObject:@"Remove"];
+        [buttons addObject:@"Cancel"];
+
+        [delegate_ slideUp:[[[UIAlertSheet alloc]
+            initWithTitle:@"Manage Package"
+            buttons:buttons
+            defaultButtonIndex:2
+            delegate:self
+            context:self
+        ] autorelease]];
+    }
+}
+
+- (NSString *) rightButtonTitle {
+    _assert(package_ != nil);
+    return [package_ installed] == nil ? @"Install" : @"Manage";
+}
+
+- (NSString *) title {
+    return @"Details";
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+
         table_ = [[UIPreferencesTable alloc] initWithFrame:[self bounds]];
         [self addSubview:table_];
 
@@ -1709,6 +2806,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         package_ = nil;
     }
 
+    if (name_ != nil) {
+        [name_ release];
+        name_ = nil;
+    }
+
     if (description_ != nil) {
         [description_ release];
         description_ = nil;
@@ -1716,779 +2818,59 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     if (package != nil) {
         package_ = [package retain];
+        name_ = [[package id] retain];
 
         NSString *description([package description]);
         if (description == nil)
             description = [package tagline];
         description_ = [GetTextView(description, 12, true) retain];
 
-        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-        CGColor black(space, 0, 0, 0, 1);
-        [description_ setTextColor:black];
-        CGColorSpaceRelease(space);
+        [description_ setTextColor:Black_];
 
         [table_ reloadData];
     }
 }
 
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
-@end
-/* }}} */
-/* Package Cell {{{ */
-@interface PackageCell : UITableCell {
-    UIImageView *icon_;
-    UITextLabel *name_;
-    UITextLabel *description_;
-    UITextLabel *source_;
-    UIImageView *trusted_;
-    SEL versioner_;
-}
-
-- (void) dealloc;
-
-- (PackageCell *) initWithVersioner:(SEL)versioner;
-- (void) setPackage:(Package *)package;
-
-- (void) _setSelected:(float)fraction;
-- (void) setSelected:(BOOL)selected;
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
-- (void) _setSelectionFadeFraction:(float)fraction;
-
-@end
-
-@implementation PackageCell
-
-- (void) dealloc {
-    [icon_ release];
-    [name_ release];
-    [description_ release];
-    [source_ release];
-    [trusted_ release];
-    [super dealloc];
-}
-
-- (PackageCell *) initWithVersioner:(SEL)versioner {
-    if ((self = [super init]) != nil) {
-        versioner_ = versioner;
-
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
-        GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
-        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
-
-        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-
-        CGColor clear(space, 0, 0, 0, 0);
-
-        icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
-
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 12, 240, 25)];
-        [name_ setBackgroundColor:clear];
-        [name_ setFont:bold];
-
-        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 46, 280, 20)];
-        [description_ setBackgroundColor:clear];
-        [description_ setFont:small];
-
-        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 72, 225, 20)];
-        [source_ setBackgroundColor:clear];
-        [source_ setFont:large];
-
-        //trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(278, 7, 16, 16)];
-        trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(30, 30, 16, 16)];
-        [trusted_ setImage:[UIImage applicationImageNamed:@"trusted.png"]];
-
-        [self addSubview:icon_];
-        [self addSubview:name_];
-        [self addSubview:description_];
-        [self addSubview:source_];
-
-        CGColorSpaceRelease(space);
-
-        CFRelease(small);
-        CFRelease(large);
-        CFRelease(bold);
-    } return self;
-}
-
-- (void) setPackage:(Package *)package {
-    Source *source = [package source];
-
-    UIImage *image = nil;
-    if (NSString *icon = [package icon])
-        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (image == nil) if (NSString *icon = [source defaultIcon])
-        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (image == nil)
-        image = [UIImage applicationImageNamed:@"unknown.png"];
-
-    [icon_ setImage:image];
-    [icon_ zoomToScale:0.5f];
-    [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
-
-    [name_ setText:[package name]];
-    [description_ setText:[package tagline]];
-
-    NSString *label;
-    bool trusted;
-
-    if (source != nil) {
-        label = [source label];
-        trusted = [source trusted];
-    } else if ([[package id] isEqualToString:@"firmware"]) {
-        label = @"Apple";
-        trusted = false;
-    } else {
-        label = @"Unknown/Local";
-        trusted = false;
-    }
-
-    [source_ setText:[NSString stringWithFormat:@"from %@", label]];
-
-    [trusted_ removeFromSuperview];
-    if (trusted)
-        [self addSubview:trusted_];
-}
-
-- (void) _setSelected:(float)fraction {
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-
-    CGColor black(space,
-        interpolate(0.0, 1.0, fraction),
-        interpolate(0.0, 1.0, fraction),
-        interpolate(0.0, 1.0, fraction),
-    1.0);
-
-    CGColor gray(space,
-        interpolate(0.4, 1.0, fraction),
-        interpolate(0.4, 1.0, fraction),
-        interpolate(0.4, 1.0, fraction),
-    1.0);
-
-    [name_ setColor:black];
-    [description_ setColor:gray];
-    [source_ setColor:black];
-
-    CGColorSpaceRelease(space);
-}
-
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
-}
-
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
-}
-
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
-}
-
-@end
-/* }}} */
-
-/* Database Implementation {{{ */
-@implementation Database
-
-- (void) dealloc {
-    _assert(false);
-    [super dealloc];
-}
-
-- (void) _readStatus:(NSNumber *)fd {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
-    std::istream is(&ib);
-    std::string line;
-
-    const char *error;
-    int offset;
-    pcre *code = pcre_compile("^([^:]*):([^:]*):([^:]*):(.*)$", 0, &error, &offset, NULL);
-
-    pcre_extra *study = NULL;
-    int capture;
-    pcre_fullinfo(code, study, PCRE_INFO_CAPTURECOUNT, &capture);
-    int matches[(capture + 1) * 3];
-
-    while (std::getline(is, line)) {
-        const char *data(line.c_str());
-
-        _assert(pcre_exec(code, study, data, line.size(), 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
-
-        std::istringstream buffer(line.substr(matches[6], matches[7] - matches[6]));
-        float percent;
-        buffer >> percent;
-        [delegate_ setPercent:(percent / 100)];
-
-        NSString *string = [NSString stringWithCString:(data + matches[8]) length:(matches[9] - matches[8])];
-        std::string type(line.substr(matches[2], matches[3] - matches[2]));
-
-        if (type == "pmerror")
-            [delegate_ setError:string];
-        else if (type == "pmstatus")
-            [delegate_ setTitle:string];
-        else if (type == "pmconffile")
-            ;
-        else _assert(false);
-    }
-
-    [pool release];
-    _assert(false);
-}
-
-- (void) _readOutput:(NSNumber *)fd {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
-    std::istream is(&ib);
-    std::string line;
-
-    while (std::getline(is, line))
-        [delegate_ addOutput:[NSString stringWithCString:line.c_str()]];
-
-    [pool release];
-    _assert(false);
-}
-
-- (Package *) packageWithName:(NSString *)name {
-    pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
-    return iterator.end() ? nil : [Package packageWithIterator:iterator database:self];
-}
-
-- (Database *) init {
-    if ((self = [super init]) != nil) {
-        records_ = NULL;
-        resolver_ = NULL;
-        fetcher_ = NULL;
-        lock_ = NULL;
-
-        sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
-
-        int fds[2];
-
-        _assert(pipe(fds) != -1);
-        statusfd_ = fds[1];
-
-        [NSThread
-            detachNewThreadSelector:@selector(_readStatus:)
-            toTarget:self
-            withObject:[[NSNumber numberWithInt:fds[0]] retain]
-        ];
-
-        _assert(pipe(fds) != -1);
-        _assert(dup2(fds[1], 1) != -1);
-        _assert(close(fds[1]) != -1);
-
-        [NSThread
-            detachNewThreadSelector:@selector(_readOutput:)
-            toTarget:self
-            withObject:[[NSNumber numberWithInt:fds[0]] retain]
-        ];
-    } return self;
-}
-
-- (pkgCacheFile &) cache {
-    return cache_;
-}
-
-- (pkgRecords *) records {
-    return records_;
-}
-
-- (pkgProblemResolver *) resolver {
-    return resolver_;
-}
-
-- (pkgAcquire &) fetcher {
-    return *fetcher_;
-}
-
-- (NSArray *) packages {
-    return packages_;
+- (void) resetViewAnimated:(BOOL)animated {
+    [table_ resetViewAnimated:animated];
 }
 
 - (void) reloadData {
-    _error->Discard();
-    delete list_;
-    manager_ = NULL;
-    delete lock_;
-    delete fetcher_;
-    delete resolver_;
-    delete records_;
-    cache_.Close();
-
-    if (!cache_.Open(progress_, true)) {
-        fprintf(stderr, "repairing corrupted database...\n");
-        _error->Discard();
-        [self update];
-        _assert(cache_.Open(progress_, true));
-    }
-
-    now_ = [NSDate date];
-
-    records_ = new pkgRecords(cache_);
-    resolver_ = new pkgProblemResolver(cache_);
-    fetcher_ = new pkgAcquire(&status_);
-    lock_ = NULL;
-
-    list_ = new pkgSourceList();
-    _assert(list_->ReadMainList());
-
-    [sources_ removeAllObjects];
-    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-        std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
-        for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
-            [sources_
-                setObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]
-                forKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(*index)]
-            ];
-    }
-
-    [packages_ removeAllObjects];
-    for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-        if (Package *package = [Package packageWithIterator:iterator database:self])
-            if ([package source] != nil || [package installed] != nil)
-                [packages_ addObject:package];
-}
-
-- (void) prepare {
-    pkgRecords records(cache_);
-
-    lock_ = new FileFd();
-    lock_->Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
-    _assert(!_error->PendingError());
-
-    pkgSourceList list;
-    _assert(list.ReadMainList());
-
-    manager_ = (_system->CreatePM(cache_));
-    _assert(manager_->GetArchives(fetcher_, &list, &records));
-    _assert(!_error->PendingError());
-}
-
-- (void) perform {
-    if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue)
-        return;
-
-    _system->UnLock();
-    pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
-
-    if (result == pkgPackageManager::Failed)
-        return;
-    if (_error->PendingError())
-        return;
-    if (result != pkgPackageManager::Completed)
-        return;
-}
-
-- (void) update {
-    pkgSourceList list;
-    _assert(list.ReadMainList());
-
-    FileFd lock;
-    lock.Fd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"));
-    _assert(!_error->PendingError());
-
-    pkgAcquire fetcher(&status_);
-    _assert(list.GetIndexes(&fetcher));
-    _assert(fetcher.Run(PulseInterval_) != pkgAcquire::Failed);
-
-    bool failed = false;
-    for (pkgAcquire::ItemIterator item = fetcher.ItemsBegin(); item != fetcher.ItemsEnd(); item++)
-        if ((*item)->Status != pkgAcquire::Item::StatDone) {
-            (*item)->Finished();
-            failed = true;
-        }
-
-    if (!failed && _config->FindB("APT::Get::List-Cleanup", true) == true) {
-        _assert(fetcher.Clean(_config->FindDir("Dir::State::lists")));
-        _assert(fetcher.Clean(_config->FindDir("Dir::State::lists") + "partial/"));
-    }
-
-    [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
-}
-
-- (void) upgrade {
-    _assert(cache_->DelCount() == 0 && cache_->InstCount() == 0);
-    _assert(pkgApplyStatus(cache_));
-
-    if (cache_->BrokenCount() != 0) {
-        _assert(pkgFixBroken(cache_));
-        _assert(cache_->BrokenCount() == 0);
-        _assert(pkgMinimizeUpgrade(cache_));
-    }
-
-    _assert(pkgDistUpgrade(cache_));
-}
-
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-    status_.setDelegate(delegate);
-    progress_.setDelegate(delegate);
-}
-
-- (Source *) getSource:(const pkgCache::PkgFileIterator &)file {
-    pkgIndexFile *index(NULL);
-    list_->FindIndex(file, index);
-    return [sources_ objectForKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(index)]];
+    [self setPackage:[database_ packageWithName:name_]];
+    [self reloadButtons];
 }
 
 @end
 /* }}} */
-
-/* Progress Data {{{ */
-@interface ProgressData : NSObject {
-    SEL selector_;
-    id target_;
-    id object_;
-}
-
-- (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object;
-
-- (SEL) selector;
-- (id) target;
-- (id) object;
-@end
-
-@implementation ProgressData
-
-- (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object {
-    if ((self = [super init]) != nil) {
-        selector_ = selector;
-        target_ = target;
-        object_ = object;
-    } return self;
-}
-
-- (SEL) selector {
-    return selector_;
-}
-
-- (id) target {
-    return target_;
-}
-
-- (id) object {
-    return object_;
-}
-
-@end
-/* }}} */
-/* Progress View {{{ */
-@interface ProgressView : UIView <
-    ProgressDelegate
-> {
-    UIView *view_;
-    UIView *background_;
-    UITransitionView *transition_;
-    UIView *overlay_;
-    UINavigationBar *navbar_;
-    UIProgressBar *progress_;
-    UITextView *output_;
-    UITextLabel *status_;
-    id delegate_;
-}
-
-- (void) dealloc;
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
-
-- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate;
-- (void) setContentView:(UIView *)view;
-- (void) resetView;
-
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
-
-- (void) _retachThread;
-- (void) _detachNewThreadData:(ProgressData *)data;
-- (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title;
-
-- (void) setError:(NSString *)error;
-- (void) _setError:(NSString *)error;
-
-- (void) setTitle:(NSString *)title;
-- (void) _setTitle:(NSString *)title;
-
-- (void) setPercent:(float)percent;
-- (void) _setPercent:(NSNumber *)percent;
-
-- (void) addOutput:(NSString *)output;
-- (void) _addOutput:(NSString *)output;
-@end
-
-@protocol ProgressViewDelegate
-- (void) progressViewIsComplete:(ProgressView *)sender;
-@end
-
-@implementation ProgressView
-
-- (void) dealloc {
-    [view_ release];
-    if (background_ != nil)
-        [background_ release];
-    [transition_ release];
-    [overlay_ release];
-    [navbar_ release];
-    [progress_ release];
-    [output_ release];
-    [status_ release];
-    [super dealloc];
-}
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
-    if (bootstrap_ && from == overlay_ && to == view_)
-        exit(0);
-}
-
-- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        delegate_ = delegate;
-
-        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-
-        CGColor black(space, 0.0, 0.0, 0.0, 1.0);
-        CGColor white(space, 1.0, 1.0, 1.0, 1.0);
-        CGColor clear(space, 0.0, 0.0, 0.0, 0.0);
-
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [transition_ setDelegate:self];
-
-        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-
-        if (bootstrap_)
-            [overlay_ setBackgroundColor:black];
-        else {
-            background_ = [[UIView alloc] initWithFrame:[self bounds]];
-            [background_ setBackgroundColor:black];
-            [self addSubview:background_];
-        }
-
-        [self addSubview:transition_];
-
-        CGSize navsize = [UINavigationBar defaultSize];
-        CGRect navrect = {{0, 0}, navsize};
-
-        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        [overlay_ addSubview:navbar_];
-
-        [navbar_ setBarStyle:1];
-        [navbar_ setDelegate:self];
-
-        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:nil] autorelease];
-        [navbar_ pushNavigationItem:navitem];
-
-        CGRect bounds = [overlay_ bounds];
-        CGSize prgsize = [UIProgressBar defaultSize];
-
-        CGRect prgrect = {{
-            (bounds.size.width - prgsize.width) / 2,
-            bounds.size.height - prgsize.height - 20
-        }, prgsize};
-
-        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
-        [overlay_ addSubview:progress_];
-
-        status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(
-            10,
-            bounds.size.height - prgsize.height - 50,
-            bounds.size.width - 20,
-            24
-        )];
-
-        [status_ setColor:white];
-        [status_ setBackgroundColor:clear];
-
-        [status_ setCentersHorizontally:YES];
-        //[status_ setFont:font];
-
-        output_ = [[UITextView alloc] initWithFrame:CGRectMake(
-            10,
-            navrect.size.height + 20,
-            bounds.size.width - 20,
-            bounds.size.height - navsize.height - 62 - navrect.size.height
-        )];
-
-        //[output_ setTextFont:@"Courier New"];
-        [output_ setTextSize:12];
-
-        [output_ setTextColor:white];
-        [output_ setBackgroundColor:clear];
-
-        [output_ setMarginTop:0];
-        [output_ setAllowsRubberBanding:YES];
-
-        [overlay_ addSubview:output_];
-        [overlay_ addSubview:status_];
-
-        [progress_ setStyle:0];
-
-        CGColorSpaceRelease(space);
-    } return self;
-}
-
-- (void) setContentView:(UIView *)view {
-    view_ = [view retain];
-}
-
-- (void) resetView {
-    [transition_ transition:6 toView:view_];
-}
-
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    [sheet dismiss];
-}
-
-- (void) _retachThread {
-    [delegate_ progressViewIsComplete:self];
-    [self resetView];
-}
-
-- (void) _detachNewThreadData:(ProgressData *)data {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-    [[data target] performSelector:[data selector] withObject:[data object]];
-    [data release];
-
-    [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
-
-    [pool release];
-}
-
-- (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title {
-    [navbar_ popNavigationItem];
-    UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:title] autorelease];
-    [navbar_ pushNavigationItem:navitem];
-
-    [status_ setText:nil];
-    [output_ setText:@""];
-    [progress_ setProgress:0];
-
-    [transition_ transition:6 toView:overlay_];
-
-    [NSThread
-        detachNewThreadSelector:@selector(_detachNewThreadData:)
-        toTarget:self
-        withObject:[[ProgressData alloc]
-            initWithSelector:selector
-            target:target
-            object:object
-        ]
-    ];
-}
-
-- (void) setError:(NSString *)error {
-    [self
-        performSelectorOnMainThread:@selector(_setError:)
-        withObject:error
-        waitUntilDone:YES
-    ];
-}
-
-- (void) _setError:(NSString *)error {
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
-        initWithTitle:@"Package Error"
-        buttons:[NSArray arrayWithObjects:@"Okay", nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:self
-    ] autorelease];
-
-    [sheet setBodyText:error];
-    [sheet popupAlertAnimated:YES];
-}
-
-- (void) setTitle:(NSString *)title {
-    [self
-        performSelectorOnMainThread:@selector(_setTitle:)
-        withObject:title
-        waitUntilDone:YES
-    ];
-}
-
-- (void) _setTitle:(NSString *)title {
-    [status_ setText:[title stringByAppendingString:@"..."]];
-}
-
-- (void) setPercent:(float)percent {
-    [self
-        performSelectorOnMainThread:@selector(_setPercent:)
-        withObject:[NSNumber numberWithFloat:percent]
-        waitUntilDone:YES
-    ];
-}
-
-- (void) _setPercent:(NSNumber *)percent {
-    [progress_ setProgress:[percent floatValue]];
-}
-
-- (void) addOutput:(NSString *)output {
-    [self
-        performSelectorOnMainThread:@selector(_addOutput:)
-        withObject:output
-        waitUntilDone:YES
-    ];
-}
-
-- (void) _addOutput:(NSString *)output {
-    [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
-    CGSize size = [output_ contentSize];
-    CGRect rect = {{0, size.height}, {size.width, 0}};
-    [output_ scrollRectToVisible:rect animated:YES];
-}
-
-@end
-/* }}} */
-
 /* Package Table {{{ */
-@protocol PackageTableDelegate
-- (void) packageTable:(id)table packageSelected:(Package *)package;
-@end
-
-@interface PackageTable : UIView {
-    SEL versioner_;
-    UISectionList *list_;
-
-    id delegate_;
-    NSArray *packages_;
+@interface PackageTable : RVPage {
+    _transient Database *database_;
+    NSString *title_;
+    SEL filter_;
+    id object_;
+    NSMutableArray *packages_;
     NSMutableArray *sections_;
+    UISectionList *list_;
 }
 
-- (void) dealloc;
-
-- (int) numberOfSectionsInSectionList:(UISectionList *)list;
-- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section;
-- (int) sectionList:(UISectionList *)list rowForSection:(int)section;
-
-- (int) numberOfRowsInTable:(UITable *)table;
-- (float) table:(UITable *)table heightForRow:(int)row;
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing;
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row;
-- (void) tableRowSelected:(NSNotification *)notification;
-
-- (id) initWithFrame:(CGRect)frame versioner:(SEL)versioner;
+- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
 
 - (void) setDelegate:(id)delegate;
-- (void) setPackages:(NSArray *)packages;
+- (void) reloadData;
 
-- (void) resetViewAnimated:(BOOL)animated;
-- (UITable *) table;
 @end
 
 @implementation PackageTable
 
 - (void) dealloc {
-    [list_ release];
+    [list_ setDataSource:nil];
+
+    [title_ release];
+    if (object_ != nil)
+        [object_ release];
+    [packages_ release];
     [sections_ release];
-    if (packages_ != nil)
-        [packages_ release];
+    [list_ release];
     [super dealloc];
 }
 
@@ -2509,12 +2891,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (float) table:(UITable *)table heightForRow:(int)row {
-    return 100;
+    return 73;
 }
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
     if (reusing == nil)
-        reusing = [[[PackageCell alloc] initWithVersioner:versioner_] autorelease];
+        reusing = [[[PackageCell alloc] init] autorelease];
     [(PackageCell *)reusing setPackage:[packages_ objectAtIndex:row]];
     return reusing;
 }
@@ -2525,12 +2907,24 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [[notification object] selectedRow];
-    [delegate_ packageTable:self packageSelected:(row == INT_MAX ? nil : [packages_ objectAtIndex:row])];
+    if (row == INT_MAX)
+        return;
+
+    Package *package = [packages_ objectAtIndex:row];
+    PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+    [view setDelegate:delegate_];
+    [view setPackage:package];
+    [book_ pushPage:view];
 }
 
-- (id) initWithFrame:(CGRect)frame versioner:(SEL)versioner {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        versioner_ = versioner;
+- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+        title_ = [title retain];
+        filter_ = filter;
+        object_ = object == nil ? nil : [object retain];
+
+        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:YES];
@@ -2539,7 +2933,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         UITableColumn *column = [[[UITableColumn alloc]
             initWithTitle:@"Name"
             identifier:@"name"
-            width:frame.size.width
+            width:[self frame].size.width
         ] autorelease];
 
         UITable *table = [list_ table];
@@ -2549,6 +2943,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [table setReusesTableCells:YES];
 
         [self addSubview:list_];
+        [self reloadData];
     } return self;
 }
 
@@ -2556,13 +2951,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     delegate_ = delegate;
 }
 
-- (void) setPackages:(NSArray *)packages {
-    if (packages_ != nil)
-        [packages_ autorelease];
-    _assert(packages != nil);
-    packages_ = [packages retain];
+- (void) reloadData {
+    NSArray *packages = [database_ packages];
 
+    [packages_ removeAllObjects];
     [sections_ removeAllObjects];
+
+    for (size_t i(0); i != [packages count]; ++i) {
+        Package *package([packages objectAtIndex:i]);
+        if ([[package performSelector:filter_ withObject:object_] boolValue])
+            [packages_ addObject:package];
+    }
+
+    [packages_ sortUsingSelector:@selector(compareByName:)];
 
     Section *section = nil;
 
@@ -2570,187 +2971,329 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         Package *package = [packages_ objectAtIndex:offset];
         NSString *name = [package index];
 
-        if (section == nil || ![[section name] isEqual:name]) {
+        if (section == nil || ![[section name] isEqualToString:name]) {
             section = [[[Section alloc] initWithName:name row:offset] autorelease];
             [sections_ addObject:section];
         }
 
-        [section addPackage:package];
+        [section addToCount];
     }
 
     [list_ reloadData];
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [[list_ table] selectRow:-1 byExtendingSelection:NO withFade:animated];
+- (NSString *) title {
+    return title_;
 }
 
-- (UITable *) table {
-    return [list_ table];
+- (void) resetViewAnimated:(BOOL)animated {
+    [list_ resetViewAnimated:animated];
 }
 
 @end
 /* }}} */
 
-/* Section Cell {{{ */
-@interface SectionCell : UITableCell {
-    UITextLabel *name_;
-    UITextLabel *count_;
-}
-
-- (void) dealloc;
-
-- (id) init;
-- (void) setSection:(Section *)section;
-
-- (void) _setSelected:(float)fraction;
-- (void) setSelected:(BOOL)selected;
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
-- (void) _setSelectionFadeFraction:(float)fraction;
-
-@end
-
-@implementation SectionCell
+/* Browser Implementation {{{ */
+@implementation BrowserView
 
 - (void) dealloc {
-    [name_ release];
-    [count_ release];
+    WebView *webview = [webview_ webView];
+    [webview setFrameLoadDelegate:nil];
+    [webview setResourceLoadDelegate:nil];
+    [webview setUIDelegate:nil];
+
+    [scroller_ setDelegate:nil];
+    [webview_ setDelegate:nil];
+
+    [scroller_ release];
+    [webview_ release];
+    [urls_ release];
+    [indicator_ release];
+    if (title_ != nil)
+        [title_ release];
     [super dealloc];
 }
 
-- (id) init {
-    if ((self = [super init]) != nil) {
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
-        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 12);
+- (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
+    NSMutableURLRequest *request = [NSMutableURLRequest
+        requestWithURL:url
+        cachePolicy:policy
+        timeoutInterval:30.0
+    ];
 
-        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-        CGColor clear(space, 0, 0, 0, 0);
-        CGColor white(space, 1, 1, 1, 1);
+    [request addValue:[NSString stringWithCString:Firmware_] forHTTPHeaderField:@"X-Firmware"];
+    [request addValue:[NSString stringWithCString:Machine_] forHTTPHeaderField:@"X-Machine"];
+    [request addValue:[NSString stringWithCString:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
 
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 9, 250, 25)];
-        [name_ setBackgroundColor:clear];
-        [name_ setFont:bold];
-
-        count_ = [[UITextLabel alloc] initWithFrame:CGRectMake(11, 7, 29, 32)];
-        [count_ setCentersHorizontally:YES];
-        [count_ setBackgroundColor:clear];
-        [count_ setFont:small];
-        [count_ setColor:white];
-
-        UIImageView *folder = [[[UIImageView alloc] initWithFrame:CGRectMake(8, 7, 32, 32)] autorelease];
-        [folder setImage:[UIImage applicationImageNamed:@"folder.png"]];
-
-        [self addSubview:folder];
-        [self addSubview:name_];
-        [self addSubview:count_];
-
-        [self _setSelected:0];
-
-        CGColorSpaceRelease(space);
-
-        CFRelease(small);
-        CFRelease(bold);
-    } return self;
+    [self loadRequest:request];
 }
 
-- (void) setSection:(Section *)section {
-    if (section == nil) {
-        [name_ setText:@"All Packages"];
-        [count_ setText:nil];
-    } else {
-        NSString *name = [section name];
-        [name_ setText:(name == nil ? @"(No Section)" : name)];
-        [count_ setText:[NSString stringWithFormat:@"%d", [section count]]];
+
+- (void) loadURL:(NSURL *)url {
+    [self loadURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy];
+}
+
+// XXX: this needs to add the headers
+- (NSURLRequest *) _addHeadersToRequest:(NSURLRequest *)request {
+    return request;
+}
+
+- (void) loadRequest:(NSURLRequest *)request {
+    [webview_ loadRequest:request];
+}
+
+- (void) reloadURL {
+    NSURL *url = [[[urls_ lastObject] retain] autorelease];
+    [urls_ removeLastObject];
+    [self loadURL:url cachePolicy:NSURLRequestReloadIgnoringCacheData];
+}
+
+- (WebView *) webView {
+    return [webview_ webView];
+}
+
+- (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
+    [scroller_ setContentSize:frame.size];
+}
+
+- (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
+    [self view:sender didSetFrame:frame];
+}
+
+- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
+    return [self _addHeadersToRequest:request];
+}
+
+- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
+    [self setBackButtonTitle:title_];
+    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+    [browser setDelegate:delegate_];
+    [book_ pushPage:browser];
+    [browser loadRequest:[self _addHeadersToRequest:request]];
+    return [browser webView];
+}
+
+- (void) webView:(WebView *)sender willClickElement:(id)element {
+    if (![element respondsToSelector:@selector(href)])
+        return;
+    NSString *href = [element href];
+    if (href == nil)
+        return;
+    if ([href hasPrefix:@"apptapp://package/"]) {
+        NSString *name = [href substringFromIndex:18];
+        Package *package = [database_ packageWithName:name];
+        if (package == nil) {
+            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+                initWithTitle:@"Cannot Locate Package"
+                buttons:[NSArray arrayWithObjects:@"Close", nil]
+                defaultButtonIndex:0
+                delegate:self
+                context:self
+            ] autorelease];
+
+            [sheet setBodyText:[NSString stringWithFormat:
+                @"The package %@ cannot be found in your current sources. I might recommend intalling more sources."
+            , name]];
+
+            [sheet popupAlertAnimated:YES];
+        } else {
+            [self setBackButtonTitle:title_];
+            PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+            [view setDelegate:delegate_];
+            [view setPackage:package];
+            [book_ pushPage:view];
+        }
     }
 }
 
-- (void) _setSelected:(float)fraction {
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-
-    CGColor black(space,
-        interpolate(0.0, 1.0, fraction),
-        interpolate(0.0, 1.0, fraction),
-        interpolate(0.0, 1.0, fraction),
-    1.0);
-
-    [name_ setColor:black];
-
-    CGColorSpaceRelease(space);
+- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
+    title_ = [title retain];
+    [self setTitle:title];
 }
 
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
+- (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
+    if ([frame parentFrame] != nil)
+        return;
+
+    loading_ = true;
+    [indicator_ startAnimation];
+    [self reloadButtons];
+
+    if (title_ != nil) {
+        [title_ release];
+        title_ = nil;
+    }
+
+    [self setTitle:@"Loading..."];
+
+    WebView *webview = [webview_ webView];
+    NSString *href = [webview mainFrameURL];
+    [urls_ addObject:[NSURL URLWithString:href]];
+
+    CGRect webrect = [scroller_ frame];
+    webrect.size.height = 0;
+    [webview_ setFrame:webrect];
 }
 
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
+- (void) _finishLoading {
+    loading_ = false;
+    [indicator_ stopAnimation];
+    [self reloadButtons];
 }
 
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
+- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
+    if ([frame parentFrame] != nil)
+        return;
+    [self _finishLoading];
+}
+
+- (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    if ([frame parentFrame] != nil)
+        return;
+    [self setTitle:[error localizedDescription]];
+    [self _finishLoading];
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+        loading_ = false;
+
+        struct CGRect bounds = [self bounds];
+
+        UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:bounds] autorelease];
+        [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
+        [self addSubview:pinstripe];
+
+        scroller_ = [[UIScroller alloc] initWithFrame:bounds];
+        [self addSubview:scroller_];
+
+        [scroller_ setScrollingEnabled:YES];
+        [scroller_ setAdjustForContentSizeChange:YES];
+        [scroller_ setClipsSubviews:YES];
+        [scroller_ setAllowsRubberBanding:YES];
+        [scroller_ setScrollDecelerationFactor:0.99];
+        [scroller_ setDelegate:self];
+
+        CGRect webrect = [scroller_ bounds];
+        webrect.size.height = 0;
+
+        webview_ = [[UIWebView alloc] initWithFrame:webrect];
+        [scroller_ addSubview:webview_];
+
+        [webview_ setTilingEnabled:YES];
+        [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
+        [webview_ setAutoresizes:YES];
+        [webview_ setDelegate:self];
+        //[webview_ setEnabledGestures:2];
+
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:0];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 43, indsize.width, indsize.height)];
+        [indicator_ setStyle:0];
+
+        Package *package([database_ packageWithName:@"cydia"]);
+        NSString *application = package == nil ? @"Cydia" : [NSString
+            stringWithFormat:@"Cydia/%@",
+            [package installed]
+        ];
+
+        WebView *webview = [webview_ webView];
+        [webview setApplicationNameForUserAgent:application];
+        [webview setFrameLoadDelegate:self];
+        [webview setResourceLoadDelegate:self];
+        [webview setUIDelegate:self];
+
+        urls_ = [[NSMutableArray alloc] initWithCapacity:16];
+    } return self;
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [sheet dismiss];
+}
+
+- (void) _leftButtonClicked {
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:@"About Cydia Packager"
+        buttons:[NSArray arrayWithObjects:@"Close", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:self
+    ] autorelease];
+
+    [sheet setBodyText:
+        @"Copyright (C) 2008\n"
+        "Jay Freeman (saurik)\n"
+        "saurik@saurik.com\n"
+        "http://www.saurik.com/\n"
+        "\n"
+        "The Okori Group\n"
+        "http://www.theokorigroup.com/\n"
+        "\n"
+        "College of Creative Studies,\n"
+        "University of California,\n"
+        "Santa Barbara\n"
+        "http://www.ccs.ucsb.edu/"
+    ];
+
+    [sheet popupAlertAnimated:YES];
+}
+
+- (void) _rightButtonClicked {
+    [self reloadURL];
+}
+
+- (NSString *) leftButtonTitle {
+    return @"About";
+}
+
+- (NSString *) rightButtonTitle {
+    return loading_ ? @"" : @"Reload";
+}
+
+- (NSString *) title {
+    return nil;
+}
+
+- (NSString *) backButtonTitle {
+    return @"Browser";
+}
+
+- (void) setPageActive:(BOOL)active {
+    if (active)
+        [book_ addSubview:indicator_];
+    else
+        [indicator_ removeFromSuperview];
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
 }
 
 @end
 /* }}} */
+
 /* Install View {{{ */
-@interface InstallView : ResetView <
-    PackageTableDelegate
-> {
-    NSArray *sections_;
-    UITable *list_;
-    PackageTable *table_;
-    PackageView *view_;
-    NSString *section_;
-    NSString *package_;
+@interface InstallView : RVPage {
+    _transient Database *database_;
     NSMutableArray *packages_;
+    NSMutableArray *sections_;
+    UITable *list_;
 }
 
-- (void) dealloc;
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (void) reloadData;
 
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
-
-- (int) numberOfRowsInTable:(UITable *)table;
-- (float) table:(UITable *)table heightForRow:(int)row;
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing;
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row;
-- (void) tableRowSelected:(NSNotification *)notification;
-
-- (void) packageTable:(id)table packageSelected:(Package *)package;
-
-- (id) initWithFrame:(CGRect)frame;
-- (void) setPackages:(NSArray *)packages;
-- (void) setDelegate:(id)delegate;
 @end
 
 @implementation InstallView
 
 - (void) dealloc {
-    [packages_ release];
-    if (sections_ != nil)
-        [sections_ release];
-    if (list_ != nil)
-        [list_ release];
-    if (table_ != nil)
-        [table_ release];
-    if (view_ != nil)
-        [view_ release];
-    if (section_ != nil)
-        [section_ release];
-    if (package_ != nil)
-        [package_ release];
-    [super dealloc];
-}
+    [list_ setDataSource:nil];
+    [list_ setDelegate:nil];
 
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    if (button == 0) {
-        [[view_ package] install];
-        [delegate_ resolve];
-        [delegate_ perform];
-    }
+    [packages_ release];
+    [sections_ release];
+    [list_ release];
+    [super dealloc];
 }
 
 - (int) numberOfRowsInTable:(UITable *)table {
@@ -2764,10 +3307,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
     if (reusing == nil)
         reusing = [[[SectionCell alloc] init] autorelease];
-    if (row == 0)
-        [(SectionCell *)reusing setSection:nil];
-    else
-        [(SectionCell *)reusing setSection:[sections_ objectAtIndex:(row - 1)]];
+    [(SectionCell *)reusing setSection:(row == 0 ? nil : [sections_ objectAtIndex:(row - 1)])];
     return reusing;
 }
 
@@ -2777,71 +3317,47 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [[notification object] selectedRow];
+    if (row == INT_MAX)
+        return;
 
-    if (row == INT_MAX) {
-        [section_ release];
-        section_ = nil;
+    Section *section;
+    NSString *title;
 
-        [table_ release];
-        table_ = nil;
+    if (row == 0) {
+        section = nil;
+        title = @"All Packages";
     } else {
-        _assert(section_ == nil);
-        _assert(table_ == nil);
-
-        Section *section;
-        NSString *name;
-
-        if (row == 0) {
-            section = nil;
-            section_ = nil;
-            name = @"All Packages";
-        } else {
-            section = [sections_ objectAtIndex:(row - 1)];
-            name = [section name];
-            section_ = [name retain];
-        }
-
-        table_ = [[PackageTable alloc] initWithFrame:[transition_ bounds] versioner:@selector(latest)];
-        [table_ setDelegate:self];
-        [table_ setPackages:(section == nil ? packages_ : [section packages])];
-
-        [self pushView:table_ withTitle:name backButtonTitle:@"Packages" rightButton:nil];
+        section = [sections_ objectAtIndex:(row - 1)];
+        title = [section name];
     }
+
+    PackageTable *table = [[[PackageTable alloc]
+        initWithBook:book_
+        database:database_
+        title:title
+        filter:@selector(isUninstalledInSection:)
+        with:(section == nil ? nil : [section name])
+    ] autorelease];
+
+    [table setDelegate:delegate_];
+
+    [book_ pushPage:table];
 }
 
-- (void) packageTable:(id)table packageSelected:(Package *)package {
-    if (package == nil) {
-        [package_ release];
-        package_ = nil;
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
 
-        [view_ release];
-        view_ = nil;
-    } else {
-        _assert(package_ == nil);
-        _assert(view_ == nil);
-
-        package_ = [[package name] retain];
-
-        view_ = [[PackageView alloc] initWithFrame:[transition_ bounds]];
-        [view_ setDelegate:delegate_];
-
-        [view_ setPackage:package];
-
-        [self pushView:view_ withTitle:[package name] backButtonTitle:nil rightButton:@"Install"];
-    }
-}
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITable alloc] initWithFrame:[transition_ bounds]];
-        [self pushView:list_ withTitle:@"Install" backButtonTitle:@"Sections" rightButton:nil];
+        list_ = [[UITable alloc] initWithFrame:[self bounds]];
+        [self addSubview:list_];
 
         UITableColumn *column = [[[UITableColumn alloc]
             initWithTitle:@"Name"
             identifier:@"name"
-            width:frame.size.width
+            width:[self frame].size.width
         ] autorelease];
 
         [list_ setDataSource:self];
@@ -2850,12 +3366,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [list_ setDelegate:self];
         [list_ setReusesTableCells:YES];
 
-        [transition_ transition:0 toView:list_];
+        [self reloadData];
     } return self;
 }
 
-- (void) setPackages:(NSArray *)packages {
+- (void) reloadData {
+    NSArray *packages = [database_ packages];
+
     [packages_ removeAllObjects];
+    [sections_ removeAllObjects];
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
@@ -2863,109 +3382,61 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             [packages_ addObject:package];
     }
 
-    [packages_ sortUsingSelector:@selector(compareBySectionAndName:)];
-    NSMutableArray *sections = [NSMutableArray arrayWithCapacity:16];
-
-    Section *nsection = nil;
-    Package *npackage = nil;
+    [packages_ sortUsingSelector:@selector(compareBySection:)];
 
     Section *section = nil;
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
         Package *package = [packages_ objectAtIndex:offset];
         NSString *name = [package section];
 
-        if (section == nil || name != nil && ![[section name] isEqual:name]) {
+        if (section == nil || name != nil && ![[section name] isEqualToString:name]) {
             section = [[[Section alloc] initWithName:name row:offset] autorelease];
-
-            if (name == nil || [name isEqualToString:section_])
-                nsection = section;
-            [sections addObject:section];
+            [sections_ addObject:section];
         }
 
-        if ([[package name] isEqualToString:package_])
-            npackage = package;
-        [section addPackage:package];
+        [section addToCount];
     }
 
-    if (sections_ != nil)
-        [sections_ release];
-    sections_ = [sections retain];
-
-    [packages_ sortUsingSelector:@selector(compareByName:)];
-
     [list_ reloadData];
-
-    unsigned views(0);
-
-    if (npackage != nil)
-        [view_ setPackage:npackage];
-    else if (package_ != nil)
-        ++views;
-
-    if (table_ != nil && section_ == nil) 
-        [table_ setPackages:packages_];
-    else if (nsection != nil)
-        [table_ setPackages:[nsection packages]];
-    else if (section_ != nil)
-        ++views;
-
-    if (views != 0)
-        [self popViews:views];
-    [self setPrompt];
 }
 
-- (void) setDelegate:(id)delegate {
-    if (view_ != nil)
-        [view_ setDelegate:delegate];
-    [super setDelegate:delegate];
+- (void) resetViewAnimated:(BOOL)animated {
+    [list_ resetViewAnimated:animated];
+}
+
+- (NSString *) title {
+    return @"Install";
+}
+
+- (NSString *) backButtonTitle {
+    return @"Sections";
 }
 
 @end
 /* }}} */
 /* Changes View {{{ */
-@interface ChangesView : ResetView <
-    PackageTableDelegate
-> {
-    UISectionList *list_;
+@interface ChangesView : RVPage {
+    _transient Database *database_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
-    PackageView *view_;
-    NSString *package_;
-    size_t count_;
+    UISectionList *list_;
+    unsigned upgrades_;
 }
 
-- (void) dealloc;
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (void) reloadData;
 
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
-
-- (int) numberOfSectionsInSectionList:(UISectionList *)list;
-- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section;
-- (int) sectionList:(UISectionList *)list rowForSection:(int)section;
-
-- (int) numberOfRowsInTable:(UITable *)table;
-- (float) table:(UITable *)table heightForRow:(int)row;
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing;
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row;
-- (void) tableRowSelected:(NSNotification *)notification;
-
-- (id) initWithFrame:(CGRect)frame;
-- (void) setPackages:(NSArray *)packages;
-- (void) _resetView;
-- (size_t) count;
-
-- (void) setDelegate:(id)delegate;
 @end
 
 @implementation ChangesView
 
 - (void) dealloc {
-    [list_ release];
+    [[list_ table] setDelegate:nil];
+    [list_ setDataSource:nil];
+
     [packages_ release];
     [sections_ release];
-    if (view_ != nil)
-        [view_ release];
-    if (package_ != nil)
-        [package_ release];
+    [list_ release];
     [super dealloc];
 }
 
@@ -2986,12 +3457,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (float) table:(UITable *)table heightForRow:(int)row {
-    return 100;
+    return 73;
 }
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
     if (reusing == nil)
-        reusing = [[[PackageCell alloc] initWithVersioner:NULL] autorelease];
+        reusing = [[[PackageCell alloc] init] autorelease];
     [(PackageCell *)reusing setPackage:[packages_ objectAtIndex:row]];
     return reusing;
 }
@@ -3002,53 +3473,29 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [[notification object] selectedRow];
-    [self packageTable:self packageSelected:(row == INT_MAX ? nil : [packages_ objectAtIndex:row])];
+    if (row == INT_MAX)
+        return;
+    Package *package = [packages_ objectAtIndex:row];
+    PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+    [view setDelegate:delegate_];
+    [view setPackage:package];
+    [book_ pushPage:view];
 }
 
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    switch (button) {
-        case 0:
-            [[view_ package] install];
-            [delegate_ resolve];
-            [delegate_ perform];
-        break;
-
-        case 1:
-            [delegate_ upgrade];
-        break;
-    }
+- (void) _rightButtonClicked {
+    [delegate_ distUpgrade];
 }
 
-- (void) packageTable:(id)table packageSelected:(Package *)package {
-    if (package == nil) {
-        [package_ release];
-        package_ = nil;
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
 
-        [view_ release];
-        view_ = nil;
-    } else {
-        _assert(package_ == nil);
-        _assert(view_ == nil);
-
-        package_ = [[package name] retain];
-
-        view_ = [[PackageView alloc] initWithFrame:[transition_ bounds]];
-        [view_ setDelegate:delegate_];
-
-        [view_ setPackage:package];
-
-        [self pushView:view_ withTitle:[package name] backButtonTitle:nil rightButton:(
-            [package upgradable] ? @"Upgrade" : @"Install"
-        )];
-    }
-}
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UISectionList alloc] initWithFrame:[transition_ bounds] showSectionIndex:NO];
+        list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:NO];
+        [self addSubview:list_];
+
         [list_ setShouldHideHeaderInShortLists:NO];
         [list_ setDataSource:self];
         //[list_ setSectionListStyle:1];
@@ -3056,7 +3503,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         UITableColumn *column = [[[UITableColumn alloc]
             initWithTitle:@"Name"
             identifier:@"name"
-            width:frame.size.width
+            width:[self frame].size.width
         ] autorelease];
 
         UITable *table = [list_ table];
@@ -3065,12 +3512,16 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [table setDelegate:self];
         [table setReusesTableCells:YES];
 
-        [self pushView:list_ withTitle:@"Changes" backButtonTitle:nil rightButton:nil];
+        [self reloadData];
     } return self;
 }
 
-- (void) setPackages:(NSArray *)packages {
+- (void) reloadData {
+    NSArray *packages = [database_ packages];
+
     [packages_ removeAllObjects];
+    [sections_ removeAllObjects];
+
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
         if ([package installed] == nil || [package upgradable])
@@ -3079,183 +3530,70 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     [packages_ sortUsingSelector:@selector(compareForChanges:)];
 
-    [sections_ removeAllObjects];
-
     Section *upgradable = [[[Section alloc] initWithName:@"Available Upgrades" row:0] autorelease];
     Section *section = nil;
 
-    count_ = 0;
-    Package *npackage = nil;
+    upgrades_ = 0;
+    bool unseens = false;
+
+    CFLocaleRef locale = CFLocaleCopyCurrent();
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
         Package *package = [packages_ objectAtIndex:offset];
-        if ([[package name] isEqualToString:package_])
-            npackage = package;
 
-        if ([package upgradable])
-            [upgradable addPackage:package];
-        else {
+        if ([package upgradable]) {
+            ++upgrades_;
+            [upgradable addToCount];
+        } else {
+            unseens = true;
             NSDate *seen = [package seen];
 
             NSString *name;
-            CFStringRef formatted = NULL;
 
             if (seen == nil)
-                name = @"n/a ?";
+                name = [@"n/a ?" retain];
             else {
-                CFLocaleRef locale = CFLocaleCopyCurrent();
-                CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-                formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
-                name = (NSString *) formatted;
-                CFRelease(formatter);
-                CFRelease(locale);
+                name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
             }
 
-            if (section == nil || ![[section name] isEqual:name]) {
+            if (section == nil || ![[section name] isEqualToString:name]) {
                 section = [[[Section alloc] initWithName:name row:offset] autorelease];
                 [sections_ addObject:section];
             }
 
-            [section addPackage:package];
-
-            if (formatted != NULL)
-                CFRelease(formatted);
+            [name release];
+            [section addToCount];
         }
     }
 
-    count_ = [[upgradable packages] count];
-    if (count_ != 0)
+    CFRelease(formatter);
+    CFRelease(locale);
+
+    if (unseens) {
+        Section *last = [sections_ lastObject];
+        size_t count = [last count];
+        [packages_ removeObjectsInRange:NSMakeRange([packages_ count] - count, count)];
+        [sections_ removeLastObject];
+    }
+
+    if (upgrades_ != 0)
         [sections_ insertObject:upgradable atIndex:0];
 
     [list_ reloadData];
-
-    if (npackage != nil)
-        [view_ setPackage:npackage];
-    else if (package_ != nil)
-        [self popViews:1];
-
-    [self _resetView];
-    [self setPrompt];
+    [self reloadButtons];
 }
 
-- (void) _resetView {
-    if ([views_ count] == 1)
-        [navbar_ showButtonsWithLeftTitle:(count_ == 0 ? nil : @"Upgrade All") rightTitle:nil];
+- (void) resetViewAnimated:(BOOL)animated {
+    [list_ resetViewAnimated:animated];
 }
 
-- (size_t) count {
-    return count_;
+- (NSString *) rightButtonTitle {
+    return upgrades_ == 0 ? nil : [NSString stringWithFormat:@"Upgrade All (%u)", upgrades_];
 }
 
-- (void) setDelegate:(id)delegate {
-    if (view_ != nil)
-        [view_ setDelegate:delegate];
-    [super setDelegate:delegate];
-}
-
-@end
-/* }}} */
-/* Manage View {{{ */
-@interface ManageView : ResetView <
-    PackageTableDelegate
-> {
-    PackageTable *table_;
-    PackageView *view_;
-    NSString *package_;
-}
-
-- (void) dealloc;
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
-
-- (void) packageTable:(id)table packageSelected:(Package *)package;
-
-- (id) initWithFrame:(CGRect)frame;
-- (void) setPackages:(NSArray *)packages;
-
-- (void) setDelegate:(id)delegate;
-@end
-
-@implementation ManageView
-
-- (void) dealloc {
-    [table_ release];
-    if (view_ != nil)
-        [view_ release];
-    if (package_ != nil)
-        [package_ release];
-    [super dealloc];
-}
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    if (button == 0) {
-        [[view_ package] remove];
-        [delegate_ resolve];
-        [delegate_ perform];
-    }
-}
-
-- (void) packageTable:(id)table packageSelected:(Package *)package {
-    if (package == nil) {
-        [package_ release];
-        package_ = nil;
-
-        [view_ release];
-        view_ = nil;
-    } else {
-        _assert(package_ == nil);
-        _assert(view_ == nil);
-
-        package_ = [[package name] retain];
-
-        view_ = [[PackageView alloc] initWithFrame:[transition_ bounds]];
-        [view_ setDelegate:delegate_];
-
-        [view_ setPackage:package];
-
-        [self pushView:view_ withTitle:[package name] backButtonTitle:nil rightButton:@"Uninstall"];
-    }
-}
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        table_ = [[PackageTable alloc] initWithFrame:[transition_ bounds] versioner:@selector(latest)];
-        [table_ setDelegate:self];
-
-        [self pushView:table_ withTitle:@"Uninstall" backButtonTitle:@"Packages" rightButton:nil];
-    } return self;
-}
-
-- (void) setPackages:(NSArray *)packages {
-    NSMutableArray *local = [NSMutableArray arrayWithCapacity:16];
-    for (size_t i(0); i != [packages count]; ++i) {
-        Package *package([packages objectAtIndex:i]);
-        if ([package installed] != nil)
-            [local addObject:package];
-    }
-
-    [local sortUsingSelector:@selector(compareByName:)];
-
-    Package *npackage = nil;
-    for (size_t offset = 0, count = [local count]; offset != count; ++offset) {
-        Package *package = [local objectAtIndex:offset];
-        if ([[package name] isEqualToString:package_])
-            npackage = package;
-    }
-
-    [table_ setPackages:local];
-
-    if (npackage != nil)
-        [view_ setPackage:npackage];
-    else if (package_ != nil)
-        [self popViews:1];
-
-    [self setPrompt];
-}
-
-- (void) setDelegate:(id)delegate {
-    if (view_ != nil)
-        [view_ setDelegate:delegate];
-    [super setDelegate:delegate];
+- (NSString *) title {
+    return @"Changes";
 }
 
 @end
@@ -3265,108 +3603,39 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) showKeyboard:(BOOL)show;
 @end
 
-@interface SearchView : ResetView <
-    PackageTableDelegate
-> {
-    NSMutableArray *packages_;
+@interface SearchView : PackageTable {
     UIView *accessory_;
     UISearchField *field_;
-    PackageTable *table_;
-    PackageView *view_;
-    NSString *package_;
 }
 
-- (void) dealloc;
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
-- (void) packageTable:(id)table packageSelected:(Package *)package;
-
-- (void) textFieldDidBecomeFirstResponder:(UITextField *)field;
-- (void) textFieldDidResignFirstResponder:(UITextField *)field;
-
-- (void) keyboardInputChanged:(UIFieldEditor *)editor;
-- (BOOL) keyboardInput:(id)input shouldInsertText:(NSString *)text isMarkedText:(int)marked;
-
-- (id) initWithFrame:(CGRect)frame;
-- (void) setPackages:(NSArray *)packages;
-
-- (void) setDelegate:(id)delegate;
-- (void) resetPackage:(Package *)package;
-- (void) searchPackages;
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (void) reloadData;
 
 @end
 
 @implementation SearchView
 
 - (void) dealloc {
-    [packages_ release];
+#ifndef __OBJC2__
+    [[field_ textTraits] setEditingDelegate:nil];
+#endif
+    [field_ setDelegate:nil];
+
     [accessory_ release];
     [field_ release];
-    [table_ release];
-    if (view_ != nil)
-        [view_ release];
-    if (package_ != nil)
-        [package_ release];
     [super dealloc];
-}
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    if (button == 0) {
-        Package *package = [view_ package];
-        if ([package installed] == nil)
-            [package install];
-        else
-            [package remove];
-        [delegate_ resolve];
-        [delegate_ perform];
-    }
-}
-
-- (void) packageTable:(id)table packageSelected:(Package *)package {
-    if (package == nil) {
-#ifndef __OBJC2__
-        [navbar_ setAccessoryView:accessory_ animate:(resetting_ ? NO : YES) goingBack:YES];
-#else
-        [navbar_ setAccessoryView:accessory_ animate:YES removeOnPop:NO];
-#endif
-
-        [package_ release];
-        package_ = nil;
-
-        [view_ release];
-        view_ = nil;
-    } else {
-#ifndef __OBJC2__
-        [navbar_ setAccessoryView:nil animate:YES goingBack:NO];
-#else
-        [navbar_ setAccessoryView:nil animate:YES removeOnPop:YES];
-#endif
-
-        _assert(package_ == nil);
-        _assert(view_ == nil);
-
-        package_ = [[package name] retain];
-
-        view_ = [[PackageView alloc] initWithFrame:[transition_ bounds]];
-        [view_ setDelegate:delegate_];
-
-        [self pushView:view_ withTitle:[package name] backButtonTitle:nil rightButton:nil];
-        [self resetPackage:package];
-    }
 }
 
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
     [delegate_ showKeyboard:YES];
-    [table_ setEnabled:NO];
+    [list_ setEnabled:NO];
 
-    /*CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGColor dimmed(alpha, 0, 0, 0, 0.5);
-    [editor_ setBackgroundColor:dimmed];
-    CGColorSpaceRelease(space);*/
+    /*CGColor dimmed(alpha, 0, 0, 0, 0.5);
+    [editor_ setBackgroundColor:dimmed];*/
 }
 
 - (void) textFieldDidResignFirstResponder:(UITextField *)field {
-    [table_ setEnabled:YES];
+    [list_ setEnabled:YES];
     [delegate_ showKeyboard:NO];
 }
 
@@ -3379,22 +3648,25 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if ([text length] != 1 || [text characterAtIndex:0] != '\n')
         return YES;
 
-    [self searchPackages];
+    [self reloadData];
     [field_ resignFirstResponder];
     return NO;
 }
 
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super
+        initWithBook:book
+        database:database
+        title:nil
+        filter:@selector(isSearchedForBy:)
+        with:nil
+    ]) != nil) {
+        CGRect cnfrect = {{0, 36}, {17, 18}};
 
-        table_ = [[PackageTable alloc] initWithFrame:[transition_ bounds] versioner:@selector(latest)];
-        [table_ setDelegate:self];
-
-        CGRect area = [self bounds];
+        CGRect area;
+        area.origin.x = cnfrect.size.width + 6;
         area.origin.y = 30;
-        area.origin.x = 0;
-        area.size.width -= 12;
+        area.size.width = [self bounds].size.width - area.origin.x - 12;
         area.size.height = [UISearchField defaultHeight];
 
         field_ = [[UISearchField alloc] initWithFrame:area];
@@ -3411,75 +3683,197 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         UITextTraits *traits = [field_ textTraits];
         [traits setEditingDelegate:self];
         [traits setReturnKeyType:6];
+        [traits setAutoCapsType:0];
+        [traits setAutoCorrectionType:1];
 #endif
 
-        accessory_ = [[UIView alloc] initWithFrame:CGRectMake(6, 6, area.size.width, area.size.height + 30)];
+        UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
+        [configure setShowPressFeedback:YES];
+        [configure setImage:[UIImage applicationImageNamed:@"configure.png"]];
+        [configure addTarget:self action:@selector(configurePushed) forEvents:1];
+
+        accessory_ = [[UIView alloc] initWithFrame:CGRectMake(0, 6, cnfrect.size.width + area.size.width + 6 * 3, area.size.height + 30)];
         [accessory_ addSubview:field_];
-
-        [navbar_ setAccessoryView:accessory_];
-        [self pushView:table_ withTitle:nil backButtonTitle:@"Search" rightButton:nil];
-
-        /* XXX: for the love of god just fix this */
-        [navbar_ removeFromSuperview];
-        [reload_ removeFromSuperview];
-        [configure_ removeFromSuperview];
-        [self addSubview:navbar_];
-        [self addSubview:reload_];
-        [self addSubview:configure_];
+        [accessory_ addSubview:configure];
     } return self;
 }
 
-- (void) setPackages:(NSArray *)packages {
-    [packages_ removeAllObjects];
-    [packages_ addObjectsFromArray:packages];
-    [packages_ sortUsingSelector:@selector(compareByName:)];
-
-    Package *npackage = nil;
-    for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
-        Package *package = [packages_ objectAtIndex:offset];
-        if ([[package name] isEqualToString:package_])
-            npackage = package;
-    }
-
-    [self searchPackages];
-
-    if (npackage != nil)
-        [self resetPackage:npackage];
-    else if (package_ != nil)
-        [self popViews:1];
-
-    [self setPrompt];
+- (void) configurePushed {
+    // XXX: implement flippy advanced panel
 }
 
-- (void) setDelegate:(id)delegate {
-    if (view_ != nil)
-        [view_ setDelegate:delegate];
-    [super setDelegate:delegate];
+- (void) reloadData {
+    object_ = [[field_ text] retain];
+    [super reloadData];
+    [[list_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
 }
 
-- (void) resetPackage:(Package *)package {
-    [view_ setPackage:package];
-    NSString *right = [package installed] == nil ? @"Install" : @"Uninstall";
-    [navbar_ showButtonsWithLeftTitle:nil rightTitle:right];
+- (UIView *) accessoryView {
+    return accessory_;
 }
 
-- (void) searchPackages {
-    NSString *text([field_ text]);
-
-    NSMutableArray *packages([NSMutableArray arrayWithCapacity:16]);
-
-    for (size_t offset(0), count([packages_ count]); offset != count; ++offset) {
-        Package *package = [packages_ objectAtIndex:offset];
-        if ([package matches:text])
-            [packages addObject:package];
-    }
-
-    [table_ setPackages:packages];
-    [[table_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
+- (NSString *) backButtonTitle {
+    return @"Search";
 }
 
 @end
 /* }}} */
+
+@interface CYBook : RVBook <
+    ProgressDelegate
+> {
+    _transient Database *database_;
+    UIView *overlay_;
+    UIProgressIndicator *indicator_;
+    UITextLabel *prompt_;
+    UIProgressBar *progress_;
+}
+
+- (id) initWithFrame:(CGRect)frame database:(Database *)database;
+- (void) update;
+
+@end
+
+@implementation CYBook
+
+- (void) dealloc {
+    [overlay_ release];
+    [indicator_ release];
+    [prompt_ release];
+    [progress_ release];
+    [super dealloc];
+}
+
+- (void) update {
+    [navbar_ addSubview:overlay_];
+    [indicator_ startAnimation];
+    [prompt_ setText:@"Updating Database..."];
+    [progress_ setProgress:0];
+
+    [NSThread
+        detachNewThreadSelector:@selector(_update)
+        toTarget:self
+        withObject:nil
+    ];
+}
+
+- (void) _update_ {
+    [overlay_ removeFromSuperview];
+    [indicator_ stopAnimation];
+    [delegate_ reloadData];
+
+    [self setPrompt:[NSString stringWithFormat:@"Last Updated: %@", GetLastUpdate()]];
+}
+
+- (id) initWithFrame:(CGRect)frame database:(Database *)database {
+    if ((self = [super initWithFrame:frame]) != nil) {
+        database_ = database;
+
+        CGRect ovrrect = [navbar_ bounds];
+        ovrrect.size.height = [UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height;
+
+        overlay_ = [[UIView alloc] initWithFrame:ovrrect];
+
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:2];
+        unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
+        CGRect indrect = {{indoffset, indoffset}, indsize};
+
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
+        [indicator_ setStyle:2];
+        [overlay_ addSubview:indicator_];
+
+        CGSize prmsize = {200, indsize.width};
+
+        CGRect prmrect = {{
+            indoffset * 2 + indsize.width,
+            (ovrrect.size.height - prmsize.height) / 2
+        }, prmsize};
+
+        GSFontRef font = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
+
+        prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
+
+        [prompt_ setColor:White_];
+        [prompt_ setBackgroundColor:Clear_];
+        [prompt_ setFont:font];
+
+        CFRelease(font);
+
+        [overlay_ addSubview:prompt_];
+
+        CGSize prgsize = {75, 100};
+
+        CGRect prgrect = {{
+            ovrrect.size.width - prgsize.width - 10,
+            (ovrrect.size.height - prgsize.height) / 2
+        } , prgsize};
+
+        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
+        [progress_ setStyle:0];
+        [overlay_ addSubview:progress_];
+    } return self;
+}
+
+- (void) _update {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    Status status;
+    status.setDelegate(self);
+
+    [database_ updateWithStatus:status];
+
+    [self
+        performSelectorOnMainThread:@selector(_update_)
+        withObject:nil
+        waitUntilDone:NO
+    ];
+
+    [pool release];
+}
+
+- (void) setProgressError:(NSString *)error {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressError:)
+        withObject:error
+        waitUntilDone:YES
+    ];
+}
+
+- (void) setProgressTitle:(NSString *)title {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressTitle:)
+        withObject:title
+        waitUntilDone:YES
+    ];
+}
+
+- (void) setProgressPercent:(float)percent {
+}
+
+- (void) addProgressOutput:(NSString *)output {
+    [self
+        performSelectorOnMainThread:@selector(_addProgressOutput:)
+        withObject:output
+        waitUntilDone:YES
+    ];
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [sheet dismiss];
+}
+
+- (void) _setProgressError:(NSString *)error {
+    [prompt_ setText:[NSString stringWithFormat:@"Error: %@", error]];
+}
+
+- (void) _setProgressTitle:(NSString *)title {
+    [prompt_ setText:[title stringByAppendingString:@"..."]];
+}
+
+- (void) _addProgressOutput:(NSString *)output {
+}
+
+@end
 
 @interface Cydia : UIApplication <
     ConfirmationViewDelegate,
@@ -3488,9 +3882,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     CydiaDelegate
 > {
     UIWindow *window_;
+
     UIView *underlay_;
     UIView *overlay_;
-    UITransitionView *transition_;
+    CYBook *book_;
     UIButtonBar *buttonbar_;
 
     ConfirmationView *confirm_;
@@ -3498,67 +3893,21 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     Database *database_;
     ProgressView *progress_;
 
-    UIView *featured_;
-    UINavigationBar *navbar_;
-    UIScroller *scroller_;
-    UIWebView *webview_;
-    NSURL *url_;
-    UIProgressIndicator *indicator_;
-
-    InstallView *install_;
-    ChangesView *changes_;
-    ManageView *manage_;
-    SearchView *search_;
-
-    bool restart_;
     unsigned tag_;
 
     UIKeyboard *keyboard_;
 }
 
-- (void) loadNews;
-- (void) reloadData:(BOOL)reset;
-- (void) setPrompt;
-
-- (void) resolve;
-- (void) perform;
-- (void) upgrade;
-- (void) update;
-
-- (void) cancel;
-- (void) confirm;
-
-- (void) progressViewIsComplete:(ProgressView *)progress;
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button;
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button;
-- (void) buttonBarItemTapped:(id)sender;
-
-- (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old;
-
-- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame;
-
-- (void) applicationWillSuspend;
-- (void) applicationDidFinishLaunching:(id)unused;
 @end
 
 @implementation Cydia
 
-- (void) loadNews {
-    NSMutableURLRequest *request = [NSMutableURLRequest
-        requestWithURL:url_
-        cachePolicy:NSURLRequestReloadIgnoringCacheData
-        timeoutInterval:30.0
-    ];
+- (void) _reloadData {
+    /*UIProgressHUD *hud = [[UIProgressHUD alloc] initWithWindow:window_];
+    [hud setText:@"Reloading Data"];
+    [overlay_ addSubview:hud];
+    [hud show:YES];*/
 
-    [request addValue:[NSString stringWithCString:Firmware_] forHTTPHeaderField:@"X-Firmware"];
-    [request addValue:[NSString stringWithCString:Machine_] forHTTPHeaderField:@"X-Machine"];
-    [request addValue:[NSString stringWithCString:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
-
-    [webview_ loadRequest:request];
-}
-
-- (void) reloadData:(BOOL)reset {
     [database_ reloadData];
 
     size_t count = 16;
@@ -3568,15 +3917,17 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [Metadata_ setObject:Packages_ forKey:@"Packages"];
     }
 
+    size_t changes(0);
+
     NSArray *packages = [database_ packages];
+    for (int i(0), e([packages count]); i != e; ++i) {
+        Package *package = [packages objectAtIndex:i];
+        if ([package upgradable])
+            ++changes;
+    }
 
-    [install_ setPackages:packages];
-    [changes_ setPackages:packages];
-    [manage_ setPackages:packages];
-    [search_ setPackages:packages];
-
-    if (size_t count = [changes_ count]) {
-        NSString *badge([[NSNumber numberWithInt:count] stringValue]);
+    if (changes != 0) {
+        NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
         [buttonbar_ setBadgeValue:badge forButton:3];
         if ([buttonbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
             [buttonbar_ setBadgeAnimated:YES forButton:3];
@@ -3589,10 +3940,17 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     }
 
     _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
+
+    [book_ reloadData];
+    /*[hud show:NO];
+    [hud removeFromSuperview];*/
 }
 
-- (void) setPrompt {
-    [navbar_ setPrompt:[NSString stringWithFormat:@"Last Updated: %@", GetLastUpdate()]];
+- (void) reloadData {
+    @synchronized (self) {
+        if (confirm_ == nil)
+            [self _reloadData];
+    }
 }
 
 - (void) resolve {
@@ -3629,19 +3987,39 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [sheet setBodyText:[NSString stringWithFormat:@"The following packages have unmet dependencies:\n\n%@", [broken componentsJoinedByString:@"\n"]]];
         [sheet popupAlertAnimated:YES];
 
-        [self reloadData:NO];
+        [self _reloadData];
     }
 }
 
-- (void) upgrade {
-    [database_ upgrade];
-    [self perform];
+- (void) installPackage:(Package *)package {
+    @synchronized (self) {
+        [package install];
+        [self resolve];
+        [self perform];
+    }
+}
+
+- (void) removePackage:(Package *)package {
+    @synchronized (self) {
+        [package remove];
+        [self resolve];
+        [self perform];
+    }
+}
+
+- (void) distUpgrade {
+    @synchronized (self) {
+        [database_ upgrade];
+        [self perform];
+    }
 }
 
 - (void) cancel {
-    [self reloadData:NO];
-    [confirm_ release];
-    confirm_ = nil;
+    @synchronized (self) {
+        [confirm_ release];
+        confirm_ = nil;
+        [self _reloadData];
+    }
 }
 
 - (void) confirm {
@@ -3672,65 +4050,16 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     ];
 }
 
-- (void) update {
-    [progress_
-        detachNewThreadSelector:@selector(update)
-        toTarget:database_
-        withObject:nil
-        title:@"Refreshing Sources..."
-    ];
-}
-
 - (void) progressViewIsComplete:(ProgressView *)progress {
-    [self reloadData:YES];
+    @synchronized (self) {
+        [self _reloadData];
 
-    if (confirm_ != nil) {
-        [underlay_ addSubview:overlay_];
-        [confirm_ removeFromSuperview];
-        [confirm_ release];
-        confirm_ = nil;
-    }
-}
-
-- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    switch (button) {
-        case 0:
-            [self loadNews];
-        break;
-
-        case 1:
-            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
-                initWithTitle:@"About Cydia Packager"
-                buttons:[NSArray arrayWithObjects:@"Close", nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:self
-            ] autorelease];
-
-            [sheet setBodyText:
-                @"Copyright (C) 2008\n"
-                "Jay Freeman (saurik)\n"
-                "saurik@saurik.com\n"
-                "http://www.saurik.com/\n"
-                "\n"
-                "The Okori Group\n"
-                "http://www.theokorigroup.com/\n"
-                "\n"
-                "College of Creative Studies,\n"
-                "University of California,\n"
-                "Santa Barbara\n"
-                "http://www.ccs.ucsb.edu/\n"
-                "\n"
-                "Special Thanks:\n"
-                "bad_, BHSPitMonkey, cash, Cobra,\n"
-                "core, Corona, crashx, cromas,\n"
-                "Darken, dtzWill, Erica, francis,\n"
-                "Godores, jerry, Kingstone, lounger,\n"
-                "mbranes, rockabilly, tman, Wbiggs"
-            ];
-
-            [sheet presentSheetFromButtonBar:buttonbar_];
-        break;
+        if (confirm_ != nil) {
+            [underlay_ addSubview:overlay_];
+            [confirm_ removeFromSuperview];
+            [confirm_ release];
+            confirm_ = nil;
+        }
     }
 }
 
@@ -3738,49 +4067,63 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [sheet dismiss];
 }
 
+- (void) setPage:(RVPage *)page {
+    [page setDelegate:self];
+    [book_ setPage:page];
+}
+
+- (RVPage *) _setNewsPage {
+    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+    [self setPage:browser];
+    [browser loadURL:[NSURL URLWithString:@"http://cydia.saurik.com/"]];
+    return browser;
+}
+
 - (void) buttonBarItemTapped:(id)sender {
-    UIView *view;
     unsigned tag = [sender tag];
 
     switch (tag) {
-        case 1: view = featured_; break;
-        case 2: view = install_; break;
-        case 3: view = changes_; break;
-        case 4: view = manage_; break;
-        case 5: view = search_; break;
+        case 1:
+            [self _setNewsPage];
+        break;
+
+        case 2:
+            [self setPage:[[[InstallView alloc] initWithBook:book_ database:database_] autorelease]];
+        break;
+
+        case 3:
+            [self setPage:[[[ChangesView alloc] initWithBook:book_ database:database_] autorelease]];
+        break;
+
+        case 4:
+            [self setPage:[[[PackageTable alloc]
+                initWithBook:book_
+                database:database_
+                title:@"Manage"
+                filter:@selector(isInstalledInSection:)
+                with:nil
+            ] autorelease]];
+        break;
+
+        case 5:
+            [self setPage:[[[SearchView alloc] initWithBook:book_ database:database_] autorelease]];
+        break;
 
         default:
             _assert(false);
     }
 
-    if ([view respondsToSelector:@selector(resetView:)])
-        [(id) view resetView:(tag == tag_ ? NO : YES)];
     tag_ = tag;
-    [transition_ transition:0 toView:view];
-}
-
-- (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
-    [scroller_ setContentSize:frame.size];
-    [indicator_ stopAnimation];
-}
-
-- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
-    [navbar_ setPrompt:title];
-}
-
-- (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    [navbar_ setPrompt:@"Loading..."];
-    [indicator_ startAnimation];
 }
 
 - (void) applicationWillSuspend {
+    [super applicationWillSuspend];
+
     if (restart_)
         if (FW_LEAST(1,1,3))
             notify_post("com.apple.language.changed");
         else
             system("launchctl stop com.apple.SpringBoard");
-
-    [super applicationWillSuspend];
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -3788,7 +4131,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     _assert(pkgInitSystem(*_config, _system));
 
     confirm_ = nil;
-    restart_ = false;
     tag_ = 1;
 
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
@@ -3809,70 +4151,25 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if (!bootstrap_)
         [underlay_ addSubview:overlay_];
 
-    transition_ = [[UITransitionView alloc] initWithFrame:CGRectMake(
+    database_ = [[Database alloc] init];
+    [database_ setDelegate:progress_];
+
+    book_ = [[CYBook alloc] initWithFrame:CGRectMake(
         0, 0, screenrect.size.width, screenrect.size.height - 48
-    )];
+    ) database:database_];
 
-    [overlay_ addSubview:transition_];
+    [book_ setDelegate:self];
 
-    featured_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-
-    CGSize navsize = [UINavigationBar defaultSizeWithPrompt];
-    CGRect navrect = {{0, 0}, navsize};
-
-    navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-    [featured_ addSubview:navbar_];
-
-    [navbar_ setBarStyle:1];
-    [navbar_ setDelegate:self];
-
-    [navbar_ showButtonsWithLeftTitle:@"About" rightTitle:@"Reload"];
-
-    UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Featured"] autorelease];
-    [navbar_ pushNavigationItem:navitem];
-
-    struct CGRect subbounds = [featured_ bounds];
-    subbounds.origin.y += navsize.height;
-    subbounds.size.height -= navsize.height;
-
-    UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:subbounds] autorelease];
-    [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
-    [featured_ addSubview:pinstripe];
-
-    scroller_ = [[UIScroller alloc] initWithFrame:subbounds];
-    [featured_ addSubview:scroller_];
-
-    [scroller_ setScrollingEnabled:YES];
-    [scroller_ setAdjustForContentSizeChange:YES];
-    [scroller_ setClipsSubviews:YES];
-    [scroller_ setAllowsRubberBanding:YES];
-    [scroller_ setScrollDecelerationFactor:0.99];
-    [scroller_ setDelegate:self];
-
-    CGRect webrect = [scroller_ bounds];
-    webrect.size.height = 0;
-
-    webview_ = [[UIWebView alloc] initWithFrame:webrect];
-    [scroller_ addSubview:webview_];
-
-    [webview_ setTilingEnabled:YES];
-    [webview_ setTileSize:CGSizeMake(screenrect.size.width, 500)];
-    [webview_ setAutoresizes:YES];
-    [webview_ setDelegate:self];
-
-    CGSize indsize = [UIProgressIndicator defaultSizeForStyle:2];
-    indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(87, 45, indsize.width, indsize.height)];
-    [indicator_ setStyle:2];
-    [featured_ addSubview:indicator_];
+    [overlay_ addSubview:book_];
 
     NSArray *buttonitems = [NSArray arrayWithObjects:
         [NSDictionary dictionaryWithObjectsAndKeys:
             @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"featured-up.png", kUIButtonBarButtonInfo,
-            @"featured-dn.png", kUIButtonBarButtonSelectedInfo,
+            @"news-up.png", kUIButtonBarButtonInfo,
+            @"news-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:1], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            @"Featured", kUIButtonBarButtonTitle,
+            @"News", kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -3902,7 +4199,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             @"manage-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:4], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            @"Uninstall", kUIButtonBarButtonTitle,
+            @"Manage", kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -3940,54 +4237,22 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         )];
 
     [buttonbar_ showSelectionForButton:1];
-    [transition_ transition:0 toView:featured_];
-
     [overlay_ addSubview:buttonbar_];
 
     [UIKeyboard initImplementationNow];
-
-    CGRect edtrect = [overlay_ bounds];
-    edtrect.origin.y += navsize.height;
-    edtrect.size.height -= navsize.height;
-
     CGSize keysize = [UIKeyboard defaultSize];
     CGRect keyrect = {{0, [overlay_ bounds].size.height - keysize.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
 
-    database_ = [[Database alloc] init];
-    [database_ setDelegate:progress_];
-
-    install_ = [[InstallView alloc] initWithFrame:[transition_ bounds]];
-    [install_ setDelegate:self];
-
-    changes_ = [[ChangesView alloc] initWithFrame:[transition_ bounds]];
-    [changes_ setDelegate:self];
-
-    manage_ = [[ManageView alloc] initWithFrame:[transition_ bounds]];
-    [manage_ setDelegate:self];
-
-    search_ = [[SearchView alloc] initWithFrame:[transition_ bounds]];
-    [search_ setDelegate:self];
-
-    [self reloadData:NO];
-
-    Package *package([database_ packageWithName:@"cydia"]);
-    NSString *application = package == nil ? @"Cydia" : [NSString
-        stringWithFormat:@"Cydia/%@",
-        [package installed]
-    ];
-
-    WebView *webview = [webview_ webView];
-    [webview setApplicationNameForUserAgent:application];
-    [webview setFrameLoadDelegate:self];
-
-    url_ = [NSURL URLWithString:@"http://cydia.saurik.com/"];
-    [self loadNews];
+    [self reloadData];
+    [book_ update];
 
     [progress_ resetView];
 
     if (bootstrap_)
         [self bootstrap];
+    else
+        [self _setNewsPage];
 }
 
 - (void) showKeyboard:(BOOL)show {
@@ -3995,6 +4260,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [overlay_ addSubview:keyboard_];
     else
         [keyboard_ removeFromSuperview];
+}
+
+- (void) slideUp:(UIAlertSheet *)alert {
+    [alert presentSheetFromButtonBar:buttonbar_];
 }
 
 @end
@@ -4047,14 +4316,14 @@ id Alloc_(id self, SEL selector) {
     return object;
 }*/
 
-int main(int argc, char *argv[]) {
-    struct nlist nl[2];
-    memset(nl, 0, sizeof(nl));
-    nl[0].n_un.n_name = (char *) "_useMDNSResponder";
-    nlist("/usr/lib/libc.dylib", nl);
-    if (nl[0].n_type != N_UNDF)
-        *(int *) nl[0].n_value = 0;
+/*IMP dealloc_;
+id Dealloc_(id self, SEL selector) {
+    id object = dealloc_(self, selector);
+    fprintf(stderr, "[%s]D-%p\n", self->isa->name, object);
+    return object;
+}*/
 
+int main(int argc, char *argv[]) {
     bootstrap_ = argc > 1 && strcmp(argv[1], "--bootstrap") == 0;
 
     setuid(0);
@@ -4063,6 +4332,10 @@ int main(int argc, char *argv[]) {
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;
     alloc->method_imp = (IMP) &Alloc_;*/
+
+    /*Method dealloc = class_getClassMethod([NSObject class], @selector(dealloc));
+    dealloc_ = dealloc->method_imp;
+    dealloc->method_imp = (IMP) &Dealloc_;*/
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
@@ -4106,7 +4379,17 @@ int main(int argc, char *argv[]) {
         system("/usr/libexec/cydia/firmware.sh");
     system("dpkg --configure -a");
 
-    UIApplicationMain(argc, argv, [Cydia class]);
+    space_ = CGColorSpaceCreateDeviceRGB();
+
+    Black_.Set(space_, 0.0, 0.0, 0.0, 1.0);
+    Clear_.Set(space_, 0.0, 0.0, 0.0, 0.0);
+    Red_.Set(space_, 1.0, 0.0, 0.0, 1.0);
+    White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
+
+    int value = UIApplicationMain(argc, argv, [Cydia class]);
+
+    CGColorSpaceRelease(space_);
+
     [pool release];
-    return 0;
+    return value;
 }

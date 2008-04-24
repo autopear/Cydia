@@ -3,7 +3,7 @@
 version=$(sw_vers -productVersion)
 
 if grep '^Package: firmware$' /var/lib/dpkg/status >/dev/null; then
-    cat /var/lib/dpkg/status | while read -r line; do
+    cat /var/lib/dpkg/status | while IFS= read -r line; do
         if [[ ${line} == 'Package: firmware' ]]; then
             firmware=
         elif [[ ${line} == '' ]]; then

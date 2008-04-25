@@ -48,7 +48,6 @@
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
-#include <map>
 #include <sstream>
 #include <string>
 
@@ -1100,7 +1099,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     else if (lhs != NULL && rhs == NULL)
         return NSOrderedDescending;
     else if (lhs != NULL && rhs != NULL) {
-        NSComparisonResult result = [lhs compare:rhs];
+        NSComparisonResult result = [lhs caseInsensitiveCompare:rhs];
         if (result != NSOrderedSame)
             return result;
     }
@@ -1411,14 +1410,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) perform {
-    pkgSourceList list;
-    _assert(list.ReadMainList());
-
-    /*std::map<std::string> before;
-
-    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source)
-        before.add((*source)->GetURI().c_str());
-    exit(0);*/
+    NSMutableArray *before = [NSMutableArray arrayWithCapacity:16]; {
+        pkgSourceList list;
+        _assert(list.ReadMainList());
+        for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
+            [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
+    }
 
     if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue)
         return;
@@ -1433,7 +1430,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if (result != pkgPackageManager::Completed)
         return;
 
-    _assert(list.ReadMainList());
+    NSMutableArray *after = [NSMutableArray arrayWithCapacity:16]; {
+        pkgSourceList list;
+        _assert(list.ReadMainList());
+        for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
+            [after addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
+    }
+
+    if (![before isEqualToArray:after])
+        [self update];
 }
 
 - (void) upgrade {

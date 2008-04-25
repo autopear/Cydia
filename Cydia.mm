@@ -3729,9 +3729,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ((self = [super initWithBook:book]) != nil) {
         CGRect pageBounds = [book_ pageBounds];
 
-        UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:pageBounds] autorelease];
+        /*UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:pageBounds] autorelease];
         [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
-        [self addSubview:pinstripe];
+        [self addSubview:pinstripe];*/
 
         dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
         CGColor dimmed(space_, 0, 0, 0, 0.5);
@@ -3797,8 +3797,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [animation setTransitionFlags:3];
     [animation setDuration:10];
     [animation setSpeed:0.35];
-    [animation setSubtype:@"fromLeft"];
-    [[self _layer] addAnimation:animation forKey:0];
+    [animation setSubtype:(flipped_ ? @"fromLeft" : @"fromRight")];
+    [[transition_ _layer] addAnimation:animation forKey:0];
     [transition_ transition:0 toView:(flipped_ ? (UIView *) table_ : (UIView *) advanced_)];
     flipped_ = !flipped_;
 }

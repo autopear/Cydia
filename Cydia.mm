@@ -3274,6 +3274,23 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 
+@interface CYBook : RVBook <
+    ProgressDelegate
+> {
+    _transient Database *database_;
+    UIView *overlay_;
+    UIProgressIndicator *indicator_;
+    UITextLabel *prompt_;
+    UIProgressBar *progress_;
+    bool updating_;
+}
+
+- (id) initWithFrame:(CGRect)frame database:(Database *)database;
+- (void) update;
+- (BOOL) updating;
+
+@end
+
 /* Install View {{{ */
 @interface InstallView : RVPage {
     _transient Database *database_;
@@ -3485,6 +3502,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [book_ pushPage:view];
 }
 
+- (void) _leftButtonClicked {
+    [(CYBook *)book_ update];
+    [self reloadButtons];
+}
+
 - (void) _rightButtonClicked {
     [delegate_ distUpgrade];
 }
@@ -3591,6 +3613,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [list_ resetViewAnimated:animated];
 }
 
+- (NSString *) leftButtonTitle {
+    return [(CYBook *)book_ updating] ? nil : @"Refresh";
+}
+
 - (NSString *) rightButtonTitle {
     return upgrades_ == 0 ? nil : [NSString stringWithFormat:@"Upgrade All (%u)", upgrades_];
 }
@@ -3664,12 +3690,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         filter:@selector(isSearchedForBy:)
         with:nil
     ]) != nil) {
-        CGRect cnfrect = {{0, 36}, {17, 18}};
+        CGRect cnfrect = {{3, 36}, {17, 18}};
 
         CGRect area;
-        area.origin.x = cnfrect.size.width + 6;
+        area.origin.x = cnfrect.size.width + 12;
         area.origin.y = 30;
-        area.size.width = [self bounds].size.width - area.origin.x - 12;
+        area.size.width = [self bounds].size.width - area.origin.x - 18;
         area.size.height = [UISearchField defaultHeight];
 
         field_ = [[UISearchField alloc] initWithFrame:area];
@@ -3722,21 +3748,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 
-@interface CYBook : RVBook <
-    ProgressDelegate
-> {
-    _transient Database *database_;
-    UIView *overlay_;
-    UIProgressIndicator *indicator_;
-    UITextLabel *prompt_;
-    UIProgressBar *progress_;
-}
-
-- (id) initWithFrame:(CGRect)frame database:(Database *)database;
-- (void) update;
-
-@end
-
 @implementation CYBook
 
 - (void) dealloc {
@@ -3747,11 +3758,18 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [super dealloc];
 }
 
+- (BOOL) updating {
+    return updating_;
+}
+
 - (void) update {
+    [navbar_ setPrompt:@""];
     [navbar_ addSubview:overlay_];
     [indicator_ startAnimation];
     [prompt_ setText:@"Updating Database..."];
     [progress_ setProgress:0];
+
+    updating_ = true;
 
     [NSThread
         detachNewThreadSelector:@selector(_update)
@@ -3761,6 +3779,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) _update_ {
+    updating_ = false;
+
     [overlay_ removeFromSuperview];
     [indicator_ stopAnimation];
     [delegate_ reloadData];

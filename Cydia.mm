@@ -3881,6 +3881,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     return @"Search";
 }
 
+- (void) setDelegate:(id)delegate {
+    [table_ setDelegate:delegate];
+    [super setDelegate:delegate];
+}
+
 @end
 /* }}} */
 

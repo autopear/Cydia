@@ -2594,6 +2594,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     NSString *title_;
     bool loading_;
+    bool reloading_;
 }
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;
@@ -3162,6 +3163,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ([frame parentFrame] != nil)
         return;
 
+    reloading_ = false;
     loading_ = true;
     [indicator_ startAnimation];
     [self reloadButtons];
@@ -3183,9 +3185,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) _finishLoading {
-    loading_ = false;
-    [indicator_ stopAnimation];
-    [self reloadButtons];
+    if (!reloading_) {
+        loading_ = false;
+        [indicator_ stopAnimation];
+        [self reloadButtons];
+    }
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
@@ -3286,6 +3290,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) _rightButtonClicked {
+    reloading_ = true;
     [self reloadURL];
 }
 
@@ -3792,10 +3797,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         [transition_ transition:0 toView:table_];
 
-        CGRect cnfrect = {{2, 37}, {17, 18}};
+        CGRect cnfrect = {{1, 38}, {17, 18}};
 
         CGRect area;
-        area.origin.x = cnfrect.size.width + 17;
+        area.origin.x = cnfrect.size.width + 15;
         area.origin.y = 30;
         area.size.width = [self bounds].size.width - area.origin.x - 18;
         area.size.height = [UISearchField defaultHeight];

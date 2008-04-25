@@ -507,6 +507,17 @@ UITextView *GetTextView(NSString *value, float left, bool html) {
 
     return text;
 }
+
+NSString *Simplify(NSString *title) {
+    const char *data = [title UTF8String];
+    size_t size = [title length];
+
+    Pcre title_r("^(.*?)( \\(.*\\))?$");
+    if (title_r(data, size))
+        return title_r[1];
+    else
+        return title;
+}
 /* }}} */
 
 @class Package;
@@ -1630,14 +1641,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if ([pages_ count] != 0)
         [[pages_ lastObject] setPageActive:NO];
 
-    NSString *title = [page title]; {
-        const char *data = [title UTF8String];
-        size_t size = [title length];
-
-        Pcre title_r("^(.*?)( \\(.*\\))?$");
-        if (title_r(data, size))
-            title = title_r[1];
-    }
+    NSString *title = Simplify([page title]);
 
     NSString *backButtonTitle = [page backButtonTitle];
     if (backButtonTitle == nil)
@@ -2438,7 +2442,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         trusted = false;
     }
 
-    [source_ setText:[NSString stringWithFormat:@"from %@", label]];
+    [source_ setText:[NSString stringWithFormat:@"from %@ (%@)", label, Simplify([package section])]];
 
     if (trusted)
         [self addSubview:trusted_];

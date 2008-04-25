@@ -2812,7 +2812,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (NSString *) rightButtonTitle {
     _assert(package_ != nil);
-    return [package_ installed] == nil ? @"Install" : @"Manage";
+    return [package_ installed] == nil ? @"Install" : @"Modify";
 }
 
 - (NSString *) title {
@@ -3671,6 +3671,37 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 @end
 /* }}} */
+/* Manage View {{{ */
+@interface ManageView : PackageTable {
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+
+@end
+
+@implementation ManageView
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super
+        initWithBook:book
+        database:database
+        title:nil
+        filter:@selector(isInstalledInSection:)
+        with:nil
+    ]) != nil) {
+    } return self;
+}
+
+- (NSString *) title {
+    return @"Installed Packages";
+}
+
+- (NSString *) backButtonTitle {
+    return @"All Packages";
+}
+
+@end
+/* }}} */
 /* Search View {{{ */
 @protocol SearchViewDelegate
 - (void) showKeyboard:(BOOL)show;
@@ -3761,10 +3792,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         [transition_ transition:0 toView:table_];
 
-        CGRect cnfrect = {{3, 36}, {17, 18}};
+        CGRect cnfrect = {{2, 37}, {17, 18}};
 
         CGRect area;
-        area.origin.x = cnfrect.size.width + 12;
+        area.origin.x = cnfrect.size.width + 17;
         area.origin.y = 30;
         area.size.width = [self bounds].size.width - area.origin.x - 18;
         area.size.height = [UISearchField defaultHeight];
@@ -3789,7 +3820,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
         [configure setShowPressFeedback:YES];
-        [configure setImage:[UIImage applicationImageNamed:@"configure.png"]];
+        [configure setImage:[UIImage applicationImageNamed:@"advanced.png"]];
         [configure addTarget:self action:@selector(configurePushed) forEvents:1];
 
         accessory_ = [[UIView alloc] initWithFrame:CGRectMake(0, 6, cnfrect.size.width + area.size.width + 6 * 3, area.size.height + 30)];
@@ -4202,6 +4233,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (void) buttonBarItemTapped:(id)sender {
     unsigned tag = [sender tag];
+    if (tag == tag_) {
+        [book_ resetViewAnimated:YES];
+        return;
+    }
 
     switch (tag) {
         case 1:
@@ -4217,13 +4252,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         break;
 
         case 4:
-            [self setPage:[[[PackageTable alloc]
-                initWithBook:book_
-                database:database_
-                title:@"Manage"
-                filter:@selector(isInstalledInSection:)
-                with:nil
-            ] autorelease]];
+            [self setPage:[[[ManageView alloc] initWithBook:book_ database:database_] autorelease]];
         break;
 
         case 5:

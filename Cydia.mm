@@ -48,7 +48,10 @@
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
+#include <map>
 #include <sstream>
+#include <string>
+
 #include <ext/stdio_filebuf.h>
 
 #include <apt-pkg/acquire.h>
@@ -70,12 +73,12 @@ extern "C" {
 #include <mach-o/nlist.h>
 }
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include <errno.h>
 #include <pcre.h>
-#include <string.h>
 /* }}} */
 /* Extension Keywords {{{ */
 #define _trace() fprintf(stderr, "_trace()@%s:%u[%s]\n", __FILE__, __LINE__, __FUNCTION__)
@@ -1397,6 +1400,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (void) perform {
+    pkgSourceList list;
+    _assert(list.ReadMainList());
+
+    /*std::map<std::string> before;
+
+    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source)
+        before.add((*source)->GetURI().c_str());
+    exit(0);*/
+
     if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue)
         return;
 
@@ -1409,6 +1421,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         return;
     if (result != pkgPackageManager::Completed)
         return;
+
+    _assert(list.ReadMainList());
 }
 
 - (void) upgrade {
@@ -2360,7 +2374,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
 
         icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
-        [icon_ zoomToScale:0.5f];
 
         name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 8, 240, 25)];
         [name_ setBackgroundColor:Clear_];
@@ -2398,8 +2411,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         image = [UIImage imageAtPath:[icon substringFromIndex:6]];
     if (image == nil)
         image = [UIImage applicationImageNamed:@"unknown.png"];
-
     [icon_ setImage:image];
+
+    if (image != nil) {
+        CGSize size = [image size];
+        float scale = 30 / std::max(size.width, size.height);
+        [icon_ zoomToScale:scale];
+    }
+
     [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
 
     [name_ setText:[package name]];
@@ -2859,7 +2878,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
 
 - (void) setDelegate:(id)delegate;
+- (void) setObject:(id)object;
+
 - (void) reloadData;
+- (void) resetCursor;
 
 @end
 
@@ -2954,6 +2976,15 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     delegate_ = delegate;
 }
 
+- (void) setObject:(id)object {
+    if (object_ != nil)
+        [object_ release];
+    if (object == nil)
+        object_ = nil;
+    else
+        object_ = [object retain];
+}
+
 - (void) reloadData {
     NSArray *packages = [database_ packages];
 
@@ -2991,6 +3022,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (void) resetViewAnimated:(BOOL)animated {
     [list_ resetViewAnimated:animated];
+}
+
+- (void) resetCursor {
+    [[list_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
 }
 
 @end
@@ -3632,9 +3667,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) showKeyboard:(BOOL)show;
 @end
 
-@interface SearchView : PackageTable {
+@interface SearchView : RVPage {
     UIView *accessory_;
     UISearchField *field_;
+    UITransitionView *transition_;
+    PackageTable *table_;
+    UIPreferencesTable *advanced_;
+    UIView *dimmed_;
+    bool flipped_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -3652,19 +3692,22 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [accessory_ release];
     [field_ release];
+    [transition_ release];
+    [table_ release];
+    [advanced_ release];
+    [dimmed_ release];
     [super dealloc];
 }
 
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
     [delegate_ showKeyboard:YES];
-    [list_ setEnabled:NO];
-
-    /*CGColor dimmed(alpha, 0, 0, 0, 0.5);
-    [editor_ setBackgroundColor:dimmed];*/
+    [table_ setEnabled:NO];
+    [self addSubview:dimmed_];
 }
 
 - (void) textFieldDidResignFirstResponder:(UITextField *)field {
-    [list_ setEnabled:YES];
+    [dimmed_ removeFromSuperview];
+    [table_ setEnabled:YES];
     [delegate_ showKeyboard:NO];
 }
 
@@ -3683,13 +3726,32 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super
-        initWithBook:book
-        database:database
-        title:nil
-        filter:@selector(isSearchedForBy:)
-        with:nil
-    ]) != nil) {
+    if ((self = [super initWithBook:book]) != nil) {
+        CGRect pageBounds = [book_ pageBounds];
+
+        UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:pageBounds] autorelease];
+        [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
+        [self addSubview:pinstripe];
+
+        dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
+        CGColor dimmed(space_, 0, 0, 0, 0.5);
+        [dimmed_ setBackgroundColor:dimmed];
+
+        transition_ = [[UITransitionView alloc] initWithFrame:pageBounds];
+        [self addSubview:transition_];
+
+        advanced_ = [[UIPreferencesTable alloc] initWithFrame:pageBounds];
+
+        table_ = [[PackageTable alloc]
+            initWithBook:book
+            database:database
+            title:nil
+            filter:@selector(isSearchedForBy:)
+            with:nil
+        ];
+
+        [transition_ transition:0 toView:table_];
+
         CGRect cnfrect = {{3, 36}, {17, 18}};
 
         CGRect area;
@@ -3727,18 +3789,45 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     } return self;
 }
 
+- (void) flipPage {
+    LKAnimation *animation = [LKTransition animation];
+    [animation setType:@"oglFlip"];
+    [animation setTimingFunction:[LKTimingFunction functionWithName:@"easeInEaseOut"]];
+    [animation setFillMode:@"extended"];
+    [animation setTransitionFlags:3];
+    [animation setDuration:10];
+    [animation setSpeed:0.35];
+    [animation setSubtype:@"fromLeft"];
+    [[self _layer] addAnimation:animation forKey:0];
+    [transition_ transition:0 toView:(flipped_ ? (UIView *) table_ : (UIView *) advanced_)];
+    flipped_ = !flipped_;
+}
+
 - (void) configurePushed {
-    // XXX: implement flippy advanced panel
+    [field_ resignFirstResponder];
+    [self flipPage];
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    if (flipped_)
+        [self flipPage];
+    [table_ resetViewAnimated:animated];
 }
 
 - (void) reloadData {
-    object_ = [[field_ text] retain];
-    [super reloadData];
-    [[list_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
+    if (flipped_)
+        [self flipPage];
+    [table_ setObject:[field_ text]];
+    [table_ reloadData];
+    [table_ resetCursor];
 }
 
 - (UIView *) accessoryView {
     return accessory_;
+}
+
+- (NSString *) title {
+    return nil;
 }
 
 - (NSString *) backButtonTitle {

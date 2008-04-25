@@ -3113,6 +3113,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
+    if ([[[request URL] scheme] isEqualToString:@"apptapp"])
+        return nil;
     [self setBackButtonTitle:title_];
     BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
     [browser setDelegate:delegate_];

@@ -114,14 +114,6 @@ extern NSString *kUIButtonBarButtonTitleWidth;
 extern NSString *kUIButtonBarButtonType;
 /* }}} */
 
-#if 1
-#define $_
-#define _$
-#else
-#define $_ fprintf(stderr, "+");_trace();
-#define _$ fprintf(stderr, "-");_trace();
-#endif
-
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
 @interface UICGColor : NSObject {
@@ -519,6 +511,7 @@ NSString *Simplify(NSString *title) {
 }
 /* }}} */
 
+/* Delegate Prototypes {{{ */
 @class Package;
 @class Source;
 
@@ -535,6 +528,7 @@ NSString *Simplify(NSString *title) {
 - (void) slideUp:(UIAlertSheet *)alert;
 - (void) distUpgrade;
 @end
+/* }}} */
 
 /* Status Delegation {{{ */
 class Status :
@@ -3142,7 +3136,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             ] autorelease];
 
             [sheet setBodyText:[NSString stringWithFormat:
-                @"The package %@ cannot be found in your current sources. I might recommend intalling more sources."
+                @"The package %@ cannot be found in your current sources. I might recommend installing more sources."
             , name]];
 
             [sheet popupAlertAnimated:YES];

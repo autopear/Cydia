@@ -36,20 +36,21 @@
 */
 
 /* #include Directives {{{ */
+#include <objc/objc.h>
+#include <objc/runtime.h>
+
 #include <CoreGraphics/CoreGraphics.h>
 #include <GraphicsServices/GraphicsServices.h>
 #include <Foundation/Foundation.h>
 #include <UIKit/UIKit.h>
 #include <WebCore/DOMHTML.h>
 
-#import "RVBook.h"
-#import "RVPage.h"
+#import "BrowserView.h"
+#import "ResetView.h"
+#import "UICaboodle.h"
 
 #include <WebKit/WebFrame.h>
 #include <WebKit/WebView.h>
-
-#include <objc/objc.h>
-#include <objc/runtime.h>
 
 #include <sstream>
 #include <string>
@@ -89,20 +90,6 @@ extern "C" {
 - (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
 @end
 /* }}} */
-/* External Constants {{{ */
-extern NSString *kUIButtonBarButtonAction;
-extern NSString *kUIButtonBarButtonInfo;
-extern NSString *kUIButtonBarButtonInfoOffset;
-extern NSString *kUIButtonBarButtonSelectedInfo;
-extern NSString *kUIButtonBarButtonStyle;
-extern NSString *kUIButtonBarButtonTag;
-extern NSString *kUIButtonBarButtonTarget;
-extern NSString *kUIButtonBarButtonTitle;
-extern NSString *kUIButtonBarButtonTitleVerticalHeight;
-extern NSString *kUIButtonBarButtonTitleWidth;
-extern NSString *kUIButtonBarButtonType;
-/* }}} */
-
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
 @interface UICGColor : NSObject {
@@ -151,65 +138,6 @@ extern NSString *kUIButtonBarButtonType;
 
 @end
 #endif
-/* }}} */
-
-OBJC_EXPORT const char *class_getName(Class cls);
-
-/* Reset View (UIView) {{{ */
-@interface UIView (RVBook)
-- (void) resetViewAnimated:(BOOL)animated;
-- (void) clearView;
-@end
-
-@implementation UIView (RVBook)
-
-- (void) resetViewAnimated:(BOOL)animated {
-    fprintf(stderr, "%s\n", class_getName(self->isa));
-    _assert(false);
-}
-
-- (void) clearView {
-    fprintf(stderr, "%s\n", class_getName(self->isa));
-    _assert(false);
-}
-
-@end
-/* }}} */
-/* Reset View (UITable) {{{ */
-@interface UITable (RVBook)
-- (void) resetViewAnimated:(BOOL)animated;
-- (void) clearView;
-@end
-
-@implementation UITable (RVBook)
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [self selectRow:-1 byExtendingSelection:NO withFade:animated];
-}
-
-- (void) clearView {
-    [self clearAllData];
-}
-
-@end
-/* }}} */
-/* Reset View (UISectionList) {{{ */
-@interface UISectionList (RVBook)
-- (void) resetViewAnimated:(BOOL)animated;
-- (void) clearView;
-@end
-
-@implementation UISectionList (RVBook)
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [[self table] resetViewAnimated:animated];
-}
-
-- (void) clearView {
-    [[self table] clearView];
-}
-
-@end
 /* }}} */
 
 /* Perl-Compatible RegEx {{{ */
@@ -1374,6 +1302,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         if (Package *package = [Package packageWithIterator:iterator database:self])
             if ([package source] != nil || [package installed] != nil)
                 [packages_ addObject:package];
+
+    [packages_ sortUsingSelector:@selector(compareByName:)];
 }
 
 - (void) prepare {
@@ -2258,32 +2188,125 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 
-/* Browser Interface {{{ */
-@interface BrowserView : RVPage {
+/* File Table {{{ */
+@interface FileTable : RVPage {
     _transient Database *database_;
-    UIScroller *scroller_;
-    UIWebView *webview_;
-    NSMutableArray *urls_;
-    UIProgressIndicator *indicator_;
-
-    NSString *title_;
-    bool loading_;
-    bool reloading_;
+    Package *package_;
+    NSString *name_;
+    NSMutableArray *files_;
+    UITable *list_;
 }
 
-- (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;
-- (void) loadURL:(NSURL *)url;
-
-- (void) loadRequest:(NSURLRequest *)request;
-- (void) reloadURL;
-
-- (WebView *) webView;
-
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (void) setPackage:(Package *)package;
+
+@end
+
+@implementation FileTable
+
+- (void) dealloc {
+    if (package_ != nil)
+        [package_ release];
+    if (name_ != nil)
+        [name_ release];
+    [files_ release];
+    [list_ release];
+    [super dealloc];
+}
+
+- (int) numberOfRowsInTable:(UITable *)table {
+    return files_ == nil ? 0 : [files_ count];
+}
+
+- (float) table:(UITable *)table heightForRow:(int)row {
+    return 24;
+}
+
+- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
+    if (reusing == nil) {
+        reusing = [[[UIImageAndTextTableCell alloc] init] autorelease];
+        GSFontRef font = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
+        [[(UIImageAndTextTableCell *)reusing titleTextLabel] setFont:font];
+        CFRelease(font);
+    }
+    [(UIImageAndTextTableCell *)reusing setTitle:[files_ objectAtIndex:row]];
+    return reusing;
+}
+
+- (BOOL) canSelectRow:(int)row {
+    return NO;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+
+        files_ = [[NSMutableArray arrayWithCapacity:32] retain];
+
+        list_ = [[UITable alloc] initWithFrame:[self bounds]];
+        [self addSubview:list_];
+
+        UITableColumn *column = [[[UITableColumn alloc]
+            initWithTitle:@"Name"
+            identifier:@"name"
+            width:[self frame].size.width
+        ] autorelease];
+
+        [list_ setDataSource:self];
+        [list_ setSeparatorStyle:1];
+        [list_ addTableColumn:column];
+        [list_ setDelegate:self];
+        [list_ setReusesTableCells:YES];
+    } return self;
+}
+
+- (void) setPackage:(Package *)package {
+    if (package_ != nil) {
+        [package_ autorelease];
+        package_ = nil;
+    }
+
+    if (name_ != nil) {
+        [name_ release];
+        name_ = nil;
+    }
+
+    [files_ removeAllObjects];
+
+    if (package != nil) {
+        package_ = [package retain];
+        name_ = [[package id] retain];
+
+        NSString *list = [NSString
+            stringWithContentsOfFile:[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.list", name_]
+            encoding:kCFStringEncodingUTF8
+            error:NULL
+        ];
+
+        if (list != nil) {
+            [files_ addObjectsFromArray:[list componentsSeparatedByString:@"\n"]];
+            [files_ removeLastObject];
+        }
+    }
+
+    [list_ reloadData];
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [list_ resetViewAnimated:animated];
+}
+
+- (void) reloadData {
+    [self setPackage:[database_ packageWithName:name_]];
+    [self reloadButtons];
+}
+
+- (NSString *) title {
+    return @"File Contents";
+}
 
 @end
 /* }}} */
-
 /* Package View {{{ */
 @protocol PackageViewDelegate
 - (void) performPackage:(Package *)package;
@@ -2319,17 +2342,24 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
-    return [package_ source] == nil ? 2 : 3;
+    int number = 2;
+    if ([package_ installed] != nil)
+        ++number;
+    if ([package_ source] != nil)
+        ++number;
+    return number;
 }
 
 - (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
-    switch (group) {
-        case 0: return nil;
-        case 1: return @"Package Details";
-        case 2: return @"Source Information";
-
-        default: _assert(false);
-    }
+    if (group-- == 0)
+        return nil;
+    else if ([package_ installed] != nil && group-- == 0)
+        return @"Installed Package";
+    else if (group-- == 0)
+        return @"Package Details";
+    else if ([package_ source] != nil && group-- == 0)
+        return @"Source Information";
+    else _assert(false);
 }
 
 - (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
@@ -2340,21 +2370,28 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
-    switch (group) {
-        case 0: return [package_ website] == nil ? 2 : 3;
-        case 1: return 5;
-        case 2: return 3;
-
-        default: _assert(false);
-    }
+    if (group-- == 0) {
+        int number = 2;
+        if ([package_ website] != nil)
+            ++number;
+        if ([[package_ source] trusted])
+            ++number;
+        return number;
+    } else if ([package_ installed] != nil && group-- == 0)
+        return 2;
+    else if (group-- == 0)
+        return 4;
+    else if ([package_ source] != nil && group-- == 0)
+        return 3;
+    else _assert(false);
 }
 
 - (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
     UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
     [cell setShowSelection:NO];
 
-    switch (group) {
-        case 0: switch (row) {
+    if (group-- == 0)
+        switch (row) {
             case 0:
                 [cell setTitle:[package_ name]];
                 [cell setValue:[package_ latest]];
@@ -2365,38 +2402,54 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             break;
 
             case 2:
-                [cell setTitle:@"More Information"];
+                if ([package_ website] != nil) {
+                    [cell setTitle:@"More Information"];
+                    [cell setShowDisclosure:YES];
+                    [cell setShowSelection:YES];
+                    break;
+                }
+            case 3:
+                [cell setIcon:[UIImage applicationImageNamed:@"trusted.png"]];
+                [cell setValue:@"This package has been signed."];
+            break;
+
+            default: _assert(false);
+        }
+    else if ([package_ installed] != nil && group-- == 0)
+        switch (row) {
+            case 0: {
+                [cell setTitle:@"Version"];
+                NSString *installed([package_ installed]);
+                [cell setValue:(installed == nil ? @"n/a" : installed)];
+            } break;
+
+            case 1:
+                [cell setTitle:@"File Content"];
                 [cell setShowDisclosure:YES];
                 [cell setShowSelection:YES];
             break;
 
             default: _assert(false);
-        } break;
-
-        case 1: switch (row) {
+        }
+    else if (group-- == 0)
+        switch (row) {
             case 0:
                 [cell setTitle:@"Identifier"];
                 [cell setValue:[package_ id]];
             break;
 
             case 1: {
-                [cell setTitle:@"Installed Version"];
-                NSString *installed([package_ installed]);
-                [cell setValue:(installed == nil ? @"n/a" : installed)];
-            } break;
-
-            case 2: {
                 [cell setTitle:@"Section"];
                 NSString *section([package_ section]);
                 [cell setValue:(section == nil ? @"n/a" : section)];
             } break;
 
-            case 3:
+            case 2:
                 [cell setTitle:@"Expanded Size"];
                 [cell setValue:SizeString([package_ size])];
             break;
 
-            case 4:
+            case 3:
                 [cell setTitle:@"Maintainer"];
                 [cell setValue:[[package_ maintainer] name]];
                 [cell setShowDisclosure:YES];
@@ -2404,9 +2457,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             break;
 
             default: _assert(false);
-        } break;
-
-        case 2: switch (row) {
+        }
+    else if ([package_ source] != nil && group-- == 0)
+        switch (row) {
             case 0:
                 [cell setTitle:[[package_ source] label]];
                 [cell setValue:[[package_ source] version]];
@@ -2422,10 +2475,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             break;
 
             default: _assert(false);
-        } break;
-
-        default: _assert(false);
-    }
+        }
+    else _assert(false);
 
     return cell;
 }
@@ -2437,13 +2488,27 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [table_ selectedRow];
     NSString *website = [package_ website];
+    BOOL trusted = [[package_ source] trusted];
+    NSString *installed = [package_ installed];
 
-    if (row == (website == nil ? 8 : 9))
+    if (row == 7
+        + (website == nil ? 0 : 1)
+        + (trusted ? 1 : 0)
+        + (installed == nil ? 0 : 3)
+    )
         [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
             [[package_ maintainer] email],
             [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
         ]]];
-    else if (website != nil && row == 3) {
+    else if (installed && row == 5
+        + (website == nil ? 0 : 1)
+        + (trusted ? 1 : 0)
+    ) {
+        FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
+        [files setDelegate:delegate_];
+        [files setPackage:package_];
+        [book_ pushPage:files];
+    } else if (website != nil && row == 3) {
         NSURL *url = [NSURL URLWithString:website];
         BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
         [browser setDelegate:delegate_];
@@ -2567,6 +2632,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) reloadData;
 - (void) resetCursor;
 
+- (void) setShouldHideHeaderInShortLists:(BOOL)hide;
+
 @end
 
 @implementation PackageTable
@@ -2681,8 +2748,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             [packages_ addObject:package];
     }
 
-    [packages_ sortUsingSelector:@selector(compareByName:)];
-
     Section *section = nil;
 
     for (size_t offset(0); offset != [packages_ count]; ++offset) {
@@ -2710,6 +2775,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (void) resetCursor {
     [[list_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
+}
+
+- (void) setShouldHideHeaderInShortLists:(BOOL)hide {
+    [list_ setShouldHideHeaderInShortLists:hide];
 }
 
 @end
@@ -3394,8 +3463,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UITransitionView *transition_;
     PackageTable *table_;
     UIPreferencesTable *advanced_;
-    UIView *dimmed_;
     bool flipped_;
+    bool reload_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -3416,34 +3485,62 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [transition_ release];
     [table_ release];
     [advanced_ release];
-    [dimmed_ release];
     [super dealloc];
+}
+
+- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
+    return 1;
+}
+
+- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
+    switch (group) {
+        case 0: return @"Advanced Search (Coming Soon!)";
+
+        default: _assert(false);
+    }
+}
+
+- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
+    switch (group) {
+        case 0: return 0;
+
+        default: _assert(false);
+    }
 }
 
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
     [delegate_ showKeyboard:YES];
-    [table_ setEnabled:NO];
-    [self addSubview:dimmed_];
 }
 
 - (void) textFieldDidResignFirstResponder:(UITextField *)field {
-    [dimmed_ removeFromSuperview];
-    [table_ setEnabled:YES];
     [delegate_ showKeyboard:NO];
 }
 
 - (void) keyboardInputChanged:(UIFieldEditor *)editor {
-    NSString *text([field_ text]);
-    [field_ setClearButtonStyle:(text == nil || [text length] == 0 ? 0 : 2)];
+    if (reload_) {
+        NSString *text([field_ text]);
+        [field_ setClearButtonStyle:(text == nil || [text length] == 0 ? 0 : 2)];
+        [self reloadData];
+        reload_ = false;
+    }
+}
+
+- (void) textFieldClearButtonPressed:(UITextField *)field {
+    reload_ = true;
+}
+
+- (void) keyboardInputShouldDelete:(id)input {
+    reload_ = true;
 }
 
 - (BOOL) keyboardInput:(id)input shouldInsertText:(NSString *)text isMarkedText:(int)marked {
-    if ([text length] != 1 || [text characterAtIndex:0] != '\n')
+    if ([text length] != 1 || [text characterAtIndex:0] != '\n') {
+        reload_ = true;
         return YES;
-
-    [self reloadData];
-    [field_ resignFirstResponder];
-    return NO;
+    } else {
+        [field_ resignFirstResponder];
+        return NO;
+    }
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -3454,14 +3551,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
         [self addSubview:pinstripe];*/
 
-        dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
-        CGColor dimmed(space_, 0, 0, 0, 0.5);
-        [dimmed_ setBackgroundColor:dimmed];
-
         transition_ = [[UITransitionView alloc] initWithFrame:pageBounds];
         [self addSubview:transition_];
 
         advanced_ = [[UIPreferencesTable alloc] initWithFrame:pageBounds];
+
+        [advanced_ setReusesTableCells:YES];
+        [advanced_ setDataSource:self];
+        [advanced_ reloadData];
 
         table_ = [[PackageTable alloc]
             initWithBook:book
@@ -3471,6 +3568,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             with:nil
         ];
 
+        [table_ setShouldHideHeaderInShortLists:NO];
         [transition_ transition:0 toView:table_];
 
         CGRect cnfrect = {{1, 38}, {17, 18}};
@@ -4081,9 +4179,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [UIKeyboard initImplementationNow];
     CGSize keysize = [UIKeyboard defaultSize];
-    CGRect keyrect = {{0, [overlay_ bounds].size.height - keysize.height}, keysize};
+    CGRect keyrect = {{0, [overlay_ bounds].size.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
     [[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
+    [overlay_ addSubview:keyboard_];
 
     [self reloadData];
     [book_ update];
@@ -4097,10 +4196,29 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) showKeyboard:(BOOL)show {
-    if (show)
-        [overlay_ addSubview:keyboard_];
-    else
-        [keyboard_ removeFromSuperview];
+    CGSize keysize = [UIKeyboard defaultSize];
+    CGRect keydown = {{0, [overlay_ bounds].size.height}, keysize};
+    CGRect keyup = keydown;
+    keyup.origin.y -= keysize.height;
+
+    UIFrameAnimation *animation = [[[UIFrameAnimation alloc] initWithTarget:keyboard_] autorelease];
+    [animation setSignificantRectFields:2];
+
+    if (show) {
+        [animation setStartFrame:keydown];
+        [animation setEndFrame:keyup];
+        [keyboard_ activate];
+    } else {
+        [animation setStartFrame:keyup];
+        [animation setEndFrame:keydown];
+        [keyboard_ deactivate];
+    }
+
+    [[UIAnimator sharedAnimator]
+        addAnimations:[NSArray arrayWithObjects:animation, nil]
+        withDuration:0.4f
+        start:YES
+    ];
 }
 
 - (void) slideUp:(UIAlertSheet *)alert {

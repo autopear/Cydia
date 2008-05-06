@@ -3463,6 +3463,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UITransitionView *transition_;
     PackageTable *table_;
     UIPreferencesTable *advanced_;
+    UIView *dimmed_;
     bool flipped_;
     bool reload_;
 }
@@ -3485,6 +3486,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [transition_ release];
     [table_ release];
     [advanced_ release];
+    [dimmed_ release];
     [super dealloc];
 }
 
@@ -3559,6 +3561,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [advanced_ setReusesTableCells:YES];
         [advanced_ setDataSource:self];
         [advanced_ reloadData];
+
+        dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
+        CGColor dimmed(space_, 0, 0, 0, 0.5);
+        [dimmed_ setBackgroundColor:dimmed];
 
         table_ = [[PackageTable alloc]
             initWithBook:book
@@ -3836,6 +3842,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     unsigned tag_;
 
     UIKeyboard *keyboard_;
+
+    InstallView *install_;
+    ChangesView *changes_;
+    ManageView *manage_;
+    SearchView *search_;
 }
 
 @end
@@ -3880,6 +3891,16 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 
     _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
+
+    /* XXX: this is just stupid */
+    if (tag_ != 2)
+        [install_ reloadData];
+    if (tag_ != 3)
+        [changes_ reloadData];
+    if (tag_ != 4)
+        [manage_ reloadData];
+    if (tag_ != 5)
+        [search_ reloadData];
 
     [book_ reloadData];
     /*[hud show:NO];
@@ -4008,11 +4029,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) setPage:(RVPage *)page {
+    [page resetViewAnimated:NO];
     [page setDelegate:self];
     [book_ setPage:page];
 }
 
-- (RVPage *) _setNewsPage {
+- (RVPage *) _setHomePage {
     BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
     [self setPage:browser];
     [browser loadURL:[NSURL URLWithString:@"http://cydia.saurik.com/"]];
@@ -4028,23 +4050,23 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     switch (tag) {
         case 1:
-            [self _setNewsPage];
+            [self _setHomePage];
         break;
 
         case 2:
-            [self setPage:[[[InstallView alloc] initWithBook:book_ database:database_] autorelease]];
+            [self setPage:install_];
         break;
 
         case 3:
-            [self setPage:[[[ChangesView alloc] initWithBook:book_ database:database_] autorelease]];
+            [self setPage:changes_];
         break;
 
         case 4:
-            [self setPage:[[[ManageView alloc] initWithBook:book_ database:database_] autorelease]];
+            [self setPage:manage_];
         break;
 
         case 5:
-            [self setPage:[[[SearchView alloc] initWithBook:book_ database:database_] autorelease]];
+            [self setPage:search_];
         break;
 
         default:
@@ -4103,11 +4125,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSArray *buttonitems = [NSArray arrayWithObjects:
         [NSDictionary dictionaryWithObjectsAndKeys:
             @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"news-up.png", kUIButtonBarButtonInfo,
-            @"news-dn.png", kUIButtonBarButtonSelectedInfo,
+            @"home-up.png", kUIButtonBarButtonInfo,
+            @"home-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:1], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            @"News", kUIButtonBarButtonTitle,
+            @"Home", kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -4184,6 +4206,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
     [overlay_ addSubview:keyboard_];
 
+    install_ = [[InstallView alloc] initWithBook:book_ database:database_];
+    changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
+    manage_ = [[ManageView alloc] initWithBook:book_ database:database_];
+    search_ = [[SearchView alloc] initWithBook:book_ database:database_];
+
     [self reloadData];
     [book_ update];
 
@@ -4192,7 +4219,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if (bootstrap_)
         [self bootstrap];
     else
-        [self _setNewsPage];
+        [self _setHomePage];
 }
 
 - (void) showKeyboard:(BOOL)show {

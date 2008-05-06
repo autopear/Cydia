@@ -4061,28 +4061,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 
     switch (tag) {
-        case 1:
-            [self _setHomePage];
-        break;
+        case 1: [self _setHomePage]; break;
 
-        case 2:
-            [self setPage:install_];
-        break;
+        case 2: [self setPage:install_]; break;
+        case 3: [self setPage:changes_]; break;
+        case 4: [self setPage:manage_]; break;
+        case 5: [self setPage:search_]; break;
 
-        case 3:
-            [self setPage:changes_];
-        break;
-
-        case 4:
-            [self setPage:manage_];
-        break;
-
-        case 5:
-            [self setPage:search_];
-        break;
-
-        default:
-            _assert(false);
+        default: _assert(false);
     }
 
     tag_ = tag;

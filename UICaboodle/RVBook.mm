@@ -102,7 +102,11 @@
     [pages_ addObject:page];
     [self reloadButtonsForPage:page];
 
+#ifdef __OBJC2__
+    [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+#else
     [navbar_ setAccessoryView:[page accessoryView] animate:animated goingBack:NO];
+#endif
 }
 
 - (void) popPages:(unsigned)pages {
@@ -145,7 +149,11 @@
     [transition_ transition:(animated ? 2 : 0) toView:page];
     [page setPageActive:YES];
     [self reloadButtonsForPage:page];
+#ifdef __OBJC2__
+    [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+#else
     [navbar_ setAccessoryView:[page accessoryView] animate:animated goingBack:YES];
+#endif
 }
 
 - (void) setTitle:(NSString *)title forPage:(RVPage *)page {

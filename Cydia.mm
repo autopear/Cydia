@@ -358,6 +358,7 @@ bool restart_;
 
 static NSMutableDictionary *Metadata_;
 static NSMutableDictionary *Packages_;
+static bool Changed_;
 static NSDate *now_;
 
 NSString *GetLastUpdate() {
@@ -748,7 +749,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     _transient Database *database_;
     pkgCache::VerIterator version_;
     pkgCache::VerFileIterator file_;
+
     Source *source_;
+    bool cached_;
 
     NSString *latest_;
     NSString *installed_;
@@ -804,6 +807,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 @implementation Package
 
 - (void) dealloc {
+    if (source_ != nil)
+        [source_ release];
+
     [latest_ release];
     if (installed_ != nil)
         [installed_ release];
@@ -817,8 +823,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if (website_ != nil)
         [website_ release];
 
-    [source_ release];
-
     [super dealloc];
 }
 
@@ -830,13 +834,13 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         version_ = version;
         file_ = file;
 
+        latest_ = [[NSString stringWithCString:version_.VerStr()] retain];
+        installed_ = iterator_.CurrentVer().end() ? nil : [[NSString stringWithCString:iterator_.CurrentVer().VerStr()] retain];
+
         pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
 
         const char *begin, *end;
         parser->GetRec(begin, end);
-
-        latest_ = [[NSString stringWithCString:version_.VerStr()] retain];
-        installed_ = iterator_.CurrentVer().end() ? nil : [[NSString stringWithCString:iterator_.CurrentVer().VerStr()] retain];
 
         id_ = [[[NSString stringWithCString:iterator_.Name()] lowercaseString] retain];
         name_ = Scour("Name", begin, end);
@@ -850,8 +854,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         if (website_ != nil)
             website_ = [website_ retain];
 
-        source_ = [[database_ getSource:file_.File()] retain];
-
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
         if (metadata == nil || [metadata count] == 0) {
             metadata = [NSMutableDictionary dictionaryWithObjectsAndKeys:
@@ -859,6 +861,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             nil];
 
             [Packages_ setObject:metadata forKey:id_];
+            Changed_ = true;
         }
     } return self;
 }
@@ -960,6 +963,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (Source *) source {
+    if (!cached_) {
+        source_ = [[database_ getSource:file_.File()] retain];
+        cached_ = true;
+    }
+
     return source_;
 }
 
@@ -1396,6 +1404,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         }
 
         [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
+        Changed_ = true;
     }
 }
 
@@ -2286,6 +2295,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         if (list != nil) {
             [files_ addObjectsFromArray:[list componentsSeparatedByString:@"\n"]];
             [files_ removeLastObject];
+            [files_ sortUsingSelector:@selector(compare:)];
         }
     }
 
@@ -3861,10 +3871,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [database_ reloadData];
 
-    size_t count = 16;
-
     if (Packages_ == nil) {
-        Packages_ = [[NSMutableDictionary alloc] initWithCapacity:count];
+        Packages_ = [[NSMutableDictionary alloc] initWithCapacity:128];
         [Metadata_ setObject:Packages_ forKey:@"Packages"];
     }
 
@@ -3890,7 +3898,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [self removeApplicationBadge];
     }
 
-    _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
+    if (Changed_) {
+        _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
+        Changed_ = false;
+    }
 
     /* XXX: this is just stupid */
     if (tag_ != 2)
@@ -3903,6 +3914,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [search_ reloadData];
 
     [book_ reloadData];
+
     /*[hud show:NO];
     [hud removeFromSuperview];*/
 }

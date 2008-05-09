@@ -1,6 +1,13 @@
 #include <objc/objc.h>
 
-#define _trace() fprintf(stderr, "_trace()@%s:%u[%s]\n", __FILE__, __LINE__, __FUNCTION__)
+#include <sys/time.h>
+#include <time.h>
+
+#define _trace() do { \
+    struct timeval _tv; \
+    gettimeofday(&_tv, NULL); \
+    fprintf(stderr, "%lu.%.6u:_trace()@%s:%u[%s]\n", _tv.tv_sec, _tv.tv_usec, __FILE__, __LINE__, __FUNCTION__); \
+} while (false)
 
 #define _assert(test) do \
     if (!(test)) { \

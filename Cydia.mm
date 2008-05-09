@@ -84,12 +84,6 @@ extern "C" {
 #include <pcre.h>
 /* }}} */
 
-/* Miscellaneous Messages {{{ */
-@interface NSString (Cydia)
-- (NSString *) stringByAddingPercentEscapes;
-- (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
-@end
-/* }}} */
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
 @interface UICGColor : NSObject {
@@ -140,6 +134,26 @@ extern "C" {
 #endif
 /* }}} */
 
+@interface NSString (UIKit)
+- (NSString *) stringByAddingPercentEscapes;
+- (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
+@end
+
+@interface NSString (Cydia)
++ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
+@end
+
+@implementation NSString (Cydia)
+
++ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
+    char data[length + 1];
+    memcpy(data, bytes, length);
+    data[length] = '\0';
+    return [NSString stringWithUTF8String:data];
+}
+
+@end
+
 /* Perl-Compatible RegEx {{{ */
 class Pcre {
   private:
@@ -172,10 +186,7 @@ class Pcre {
     }
 
     NSString *operator [](size_t match) {
-        return [NSString
-            stringWithCString:(data_ + matches_[match * 2])
-            length:(matches_[match * 2 + 1] - matches_[match * 2])
-        ];
+        return [NSString stringWithUTF8Bytes:(data_ + matches_[match * 2]) length:(matches_[match * 2 + 1] - matches_[match * 2])];
     }
 
     bool operator ()(const char *data, size_t size) {
@@ -229,7 +240,12 @@ Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
             name_ = [email_r[1] retain];
             email_ = [email_r[2] retain];
         } else {
-            name_ = [[NSString stringWithCString:data length:size] retain];
+            name_ = [[NSString alloc]
+                initWithBytes:data
+                length:size
+                encoding:kCFStringEncodingUTF8
+            ];
+
             email_ = nil;
         }
     } return self;
@@ -329,6 +345,8 @@ class GSFont {
 
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
+static const int ButtonBarHeight_ = 48;
+static const float KeyboardTime_ = 0.4f;
 
 static CGColor Black_;
 static CGColor Clear_;
@@ -337,6 +355,8 @@ static CGColor White_;
 
 static NSString *Home_;
 static BOOL Sounds_Keyboard_;
+
+static BOOL Advanced_;
 
 const char *Firmware_ = NULL;
 const char *Machine_ = NULL;
@@ -473,7 +493,7 @@ class Status :
     }
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
-        [delegate_ setProgressTitle:[NSString stringWithCString:("Downloading " + item.ShortDesc).c_str()]];
+        [delegate_ setProgressTitle:[NSString stringWithUTF8String:("Downloading " + item.ShortDesc).c_str()]];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
@@ -486,7 +506,7 @@ class Status :
         )
             return;
 
-        [delegate_ setProgressError:[NSString stringWithCString:item.Owner->ErrorText.c_str()]];
+        [delegate_ setProgressError:[NSString stringWithUTF8String:item.Owner->ErrorText.c_str()]];
     }
 
     virtual bool Pulse(pkgAcquire *Owner) {
@@ -517,7 +537,7 @@ class Progress :
 
   protected:
     virtual void Update() {
-        [delegate_ setProgressTitle:[NSString stringWithCString:Op.c_str()]];
+        [delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
         [delegate_ setProgressPercent:(Percent / 100)];
     }
 
@@ -638,9 +658,9 @@ class Progress :
     if ((self = [super init]) != nil) {
         trusted_ = index->IsTrusted();
 
-        uri_ = [[NSString stringWithCString:index->GetURI().c_str()] retain];
-        distribution_ = [[NSString stringWithCString:index->GetDist().c_str()] retain];
-        type_ = [[NSString stringWithCString:index->GetType()] retain];
+        uri_ = [[NSString stringWithUTF8String:index->GetURI().c_str()] retain];
+        distribution_ = [[NSString stringWithUTF8String:index->GetDist().c_str()] retain];
+        type_ = [[NSString stringWithUTF8String:index->GetType()] retain];
 
         description_ = nil;
         label_ = nil;
@@ -663,15 +683,15 @@ class Progress :
                     value = value.substr(1);
 
                 if (name == "Default-Icon")
-                    defaultIcon_ = [[NSString stringWithCString:value.c_str()] retain];
+                    defaultIcon_ = [[NSString stringWithUTF8String:value.c_str()] retain];
                 else if (name == "Description")
-                    description_ = [[NSString stringWithCString:value.c_str()] retain];
+                    description_ = [[NSString stringWithUTF8String:value.c_str()] retain];
                 else if (name == "Label")
-                    label_ = [[NSString stringWithCString:value.c_str()] retain];
+                    label_ = [[NSString stringWithUTF8String:value.c_str()] retain];
                 else if (name == "Origin")
-                    origin_ = [[NSString stringWithCString:value.c_str()] retain];
+                    origin_ = [[NSString stringWithUTF8String:value.c_str()] retain];
                 else if (name == "Version")
-                    version_ = [[NSString stringWithCString:value.c_str()] retain];
+                    version_ = [[NSString stringWithUTF8String:value.c_str()] retain];
             }
         }
     } return self;
@@ -715,6 +735,41 @@ class Progress :
 
 @end
 /* }}} */
+/* Relationship Class {{{ */
+@interface Relationship : NSObject {
+    NSString *type_;
+    NSString *id_;
+}
+
+- (NSString *) type;
+- (NSString *) id;
+- (NSString *) name;
+
+@end
+
+@implementation Relationship
+
+- (void) dealloc {
+    [type_ release];
+    [id_ release];
+    [super dealloc];
+}
+
+- (NSString *) type {
+    return type_;
+}
+
+- (NSString *) id {
+    return id_;
+}
+
+- (NSString *) name {
+    _assert(false);
+    return nil;
+}
+
+@end
+/* }}} */
 /* Package Class {{{ */
 NSString *Scour(const char *field, const char *begin, const char *end) {
     size_t i(0), l(strlen(field));
@@ -734,7 +789,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             const char *line = std::find(value, end, '\n');
             while (line != value && line[-1] == ' ')
                 --line;
-            return [NSString stringWithCString:value length:(line - value)];
+
+            return [NSString stringWithUTF8Bytes:value length:(line - value)];
         } else {
             begin = std::find(begin, end, '\n');
             if (begin == end)
@@ -761,10 +817,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *tagline_;
     NSString *icon_;
     NSString *website_;
+
+    NSArray *relationships_;
 }
 
 - (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database version:(pkgCache::VerIterator)version file:(pkgCache::VerFileIterator)file;
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database;
+
+- (pkgCache::PkgIterator) iterator;
 
 - (NSString *) section;
 - (Address *) maintainer;
@@ -785,6 +845,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) tagline;
 - (NSString *) icon;
 - (NSString *) website;
+
+- (NSArray *) relationships;
 
 - (Source *) source;
 
@@ -823,6 +885,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     if (website_ != nil)
         [website_ release];
 
+    if (relationships_ != nil)
+        [relationships_ release];
+
     [super dealloc];
 }
 
@@ -834,19 +899,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         version_ = version;
         file_ = file;
 
-        latest_ = [[NSString stringWithCString:version_.VerStr()] retain];
-        installed_ = iterator_.CurrentVer().end() ? nil : [[NSString stringWithCString:iterator_.CurrentVer().VerStr()] retain];
+        latest_ = [[NSString stringWithUTF8String:version_.VerStr()] retain];
+        installed_ = iterator_.CurrentVer().end() ? nil : [[NSString stringWithUTF8String:iterator_.CurrentVer().VerStr()] retain];
 
         pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
 
         const char *begin, *end;
         parser->GetRec(begin, end);
 
-        id_ = [[[NSString stringWithCString:iterator_.Name()] lowercaseString] retain];
+        id_ = [[[NSString stringWithUTF8String:iterator_.Name()] lowercaseString] retain];
         name_ = Scour("Name", begin, end);
         if (name_ != nil)
             name_ = [name_ retain];
-        tagline_ = [[NSString stringWithCString:parser->ShortDesc().c_str()] retain];
+        tagline_ = [[NSString stringWithUTF8String:parser->ShortDesc().c_str()] retain];
         icon_ = Scour("Icon", begin, end);
         if (icon_ != nil)
             icon_ = [icon_ retain];
@@ -878,14 +943,18 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return nil;
 }
 
+- (pkgCache::PkgIterator) iterator {
+    return iterator_;
+}
+
 - (NSString *) section {
     const char *section = iterator_.Section();
-    return section == NULL ? nil : [[NSString stringWithCString:section] stringByReplacingCharacter:'_' withCharacter:' '];
+    return section == NULL ? nil : [[NSString stringWithUTF8String:section] stringByReplacingCharacter:'_' withCharacter:' '];
 }
 
 - (Address *) maintainer {
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    return [Address addressWithString:[NSString stringWithCString:parser->Maintainer().c_str()]];
+    return [Address addressWithString:[NSString stringWithUTF8String:parser->Maintainer().c_str()]];
 }
 
 - (size_t) size {
@@ -894,7 +963,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) description {
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    NSString *description([NSString stringWithCString:parser->LongDesc().c_str()]);
+    NSString *description([NSString stringWithUTF8String:parser->LongDesc().c_str()]);
 
     NSArray *lines = [description componentsSeparatedByString:@"\n"];
     NSMutableArray *trimmed = [NSMutableArray arrayWithCapacity:([lines count] - 1)];
@@ -960,6 +1029,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) website {
     return website_;
+}
+
+- (NSArray *) relationships {
+    return relationships_;
 }
 
 - (Source *) source {
@@ -1180,7 +1253,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         buffer >> percent;
         [delegate_ setProgressPercent:(percent / 100)];
 
-        NSString *string = [NSString stringWithCString:(data + matches[8]) length:(matches[9] - matches[8])];
+        NSString *string = [NSString stringWithUTF8Bytes:(data + matches[8]) length:(matches[9] - matches[8])];
+
         std::string type(line.substr(matches[2], matches[3] - matches[2]));
 
         if (type == "pmerror")
@@ -1204,7 +1278,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     std::string line;
 
     while (std::getline(is, line))
-        [delegate_ addProgressOutput:[NSString stringWithCString:line.c_str()]];
+        [delegate_ addProgressOutput:[NSString stringWithUTF8String:line.c_str()]];
 
     [pool release];
     _assert(false);
@@ -1305,10 +1379,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             ];
     }
 
+    pkgDepCache::Policy Plcy;
+
     [packages_ removeAllObjects];
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-        if (Package *package = [Package packageWithIterator:iterator database:self])
-            if ([package source] != nil || [package installed] != nil)
+        if (!Plcy.GetCandidateVer(iterator).end())
+            if (Package *package = [Package packageWithIterator:iterator database:self])
                 [packages_ addObject:package];
 
     [packages_ sortUsingSelector:@selector(compareByName:)];
@@ -1611,11 +1687,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         bool remove(false);
 
         pkgCacheFile &cache([database_ cache]);
-        for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
-            Package *package([Package packageWithIterator:iterator database:database_]);
-            NSString *name([package name]);
-            bool essential((iterator->Flags & pkgCache::Flag::Essential) != 0);
+        NSArray *packages = [database_ packages];
+        for (size_t i(0), e = [packages count]; i != e; ++i) {
+            Package *package = [packages objectAtIndex:i];
+            pkgCache::PkgIterator iterator = [package iterator];
             pkgDepCache::StateCache &state(cache[iterator]);
+
+            NSString *name([package name]);
 
             if (state.NewInstall())
                 [installing addObject:name];
@@ -1626,7 +1704,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             else if (state.Downgrade())
                 [downgrading addObject:name];
             else if (state.Delete()) {
-                if (essential)
+                if ([package essential])
                     remove = true;
                 [removing addObject:name];
             }
@@ -2295,7 +2373,23 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         if (list != nil) {
             [files_ addObjectsFromArray:[list componentsSeparatedByString:@"\n"]];
             [files_ removeLastObject];
+            [files_ removeObjectAtIndex:0];
             [files_ sortUsingSelector:@selector(compare:)];
+
+            NSMutableArray *stack = [NSMutableArray arrayWithCapacity:8];
+            [stack addObject:@"/"];
+
+            for (int i(0), e([files_ count]); i != e; ++i) {
+                NSString *file = [files_ objectAtIndex:i];
+                while (![file hasPrefix:[stack lastObject]])
+                    [stack removeLastObject];
+                NSString *directory = [stack lastObject];
+                [stack addObject:[file stringByAppendingString:@"/"]];
+                [files_ replaceObjectAtIndex:i withObject:[NSString stringWithFormat:@"%*s%@",
+                    ([stack count] - 2) * 4, "",
+                    [file substringFromIndex:[directory length]]
+                ]];
+            }
         }
     }
 
@@ -2312,7 +2406,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (NSString *) title {
-    return @"File Contents";
+    return @"Installed Files";
+}
+
+- (NSString *) backButtonTitle {
+    return @"Files";
 }
 
 @end
@@ -2389,9 +2487,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         return number;
     } else if ([package_ installed] != nil && group-- == 0)
         return 2;
-    else if (group-- == 0)
-        return 4;
-    else if ([package_ source] != nil && group-- == 0)
+    else if (group-- == 0) {
+        int number = 4;
+        if ([package_ relationships] != nil)
+            ++number;
+        return number;
+    } else if ([package_ source] != nil && group-- == 0)
         return 3;
     else _assert(false);
 }
@@ -2400,93 +2501,62 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
     [cell setShowSelection:NO];
 
-    if (group-- == 0)
-        switch (row) {
-            case 0:
-                [cell setTitle:[package_ name]];
-                [cell setValue:[package_ latest]];
-            break;
-
-            case 1:
-                [cell addSubview:description_];
-            break;
-
-            case 2:
-                if ([package_ website] != nil) {
-                    [cell setTitle:@"More Information"];
-                    [cell setShowDisclosure:YES];
-                    [cell setShowSelection:YES];
-                    break;
-                }
-            case 3:
-                [cell setIcon:[UIImage applicationImageNamed:@"trusted.png"]];
-                [cell setValue:@"This package has been signed."];
-            break;
-
-            default: _assert(false);
-        }
-    else if ([package_ installed] != nil && group-- == 0)
-        switch (row) {
-            case 0: {
-                [cell setTitle:@"Version"];
-                NSString *installed([package_ installed]);
-                [cell setValue:(installed == nil ? @"n/a" : installed)];
-            } break;
-
-            case 1:
-                [cell setTitle:@"File Content"];
-                [cell setShowDisclosure:YES];
-                [cell setShowSelection:YES];
-            break;
-
-            default: _assert(false);
-        }
-    else if (group-- == 0)
-        switch (row) {
-            case 0:
-                [cell setTitle:@"Identifier"];
-                [cell setValue:[package_ id]];
-            break;
-
-            case 1: {
-                [cell setTitle:@"Section"];
-                NSString *section([package_ section]);
-                [cell setValue:(section == nil ? @"n/a" : section)];
-            } break;
-
-            case 2:
-                [cell setTitle:@"Expanded Size"];
-                [cell setValue:SizeString([package_ size])];
-            break;
-
-            case 3:
-                [cell setTitle:@"Maintainer"];
-                [cell setValue:[[package_ maintainer] name]];
-                [cell setShowDisclosure:YES];
-                [cell setShowSelection:YES];
-            break;
-
-            default: _assert(false);
-        }
-    else if ([package_ source] != nil && group-- == 0)
-        switch (row) {
-            case 0:
-                [cell setTitle:[[package_ source] label]];
-                [cell setValue:[[package_ source] version]];
-            break;
-
-            case 1:
-                [cell setValue:[[package_ source] description]];
-            break;
-
-            case 2:
-                [cell setTitle:@"Origin"];
-                [cell setValue:[[package_ source] origin]];
-            break;
-
-            default: _assert(false);
-        }
-    else _assert(false);
+    if (group-- == 0) {
+        if (row-- == 0) {
+            [cell setTitle:[package_ name]];
+            [cell setValue:[package_ latest]];
+        } else if (row-- == 0) {
+            [cell addSubview:description_];
+        } else if ([package_ website] != nil && row-- == 0) {
+            [cell setTitle:@"More Information"];
+            [cell setShowDisclosure:YES];
+            [cell setShowSelection:YES];
+        } else if ([[package_ source] trusted] && row-- == 0) {
+            [cell setIcon:[UIImage applicationImageNamed:@"trusted.png"]];
+            [cell setValue:@"This package has been signed."];
+        } else _assert(false);
+    } else if ([package_ installed] != nil && group-- == 0) {
+        if (row-- == 0) {
+            [cell setTitle:@"Version"];
+            NSString *installed([package_ installed]);
+            [cell setValue:(installed == nil ? @"n/a" : installed)];
+        } else if (row-- == 0) {
+            [cell setTitle:@"Filesystem Content"];
+            [cell setShowDisclosure:YES];
+            [cell setShowSelection:YES];
+        } else _assert(false);
+    } else if (group-- == 0) {
+        if (row-- == 0) {
+            [cell setTitle:@"Identifier"];
+            [cell setValue:[package_ id]];
+        } else if (row-- == 0) {
+            [cell setTitle:@"Section"];
+            NSString *section([package_ section]);
+            [cell setValue:(section == nil ? @"n/a" : section)];
+        } else if (row-- == 0) {
+            [cell setTitle:@"Expanded Size"];
+            [cell setValue:SizeString([package_ size])];
+        } else if (row-- == 0) {
+            [cell setTitle:@"Maintainer"];
+            [cell setValue:[[package_ maintainer] name]];
+            [cell setShowDisclosure:YES];
+            [cell setShowSelection:YES];
+        } else if ([package_ relationships] != nil && row-- == 0) {
+            [cell setTitle:@"Package Relationships"];
+            [cell setShowDisclosure:YES];
+            [cell setShowSelection:YES];
+        } else _assert(false);
+    } else if ([package_ source] != nil && group-- == 0) {
+        if (row-- == 0) {
+            [cell setTitle:[[package_ source] label]];
+            [cell setValue:[[package_ source] version]];
+        } else if (row-- == 0) {
+            [cell setValue:[[package_ source] description]];
+        } else if (row-- == 0) {
+            [cell setTitle:@"Origin"];
+            [cell setValue:[[package_ source] origin]];
+        } else _assert(false);
+    } else _assert(false);
 
     return cell;
 }
@@ -2642,6 +2712,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) reloadData;
 - (void) resetCursor;
 
+- (UISectionList *) list;
+
 - (void) setShouldHideHeaderInShortLists:(BOOL)hide;
 
 @end
@@ -2787,6 +2859,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [[list_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
 }
 
+- (UISectionList *) list {
+    return list_;
+}
+
 - (void) setShouldHideHeaderInShortLists:(BOOL)hide {
     [list_ setShouldHideHeaderInShortLists:hide];
 }
@@ -2822,9 +2898,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         timeoutInterval:30.0
     ];
 
-    [request addValue:[NSString stringWithCString:Firmware_] forHTTPHeaderField:@"X-Firmware"];
-    [request addValue:[NSString stringWithCString:Machine_] forHTTPHeaderField:@"X-Machine"];
-    [request addValue:[NSString stringWithCString:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
+    [request addValue:[NSString stringWithUTF8String:Firmware_] forHTTPHeaderField:@"X-Firmware"];
+    [request addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    [request addValue:[NSString stringWithUTF8String:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
 
     [self loadRequest:request];
 }
@@ -3520,12 +3596,45 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 }
 
+- (void) _showKeyboard:(BOOL)show {
+    CGSize keysize = [UIKeyboard defaultSize];
+    CGRect keydown = [book_ pageBounds];
+    CGRect keyup = keydown;
+    keyup.size.height -= keysize.height - ButtonBarHeight_;
+
+    float delay = KeyboardTime_ * ButtonBarHeight_ / keysize.height;
+
+    UIFrameAnimation *animation = [[[UIFrameAnimation alloc] initWithTarget:[table_ list]] autorelease];
+    [animation setSignificantRectFields:8];
+
+    if (show) {
+        [animation setStartFrame:keydown];
+        [animation setEndFrame:keyup];
+    } else {
+        [animation setStartFrame:keyup];
+        [animation setEndFrame:keydown];
+    }
+
+    UIAnimator *animator = [UIAnimator sharedAnimator];
+
+    [animator
+        addAnimations:[NSArray arrayWithObjects:animation, nil]
+        withDuration:(KeyboardTime_ - delay)
+        start:!show
+    ];
+
+    if (show)
+        [animator performSelector:@selector(startAnimation:) withObject:animation afterDelay:delay];
+
+    [delegate_ showKeyboard:show];
+}
+
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
-    [delegate_ showKeyboard:YES];
+    [self _showKeyboard:YES];
 }
 
 - (void) textFieldDidResignFirstResponder:(UITextField *)field {
-    [delegate_ showKeyboard:NO];
+    [self _showKeyboard:NO];
 }
 
 - (void) keyboardInputChanged:(UIFieldEditor *)editor {
@@ -3725,6 +3834,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ((self = [super initWithFrame:frame]) != nil) {
         database_ = database;
 
+        if (Advanced_)
+            [navbar_ setBarStyle:1];
+
         CGRect ovrrect = [navbar_ bounds];
         ovrrect.size.height = [UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height;
 
@@ -3735,7 +3847,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         CGRect indrect = {{indoffset, indoffset}, indsize};
 
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
-        [indicator_ setStyle:2];
+        [indicator_ setStyle:(Advanced_ ? 2 : 3)];
         [overlay_ addSubview:indicator_];
 
         CGSize prmsize = {200, indsize.width};
@@ -3749,7 +3861,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
 
-        [prompt_ setColor:White_];
+        [prompt_ setColor:(Advanced_ ? White_ : Black_)];
         [prompt_ setBackgroundColor:Clear_];
         [prompt_ setFont:font];
 
@@ -4175,8 +4287,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     buttonbar_ = [[UIButtonBar alloc]
         initInView:overlay_
         withFrame:CGRectMake(
-            0, screenrect.size.height - 48,
-            screenrect.size.width, 48
+            0, screenrect.size.height - ButtonBarHeight_,
+            screenrect.size.width, ButtonBarHeight_
         )
         withItemList:buttonitems
     ];
@@ -4191,7 +4303,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     for (int i = 0; i != 5; ++i)
         [[buttonbar_ viewWithTag:(i + 1)] setFrame:CGRectMake(
-            i * 64 + 2, 1, 60, 48
+            i * 64 + 2, 1, 60, ButtonBarHeight_
         )];
 
     [buttonbar_ showSelectionForButton:1];
@@ -4241,7 +4353,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [[UIAnimator sharedAnimator]
         addAnimations:[NSArray arrayWithObjects:animation, nil]
-        withDuration:0.4f
+        withDuration:KeyboardTime_
         start:YES
     ];
 }

@@ -50,7 +50,7 @@
         navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
         [self addSubview:navbar_];
 
-        [navbar_ setBarStyle:1];
+        [navbar_ setBarStyle:0];
         [navbar_ setDelegate:self];
 
         [navbar_ setPrompt:@""];

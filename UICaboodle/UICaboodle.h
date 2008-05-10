@@ -3,6 +3,9 @@
 #include <sys/time.h>
 #include <time.h>
 
+#define _forever \
+    for (;;)
+
 #define _trace() do { \
     struct timeval _tv; \
     gettimeofday(&_tv, NULL); \

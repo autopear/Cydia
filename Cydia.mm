@@ -220,6 +220,11 @@ class Pcre {
         return [NSString stringWithUTF8Bytes:(data_ + matches_[match * 2]) length:(matches_[match * 2 + 1] - matches_[match * 2])];
     }
 
+    bool operator ()(NSString *data) {
+        // XXX: length is for characters, not for bytes
+        return operator ()([data UTF8String], [data length]);
+    }
+
     bool operator ()(const char *data, size_t size) {
         data_ = data;
         return pcre_exec(code_, study_, data, size, 0, 0, matches_, (capture_ + 1) * 3) >= 0;
@@ -493,6 +498,10 @@ NSString *Simplify(NSString *title) {
 - (void) addProgressOutput:(NSString *)output;
 @end
 
+@protocol ConfigurationDelegate
+- (void) setConfigurationData:(NSString *)data;
+@end
+
 @protocol CydiaDelegate
 - (void) installPackage:(Package *)package;
 - (void) removePackage:(Package *)package;
@@ -603,14 +612,18 @@ class Progress :
     NSMutableDictionary *sources_;
     NSMutableArray *packages_;
 
-    _transient id delegate_;
+    _transient id<ConfigurationDelegate, ProgressDelegate> delegate_;
     Status status_;
     Progress progress_;
+
     int statusfd_;
+    FILE *input_;
 }
 
 - (void) _readStatus:(NSNumber *)fd;
 - (void) _readOutput:(NSNumber *)fd;
+
+- (FILE *) input;
 
 - (Package *) packageWithName:(NSString *)name;
 
@@ -1283,6 +1296,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     while (std::getline(is, line)) {
         const char *data(line.c_str());
+        fprintf(stderr, "%s\n", data);
 
         _assert(pcre_exec(code, study, data, line.size(), 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
 
@@ -1300,7 +1314,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         else if (type == "pmstatus")
             [delegate_ setProgressTitle:string];
         else if (type == "pmconffile")
-            ;
+            [delegate_ setConfigurationData:string];
         else _assert(false);
     }
 
@@ -1320,6 +1334,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     [pool release];
     _assert(false);
+}
+
+- (FILE *) input {
+    return input_;
 }
 
 - (Package *) packageWithName:(NSString *)name {
@@ -1347,6 +1365,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             toTarget:self
             withObject:[[NSNumber numberWithInt:fds[0]] retain]
         ];
+
+        _assert(pipe(fds) != -1);
+        _assert(dup2(fds[0], 0) != -1);
+        _assert(close(fds[0]) != -1);
+
+        input_ = fdopen(fds[1], "a");
 
         _assert(pipe(fds) != -1);
         _assert(dup2(fds[1], 1) != -1);
@@ -1390,11 +1414,24 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     delete records_;
     cache_.Close();
 
-    if (!cache_.Open(progress_, true)) {
-        fprintf(stderr, "repairing corrupted database...\n");
-        _error->Discard();
-        [self updateWithStatus:status_];
-        _assert(cache_.Open(progress_, true));
+    _forever {
+        if (cache_.Open(progress_, true))
+            break;
+
+        std::string error;
+        if (!_error->PopMessage(error))
+            _assert(false);
+        else do {
+            fprintf(stderr, "cache_.Open():[%s]\n", error.c_str());
+            if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
+                // XXX: I hate my life
+                system("dpkg --configure -a");
+            else if (error == "The package lists or status file could not be parsed or opened.")
+                // XXX: does this actually help anyone?
+                [self updateWithStatus:status_];
+            //else if (error == "The list of sources could not be read.")
+            else _assert(false);
+        } while (_error->PopMessage(error));
     }
 
     now_ = [[NSDate date] retain];
@@ -1831,9 +1868,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 /* Progress View {{{ */
+Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
+
 @interface ProgressView : UIView <
+    ConfigurationDelegate,
     ProgressDelegate
 > {
+    _transient Database *database_;
     UIView *view_;
     UIView *background_;
     UITransitionView *transition_;
@@ -1847,7 +1888,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
 
-- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate;
+- (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate;
 - (void) setContentView:(UIView *)view;
 - (void) resetView;
 
@@ -1884,8 +1925,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         exit(0);
 }
 
-- (ProgressView *) initWithFrame:(struct CGRect)frame delegate:(id)delegate {
+- (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate {
     if ((self = [super initWithFrame:frame]) != nil) {
+        database_ = database;
         delegate_ = delegate;
 
         transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
@@ -1971,6 +2013,25 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    NSString *context = [sheet context];
+    if ([context isEqualToString:@"conffile"]) {
+        FILE *input = [database_ input];
+
+        switch (button) {
+            case 1:
+                fprintf(input, "N\n");
+                fflush(input);
+            break;
+
+            case 2:
+                fprintf(input, "Y\n");
+                fflush(input);
+            break;
+
+            default: _assert(false);
+        }
+    }
+
     [sheet dismiss];
 }
 
@@ -2012,6 +2073,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     ];
 }
 
+- (void) setConfigurationData:(NSString *)data {
+    [self
+        performSelectorOnMainThread:@selector(_setConfigurationData:)
+        withObject:data
+        waitUntilDone:YES
+    ];
+}
+
 - (void) setProgressError:(NSString *)error {
     [self
         performSelectorOnMainThread:@selector(_setProgressError:)
@@ -2042,6 +2111,31 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         withObject:output
         waitUntilDone:YES
     ];
+}
+
+- (void) _setConfigurationData:(NSString *)data {
+    _assert(conffile_r(data));
+
+    NSString *ofile = conffile_r[1];
+    //NSString *nfile = conffile_r[2];
+
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:@"Configuration Upgrade"
+        buttons:[NSArray arrayWithObjects:
+            @"Keep My Old Copy",
+            @"Accept The New Copy",
+            // XXX: @"See What Changed",
+        nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"conffile"
+    ] autorelease];
+
+    [sheet setBodyText:[NSString stringWithFormat:
+        @"The following file has been changed by both the package maintainer and by you (or for you by a script).\n\n%@"
+    , ofile]];
+
+    [sheet popupAlertAnimated:YES];
 }
 
 - (void) _setProgressError:(NSString *)error {
@@ -4312,7 +4406,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [window_ makeKey: self];
     [window_ _setHidden: NO];
 
-    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] delegate:self];
+    database_ = [[Database alloc] init];
+    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
+    [database_ setDelegate:progress_];
     [window_ setContentView:progress_];
 
     underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
@@ -4322,9 +4418,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     if (!bootstrap_)
         [underlay_ addSubview:overlay_];
-
-    database_ = [[Database alloc] init];
-    [database_ setDelegate:progress_];
 
     book_ = [[CYBook alloc] initWithFrame:CGRectMake(
         0, 0, screenrect.size.width, screenrect.size.height - 48
@@ -4584,7 +4677,6 @@ int main(int argc, char *argv[]) {
     setenv("CYDIA", "", _not(int));
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");
-    system("dpkg --configure -a");
 
     space_ = CGColorSpaceCreateDeviceRGB();
 

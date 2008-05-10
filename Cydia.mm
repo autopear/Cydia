@@ -141,6 +141,7 @@ extern "C" {
 
 @interface NSString (Cydia)
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
+- (NSComparisonResult) compareByPath:(NSString *)other;
 @end
 
 @implementation NSString (Cydia)
@@ -150,6 +151,36 @@ extern "C" {
     memcpy(data, bytes, length);
     data[length] = '\0';
     return [NSString stringWithUTF8String:data];
+}
+
+- (NSComparisonResult) compareByPath:(NSString *)other {
+    NSString *prefix = [self commonPrefixWithString:other options:0];
+    size_t length = [prefix length];
+
+    NSRange lrange = NSMakeRange(length, [self length] - length);
+    NSRange rrange = NSMakeRange(length, [other length] - length);
+
+    lrange = [self rangeOfString:@"/" options:0 range:lrange];
+    rrange = [other rangeOfString:@"/" options:0 range:rrange];
+
+    NSComparisonResult value;
+
+    if (lrange.location == NSNotFound && rrange.location == NSNotFound)
+        value = NSOrderedSame;
+    else if (lrange.location == NSNotFound)
+        value = NSOrderedAscending;
+    else if (rrange.location == NSNotFound)
+        value = NSOrderedDescending;
+    else
+        value = NSOrderedSame;
+
+    NSString *lpath = lrange.location == NSNotFound ? [self substringFromIndex:length] :
+        [self substringWithRange:NSMakeRange(length, lrange.location - length)];
+    NSString *rpath = rrange.location == NSNotFound ? [other substringFromIndex:length] :
+        [other substringWithRange:NSMakeRange(length, rrange.location - length)];
+
+    NSComparisonResult result = [lpath compare:rpath];
+    return result == NSOrderedSame ? value : result;
 }
 
 @end
@@ -357,6 +388,8 @@ static NSString *Home_;
 static BOOL Sounds_Keyboard_;
 
 static BOOL Advanced_;
+static BOOL Loaded_;
+static BOOL Ignored_;
 
 const char *Firmware_ = NULL;
 const char *Machine_ = NULL;
@@ -997,10 +1030,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (BOOL) upgradable {
-    if (NSString *installed = [self installed])
-        return [[self latest] compare:installed] != NSOrderedSame ? YES : NO;
-    else
+    pkgCache::VerIterator current = iterator_.CurrentVer();
+
+    if (current.end())
         return [self essential];
+    else {
+        pkgDepCache::Policy policy;
+        pkgCache::VerIterator candidate = policy.GetCandidateVer(iterator_);
+        return !candidate.end() && candidate != current;
+    }
 }
 
 - (BOOL) essential {
@@ -1379,11 +1417,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             ];
     }
 
-    pkgDepCache::Policy Plcy;
+    pkgDepCache::Policy policy;
 
     [packages_ removeAllObjects];
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-        if (!Plcy.GetCandidateVer(iterator).end())
+        if (!policy.GetCandidateVer(iterator).end())
             if (Package *package = [Package packageWithIterator:iterator database:self])
                 [packages_ addObject:package];
 
@@ -1718,7 +1756,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 buttons:[NSArray arrayWithObjects:@"Okay", nil]
                 defaultButtonIndex:0
                 delegate:self
-                context:self
+                context:@"remove"
             ];
 
             [essential_ setBodyText:@"One or more of the packages you are about to remove are marked 'Essential' and cannot be removed by Cydia. Please use apt-get."];
@@ -2012,7 +2050,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         buttons:[NSArray arrayWithObjects:@"Okay", nil]
         defaultButtonIndex:0
         delegate:self
-        context:self
+        context:@"error"
     ] autorelease];
 
     [sheet setBodyText:error];
@@ -2124,21 +2162,25 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [name_ setText:[package name]];
     [description_ setText:[package tagline]];
 
-    NSString *label;
-    bool trusted;
+    NSString *label = nil;
+    bool trusted = false;
 
     if (source != nil) {
         label = [source label];
         trusted = [source trusted];
-    } else if ([[package id] isEqualToString:@"firmware"]) {
+    } else if ([[package id] isEqualToString:@"firmware"])
         label = @"Apple";
-        trusted = false;
-    } else {
-        label = @"Unknown/Local";
-        trusted = false;
-    }
 
-    [source_ setText:[NSString stringWithFormat:@"from %@ (%@)", label, Simplify([package section])]];
+    if (label == nil)
+        label = @"Unknown/Local";
+
+    NSString *from = [NSString stringWithFormat:@"from %@", label];
+
+    NSString *section = Simplify([package section]);
+    if (section != nil && ![section isEqualToString:label])
+        from = [from stringByAppendingString:[NSString stringWithFormat:@" (%@)", section]];
+
+    [source_ setText:from];
 
     if (trusted)
         [self addSubview:trusted_];
@@ -2374,7 +2416,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             [files_ addObjectsFromArray:[list componentsSeparatedByString:@"\n"]];
             [files_ removeLastObject];
             [files_ removeObjectAtIndex:0];
-            [files_ sortUsingSelector:@selector(compare:)];
+            [files_ sortUsingSelector:@selector(compareByPath:)];
 
             NSMutableArray *stack = [NSMutableArray arrayWithCapacity:8];
             [stack addObject:@"/"];
@@ -2386,7 +2428,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 NSString *directory = [stack lastObject];
                 [stack addObject:[file stringByAppendingString:@"/"]];
                 [files_ replaceObjectAtIndex:i withObject:[NSString stringWithFormat:@"%*s%@",
-                    ([stack count] - 2) * 4, "",
+                    ([stack count] - 2) * 3, "",
                     [file substringFromIndex:[directory length]]
                 ]];
             }
@@ -2492,9 +2534,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         if ([package_ relationships] != nil)
             ++number;
         return number;
-    } else if ([package_ source] != nil && group-- == 0)
-        return 3;
-    else _assert(false);
+    } else if ([package_ source] != nil && group-- == 0) {
+        Source *source = [package_ source];
+        NSString *description = [source description];
+        int number = 2;
+        if (description != nil && ![description isEqualToString:[source label]])
+            ++number;
+        return number;
+    } else _assert(false);
 }
 
 - (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
@@ -2547,14 +2594,17 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             [cell setShowSelection:YES];
         } else _assert(false);
     } else if ([package_ source] != nil && group-- == 0) {
+        Source *source = [package_ source];
+        NSString *description = [source description];
+
         if (row-- == 0) {
-            [cell setTitle:[[package_ source] label]];
-            [cell setValue:[[package_ source] version]];
-        } else if (row-- == 0) {
-            [cell setValue:[[package_ source] description]];
+            [cell setTitle:[source label]];
+            [cell setValue:[source version]];
+        } else if (description != nil && ![description isEqualToString:[source label]] && row-- == 0) {
+            [cell setValue:description];
         } else if (row-- == 0) {
             [cell setTitle:@"Origin"];
-            [cell setValue:[[package_ source] origin]];
+            [cell setValue:[source origin]];
         } else _assert(false);
     } else _assert(false);
 
@@ -2625,7 +2675,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             buttons:buttons
             defaultButtonIndex:2
             delegate:self
-            context:self
+            context:@"manage"
         ] autorelease]];
     }
 }
@@ -2967,7 +3017,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 buttons:[NSArray arrayWithObjects:@"Close", nil]
                 defaultButtonIndex:0
                 delegate:self
-                context:self
+                context:@"missing"
             ] autorelease];
 
             [sheet setBodyText:[NSString stringWithFormat:
@@ -3070,7 +3120,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         //[webview_ setEnabledGestures:2];
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:0];
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 43, indsize.width, indsize.height)];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 42, indsize.width, indsize.height)];
         [indicator_ setStyle:0];
 
         Package *package([database_ packageWithName:@"cydia"]);
@@ -3099,7 +3149,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         buttons:[NSArray arrayWithObjects:@"Close", nil]
         defaultButtonIndex:0
         delegate:self
-        context:self
+        context:@"about"
     ] autorelease];
 
     [sheet setBodyText:
@@ -3177,6 +3227,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSMutableArray *packages_;
     NSMutableArray *sections_;
     UITable *list_;
+    UIView *accessory_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -3193,6 +3244,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [packages_ release];
     [sections_ release];
     [list_ release];
+    [accessory_ release];
     [super dealloc];
 }
 
@@ -3310,6 +3362,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (NSString *) backButtonTitle {
     return @"Sections";
+}
+
+- (UIView *) accessoryView {
+    return accessory_;
 }
 
 @end
@@ -3957,6 +4013,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UIButtonBar *buttonbar_;
 
     ConfirmationView *confirm_;
+    NSMutableArray *essential_;
 
     Database *database_;
     ProgressView *progress_;
@@ -3989,12 +4046,16 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 
     size_t changes(0);
+    [essential_ removeAllObjects];
 
     NSArray *packages = [database_ packages];
     for (int i(0), e([packages count]); i != e; ++i) {
         Package *package = [packages objectAtIndex:i];
-        if ([package upgradable])
+        if ([package upgradable]) {
+            if ([package essential])
+                [essential_ addObject:package];
             ++changes;
+        }
     }
 
     if (changes != 0) {
@@ -4026,6 +4087,23 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [search_ reloadData];
 
     [book_ reloadData];
+
+    if (!Loaded_)
+        Loaded_ = YES;
+    else if (!Ignored_ && [essential_ count] != 0) {
+        int count = [essential_ count];
+
+        UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+            initWithTitle:[NSString stringWithFormat:@"%d Essential Upgrade%@", count, (count == 1 ? @"" : @"s")]
+            buttons:[NSArray arrayWithObjects:@"Upgrade Essential", @"Ignore (Temporary)", nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:@"upgrade"
+        ] autorelease];
+
+        [sheet setBodyText:@"One or more essential packages are currently out of date. If these packages are not upgraded you are likely to encounter errors."];
+        [sheet popupAlertAnimated:YES];
+    }
 
     /*[hud show:NO];
     [hud removeFromSuperview];*/
@@ -4066,7 +4144,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             buttons:[NSArray arrayWithObjects:@"Okay", nil]
             defaultButtonIndex:0
             delegate:self
-            context:self
+            context:@"broken"
         ] autorelease];
 
         [sheet setBodyText:[NSString stringWithFormat:@"The following packages have unmet dependencies:\n\n%@", [broken componentsJoinedByString:@"\n"]]];
@@ -4149,6 +4227,28 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    NSString *context = [sheet context];
+    if ([context isEqualToString:@"upgrade"])
+        switch (button) {
+            case 1:
+                @synchronized (self) {
+                    for (int i = 0, e = [essential_ count]; i != e; ++i) {
+                        Package *essential = [essential_ objectAtIndex:i];
+                        [essential install];
+                    }
+
+                    [self resolve];
+                    [self perform];
+                }
+            break;
+
+            case 2:
+                Ignored_ = YES;
+            break;
+
+            default: _assert(false);
+        }
+
     [sheet dismiss];
 }
 
@@ -4202,6 +4302,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     confirm_ = nil;
     tag_ = 1;
+
+    essential_ = [[NSMutableArray alloc] initWithCapacity:4];
 
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
     window_ = [[UIWindow alloc] initWithContentRect:screenrect];

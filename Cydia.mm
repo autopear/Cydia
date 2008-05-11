@@ -499,6 +499,7 @@ NSString *Simplify(NSString *title) {
 @end
 
 @protocol ConfigurationDelegate
+- (void) repairWithSelector:(SEL)selector;
 - (void) setConfigurationData:(NSString *)data;
 @end
 
@@ -602,6 +603,7 @@ class Progress :
 /* Database Interface {{{ */
 @interface Database : NSObject {
     pkgCacheFile cache_;
+    pkgDepCache::Policy *policy_;
     pkgRecords *records_;
     pkgProblemResolver *resolver_;
     pkgAcquire *fetcher_;
@@ -629,12 +631,14 @@ class Progress :
 
 - (Database *) init;
 - (pkgCacheFile &) cache;
+- (pkgDepCache::Policy *) policy;
 - (pkgRecords *) records;
 - (pkgProblemResolver *) resolver;
 - (pkgAcquire &) fetcher;
 - (NSArray *) packages;
 - (void) reloadData;
 
+- (void) configure;
 - (void) prepare;
 - (void) perform;
 - (void) upgrade;
@@ -867,7 +871,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSArray *relationships_;
 }
 
-- (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database version:(pkgCache::VerIterator)version file:(pkgCache::VerFileIterator)file;
+- (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database;
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database;
 
 - (pkgCache::PkgIterator) iterator;
@@ -882,6 +886,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) latest;
 - (NSString *) installed;
+
+- (BOOL) valid;
 - (BOOL) upgradable;
 - (BOOL) essential;
 - (BOOL) broken;
@@ -937,33 +943,43 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [super dealloc];
 }
 
-- (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database version:(pkgCache::VerIterator)version file:(pkgCache::VerFileIterator)file {
+- (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
     if ((self = [super init]) != nil) {
         iterator_ = iterator;
         database_ = database;
 
-        version_ = version;
-        file_ = file;
+        version_ = [database_ policy]->GetCandidateVer(iterator_);
+        latest_ = version_.end() ? nil : [[NSString stringWithUTF8String:version_.VerStr()] retain];
 
-        latest_ = [[NSString stringWithUTF8String:version_.VerStr()] retain];
-        installed_ = iterator_.CurrentVer().end() ? nil : [[NSString stringWithUTF8String:iterator_.CurrentVer().VerStr()] retain];
+        if (!version_.end())
+            file_ = version_.FileList();
+        else {
+            pkgCache &cache([database_ cache]);
+            file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
+        }
 
-        pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-
-        const char *begin, *end;
-        parser->GetRec(begin, end);
+        pkgCache::VerIterator current = iterator_.CurrentVer();
+        installed_ = current.end() ? nil : [[NSString stringWithUTF8String:current.VerStr()] retain];
 
         id_ = [[[NSString stringWithUTF8String:iterator_.Name()] lowercaseString] retain];
-        name_ = Scour("Name", begin, end);
-        if (name_ != nil)
-            name_ = [name_ retain];
-        tagline_ = [[NSString stringWithUTF8String:parser->ShortDesc().c_str()] retain];
-        icon_ = Scour("Icon", begin, end);
-        if (icon_ != nil)
-            icon_ = [icon_ retain];
-        website_ = Scour("Website", begin, end);
-        if (website_ != nil)
-            website_ = [website_ retain];
+
+        if (!file_.end()) {
+            pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
+
+            const char *begin, *end;
+            parser->GetRec(begin, end);
+
+            name_ = Scour("Name", begin, end);
+            if (name_ != nil)
+                name_ = [name_ retain];
+            tagline_ = [[NSString stringWithUTF8String:parser->ShortDesc().c_str()] retain];
+            icon_ = Scour("Icon", begin, end);
+            if (icon_ != nil)
+                icon_ = [icon_ retain];
+            website_ = Scour("Website", begin, end);
+            if (website_ != nil)
+                website_ = [website_ retain];
+        }
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
         if (metadata == nil || [metadata count] == 0) {
@@ -978,15 +994,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
-    for (pkgCache::VerIterator version = iterator.VersionList(); !version.end(); ++version)
-        for (pkgCache::VerFileIterator file = version.FileList(); !file.end(); ++file)
-            return [[[Package alloc]
-                initWithIterator:iterator 
-                database:database
-                version:version
-                file:file]
-            autorelease];
-    return nil;
+    return [[[Package alloc]
+        initWithIterator:iterator 
+        database:database
+    ] autorelease];
 }
 
 - (pkgCache::PkgIterator) iterator {
@@ -999,15 +1010,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (Address *) maintainer {
+    if (file_.end())
+        return nil;
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
     return [Address addressWithString:[NSString stringWithUTF8String:parser->Maintainer().c_str()]];
 }
 
 - (size_t) size {
-    return version_->InstalledSize;
+    return version_.end() ? 0 : version_->InstalledSize;
 }
 
 - (NSString *) description {
+    if (file_.end())
+        return nil;
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
     NSString *description([NSString stringWithUTF8String:parser->LongDesc().c_str()]);
 
@@ -1042,14 +1057,17 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return installed_;
 }
 
+- (BOOL) valid {
+    return !version_.end();
+}
+
 - (BOOL) upgradable {
     pkgCache::VerIterator current = iterator_.CurrentVer();
 
     if (current.end())
         return [self essential];
     else {
-        pkgDepCache::Policy policy;
-        pkgCache::VerIterator candidate = policy.GetCandidateVer(iterator_);
+        pkgCache::VerIterator candidate = [database_ policy]->GetCandidateVer(iterator_);
         return !candidate.end() && candidate != current;
     }
 }
@@ -1088,7 +1106,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (Source *) source {
     if (!cached_) {
-        source_ = [[database_ getSource:file_.File()] retain];
+        source_ = file_.end() ? nil : [[database_ getSource:file_.File()] retain];
         cached_ = true;
     }
 
@@ -1209,15 +1227,21 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSNumber *) isSearchedForBy:(NSString *)search {
-    return [NSNumber numberWithBool:[self matches:search]];
+    return [NSNumber numberWithBool:([self valid] && [self matches:search])];
 }
 
 - (NSNumber *) isInstalledInSection:(NSString *)section {
     return [NSNumber numberWithBool:([self installed] != nil && (section == nil || [section isEqualToString:[self section]]))];
 }
 
-- (NSNumber *) isUninstalledInSection:(NSString *)section {
-    return [NSNumber numberWithBool:([self installed] == nil && (section == nil || [section isEqualToString:[self section]]))];
+- (NSNumber *) isUninstalledInSection:(NSString *)name {
+    NSString *section = [self section];
+
+    return [NSNumber numberWithBool:([self valid] && [self installed] == nil && (
+        (name == nil ||
+        section == nil && [name length] == 0 ||
+        [name isEqualToString:section])
+    ))];
 }
 
 @end
@@ -1285,37 +1309,34 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     std::istream is(&ib);
     std::string line;
 
-    const char *error;
-    int offset;
-    pcre *code = pcre_compile("^([^:]*):([^:]*):([^:]*):(.*)$", 0, &error, &offset, NULL);
-
-    pcre_extra *study = NULL;
-    int capture;
-    pcre_fullinfo(code, study, PCRE_INFO_CAPTURECOUNT, &capture);
-    int matches[(capture + 1) * 3];
+    Pcre conffile_r("^status: [^ ]* : conffile-prompt : (.*?) *$");
+    Pcre pmstatus_r("^([^:]*):([^:]*):([^:]*):(.*)$");
 
     while (std::getline(is, line)) {
         const char *data(line.c_str());
+        size_t size = line.size();
         fprintf(stderr, "%s\n", data);
 
-        _assert(pcre_exec(code, study, data, line.size(), 0, 0, matches, sizeof(matches) / sizeof(matches[0])) >= 0);
-
-        std::istringstream buffer(line.substr(matches[6], matches[7] - matches[6]));
-        float percent;
-        buffer >> percent;
-        [delegate_ setProgressPercent:(percent / 100)];
-
-        NSString *string = [NSString stringWithUTF8Bytes:(data + matches[8]) length:(matches[9] - matches[8])];
-
-        std::string type(line.substr(matches[2], matches[3] - matches[2]));
-
-        if (type == "pmerror")
-            [delegate_ setProgressError:string];
-        else if (type == "pmstatus")
+        if (conffile_r(data, size)) {
+            [delegate_ setConfigurationData:conffile_r[1]];
+        } else if (strncmp(data, "status: ", 8) == 0) {
+            NSString *string = [NSString stringWithUTF8String:(data + 8)];
             [delegate_ setProgressTitle:string];
-        else if (type == "pmconffile")
-            [delegate_ setConfigurationData:string];
-        else _assert(false);
+        } else if (pmstatus_r(data, size)) {
+            float percent([pmstatus_r[3] floatValue]);
+            [delegate_ setProgressPercent:(percent / 100)];
+
+            NSString *string = pmstatus_r[4];
+            std::string type([pmstatus_r[1] UTF8String]);
+
+            if (type == "pmerror")
+                [delegate_ setProgressError:string];
+            else if (type == "pmstatus")
+                [delegate_ setProgressTitle:string];
+            else if (type == "pmconffile")
+                [delegate_ setConfigurationData:string];
+            else _assert(false);
+        } else _assert(false);
     }
 
     [pool release];
@@ -1329,8 +1350,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     std::istream is(&ib);
     std::string line;
 
-    while (std::getline(is, line))
+    while (std::getline(is, line)) {
+        fprintf(stderr, "%s\n", line.c_str());
         [delegate_ addProgressOutput:[NSString stringWithUTF8String:line.c_str()]];
+    }
 
     [pool release];
     _assert(false);
@@ -1341,12 +1364,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (Package *) packageWithName:(NSString *)name {
+    if (static_cast<pkgDepCache *>(cache_) == NULL)
+        return nil;
     pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
     return iterator.end() ? nil : [Package packageWithIterator:iterator database:self];
 }
 
 - (Database *) init {
     if ((self = [super init]) != nil) {
+        policy_ = NULL;
         records_ = NULL;
         resolver_ = NULL;
         fetcher_ = NULL;
@@ -1388,6 +1414,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return cache_;
 }
 
+- (pkgDepCache::Policy *) policy {
+    return policy_;
+}
+
 - (pkgRecords *) records {
     return records_;
 }
@@ -1406,36 +1436,45 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (void) reloadData {
     _error->Discard();
+
     delete list_;
+    list_ = NULL;
     manager_ = NULL;
     delete lock_;
+    lock_ = NULL;
     delete fetcher_;
+    fetcher_ = NULL;
     delete resolver_;
+    resolver_ = NULL;
     delete records_;
+    records_ = NULL;
+    delete policy_;
+    policy_ = NULL;
+
     cache_.Close();
 
-    _forever {
-        if (cache_.Open(progress_, true))
-            break;
-
+    if (!cache_.Open(progress_, true)) {
         std::string error;
         if (!_error->PopMessage(error))
             _assert(false);
-        else do {
-            fprintf(stderr, "cache_.Open():[%s]\n", error.c_str());
-            if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
-                // XXX: I hate my life
-                system("dpkg --configure -a");
-            else if (error == "The package lists or status file could not be parsed or opened.")
-                // XXX: does this actually help anyone?
-                [self updateWithStatus:status_];
-            //else if (error == "The list of sources could not be read.")
-            else _assert(false);
-        } while (_error->PopMessage(error));
+        _error->Discard();
+        fprintf(stderr, "cache_.Open():[%s]\n", error.c_str());
+
+        if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
+            [delegate_ repairWithSelector:@selector(configure)];
+        else if (error == "The package lists or status file could not be parsed or opened.")
+            [delegate_ repairWithSelector:@selector(update)];
+        else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
+            [delegate_ repairWithSelector:@selector(unlock)];
+        //else if (error == "The list of sources could not be read.")
+        else _assert(false);
+
+        return;
     }
 
     now_ = [[NSDate date] retain];
 
+    policy_ = new pkgDepCache::Policy();
     records_ = new pkgRecords(cache_);
     resolver_ = new pkgProblemResolver(cache_);
     fetcher_ = new pkgAcquire(&status_);
@@ -1454,15 +1493,21 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             ];
     }
 
-    pkgDepCache::Policy policy;
-
     [packages_ removeAllObjects];
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-        if (!policy.GetCandidateVer(iterator).end())
-            if (Package *package = [Package packageWithIterator:iterator database:self])
-                [packages_ addObject:package];
+        if (Package *package = [Package packageWithIterator:iterator database:self])
+            [packages_ addObject:package];
 
     [packages_ sortUsingSelector:@selector(compareByName:)];
+}
+
+- (void) unlock {
+    system("killall dpkg");
+}
+
+- (void) configure {
+    NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
+    system([dpkg UTF8String]);
 }
 
 - (void) prepare {
@@ -2052,9 +2097,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title {
-    [navbar_ popNavigationItem];
-    UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:title] autorelease];
-    [navbar_ pushNavigationItem:navitem];
+    UINavigationItem *item = [navbar_ topItem];
+    [item setTitle:title];
 
     [status_ setText:nil];
     [output_ setText:@""];
@@ -2070,6 +2114,15 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             target:target
             object:object
         ]
+    ];
+}
+
+- (void) repairWithSelector:(SEL)selector {
+    [self
+        detachNewThreadSelector:selector
+        toTarget:database_
+        withObject:nil
+        title:@"Repairing..."
     ];
 }
 
@@ -2562,6 +2615,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     Package *package_;
     NSString *name_;
     UITextView *description_;
+    NSMutableArray *buttons_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -2582,6 +2636,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     if (description_ != nil)
         [description_ release];
     [table_ release];
+    [buttons_ release];
     [super dealloc];
 }
 
@@ -2607,7 +2662,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
-    if (group != 0 || row != 1)
+    if (description_ == nil || group != 0 || row != 1)
         return proposed;
     else
         return [description_ visibleTextRect].size.height + TextViewOffset_;
@@ -2615,7 +2670,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
     if (group-- == 0) {
-        int number = 2;
+        int number = 1;
+        if (description_ != nil)
+            ++number;
         if ([package_ website] != nil)
             ++number;
         if ([[package_ source] trusted])
@@ -2624,15 +2681,21 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     } else if ([package_ installed] != nil && group-- == 0)
         return 2;
     else if (group-- == 0) {
-        int number = 4;
+        int number = 2;
+        if ([package_ size] != 0)
+            ++number;
+        if ([package_ maintainer] != nil)
+            ++number;
         if ([package_ relationships] != nil)
             ++number;
         return number;
     } else if ([package_ source] != nil && group-- == 0) {
         Source *source = [package_ source];
         NSString *description = [source description];
-        int number = 2;
+        int number = 1;
         if (description != nil && ![description isEqualToString:[source label]])
+            ++number;
+        if ([source origin] != nil)
             ++number;
         return number;
     } else _assert(false);
@@ -2646,7 +2709,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         if (row-- == 0) {
             [cell setTitle:[package_ name]];
             [cell setValue:[package_ latest]];
-        } else if (row-- == 0) {
+        } else if (description_ != nil && row-- == 0) {
             [cell addSubview:description_];
         } else if ([package_ website] != nil && row-- == 0) {
             [cell setTitle:@"More Information"];
@@ -2674,10 +2737,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [cell setTitle:@"Section"];
             NSString *section([package_ section]);
             [cell setValue:(section == nil ? @"n/a" : section)];
-        } else if (row-- == 0) {
+        } else if ([package_ size] != 0 && row-- == 0) {
             [cell setTitle:@"Expanded Size"];
             [cell setValue:SizeString([package_ size])];
-        } else if (row-- == 0) {
+        } else if ([package_ maintainer] != nil && row-- == 0) {
             [cell setTitle:@"Maintainer"];
             [cell setValue:[[package_ maintainer] name]];
             [cell setShowDisclosure:YES];
@@ -2692,11 +2755,14 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         NSString *description = [source description];
 
         if (row-- == 0) {
-            [cell setTitle:[source label]];
+            NSString *label = [source label];
+            if (label == nil)
+                label = [source uri];
+            [cell setTitle:label];
             [cell setValue:[source version]];
         } else if (description != nil && ![description isEqualToString:[source label]] && row-- == 0) {
             [cell setValue:description];
-        } else if (row-- == 0) {
+        } else if ([source origin] != nil && row-- == 0) {
             [cell setTitle:@"Origin"];
             [cell setValue:[source origin]];
         } else _assert(false);
@@ -2741,27 +2807,38 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     }
 }
 
+- (void) _clickButtonWithName:(NSString *)name {
+    if ([name isEqualToString:@"Install"])
+        [delegate_ installPackage:package_];
+    else if ([name isEqualToString:@"Reinstall"])
+        [delegate_ installPackage:package_];
+    else if ([name isEqualToString:@"Remove"])
+        [delegate_ removePackage:package_];
+    else if ([name isEqualToString:@"Upgrade"])
+        [delegate_ installPackage:package_];
+    else _assert(false);
+}
+
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    switch (button) {
-        case 1: [delegate_ installPackage:package_]; break;
-        case 2: [delegate_ removePackage:package_]; break;
-    }
+    int count = [buttons_ count];
+    _assert(count != 0);
+    _assert(button <= count + 1);
+
+    if (count != button - 1)
+        [self _clickButtonWithName:[buttons_ objectAtIndex:(button - 1)]];
 
     [sheet dismiss];
 }
 
 - (void) _rightButtonClicked {
-    if ([package_ installed] == nil)
-        [delegate_ installPackage:package_];
+    int count = [buttons_ count];
+    _assert(count != 0);
+
+    if (count == 1)
+        [self _clickButtonWithName:[buttons_ objectAtIndex:0]];
     else {
-        NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:6];
-
-        if ([package_ upgradable])
-            [buttons addObject:@"Upgrade"];
-        else
-            [buttons addObject:@"Reinstall"];
-
-        [buttons addObject:@"Remove"];
+        NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:(count + 1)];
+        [buttons addObjectsFromArray:buttons_];
         [buttons addObject:@"Cancel"];
 
         [delegate_ slideUp:[[[UIAlertSheet alloc]
@@ -2775,8 +2852,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (NSString *) rightButtonTitle {
-    _assert(package_ != nil);
-    return [package_ installed] == nil ? @"Install" : @"Modify";
+    int count = [buttons_ count];
+    return count == 0 ? nil : count != 1 ? @"Modify" : [buttons_ objectAtIndex:0];
 }
 
 - (NSString *) title {
@@ -2792,6 +2869,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
         [table_ setDataSource:self];
         [table_ setDelegate:self];
+
+        buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
     } return self;
 }
 
@@ -2811,6 +2890,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         description_ = nil;
     }
 
+    [buttons_ removeAllObjects];
+
     if (package != nil) {
         package_ = [package retain];
         name_ = [[package id] retain];
@@ -2818,11 +2899,22 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         NSString *description([package description]);
         if (description == nil)
             description = [package tagline];
-        description_ = [GetTextView(description, 12, true) retain];
-
-        [description_ setTextColor:Black_];
+        if (description != nil) {
+            description_ = [GetTextView(description, 12, true) retain];
+            [description_ setTextColor:Black_];
+        }
 
         [table_ reloadData];
+
+        if ([package_ source] == nil);
+        else if ([package_ installed] == nil)
+            [buttons_ addObject:@"Install"];
+        else if ([package_ upgradable])
+            [buttons_ addObject:@"Upgrade"];
+        else
+            [buttons_ addObject:@"Reinstall"];
+        if ([package_ installed] != nil)
+            [buttons_ addObject:@"Remove"];
     }
 }
 
@@ -3367,14 +3459,23 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         return;
 
     Section *section;
+    NSString *name;
     NSString *title;
 
     if (row == 0) {
         section = nil;
+        name = nil;
         title = @"All Packages";
     } else {
         section = [sections_ objectAtIndex:(row - 1)];
-        title = [section name];
+        name = [section name];
+
+        if (name != nil)
+            title = name;
+        else {
+            name = @"";
+            title = @"(No Section)";
+        }
     }
 
     PackageTable *table = [[[PackageTable alloc]
@@ -3382,7 +3483,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         database:database_
         title:title
         filter:@selector(isUninstalledInSection:)
-        with:(section == nil ? nil : [section name])
+        with:name
     ] autorelease];
 
     [table setDelegate:delegate_];
@@ -3424,7 +3525,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([package installed] == nil)
+        if ([package valid] && [package installed] == nil)
             [packages_ addObject:package];
     }
 
@@ -3579,7 +3680,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([package installed] == nil || [package upgradable])
+        if ([package installed] == nil && [package valid] || [package upgradable])
             [packages_ addObject:package];
     }
 
@@ -4182,9 +4283,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [book_ reloadData];
 
-    if (!Loaded_)
+    if ([packages count] == 0);
+    else if (!Loaded_) {
         Loaded_ = YES;
-    else if (!Ignored_ && [essential_ count] != 0) {
+        [book_ update];
+    } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];
 
         UIAlertSheet *sheet = [[[UIAlertSheet alloc]
@@ -4516,10 +4619,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     manage_ = [[ManageView alloc] initWithBook:book_ database:database_];
     search_ = [[SearchView alloc] initWithBook:book_ database:database_];
 
-    [self reloadData];
-    [book_ update];
-
     [progress_ resetView];
+    [self reloadData];
 
     if (bootstrap_)
         [self bootstrap];

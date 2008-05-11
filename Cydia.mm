@@ -1464,9 +1464,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             [delegate_ repairWithSelector:@selector(configure)];
         else if (error == "The package lists or status file could not be parsed or opened.")
             [delegate_ repairWithSelector:@selector(update)];
-        else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
-            [delegate_ repairWithSelector:@selector(unlock)];
-        //else if (error == "The list of sources could not be read.")
+        // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
+        // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
+        // else if (error == "The list of sources could not be read.")
         else _assert(false);
 
         return;
@@ -1499,10 +1499,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             [packages_ addObject:package];
 
     [packages_ sortUsingSelector:@selector(compareByName:)];
-}
-
-- (void) unlock {
-    system("killall dpkg");
 }
 
 - (void) configure {
@@ -1789,7 +1785,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         CGRect bounds = [overlay_ bounds];
 
         navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        [navbar_ setBarStyle:1];
+        if (Advanced_)
+            [navbar_ setBarStyle:1];
         [navbar_ setDelegate:self];
 
         UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Confirm"] autorelease];
@@ -2553,16 +2550,18 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         package_ = [package retain];
         name_ = [[package id] retain];
 
-        NSString *list = [NSString
-            stringWithContentsOfFile:[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.list", name_]
-            encoding:kCFStringEncodingUTF8
-            error:NULL
-        ];
+        NSString *path = [NSString stringWithFormat:@"/var/lib/dpkg/info/%@.list", name_];
 
-        if (list != nil) {
-            [files_ addObjectsFromArray:[list componentsSeparatedByString:@"\n"]];
-            [files_ removeLastObject];
-            [files_ removeObjectAtIndex:0];
+        {
+            std::ifstream fin([path UTF8String]);
+            std::string line;
+            while (std::getline(fin, line))
+                [files_ addObject:[NSString stringWithUTF8String:line.c_str()]];
+        }
+
+        if ([files_ count] != 0) {
+            if ([[files_ objectAtIndex:0] isEqualToString:@"/."])
+                [files_ removeObjectAtIndex:0];
             [files_ sortUsingSelector:@selector(compareByPath:)];
 
             NSMutableArray *stack = [NSMutableArray arrayWithCapacity:8];
@@ -2842,7 +2841,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [buttons addObject:@"Cancel"];
 
         [delegate_ slideUp:[[[UIAlertSheet alloc]
-            initWithTitle:@"Manage Package"
+            initWithTitle:nil
             buttons:buttons
             defaultButtonIndex:2
             delegate:self
@@ -4655,7 +4654,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) slideUp:(UIAlertSheet *)alert {
-    [alert presentSheetFromButtonBar:buttonbar_];
+    [alert presentSheetInView:overlay_];
 }
 
 @end

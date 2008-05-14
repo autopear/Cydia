@@ -61,6 +61,7 @@
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/cachefile.h>
+#include <apt-pkg/clean.h>
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/debmetaindex.h>
 #include <apt-pkg/error.h>
@@ -384,6 +385,11 @@ static const int PulseInterval_ = 50000;
 static const int ButtonBarHeight_ = 48;
 static const float KeyboardTime_ = 0.4f;
 
+#ifndef Cydia_
+#define Cydia_ ""
+#endif
+
+static CGColor Blueish_;
 static CGColor Black_;
 static CGColor Clear_;
 static CGColor Red_;
@@ -412,7 +418,7 @@ CGColorSpaceRef space_;
             bugfix <= BugFix_))
 
 bool bootstrap_;
-bool restart_;
+bool reload_;
 
 static NSMutableDictionary *Metadata_;
 static NSMutableDictionary *Packages_;
@@ -618,10 +624,12 @@ class Progress :
     Status status_;
     Progress progress_;
 
+    int cydiafd_;
     int statusfd_;
     FILE *input_;
 }
 
+- (void) _readCydia:(NSNumber *)fd;
 - (void) _readStatus:(NSNumber *)fd;
 - (void) _readOutput:(NSNumber *)fd;
 
@@ -867,6 +875,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *tagline_;
     NSString *icon_;
     NSString *website_;
+    Address *author_;
 
     NSArray *relationships_;
 }
@@ -897,6 +906,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) tagline;
 - (NSString *) icon;
 - (NSString *) website;
+- (Address *) author;
 
 - (NSArray *) relationships;
 
@@ -936,6 +946,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [icon_ release];
     if (website_ != nil)
         [website_ release];
+    if (author_ != nil)
+        [author_ release];
 
     if (relationships_ != nil)
         [relationships_ release];
@@ -976,9 +988,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             icon_ = Scour("Icon", begin, end);
             if (icon_ != nil)
                 icon_ = [icon_ retain];
-            website_ = Scour("Website", begin, end);
+            website_ = Scour("Homepage", begin, end);
+            if (website_ == nil)
+                website_ = Scour("Website", begin, end);
             if (website_ != nil)
                 website_ = [website_ retain];
+            NSString *author = Scour("Author", begin, end);
+            if (author != nil)
+                author_ = [Address addressWithString:author];
         }
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
@@ -1098,6 +1115,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) website {
     return website_;
+}
+
+- (Address *) author {
+    return author_;
 }
 
 - (NSArray *) relationships {
@@ -1302,6 +1323,23 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [super dealloc];
 }
 
+- (void) _readCydia:(NSNumber *)fd {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
+    std::istream is(&ib);
+    std::string line;
+
+    while (std::getline(is, line)) {
+        const char *data(line.c_str());
+        //size_t size = line.size();
+        fprintf(stderr, "C:%s\n", data);
+    }
+
+    [pool release];
+    _assert(false);
+}
+
 - (void) _readStatus:(NSNumber *)fd {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
@@ -1315,7 +1353,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     while (std::getline(is, line)) {
         const char *data(line.c_str());
         size_t size = line.size();
-        fprintf(stderr, "%s\n", data);
+        fprintf(stderr, "S:%s\n", data);
 
         if (conffile_r(data, size)) {
             [delegate_ setConfigurationData:conffile_r[1]];
@@ -1351,7 +1389,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     std::string line;
 
     while (std::getline(is, line)) {
-        fprintf(stderr, "%s\n", line.c_str());
+        fprintf(stderr, "O:%s\n", line.c_str());
         [delegate_ addProgressOutput:[NSString stringWithUTF8String:line.c_str()]];
     }
 
@@ -1382,6 +1420,18 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         int fds[2];
+
+        _assert(pipe(fds) != -1);
+        cydiafd_ = fds[1];
+
+        _config->Set("APT::Keep-Fds::", cydiafd_);
+        setenv("CYDIA", [[[[NSNumber numberWithInt:cydiafd_] stringValue] stringByAppendingString:@" 0"] UTF8String], _not(int));
+
+        [NSThread
+            detachNewThreadSelector:@selector(_readCydia:)
+            toTarget:self
+            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+        ];
 
         _assert(pipe(fds) != -1);
         statusfd_ = fds[1];
@@ -1504,6 +1554,31 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
     system([dpkg UTF8String]);
+}
+
+- (void) clean {
+    if (lock_ != NULL)
+        return;
+
+    FileFd Lock;
+    Lock.Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
+    _assert(!_error->PendingError());
+
+    pkgAcquire fetcher;
+    fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
+
+    class LogCleaner : public pkgArchiveCleaner {
+      protected:
+        virtual void Erase(const char *File, std::string Pkg, std::string Ver, struct stat &St) {
+            unlink(File);      
+        }
+    } cleaner;
+
+    if (!cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)) {
+        std::string error;
+        while (_error->PopMessage(error))
+            fprintf(stderr, "ArchiveCleaner: %s\n", error.c_str());
+    }
 }
 
 - (void) prepare {
@@ -2674,6 +2749,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             ++number;
         if ([package_ website] != nil)
             ++number;
+        if ([package_ author] != nil)
+            ++number;
         if ([[package_ source] trusted])
             ++number;
         return number;
@@ -2712,6 +2789,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [cell addSubview:description_];
         } else if ([package_ website] != nil && row-- == 0) {
             [cell setTitle:@"More Information"];
+            [cell setShowDisclosure:YES];
+            [cell setShowSelection:YES];
+        } else if ([package_ author] != nil && row-- == 0) {
+            [cell setTitle:@"Author"];
+            [cell setValue:[[package_ author] name]];
             [cell setShowDisclosure:YES];
             [cell setShowSelection:YES];
         } else if ([[package_ source] trusted] && row-- == 0) {
@@ -2774,29 +2856,39 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     return YES;
 }
 
+// XXX: this is now unmaintainable
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [table_ selectedRow];
     NSString *website = [package_ website];
+    Address *author = [package_ author];
     BOOL trusted = [[package_ source] trusted];
     NSString *installed = [package_ installed];
+    Address *maintainer = [package_ maintainer];
 
-    if (row == 7
+    if (maintainer != nil && row == 7
         + (website == nil ? 0 : 1)
+        + (author == nil ? 0 : 1)
         + (trusted ? 1 : 0)
         + (installed == nil ? 0 : 3)
-    )
+    ) {
         [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
-            [[package_ maintainer] email],
+            [maintainer email],
             [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
         ]]];
-    else if (installed && row == 5
+    } else if (installed && row == 5
         + (website == nil ? 0 : 1)
+        + (author == nil ? 0 : 1)
         + (trusted ? 1 : 0)
     ) {
         FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
         [files setDelegate:delegate_];
         [files setPackage:package_];
         [book_ pushPage:files];
+    } else if (author != nil && row == (website == nil ? 3 : 4)) {
+        [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
+            [author email],
+            [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
+        ]]];
     } else if (website != nil && row == 3) {
         NSURL *url = [NSURL URLWithString:website];
         BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
@@ -4111,7 +4203,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
         prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
 
-        [prompt_ setColor:(Advanced_ ? White_ : Black_)];
+        [prompt_ setColor:(Advanced_ ? White_ : Blueish_)];
         [prompt_ setBackgroundColor:Clear_];
         [prompt_ setFont:font];
 
@@ -4383,7 +4475,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (void) confirm {
     [overlay_ removeFromSuperview];
-    restart_ = true;
+    reload_ = true;
 
     [progress_
         detachNewThreadSelector:@selector(perform)
@@ -4485,11 +4577,16 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (void) applicationWillSuspend {
     [super applicationWillSuspend];
 
-    if (restart_)
-        if (FW_LEAST(1,1,3))
-            notify_post("com.apple.language.changed");
-        else
-            system("launchctl stop com.apple.SpringBoard");
+    [database_ clean];
+
+    if (reload_) {
+        pid_t pid = ExecFork();
+        if (pid == 0) {
+            sleep(1);
+            execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
+            exit(0);
+        }
+    }
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -4654,7 +4751,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) slideUp:(UIAlertSheet *)alert {
-    [alert presentSheetInView:overlay_];
+    if (Advanced_)
+        [alert presentSheetFromButtonBar:buttonbar_];
+    else
+        [alert presentSheetInView:overlay_];
 }
 
 @end
@@ -4774,12 +4874,12 @@ int main(int argc, char *argv[]) {
     else
         Packages_ = [Metadata_ objectForKey:@"Packages"];
 
-    setenv("CYDIA", "", _not(int));
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");
 
     space_ = CGColorSpaceCreateDeviceRGB();
 
+    Blueish_.Set(space_, 0x19/255.f, 0x32/255.f, 0x50/255.f, 1.0);
     Black_.Set(space_, 0.0, 0.0, 0.0, 1.0);
     Clear_.Set(space_, 0.0, 0.0, 0.0, 0.0);
     Red_.Set(space_, 1.0, 0.0, 0.0, 1.0);

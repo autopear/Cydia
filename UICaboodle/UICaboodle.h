@@ -22,3 +22,7 @@ while (false)
 #define _not(type) ((type) ~ (type) 0)
 
 #define _transient
+
+#define _label__(x) _label ## x
+#define _label_(y) _label__(y)
+#define _label _label_(__LINE__)

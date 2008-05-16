@@ -135,6 +135,15 @@ extern "C" {
 #endif
 /* }}} */
 
+typedef enum {
+    kUIControlEventMouseDown = 1 << 0,
+    kUIControlEventMouseMovedInside = 1 << 2, // mouse moved inside control target
+    kUIControlEventMouseMovedOutside = 1 << 3, // mouse moved outside control target
+    kUIControlEventMouseUpInside = 1 << 6, // mouse up inside control target
+    kUIControlEventMouseUpOutside = 1 << 7, // mouse up outside control target
+    kUIControlAllEvents = (kUIControlEventMouseDown | kUIControlEventMouseMovedInside | kUIControlEventMouseMovedOutside | kUIControlEventMouseUpInside | kUIControlEventMouseUpOutside)
+} UIControlEventMasks;
+
 @interface NSString (UIKit)
 - (NSString *) stringByAddingPercentEscapes;
 - (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
@@ -384,6 +393,7 @@ class GSFont {
 static const int PulseInterval_ = 50000;
 static const int ButtonBarHeight_ = 48;
 static const float KeyboardTime_ = 0.4f;
+static const char * const SpringBoard_ = "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist";
 
 #ifndef Cydia_
 #define Cydia_ ""
@@ -458,6 +468,13 @@ NSString *SizeString(double size) {
     return [NSString stringWithFormat:@"%.1f%s", size, powers_[power]];
 }
 
+NSString *StripVersion(NSString *version) {
+    NSRange colon = [version rangeOfString:@":"];
+    if (colon.location != NSNotFound)
+        version = [version substringFromIndex:(colon.location + 1)];
+    return version;
+}
+
 static const float TextViewOffset_ = 22;
 
 UITextView *GetTextView(NSString *value, float left, bool html) {
@@ -497,8 +514,22 @@ NSString *Simplify(NSString *title) {
 @class Package;
 @class Source;
 
+@interface NSObject (ProgressDelegate)
+@end
+
+@implementation NSObject(ProgressDelegate)
+
+- (void) _setProgressError:(NSArray *)args {
+    [self performSelector:@selector(setProgressError:forPackage:)
+        withObject:[args objectAtIndex:0]
+        withObject:([args count] == 1 ? nil : [args objectAtIndex:1])
+    ];
+}
+
+@end
+
 @protocol ProgressDelegate
-- (void) setProgressError:(NSString *)error;
+- (void) setProgressError:(NSString *)error forPackage:(NSString *)id;
 - (void) setProgressTitle:(NSString *)title;
 - (void) setProgressPercent:(float)percent;
 - (void) addProgressOutput:(NSString *)output;
@@ -522,7 +553,7 @@ class Status :
     public pkgAcquireStatus
 {
   private:
-    _transient id<ProgressDelegate> delegate_;
+    _transient NSObject<ProgressDelegate> *delegate_;
 
   public:
     Status() :
@@ -555,7 +586,10 @@ class Status :
         )
             return;
 
-        [delegate_ setProgressError:[NSString stringWithUTF8String:item.Owner->ErrorText.c_str()]];
+        [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
+            withObject:[NSArray arrayWithObjects:[NSString stringWithUTF8String:item.Owner->ErrorText.c_str()], nil]
+            waitUntilDone:YES
+        ];
     }
 
     virtual bool Pulse(pkgAcquire *Owner) {
@@ -620,7 +654,7 @@ class Progress :
     NSMutableDictionary *sources_;
     NSMutableArray *packages_;
 
-    _transient id<ConfigurationDelegate, ProgressDelegate> delegate_;
+    _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
     Status status_;
     Progress progress_;
 
@@ -897,7 +931,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) installed;
 
 - (BOOL) valid;
-- (BOOL) upgradable;
+- (BOOL) upgradableAndEssential:(BOOL)essential;
 - (BOOL) essential;
 - (BOOL) broken;
 
@@ -967,7 +1001,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         database_ = database;
 
         version_ = [database_ policy]->GetCandidateVer(iterator_);
-        latest_ = version_.end() ? nil : [[NSString stringWithUTF8String:version_.VerStr()] retain];
+        latest_ = version_.end() ? nil : [StripVersion([NSString stringWithUTF8String:version_.VerStr()]) retain];
 
         if (!version_.end())
             file_ = version_.FileList();
@@ -977,7 +1011,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         }
 
         pkgCache::VerIterator current = iterator_.CurrentVer();
-        installed_ = current.end() ? nil : [[NSString stringWithUTF8String:current.VerStr()] retain];
+        installed_ = current.end() ? nil : [StripVersion([NSString stringWithUTF8String:current.VerStr()]) retain];
 
         id_ = [[[NSString stringWithUTF8String:iterator_.Name()] lowercaseString] retain];
 
@@ -1084,11 +1118,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return !version_.end();
 }
 
-- (BOOL) upgradable {
+- (BOOL) upgradableAndEssential:(BOOL)essential {
     pkgCache::VerIterator current = iterator_.CurrentVer();
 
     if (current.end())
-        return [self essential];
+        return essential && [self essential];
     else {
         pkgCache::VerIterator candidate = [database_ policy]->GetCandidateVer(iterator_);
         return !candidate.end() && candidate != current;
@@ -1267,8 +1301,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSComparisonResult) compareForChanges:(Package *)package {
-    BOOL lhs = [self upgradable];
-    BOOL rhs = [package upgradable];
+    BOOL lhs = [self upgradableAndEssential:YES];
+    BOOL rhs = [package upgradableAndEssential:YES];
 
     if (lhs != rhs)
         return lhs ? NSOrderedAscending : NSOrderedDescending;
@@ -1421,14 +1455,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             NSString *string = [NSString stringWithUTF8String:(data + 8)];
             [delegate_ setProgressTitle:string];
         } else if (pmstatus_r(data, size)) {
+            std::string type([pmstatus_r[1] UTF8String]);
+            NSString *id = pmstatus_r[2];
+
             float percent([pmstatus_r[3] floatValue]);
             [delegate_ setProgressPercent:(percent / 100)];
 
             NSString *string = pmstatus_r[4];
-            std::string type([pmstatus_r[1] UTF8String]);
 
             if (type == "pmerror")
-                [delegate_ setProgressError:string];
+                [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
+                    withObject:[NSArray arrayWithObjects:string, id, nil]
+                    waitUntilDone:YES
+                ];
             else if (type == "pmstatus")
                 [delegate_ setProgressTitle:string];
             else if (type == "pmconffile")
@@ -1834,10 +1873,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ([context isEqualToString:@"remove"])
         switch (button) {
             case 1:
-                [delegate_ confirm];
+                [self cancel];
                 break;
             case 2:
-                [self cancel];
+                [delegate_ confirm];
                 break;
             default:
                 _assert(false);
@@ -1983,18 +2022,18 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             essential_ = nil;
         else if (Advanced_ || true) {
             essential_ = [[UIAlertSheet alloc]
-                initWithTitle:@"Remove Essential?"
+                initWithTitle:@"Removing Essentials"
                 buttons:[NSArray arrayWithObjects:
-                    @"Yes (Force Removal)",
-                    @"No (Safe, Recommended)",
+                    @"Cancel Operation (Safe)",
+                    @"Force Removal (Unsafe)",
                 nil]
-                defaultButtonIndex:1
+                defaultButtonIndex:0
                 delegate:self
                 context:@"remove"
             ];
 
             [essential_ setDestructiveButton:[[essential_ buttons] objectAtIndex:0]];
-            [essential_ setBodyText:@"This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or the iPhoneOS. If you continue you will almost certainly break something past Cydia's ability to fix it. Are you absolutely certain you wish to continue?"];
+            [essential_ setBodyText:@"This operation involves the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. If you continue, you may not be able to use Cydia to repair any damage."];
         } else {
             essential_ = [[UIAlertSheet alloc]
                 initWithTitle:@"Unable to Comply"
@@ -2004,7 +2043,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 context:@"unable"
             ];
 
-            [essential_ setBodyText:@"This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or the iPhoneOS. In order to continue and force this operation you will need to be activate the Advanced mode undder to continue and force this operation you will need to be activate the Advanced mode under Settings."];
+            [essential_ setBodyText:@"This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. In order to continue and force this operation you will need to be activate the Advanced mode under to continue and force this operation you will need to be activate the Advanced mode under Settings."];
         }
 
         AddTextView(fields_, installing, @"Installing");
@@ -2091,6 +2130,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     UIProgressBar *progress_;
     UITextView *output_;
     UITextLabel *status_;
+    UIPushButton *close_;
     id delegate_;
 }
 
@@ -2125,6 +2165,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [progress_ release];
     [output_ release];
     [status_ release];
+    [close_ release];
     [super dealloc];
 }
 
@@ -2174,7 +2215,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         }, prgsize};
 
         progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
-        [overlay_ addSubview:progress_];
+        [progress_ setStyle:0];
 
         status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(
             10,
@@ -2206,9 +2247,27 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [output_ setAllowsRubberBanding:YES];
 
         [overlay_ addSubview:output_];
-        [overlay_ addSubview:status_];
 
-        [progress_ setStyle:0];
+        close_ = [[UIPushButton alloc] initWithFrame:CGRectMake(
+            10,
+            bounds.size.height - prgsize.height - 50,
+            bounds.size.width - 20,
+            26 + prgsize.height
+        )];
+
+        [close_ setAutosizesToFit:NO];
+        [close_ setDrawsShadow:YES];
+        [close_ setStretchBackground:YES];
+        [close_ setTitle:@"Close Window"];
+        [close_ setEnabled:YES];
+
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
+        [close_ setTitleFont:bold];
+        CFRelease(bold);
+
+        [close_ addTarget:self action:@selector(closeButtonPushed) forEvents:kUIControlEventMouseUpInside];
+        [close_ setBackground:[UIImage applicationImageNamed:@"green-up.png"] forState:0];
+        [close_ setBackground:[UIImage applicationImageNamed:@"green-dn.png"] forState:1];
     } return self;
 }
 
@@ -2242,9 +2301,15 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [sheet dismiss];
 }
 
-- (void) _retachThread {
+- (void) closeButtonPushed {
     [delegate_ progressViewIsComplete:self];
     [self resetView];
+}
+
+- (void) _retachThread {
+    [overlay_ addSubview:close_];
+    [progress_ removeFromSuperview];
+    [status_ removeFromSuperview];
 }
 
 - (void) _detachNewThreadData:(ProgressData *)data {
@@ -2265,6 +2330,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [status_ setText:nil];
     [output_ setText:@""];
     [progress_ setProgress:0];
+
+    [close_ removeFromSuperview];
+    [overlay_ addSubview:progress_];
+    [overlay_ addSubview:status_];
 
     [transition_ transition:6 toView:overlay_];
 
@@ -2296,12 +2365,19 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     ];
 }
 
-- (void) setProgressError:(NSString *)error {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressError:)
-        withObject:error
-        waitUntilDone:YES
-    ];
+- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
+    Package *package = id == nil ? nil : [database_ packageWithName:id];
+
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:(package == nil ? @"Source Error" : [package name])
+        buttons:[NSArray arrayWithObjects:@"Okay", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"error"
+    ] autorelease];
+
+    [sheet setBodyText:error];
+    [sheet popupAlertAnimated:YES];
 }
 
 - (void) setProgressTitle:(NSString *)title {
@@ -2353,19 +2429,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [sheet popupAlertAnimated:YES];
 }
 
-- (void) _setProgressError:(NSString *)error {
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
-        initWithTitle:@"Package Error"
-        buttons:[NSArray arrayWithObjects:@"Okay", nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:@"error"
-    ] autorelease];
-
-    [sheet setBodyText:error];
-    [sheet popupAlertAnimated:YES];
-}
-
 - (void) _setProgressTitle:(NSString *)title {
     [status_ setText:[title stringByAppendingString:@"..."]];
 }
@@ -2391,8 +2454,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     UITextLabel *description_;
     UITextLabel *source_;
     //UIImageView *trusted_;
+#ifdef USE_BADGES
     UIImageView *badge_;
     UITextLabel *status_;
+#endif
+    BOOL setup_;
 }
 
 - (PackageCell *) init;
@@ -2414,8 +2480,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [name_ release];
     [description_ release];
     [source_ release];
+#ifdef USE_BADGES
     [badge_ release];
     [status_ release];
+#endif
     //[trusted_ release];
     [super dealloc];
 }
@@ -2443,18 +2511,22 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         /*trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(30, 30, 16, 16)];
         [trusted_ setImage:[UIImage applicationImageNamed:@"trusted.png"]];*/
 
+#ifdef USE_BADGES
         badge_ = [[UIImageView alloc] initWithFrame:CGRectMake(17, 70, 16, 16)];
 
         status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 68, 280, 20)];
         [status_ setBackgroundColor:Clear_];
         [status_ setFont:small];
+#endif
+
+        /*[icon_ setImage:[UIImage applicationImageNamed:@"unknown.png"]];
+        [icon_ zoomToScale:0.5];
+        [icon_ setFrame:CGRectMake(10, 10, 30, 30)];*/
 
         [self addSubview:icon_];
         [self addSubview:name_];
         [self addSubview:description_];
         [self addSubview:source_];
-        [self addSubview:badge_];
-        [self addSubview:status_];
 
         CFRelease(small);
         CFRelease(large);
@@ -2463,6 +2535,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) setPackage:(Package *)package {
+    /*if (setup_)
+        return;
+    else
+        setup_ = YES;*/
+
     Source *source = [package source];
 
     UIImage *image = nil;
@@ -2474,11 +2551,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         image = [UIImage applicationImageNamed:@"unknown.png"];
     [icon_ setImage:image];
 
-    if (image != nil) {
+    /*if (image != nil) {
         CGSize size = [image size];
         float scale = 30 / std::max(size.width, size.height);
         [icon_ zoomToScale:scale];
-    }
+    }*/
 
     [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
 
@@ -2505,6 +2582,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [source_ setText:from];
 
+#ifdef USE_BADGES
+    [badge_ removeFromSuperview];
+    [status_ removeFromSuperview];
+
     if (NSString *mode = [package mode]) {
         [badge_ setImage:[UIImage applicationImageNamed:
             [mode isEqualToString:@"Remove"] || [mode isEqualToString:@"Purge"] ? @"removing.png" : @"installing.png"
@@ -2519,7 +2600,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     } else {
         [badge_ setImage:nil];
         [status_ setText:nil];
+        goto done;
     }
+
+    [self addSubview:badge_];
+    [self addSubview:status_];
+  done:;
+#endif
 }
 
 - (void) _setSelected:(float)fraction {
@@ -2557,9 +2644,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 + (int) heightForPackage:(Package *)package {
+#ifdef USE_BADGES
     if ([package hasMode] || [package half])
         return 96;
     else
+#endif
         return 73;
 }
 
@@ -2873,8 +2962,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             ++number;
         if ([package_ website] != nil)
             ++number;
-        if ([[package_ source] trusted])
-            ++number;
         return number;
     } else if ([package_ installed] != nil && group-- == 0)
         return 2;
@@ -2885,6 +2972,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         if ([package_ maintainer] != nil)
             ++number;
         if ([package_ relationships] != nil)
+            ++number;
+        if ([[package_ source] trusted])
             ++number;
         return number;
     } else if ([package_ source] != nil && group-- == 0) {
@@ -2904,7 +2993,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [cell setShowSelection:NO];
 
     if (group-- == 0) {
-        if (row-- == 0) {
+        if (false) {
+        } else if (row-- == 0) {
             [cell setTitle:[package_ name]];
             [cell setValue:[package_ latest]];
         } else if ([package_ author] != nil && row-- == 0) {
@@ -2918,12 +3008,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [cell setTitle:@"More Information"];
             [cell setShowDisclosure:YES];
             [cell setShowSelection:YES];
-        } else if ([[package_ source] trusted] && row-- == 0) {
-            [cell setIcon:[UIImage applicationImageNamed:@"trusted.png"]];
-            [cell setValue:@"This package has been signed."];
         } else _assert(false);
     } else if ([package_ installed] != nil && group-- == 0) {
-        if (row-- == 0) {
+        if (false) {
+        } else if (row-- == 0) {
             [cell setTitle:@"Version"];
             NSString *installed([package_ installed]);
             [cell setValue:(installed == nil ? @"n/a" : installed)];
@@ -2933,7 +3021,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [cell setShowSelection:YES];
         } else _assert(false);
     } else if (group-- == 0) {
-        if (row-- == 0) {
+        if (false) {
+        } else if (row-- == 0) {
             [cell setTitle:@"Identifier"];
             [cell setValue:[package_ id]];
         } else if (row-- == 0) {
@@ -2952,12 +3041,16 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [cell setTitle:@"Package Relationships"];
             [cell setShowDisclosure:YES];
             [cell setShowSelection:YES];
+        } else if ([[package_ source] trusted] && row-- == 0) {
+            [cell setIcon:[UIImage applicationImageNamed:@"trusted.png"]];
+            [cell setValue:@"This package has been signed."];
         } else _assert(false);
     } else if ([package_ source] != nil && group-- == 0) {
         Source *source = [package_ source];
         NSString *description = [source description];
 
-        if (row-- == 0) {
+        if (false) {
+        } else if (row-- == 0) {
             NSString *label = [source label];
             if (label == nil)
                 label = [source uri];
@@ -2978,46 +3071,61 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     return YES;
 }
 
-// XXX: this is now unmaintainable
 - (void) tableRowSelected:(NSNotification *)notification {
     int row = [table_ selectedRow];
-    NSString *website = [package_ website];
-    Address *author = [package_ author];
-    BOOL trusted = [[package_ source] trusted];
-    NSString *installed = [package_ installed];
-    Address *maintainer = [package_ maintainer];
+    if (row == INT_MAX)
+        return;
 
-    if (maintainer != nil && row == 7
-        + (author == nil ? 0 : 1)
-        + (website == nil ? 0 : 1)
-        + (trusted ? 1 : 0)
-        + (installed == nil ? 0 : 3)
-    ) {
-        [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
-            [maintainer email],
-            [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
-        ]]];
-    } else if (installed && row == 5
-        + (author == nil ? 0 : 1)
-        + (website == nil ? 0 : 1)
-        + (trusted ? 1 : 0)
-    ) {
-        FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
-        [files setDelegate:delegate_];
-        [files setPackage:package_];
-        [book_ pushPage:files];
-    } else if (author != nil && row == 2) {
-        [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
-            [author email],
-            [[NSString stringWithFormat:@"regarding apt package \"%@\"", [package_ name]] stringByAddingPercentEscapes]
-        ]]];
-    } else if (website != nil && row == (author == nil ? 3 : 4)) {
-        NSURL *url = [NSURL URLWithString:website];
-        BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
-        [browser setDelegate:delegate_];
-        [book_ pushPage:browser];
-        [browser loadURL:url];
-    }
+    #define _else else goto _label; return; } _label:
+
+    if (true) {
+        if (row-- == 0) {
+        } else if (row-- == 0) {
+        } else if ([package_ author] != nil && row-- == 0) {
+            [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
+                [[package_ author] email],
+                [[NSString stringWithFormat:@"regarding apt package \"%@\"",
+                    [package_ name]
+                ] stringByAddingPercentEscapes]
+            ]]];
+        } else if (description_ != nil && row-- == 0) {
+        } else if ([package_ website] != nil && row-- == 0) {
+            NSURL *url = [NSURL URLWithString:[package_ website]];
+            BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+            [browser setDelegate:delegate_];
+            [book_ pushPage:browser];
+            [browser loadURL:url];
+    } _else if ([package_ installed] != nil) {
+        if (row-- == 0) {
+        } else if (row-- == 0) {
+        } else if (row-- == 0) {
+            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
+            [files setDelegate:delegate_];
+            [files setPackage:package_];
+            [book_ pushPage:files];
+    } _else if (true) {
+        if (row-- == 0) {
+        } else if (row-- == 0) {
+        } else if (row-- == 0) {
+        } else if ([package_ size] != 0 && row-- == 0) {
+        } else if ([package_ maintainer] != nil && row-- == 0) {
+            [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
+                [[package_ maintainer] email],
+                [[NSString stringWithFormat:@"regarding apt package \"%@\"",
+                    [package_ name]
+                ] stringByAddingPercentEscapes]
+            ]]];
+        } else if ([package_ relationships] != nil && row-- == 0) {
+        } else if ([[package_ source] trusted] && row-- == 0) {
+    } _else if ([package_ source] != nil) {
+        Source *source = [package_ source];
+        NSString *description = [source description];
+
+        if (row-- == 0) {
+        } else if (row-- == 0) {
+        } else if (description != nil && ![description isEqualToString:[source label]] && row-- == 0) {
+        } else if ([source origin] != nil && row-- == 0) {
+    } _else _assert(false);
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
@@ -3120,10 +3228,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [table_ reloadData];
 
         if ([package_ source] == nil);
+        else if ([package_ upgradableAndEssential:NO])
+            [buttons_ addObject:@"Upgrade"];
         else if ([package_ installed] == nil)
             [buttons_ addObject:@"Install"];
-        else if ([package_ upgradable])
-            [buttons_ addObject:@"Upgrade"];
         else
             [buttons_ addObject:@"Reinstall"];
         if ([package_ installed] != nil)
@@ -3893,7 +4001,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([package installed] == nil && [package valid] || [package upgradable])
+        if ([package installed] == nil && [package valid] || [package upgradableAndEssential:NO])
             [packages_ addObject:package];
     }
 
@@ -3911,7 +4019,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
         Package *package = [packages_ objectAtIndex:offset];
 
-        if ([package upgradable]) {
+        if ([package upgradableAndEssential:YES]) {
             ++upgrades_;
             [upgradable addToCount];
         } else {
@@ -4363,12 +4471,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [pool release];
 }
 
-- (void) setProgressError:(NSString *)error {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressError:)
-        withObject:error
-        waitUntilDone:YES
-    ];
+- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
+    [prompt_ setText:[NSString stringWithFormat:@"Error: %@", error]];
 }
 
 - (void) setProgressTitle:(NSString *)title {
@@ -4392,10 +4496,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
     [sheet dismiss];
-}
-
-- (void) _setProgressError:(NSString *)error {
-    [prompt_ setText:[NSString stringWithFormat:@"Error: %@", error]];
 }
 
 - (void) _setProgressTitle:(NSString *)title {
@@ -4457,7 +4557,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             context:@"fixhalf"
         ] autorelease];
 
-        [sheet setBodyText:@"When the shell scripts associated with packages fail, they are left in a state known as either half-configured or half-installed. These errors don't go away and instead continue to cause issues. These scripts can be deleted and the packages forcibly removed."];
+        [sheet setBodyText:@"When the shell scripts associated with packages fail, they are left in a bad state known as either half-configured or half-installed. These errors don't go away and instead continue to cause issues. These scripts can be deleted and the packages forcibly removed."];
         [sheet popupAlertAnimated:YES];
     } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];
@@ -4470,7 +4570,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             context:@"upgrade"
         ] autorelease];
 
-        [sheet setBodyText:@"One or more essential packages are currently out of date. If these packages are not upgraded you are likely to encounter errors."];
+        [sheet setBodyText:@"One or more essential packages are currently out of date. If these upgrades are not performed you are likely to encounter errors."];
         [sheet popupAlertAnimated:YES];
     }
 }
@@ -4498,7 +4598,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         Package *package = [packages objectAtIndex:i];
         if ([package half])
             [broken_ addObject:package];
-        if ([package upgradable]) {
+        if ([package upgradableAndEssential:NO]) {
             if ([package essential])
                 [essential_ addObject:package];
             ++changes;
@@ -4762,7 +4862,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         pid_t pid = ExecFork();
         if (pid == 0) {
             sleep(1);
-            execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
+            if (pid_t child = fork())
+                waitpid(child, NULL, 0);
+            else {
+                execlp("launchctl", "launchctl", "unload", SpringBoard_, NULL);
+                exit(0);
+            }
+            execlp("launchctl", "launchctl", "load", SpringBoard_, NULL);
             exit(0);
         }
     }

@@ -420,6 +420,7 @@ unsigned Major_;
 unsigned Minor_;
 unsigned BugFix_;
 
+CFLocaleRef Locale_;
 CGColorSpaceRef space_;
 
 #define FW_LEAST(major, minor, bugfix) \
@@ -441,12 +442,10 @@ NSString *GetLastUpdate() {
     if (update == nil)
         return @"Never or Unknown";
 
-    CFLocaleRef locale = CFLocaleCopyCurrent();
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
     CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
 
     CFRelease(formatter);
-    CFRelease(locale);
 
     return [(NSString *) formatted autorelease];
 }
@@ -2032,7 +2031,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 context:@"remove"
             ];
 
+#ifndef __OBJC2__
             [essential_ setDestructiveButton:[[essential_ buttons] objectAtIndex:0]];
+#endif
             [essential_ setBodyText:@"This operation involves the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. If you continue, you may not be able to use Cydia to repair any damage."];
         } else {
             essential_ = [[UIAlertSheet alloc]
@@ -3652,7 +3653,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (void) _leftButtonClicked {
     UIAlertSheet *sheet = [[[UIAlertSheet alloc]
-        initWithTitle:@"About Cydia Packager"
+        initWithTitle:@"About Cydia Installer"
         buttons:[NSArray arrayWithObjects:@"Close", nil]
         defaultButtonIndex:0
         delegate:self
@@ -4013,8 +4014,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     upgrades_ = 0;
     bool unseens = false;
 
-    CFLocaleRef locale = CFLocaleCopyCurrent();
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
 
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
         Package *package = [packages_ objectAtIndex:offset];
@@ -4045,7 +4045,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     }
 
     CFRelease(formatter);
-    CFRelease(locale);
 
     if (unseens) {
         Section *last = [sections_ lastObject];
@@ -4306,6 +4305,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) flipPage {
+#ifndef __OBJC2__
     LKAnimation *animation = [LKTransition animation];
     [animation setType:@"oglFlip"];
     [animation setTimingFunction:[LKTimingFunction functionWithName:@"easeInEaseOut"]];
@@ -4317,6 +4317,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [[transition_ _layer] addAnimation:animation forKey:0];
     [transition_ transition:0 toView:(flipped_ ? (UIView *) table_ : (UIView *) advanced_)];
     flipped_ = !flipped_;
+#endif
 }
 
 - (void) configurePushed {
@@ -5163,6 +5164,7 @@ int main(int argc, char *argv[]) {
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");
 
+    Locale_ = CFLocaleCopyCurrent();
     space_ = CGColorSpaceCreateDeviceRGB();
 
     Blueish_.Set(space_, 0x19/255.f, 0x32/255.f, 0x50/255.f, 1.0);
@@ -5174,6 +5176,7 @@ int main(int argc, char *argv[]) {
     int value = UIApplicationMain(argc, argv, [Cydia class]);
 
     CGColorSpaceRelease(space_);
+    CFRelease(Locale_);
 
     [pool release];
     return value;

@@ -135,6 +135,20 @@ extern "C" {
 #endif
 /* }}} */
 
+#ifdef __OBJC2__
+typedef enum {
+    kUIProgressIndicatorStyleMediumWhite = 1,
+    kUIProgressIndicatorStyleSmallWhite = 0,
+    kUIProgressIndicatorStyleSmallBlack = 4
+} UIProgressIndicatorStyle;
+#else
+typedef enum {
+    kUIProgressIndicatorStyleMediumWhite = 0,
+    kUIProgressIndicatorStyleSmallWhite = 2,
+    kUIProgressIndicatorStyleSmallBlack = 3
+} UIProgressIndicatorStyle;
+#endif
+
 typedef enum {
     kUIControlEventMouseDown = 1 << 0,
     kUIControlEventMouseMovedInside = 1 << 2, // mouse moved inside control target
@@ -908,6 +922,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *tagline_;
     NSString *icon_;
     NSString *website_;
+    Address *sponsor_;
     Address *author_;
 
     NSArray *relationships_;
@@ -985,6 +1000,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [icon_ release];
     if (website_ != nil)
         [website_ release];
+    if (sponsor_ != nil)
+        [sponsor_ release];
     if (author_ != nil)
         [author_ release];
 
@@ -1032,9 +1049,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
                 website_ = Scour("Website", begin, end);
             if (website_ != nil)
                 website_ = [website_ retain];
+            NSString *sponsor = Scour("Sponsor", begin, end);
+            if (sponsor != nil)
+                sponsor_ = [[Address addressWithString:sponsor] retain];
             NSString *author = Scour("Author", begin, end);
             if (author != nil)
-                author_ = [Address addressWithString:author];
+                author_ = [[Address addressWithString:author] retain];
         }
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
@@ -1208,6 +1228,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) website {
     return website_;
+}
+
+- (Address *) sponsor {
+    return sponsor_;
 }
 
 - (Address *) author {
@@ -2246,6 +2270,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
         [output_ setMarginTop:0];
         [output_ setAllowsRubberBanding:YES];
+        [output_ setEditable:NO];
 
         [overlay_ addSubview:output_];
 
@@ -2253,7 +2278,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             10,
             bounds.size.height - prgsize.height - 50,
             bounds.size.width - 20,
-            26 + prgsize.height
+            32 + prgsize.height
         )];
 
         [close_ setAutosizesToFit:NO];
@@ -2308,6 +2333,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) _retachThread {
+    UINavigationItem *item = [navbar_ topItem];
+    [item setTitle:@"Complete"];
+
     [overlay_ addSubview:close_];
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
@@ -2972,6 +3000,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             ++number;
         if ([package_ maintainer] != nil)
             ++number;
+        if ([package_ sponsor] != nil)
+            ++number;
         if ([package_ relationships] != nil)
             ++number;
         if ([[package_ source] trusted])
@@ -3036,6 +3066,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         } else if ([package_ maintainer] != nil && row-- == 0) {
             [cell setTitle:@"Maintainer"];
             [cell setValue:[[package_ maintainer] name]];
+            [cell setShowDisclosure:YES];
+            [cell setShowSelection:YES];
+        } else if ([package_ sponsor] != nil && row-- == 0) {
+            [cell setTitle:@"Sponsor"];
+            [cell setValue:[[package_ sponsor] name]];
             [cell setShowDisclosure:YES];
             [cell setShowSelection:YES];
         } else if ([package_ relationships] != nil && row-- == 0) {
@@ -3116,6 +3151,12 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
                     [package_ name]
                 ] stringByAddingPercentEscapes]
             ]]];
+        } else if ([package_ sponsor] != nil && row-- == 0) {
+            NSURL *url = [NSURL URLWithString:[[package_ sponsor] email]];
+            BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+            [browser setDelegate:delegate_];
+            [book_ pushPage:browser];
+            [browser loadURL:url];
         } else if ([package_ relationships] != nil && row-- == 0) {
         } else if ([[package_ source] trusted] && row-- == 0) {
     } _else if ([package_ source] != nil) {
@@ -3127,6 +3168,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         } else if (description != nil && ![description isEqualToString:[source label]] && row-- == 0) {
         } else if ([source origin] != nil && row-- == 0) {
     } _else _assert(false);
+
+    #undef _else
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
@@ -3627,9 +3670,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [webview_ setDelegate:self];
         //[webview_ setEnabledGestures:2];
 
-        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:0];
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:kUIProgressIndicatorStyleMediumWhite];
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 42, indsize.width, indsize.height)];
-        [indicator_ setStyle:0];
+        [indicator_ setStyle:kUIProgressIndicatorStyleMediumWhite];
 
         Package *package([database_ packageWithName:@"cydia"]);
         NSString *application = package == nil ? @"Cydia" : [NSString
@@ -4293,13 +4336,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [traits setAutoCorrectionType:1];
 #endif
 
+        accessory_ = [[UIView alloc] initWithFrame:CGRectMake(0, 6, 6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height + 30)];
+        [accessory_ addSubview:field_];
+
         UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
         [configure setShowPressFeedback:YES];
         [configure setImage:[UIImage applicationImageNamed:@"advanced.png"]];
         [configure addTarget:self action:@selector(configurePushed) forEvents:1];
-
-        accessory_ = [[UIView alloc] initWithFrame:CGRectMake(0, 6, cnfrect.size.width + area.size.width + 6 * 3, area.size.height + 30)];
-        [accessory_ addSubview:field_];
         [accessory_ addSubview:configure];
     } return self;
 }
@@ -4411,16 +4454,24 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [navbar_ setBarStyle:1];
 
         CGRect ovrrect = [navbar_ bounds];
-        ovrrect.size.height = [UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height;
+        ovrrect.size.height = ([UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height)
+#ifdef __OBJC2__
+            - 4
+#endif
+        ;
 
         overlay_ = [[UIView alloc] initWithFrame:ovrrect];
 
-        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:2];
+        UIProgressIndicatorStyle style = Advanced_ ?
+            kUIProgressIndicatorStyleSmallWhite :
+            kUIProgressIndicatorStyleSmallBlack;
+
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:style];
         unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
         CGRect indrect = {{indoffset, indoffset}, indsize};
 
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
-        [indicator_ setStyle:(Advanced_ ? 2 : 3)];
+        [indicator_ setStyle:style];
         [overlay_ addSubview:indicator_];
 
         CGSize prmsize = {200, indsize.width};

@@ -4240,7 +4240,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     if (show)
         [animator performSelector:@selector(startAnimation:) withObject:animation afterDelay:delay];
 
+#ifndef __OBJC2__
     [delegate_ showKeyboard:show];
+#endif
 }
 
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
@@ -4310,12 +4312,22 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [table_ setShouldHideHeaderInShortLists:NO];
         [transition_ transition:0 toView:table_];
 
-        CGRect cnfrect = {{1, 38}, {17, 18}};
+        CGRect cnfrect = {{
+#ifdef __OBJC2__
+        6 +
+#endif
+        1, 38}, {17, 18}};
 
         CGRect area;
-        area.origin.x = cnfrect.size.width + 15;
+        area.origin.x = cnfrect.origin.x + cnfrect.size.width + 14;
         area.origin.y = 30;
-        area.size.width = [self bounds].size.width - area.origin.x - 18;
+
+        area.size.width =
+#ifdef __OBJC2__
+            8 +
+#endif
+            [self bounds].size.width - area.origin.x - 18;
+
         area.size.height = [UISearchField defaultHeight];
 
         field_ = [[UISearchField alloc] initWithFrame:area];
@@ -4325,8 +4337,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         CFRelease(font);
 
         [field_ setPlaceholder:@"Package Names & Descriptions"];
-        [field_ setPaddingTop:5];
         [field_ setDelegate:self];
+
+#ifdef __OBJC2__
+        [field_ setPaddingTop:3];
+#else
+        [field_ setPaddingTop:5];
+#endif
 
 #ifndef __OBJC2__
         UITextTraits *traits = [field_ textTraits];
@@ -4336,7 +4353,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [traits setAutoCorrectionType:1];
 #endif
 
-        accessory_ = [[UIView alloc] initWithFrame:CGRectMake(0, 6, 6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height + 30)];
+        CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height + 30}};
+
+        accessory_ = [[UIView alloc] initWithFrame:accrect];
         [accessory_ addSubview:field_];
 
         UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
@@ -4454,11 +4473,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [navbar_ setBarStyle:1];
 
         CGRect ovrrect = [navbar_ bounds];
-        ovrrect.size.height = ([UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height)
-#ifdef __OBJC2__
-            - 4
-#endif
-        ;
+        ovrrect.size.height = ([UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height);
 
         overlay_ = [[UIView alloc] initWithFrame:ovrrect];
 
@@ -4474,10 +4489,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [indicator_ setStyle:style];
         [overlay_ addSubview:indicator_];
 
-        CGSize prmsize = {200, indsize.width};
+        CGSize prmsize = {200, indsize.width + 4};
 
         CGRect prmrect = {{
             indoffset * 2 + indsize.width,
+#ifdef __OBJC2__
+            -1 +
+#endif
             (ovrrect.size.height - prmsize.height) / 2
         }, prmsize};
 

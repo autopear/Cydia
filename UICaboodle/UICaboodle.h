@@ -26,3 +26,6 @@ while (false)
 #define _label__(x) _label ## x
 #define _label_(y) _label__(y)
 #define _label _label_(__LINE__)
+
+#define _packed \
+    __attribute__((packed))

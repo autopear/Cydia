@@ -2821,7 +2821,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     return reusing;
 }
 
-- (BOOL) canSelectRow:(int)row {
+- (BOOL) table:(UITable *)table canSelectRow:(int)row {
     return NO;
 }
 

@@ -3772,6 +3772,235 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 @end
 
+/* Source Cell {{{ */
+@interface SourceCell : UITableCell {
+    UITextLabel *description_;
+    UIRightTextLabel *label_;
+    UITextLabel *origin_;
+}
+
+- (void) dealloc;
+
+- (SourceCell *) initWithSource:(Source *)source;
+
+- (void) _setSelected:(float)fraction;
+- (void) setSelected:(BOOL)selected;
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
+- (void) _setSelectionFadeFraction:(float)fraction;
+
+@end
+
+@implementation SourceCell
+
+- (void) dealloc {
+    [description_ release];
+    [label_ release];
+    [origin_ release];
+    [super dealloc];
+}
+
+- (SourceCell *) initWithSource:(Source *)source {
+    if ((self = [super init]) != nil) {
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 20);
+        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
+
+        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+        float clear[] = {0, 0, 0, 0};
+
+        NSString *description = [source description];
+        if (description == nil)
+            description = [source uri];
+
+        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 7, 270, 25)];
+        [description_ setBackgroundColor:CGColorCreate(space, clear)];
+        [description_ setFont:bold];
+        [description_ setText:description];
+
+        NSString *label = [source label];
+        if (label == nil)
+            label = [source type];
+
+        label_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(290, 32, 90, 25)];
+        [label_ setBackgroundColor:CGColorCreate(space, clear)];
+        [label_ setFont:small];
+        [label_ setText:label];
+
+        NSString *origin = [source origin];
+        if (origin == nil)
+            origin = [source distribution];
+
+        origin_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 315, 20)];
+        [origin_ setBackgroundColor:CGColorCreate(space, clear)];
+        [origin_ setFont:small];
+        [origin_ setText:origin];
+
+        [self addSubview:description_];
+        [self addSubview:label_];
+        [self addSubview:origin_];
+
+        CFRelease(small);
+        CFRelease(bold);
+    } return self;
+}
+
+- (void) _setSelected:(float)fraction {
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+
+    float black[] = {
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+    1.0};
+
+    float blue[] = {
+        Interpolate(0.2, 1.0, fraction),
+        Interpolate(0.2, 1.0, fraction),
+        Interpolate(1.0, 1.0, fraction),
+    1.0};
+
+    float gray[] = {
+        Interpolate(0.4, 1.0, fraction),
+        Interpolate(0.4, 1.0, fraction),
+        Interpolate(0.4, 1.0, fraction),
+    1.0};
+
+    [description_ setColor:CGColorCreate(space, black)];
+    [label_ setColor:CGColorCreate(space, blue)];
+    [origin_ setColor:CGColorCreate(space, gray)];
+}
+
+- (void) setSelected:(BOOL)selected {
+    [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    if (!fade)
+        [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected withFade:fade];
+}
+
+- (void) _setSelectionFadeFraction:(float)fraction {
+    [self _setSelected:fraction];
+    [super _setSelectionFadeFraction:fraction];
+}
+
+@end
+/* }}} */
+/* Source Table {{{ */
+@interface SourceTable : RVPage {
+    _transient Database *database_;
+    UISectionList *list_;
+    NSMutableArray *sources_;
+    UIAlertSheet *alert_;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+
+@end
+
+@implementation SourceTable
+
+- (void) dealloc {
+    [list_ setDataSource:nil];
+
+    if (sources_ != nil)
+        [sources_ release];
+    [list_ release];
+    [super dealloc];
+}
+
+- (int) numberOfSectionsInSectionList:(UISectionList *)list {
+    return 1;
+}
+
+- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
+    return @"Sources";
+}
+
+- (int) sectionList:(UISectionList *)list rowForSection:(int)section {
+    return 0;
+}
+
+- (int) numberOfRowsInTable:(UITable *)table {
+    return [sources_ count];
+}
+
+- (float) table:(UITable *)table heightForRow:(int)row {
+    return 64;
+}
+
+- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
+    return [[[SourceCell alloc] initWithSource:[sources_ objectAtIndex:row]] autorelease];
+}
+
+- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
+    return NO;
+}
+
+- (void) tableRowSelected:(NSNotification*)notification {
+    UITable *table([list_ table]);
+    int row([table selectedRow]);
+    if (row == INT_MAX)
+        return;
+
+    [table selectRow:-1 byExtendingSelection:NO withFade:YES];
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+        sources_ = nil;
+
+        list_ = [[UISectionList alloc] initWithFrame:[self bounds]];
+
+        [self addSubview:list_];
+
+        [list_ setDataSource:self];
+        [list_ setShouldHideHeaderInShortLists:NO];
+
+        UITableColumn *column = [[UITableColumn alloc]
+            initWithTitle:@"Name"
+            identifier:@"name"
+            width:[self frame].size.width
+        ];
+
+        UITable *table = [list_ table];
+        [table setSeparatorStyle:1];
+        [table addTableColumn:column];
+        [table setDelegate:self];
+    } return self;
+}
+
+- (void) reloadData {
+    pkgSourceList list;
+    _assert(list.ReadMainList());
+
+    if (sources_ != nil)
+        [sources_ release];
+
+    sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
+    for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
+        [sources_ addObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]];
+
+    [list_ reloadData];
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [list_ resetViewAnimated:animated];
+}
+
+- (NSString *) leftTitle {
+    return @"Refresh All";
+}
+
+- (NSString *) rightTitle {
+    return @"Edit";
+}
+
+@end
+/* }}} */
+
 /* Install View {{{ */
 @interface InstallView : RVPage {
     _transient Database *database_;
@@ -4122,7 +4351,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 @end
 /* }}} */
 /* Manage View {{{ */
-@interface ManageView : PackageTable {
+@interface ManageView : RVPage {
+    _transient Database *database_;
+    PackageTable *packages_;
+    SourceTable *sources_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -4131,15 +4363,41 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 @implementation ManageView
 
+- (void) dealloc {
+    [packages_ release];
+    [sources_ release];
+    [super dealloc];
+}
+
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super
-        initWithBook:book
-        database:database
-        title:nil
-        filter:@selector(isInstalledInSection:)
-        with:nil
-    ]) != nil) {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+
+        packages_ = [[PackageTable alloc]
+            initWithBook:book
+            database:database
+            title:nil
+            filter:@selector(isInstalledInSection:)
+            with:nil
+        ];
+
+        sources_ = [[SourceTable alloc]
+            initWithBook:book
+            database:database
+        ];
+
+        [self addSubview:packages_];
     } return self;
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [packages_ resetViewAnimated:animated];
+    [sources_ resetViewAnimated:animated];
+}
+
+- (void) reloadData {
+    [packages_ reloadData];
+    [sources_ reloadData];
 }
 
 - (NSString *) title {
@@ -4147,7 +4405,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (NSString *) backButtonTitle {
-    return @"All Packages";
+    return @"Packages";
 }
 
 @end
@@ -5186,6 +5444,15 @@ int main(int argc, char *argv[]) {
 
     setuid(0);
     setgid(0);
+
+    int error;
+
+    error = unlink("/var/cache/apt/pkgcache.bin");
+    if (error != 0)
+        _assert(error == ENOENT);
+    error = unlink("/var/cache/apt/srcpkgcache.bin");
+    if (error != 0)
+        _assert(error == ENOENT);
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;

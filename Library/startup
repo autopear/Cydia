@@ -1,0 +1,6 @@
+#!/bin/bash
+sysctl -w security.mac.proc_enforce=0 security.mac.vnode_enforce=0 &>/dev/null
+/usr/libexec/cydia/firmware.sh
+for deb in /var/mobile/Media/Cydia/AutoInstall/*.deb; do
+    /usr/bin/dpkg -i "${deb}" && /bin/rm "${deb}"
+done

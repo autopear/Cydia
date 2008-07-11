@@ -14,7 +14,7 @@ function mv_() {
     src=$1
 
     mkdir -p /var/stash
-    dst=$(mktemp -d /var/stash/$(basename "${dir}").XXXXXX)
+    dst=$(mktemp -d /var/stash/$(basename "${src}").XXXXXX)
 
     if [[ -e ${src} ]]; then
         chmod --reference="${src}" "${dst}"

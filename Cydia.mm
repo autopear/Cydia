@@ -5445,14 +5445,10 @@ int main(int argc, char *argv[]) {
     setuid(0);
     setgid(0);
 
-    int error;
-
-    error = unlink("/var/cache/apt/pkgcache.bin");
-    if (error != 0)
-        _assert(error == ENOENT);
-    error = unlink("/var/cache/apt/srcpkgcache.bin");
-    if (error != 0)
-        _assert(error == ENOENT);
+    if (unlink("/var/cache/apt/pkgcache.bin") == -1)
+        _assert(errno == ENOENT);
+    if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
+        _assert(errno == ENOENT);
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;

@@ -3517,6 +3517,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) loadRequest:(NSURLRequest *)request {
+    pushed_ = true;
     [webview_ loadRequest:request];
 }
 
@@ -3538,27 +3539,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [self view:sender didSetFrame:frame];
 }
 
-- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
-    return [self _addHeadersToRequest:request];
-}
-
-- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
-    if ([[[request URL] scheme] isEqualToString:@"apptapp"])
-        return nil;
-    [self setBackButtonTitle:title_];
-    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
-    [browser setDelegate:delegate_];
-    [book_ pushPage:browser];
-    [browser loadRequest:[self _addHeadersToRequest:request]];
-    return [browser webView];
-}
-
-- (void) webView:(WebView *)sender willClickElement:(id)element {
-    if (![element respondsToSelector:@selector(href)])
-        return;
-    NSString *href = [element href];
-    if (href == nil)
-        return;
+- (void) getAppTapp:(NSString *)href {
     if ([href hasPrefix:@"apptapp://package/"]) {
         NSString *name = [href substringFromIndex:18];
         Package *package = [database_ packageWithName:name];
@@ -3583,6 +3564,48 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             [view setPackage:package];
             [book_ pushPage:view];
         }
+    }
+}
+
+- (void) webView:(WebView *)sender willClickElement:(id)element {
+    if (![element respondsToSelector:@selector(href)])
+        return;
+    NSString *href = [element href];
+    if (href == nil)
+        return;
+    if ([href hasPrefix:@"apptapp://package/"])
+        [self getAppTapp:href];
+}
+
+- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
+    if ([[[request URL] scheme] isEqualToString:@"apptapp"]) {
+        [self getAppTapp:[[request URL] absoluteString]];
+        return nil;
+    }
+
+    if (!pushed_) {
+        pushed_ = true;
+        [book_ pushPage:self];
+    }
+
+    return [self _addHeadersToRequest:request];
+}
+
+- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
+    if (request != nil && [[[request URL] scheme] isEqualToString:@"apptapp"])
+        return nil;
+    else {
+        [self setBackButtonTitle:title_];
+
+        BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+        [browser setDelegate:delegate_];
+
+        if (request != nil) {
+            [browser loadRequest:[self _addHeadersToRequest:request]];
+            [book_ pushPage:browser];
+        }
+
+        return [browser webView];
     }
 }
 
@@ -3750,6 +3773,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) resetViewAnimated:(BOOL)animated {
+}
+
+- (void) setPushed:(bool)pushed {
+    pushed_ = pushed;
 }
 
 @end
@@ -4406,6 +4433,12 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (NSString *) backButtonTitle {
     return @"Packages";
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [packages_ setDelegate:delegate];
+    [sources_ setDelegate:delegate];
 }
 
 @end

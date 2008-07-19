@@ -21,6 +21,8 @@
     NSString *title_;
     bool loading_;
     bool reloading_;
+
+    bool pushed_;
 }
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;

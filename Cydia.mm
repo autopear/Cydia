@@ -5219,17 +5219,23 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [database_ clean];
 
-    if (reload_) {
+    if (true) {
         pid_t pid = ExecFork();
         if (pid == 0) {
+#ifndef __OBJC2__
             sleep(1);
-            if (pid_t child = fork())
+#endif
+
+            if (pid_t child = fork()) {
                 waitpid(child, NULL, 0);
-            else {
+            } else {
                 execlp("launchctl", "launchctl", "unload", SpringBoard_, NULL);
+                perror("launchctl unload");
                 exit(0);
             }
+
             execlp("launchctl", "launchctl", "load", SpringBoard_, NULL);
+            perror("launchctl load");
             exit(0);
         }
     }

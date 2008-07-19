@@ -1,6 +1,5 @@
 #!/bin/bash
 export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
-sysctl -w security.mac.proc_enforce=0 security.mac.vnode_enforce=0 &>/dev/null
 /usr/libexec/cydia/firmware.sh
 debs=/var/root/Media/Cydia/AutoInstall/*.deb
 dpkg -i ${debs}

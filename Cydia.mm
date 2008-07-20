@@ -2157,6 +2157,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     UITextLabel *status_;
     UIPushButton *close_;
     id delegate_;
+    BOOL running_;
 }
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
@@ -2168,6 +2169,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (void) _retachThread;
 - (void) _detachNewThreadData:(ProgressData *)data;
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title;
+
+- (BOOL) isRunning;
 
 @end
 
@@ -2339,6 +2342,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [overlay_ addSubview:close_];
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
+
+    [delegate_ setStatusBarShowsProgress:NO];
+    running_ = NO;
 }
 
 - (void) _detachNewThreadData:(ProgressData *)data {
@@ -2363,6 +2369,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [close_ removeFromSuperview];
     [overlay_ addSubview:progress_];
     [overlay_ addSubview:status_];
+
+    [delegate_ setStatusBarShowsProgress:YES];
+    running_ = YES;
 
     [transition_ transition:6 toView:overlay_];
 
@@ -2471,6 +2480,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     CGSize size = [output_ contentSize];
     CGRect rect = {{0, size.height}, {size.width, 0}};
     [output_ scrollRectToVisible:rect animated:YES];
+}
+
+- (BOOL) isRunning {
+    return NO;
 }
 
 @end
@@ -4892,6 +4905,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     unsigned tag_;
 
     UIKeyboard *keyboard_;
+    UIProgressHUD *hud_;
 
     InstallView *install_;
     ChangesView *changes_;
@@ -5215,6 +5229,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) applicationWillSuspend {
+    _trace();
     [super applicationWillSuspend];
 
     [database_ clean];
@@ -5241,36 +5256,19 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     }
 }
 
-- (void) applicationDidFinishLaunching:(id)unused {
-    _assert(pkgInitConfig(*_config));
-    _assert(pkgInitSystem(*_config, _system));
+- (void) finish {
+    if (hud_ != nil) {
+        [self setStatusBarShowsProgress:NO];
 
-    confirm_ = nil;
-    tag_ = 1;
-
-    essential_ = [[NSMutableArray alloc] initWithCapacity:4];
-    broken_ = [[NSMutableArray alloc] initWithCapacity:4];
-
-    CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
-    window_ = [[UIWindow alloc] initWithContentRect:screenrect];
-
-    [window_ orderFront: self];
-    [window_ makeKey: self];
-    [window_ _setHidden: NO];
-
-    database_ = [[Database alloc] init];
-    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
-    [database_ setDelegate:progress_];
-    [window_ setContentView:progress_];
-
-    underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
-    [progress_ setContentView:underlay_];
+        [hud_ show:NO];
+        [hud_ removeFromSuperview];
+        [hud_ autorelease];
+        hud_ = nil;
+    }
 
     overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];
 
-    if (!bootstrap_)
-        [underlay_ addSubview:overlay_];
-
+    CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
     book_ = [[CYBook alloc] initWithFrame:CGRectMake(
         0, 0, screenrect.size.width, screenrect.size.height - 48
     ) database:database_];
@@ -5368,13 +5366,77 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     manage_ = [[ManageView alloc] initWithBook:book_ database:database_];
     search_ = [[SearchView alloc] initWithBook:book_ database:database_];
 
-    [progress_ resetView];
+    if (!bootstrap_)
+        [underlay_ addSubview:overlay_];
+
     [self reloadData];
 
     if (bootstrap_)
         [self bootstrap];
     else
         [self _setHomePage];
+}
+
+- (void) reorganize {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    //system("/usr/libexec/cydia/free.sh");
+    //[self performSelectorOnMainThread:@selector(finish) withObject:nil waitUntilDone:NO];
+    [pool release];
+}
+
+- (void) applicationSuspend:(__GSEvent *)event {
+    if (hud_ == nil && ![progress_ isRunning])
+        [super applicationSuspend:event];
+    _trace();
+}
+
+- (void) applicationDidFinishLaunching:(id)unused {
+    _assert(pkgInitConfig(*_config));
+    _assert(pkgInitSystem(*_config, _system));
+
+    confirm_ = nil;
+    tag_ = 1;
+
+    essential_ = [[NSMutableArray alloc] initWithCapacity:4];
+    broken_ = [[NSMutableArray alloc] initWithCapacity:4];
+
+    CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
+    window_ = [[UIWindow alloc] initWithContentRect:screenrect];
+
+    [window_ orderFront: self];
+    [window_ makeKey: self];
+    [window_ _setHidden: NO];
+
+    database_ = [[Database alloc] init];
+    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
+    [database_ setDelegate:progress_];
+    [window_ setContentView:progress_];
+
+    underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
+    [progress_ setContentView:underlay_];
+
+    [progress_ resetView];
+
+    if (
+        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Wallpapers", NULL, 0) == -1 && errno == EINVAL
+    ) {
+        hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
+        [hud_ setText:@"Reorganizing\nOne Minute!"];
+        [hud_ show:YES];
+        [underlay_ addSubview:hud_];
+
+        [self setStatusBarShowsProgress:YES];
+
+        [NSThread
+            detachNewThreadSelector:@selector(reorganize)
+            toTarget:self
+            withObject:nil
+        ];
+    } else
+        [self finish];
 }
 
 - (void) showKeyboard:(BOOL)show {

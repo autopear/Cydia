@@ -8,5 +8,5 @@ for dir in \
     /System/Library/TextInput \
     /usr/share
 do
-    . /usr/libexec/cydia/move.sh -v "${dir}"
+    . /usr/libexec/cydia/move.sh "$@" "${dir}"
 done

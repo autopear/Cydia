@@ -5264,6 +5264,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [hud_ removeFromSuperview];
         [hud_ autorelease];
         hud_ = nil;
+
+        reload_ = true;
+        [self suspendWithAnimation:YES];
+        return;
     }
 
     overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];

@@ -5219,7 +5219,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [database_ clean];
 
-    if (true) {
+    if (reload_) {
         pid_t pid = ExecFork();
         if (pid == 0) {
 #ifndef __OBJC2__

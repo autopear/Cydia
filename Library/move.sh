@@ -2,6 +2,13 @@
 
 shopt -s extglob nullglob
 
+if [[ ${1:0:1} == - ]]; then
+    v=$1
+    shift 1
+else
+    v=
+fi
+
 function df_() {
     free=$(df -B1 "$1")
     free=${free% *%*}
@@ -20,12 +27,12 @@ function mv_() {
         chmod --reference="${src}" "${dst}"
         chown --reference="${src}" "${dst}"
 
-        cp -aT "${src}" "${dst}" || {
+        cp -aT $v "${src}" "${dst}" || {
             rm -rf "${dst}"
             exit 1
         }
 
-        rm -rf "${src}"
+        rm -rf $v "${src}"
     else
         chmod 775 "${dst}"
         chown root.admin "${dst}"

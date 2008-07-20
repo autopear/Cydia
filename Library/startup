@@ -1,6 +1,7 @@
 #!/bin/bash
 export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
 /usr/libexec/cydia/firmware.sh
+/usr/libexec/cydia/space.sh
 debs=/var/root/Media/Cydia/AutoInstall/*.deb
 dpkg -i ${debs}
 rm -f ${debs}

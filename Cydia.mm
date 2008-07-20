@@ -5379,8 +5379,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (void) reorganize {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    //system("/usr/libexec/cydia/free.sh");
-    //[self performSelectorOnMainThread:@selector(finish) withObject:nil waitUntilDone:NO];
+    system("/usr/libexec/cydia/free.sh");
+    [self performSelectorOnMainThread:@selector(finish) withObject:nil waitUntilDone:NO];
     [pool release];
 }
 
@@ -5424,7 +5424,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         readlink("/Library/Wallpapers", NULL, 0) == -1 && errno == EINVAL
     ) {
         hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
-        [hud_ setText:@"Reorganizing\nOne Minute!"];
+        [hud_ setText:@"Reorganizing\nOne Minute!\nPlease Wait...\nDO NOT STOP"];
         [hud_ show:YES];
         [underlay_ addSubview:hud_];
 

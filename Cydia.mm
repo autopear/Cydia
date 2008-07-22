@@ -1738,18 +1738,50 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
     }
 
-    if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue)
+    if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue) {
+        _trace();
         return;
+    }
+
+    bool failed = false;
+    for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {
+        if ((*item)->Status == pkgAcquire::Item::StatDone && (*item)->Complete)
+            continue;
+
+        std::string uri = (*item)->DescURI();
+        std::string error = (*item)->ErrorText;
+
+        fprintf(stderr, "pAf:%s:%s\n", uri.c_str(), error.c_str());
+        failed = true;
+
+        [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
+            withObject:[NSArray arrayWithObjects:[NSString stringWithUTF8String:error.c_str()], nil]
+            waitUntilDone:YES
+        ];
+    }
+
+    if (failed) {
+        _trace();
+        return;
+    }
 
     _system->UnLock();
     pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
 
-    if (result == pkgPackageManager::Failed)
+    if (_error->PendingError()) {
+        _trace();
         return;
-    if (_error->PendingError())
+    }
+
+    if (result == pkgPackageManager::Failed) {
+        _trace();
         return;
-    if (result != pkgPackageManager::Completed)
+    }
+
+    if (result != pkgPackageManager::Completed) {
+        _trace();
         return;
+    }
 
     NSMutableArray *after = [NSMutableArray arrayWithCapacity:16]; {
         pkgSourceList list;
@@ -2344,6 +2376,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [status_ removeFromSuperview];
 
     [delegate_ setStatusBarShowsProgress:NO];
+    //[[UIApplication sharedApplication] setIdleTimerDisabled:YES];
+
     running_ = NO;
 }
 
@@ -5229,12 +5263,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) applicationWillSuspend {
-    _trace();
-    [super applicationWillSuspend];
-
     [database_ clean];
 
     if (reload_) {
+#ifdef __OBJC2__
+        notify_post("com.apple.mobile.application_installed");
+        notify_post("com.apple.mobile.application_uninstalled");
+#else
         pid_t pid = ExecFork();
         if (pid == 0) {
 #ifndef __OBJC2__
@@ -5253,7 +5288,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             perror("launchctl load");
             exit(0);
         }
+#endif
     }
+
+    [super applicationWillSuspend];
 }
 
 - (void) finish {
@@ -5391,7 +5429,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (void) applicationSuspend:(__GSEvent *)event {
     if (hud_ == nil && ![progress_ isRunning])
         [super applicationSuspend:event];
-    _trace();
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {

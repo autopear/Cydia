@@ -2375,6 +2375,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
 
+#ifdef __OBJC2__
+    notify_post("com.apple.mobile.application_installed");
+#endif
+
     [delegate_ setStatusBarShowsProgress:NO];
     //[[UIApplication sharedApplication] setIdleTimerDisabled:YES];
 
@@ -2517,7 +2521,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (BOOL) isRunning {
-    return NO;
+    return running_;
 }
 
 @end
@@ -5262,34 +5266,33 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     tag_ = tag;
 }
 
+- (void) fixSpringBoard {
+    pid_t pid = ExecFork();
+    if (pid == 0) {
+        sleep(1);
+
+        if (pid_t child = fork()) {
+            waitpid(child, NULL, 0);
+        } else {
+            execlp("launchctl", "launchctl", "unload", SpringBoard_, NULL);
+            perror("launchctl unload");
+            exit(0);
+        }
+
+        execlp("launchctl", "launchctl", "load", SpringBoard_, NULL);
+        perror("launchctl load");
+        exit(0);
+    }
+}
+
 - (void) applicationWillSuspend {
     [database_ clean];
 
     if (reload_) {
-#ifdef __OBJC2__
-        notify_post("com.apple.mobile.application_installed");
-        notify_post("com.apple.mobile.application_uninstalled");
-#else
-        pid_t pid = ExecFork();
-        if (pid == 0) {
 #ifndef __OBJC2__
-            sleep(1);
+        [self fixSpringBoard];
 #endif
-
-            if (pid_t child = fork()) {
-                waitpid(child, NULL, 0);
-            } else {
-                execlp("launchctl", "launchctl", "unload", SpringBoard_, NULL);
-                perror("launchctl unload");
-                exit(0);
-            }
-
-            execlp("launchctl", "launchctl", "load", SpringBoard_, NULL);
-            perror("launchctl load");
-            exit(0);
-        }
-#endif
-    }
+}
 
     [super applicationWillSuspend];
 }
@@ -5304,7 +5307,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         hud_ = nil;
 
         reload_ = true;
-        [self suspendWithAnimation:YES];
+        [self fixSpringBoard];
         return;
     }
 
@@ -5458,11 +5461,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [progress_ resetView];
 
-    if (
+    /*if (
         readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpapers", NULL, 0) == -1 && errno == EINVAL
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL
     ) {
         hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
         [hud_ setText:@"Reorganizing\nOne Minute!\nPlease Wait...\nDO NOT STOP"];
@@ -5476,7 +5479,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             toTarget:self
             withObject:nil
         ];
-    } else
+    } else*/
         [self finish];
 }
 

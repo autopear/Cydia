@@ -142,6 +142,10 @@ extern "C" {
 #endif
 /* }}} */
 
+@interface UIApplication (IdleTimer)
+- (void) setIdleTimerDisabled:(char)arg0;
+@end
+
 #ifdef __OBJC2__
 typedef enum {
     kUIProgressIndicatorStyleMediumWhite = 1,
@@ -2460,7 +2464,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 #endif
 
     [delegate_ setStatusBarShowsProgress:NO];
-    //[[UIApplication sharedApplication] setIdleTimerDisabled:YES];
 
     running_ = NO;
 }
@@ -5677,6 +5680,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL
     ) {
+        [self setIdleTimerDisabled:YES];
+
         hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
         [hud_ setText:@"Reorganizing\n\nWill Automatically\nRestart When Done"];
         [hud_ show:YES];

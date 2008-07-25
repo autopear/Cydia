@@ -5479,8 +5479,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     }
 }
 
-#include "internals.h"
-
 - (void) applicationWillSuspend {
     [database_ clean];
 
@@ -5502,8 +5500,12 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [hud_ autorelease];
         hud_ = nil;
 
-        reload_ = true;
-        [self fixSpringBoard];
+        pid_t pid = ExecFork();
+        if (pid == 0) {
+            execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
+            perror("launchctl stop");
+        }
+
         return;
     }
 
@@ -5676,7 +5678,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL
     ) {
         hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
-        [hud_ setText:@"Reorganizing\n\nWill Restart When Done"];
+        [hud_ setText:@"Reorganizing\n\nWill Automatically\nRestart When Done"];
         [hud_ show:YES];
         [underlay_ addSubview:hud_];
 

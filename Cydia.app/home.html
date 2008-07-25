@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<html><head>
+    <title>Network Error</title>
+    <meta name="viewport" content="width=320, minimum-scale=1.0, maximum-scale=1.0"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+
+    <style>
+        body {
+            background: url(pinstripe.png);
+            display: table;
+            font-family: Helvetica;
+            height: 337px;
+            margin: 0;
+            text-shadow: rgba(255, 255, 255, 0.75) 1px 1px 0
+        }
+
+        div.page {
+            display: table-cell;
+            text-align: center;
+            margin: 0 auto;
+            vertical-align: middle;
+            width: 320px;
+        }
+
+        div.title {
+            font-size: 32px;
+        }
+
+        div.error {
+            font-size: 24px;
+        }
+    </style>
+</head><body><div class="page">
+
+<div class="title">Unable To Load</div>
+
+<div class="error">(<script>
+    document.write(decodeURI(location.search.substring(1)));
+</script>)</div>
+
+</div></body></html>

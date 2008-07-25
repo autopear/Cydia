@@ -1,10 +1,14 @@
 #!/bin/bash
 
 for dir in \
-    /usr/share \
     /Applications \
     /Library/Wallpaper \
     /Library/Ringtones \
+    /usr/include \
+    /usr/libexec \
+    /usr/share \
 ; do
     . /usr/libexec/cydia/move.sh "$@" "${dir}"
 done
+
+sync

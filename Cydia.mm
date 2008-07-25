@@ -35,6 +35,13 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifdef __OBJC2__
+    #define UITextTraits UITextInputTraits
+    #define textTraits textInputTraits
+    #define setAutoCapsType setAutocapitalizationType
+    #define setAutoCorrectionType setAutocorrectionType
+#endif
+
 /* #include Directives {{{ */
 #include <objc/objc.h>
 #include <objc/runtime.h>
@@ -406,7 +413,7 @@ class GSFont {
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
 static const int ButtonBarHeight_ = 48;
-static const float KeyboardTime_ = 0.4f;
+static const float KeyboardTime_ = 0.3f;
 static const char * const SpringBoard_ = "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist";
 
 #ifndef Cydia_
@@ -447,6 +454,7 @@ bool reload_;
 
 static NSMutableDictionary *Metadata_;
 static NSMutableDictionary *Packages_;
+static NSMutableDictionary *Sections_;
 static bool Changed_;
 static NSDate *now_;
 
@@ -523,6 +531,12 @@ NSString *Simplify(NSString *title) {
 }
 /* }}} */
 
+bool isSectionVisible(NSString *section) {
+    NSDictionary *metadata = [Sections_ objectForKey:section];
+    NSNumber *hidden = metadata == nil ? nil : [metadata objectForKey:@"Hidden"];
+    return hidden == nil || ![hidden boolValue];
+}
+
 /* Delegate Prototypes {{{ */
 @class Package;
 @class Source;
@@ -558,6 +572,7 @@ NSString *Simplify(NSString *title) {
 - (void) removePackage:(Package *)package;
 - (void) slideUp:(UIAlertSheet *)alert;
 - (void) distUpgrade;
+- (void) updateData;
 @end
 /* }}} */
 
@@ -924,6 +939,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *website_;
     Address *sponsor_;
     Address *author_;
+    NSArray *tags_;
 
     NSArray *relationships_;
 }
@@ -948,6 +964,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (BOOL) upgradableAndEssential:(BOOL)essential;
 - (BOOL) essential;
 - (BOOL) broken;
+- (BOOL) visible;
 
 - (BOOL) half;
 - (BOOL) halfConfigured;
@@ -967,6 +984,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (Source *) source;
 
 - (BOOL) matches:(NSString *)text;
+
+- (bool) hasUsefulPurpose;
+- (BOOL) hasTag:(NSString *)tag;
 
 - (NSComparisonResult) compareByName:(Package *)package;
 - (NSComparisonResult) compareBySection:(Package *)package;
@@ -1004,6 +1024,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [sponsor_ release];
     if (author_ != nil)
         [author_ release];
+    if (tags_ != nil)
+        [tags_ release];
 
     if (relationships_ != nil)
         [relationships_ release];
@@ -1055,6 +1077,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             NSString *author = Scour("Author", begin, end);
             if (author != nil)
                 author_ = [[Address addressWithString:author] retain];
+            NSString *tags = Scour("Tag", begin, end);
+            if (tags != nil)
+                tags_ = [[tags componentsSeparatedByString:@", "] retain];
         }
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
@@ -1154,6 +1179,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (BOOL) broken {
     return [database_ cache][iterator_].InstBroken();
+}
+
+- (BOOL) visible {
+    NSString *section = [self section];
+    return [self hasUsefulPurpose] && (section == nil || isSectionVisible(section));
 }
 
 - (BOOL) half {
@@ -1272,6 +1302,33 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return NO;
 }
 
+- (bool) hasUsefulPurpose {
+    if (tags_ == nil)
+        return true;
+    bool purpose(false);
+
+    for (int i(0), e([tags_ count]); i != e; ++i) {
+        NSString *tag = [tags_ objectAtIndex:i];
+        if ([tag hasPrefix:@"purpose::"]) {
+            bool purpose(false);
+            if ([tag isEqualToString:@"purpose::console"]) {
+                return true;
+            } else if ([tag isEqualToString:@"purpose::library"]) {
+                return true;
+            } else if ([tag isEqualToString:@"purpose::x"]) {
+                return true;
+            } else
+                purpose = true;
+        }
+    }
+
+    return !purpose;
+}
+
+- (BOOL) hasTag:(NSString *)tag {
+    return tags_ == nil ? NO : [tags_ containsObject:tag];
+}
+
 - (NSComparisonResult) compareByName:(Package *)package {
     NSString *lhs = [self name];
     NSString *rhs = [package name];
@@ -1376,7 +1433,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *section = [self section];
 
     return [NSNumber numberWithBool:([self valid] && [self installed] == nil && (
-        (name == nil ||
+        (name == nil && [self visible] ||
         section == nil && [name length] == 0 ||
         [name isEqualToString:section])
     ))];
@@ -1391,6 +1448,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     size_t count_;
 }
 
+- (NSComparisonResult) compareByName:(Section *)section;
+- (Section *) initWithName:(NSString *)name;
 - (Section *) initWithName:(NSString *)name row:(size_t)row;
 - (NSString *) name;
 - (size_t) row;
@@ -1404,6 +1463,27 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) dealloc {
     [name_ release];
     [super dealloc];
+}
+
+- (NSComparisonResult) compareByName:(Section *)section {
+    NSString *lhs = [self name];
+    NSString *rhs = [section name];
+
+    if ([lhs length] != 0 && [rhs length] != 0) {
+        unichar lhc = [lhs characterAtIndex:0];
+        unichar rhc = [rhs characterAtIndex:0];
+
+        if (isalpha(lhc) && !isalpha(rhc))
+            return NSOrderedAscending;
+        else if (!isalpha(lhc) && isalpha(rhc))
+            return NSOrderedDescending;
+    }
+
+    return [lhs caseInsensitiveCompare:rhs];
+}
+
+- (Section *) initWithName:(NSString *)name {
+    return [self initWithName:name row:0];
 }
 
 - (Section *) initWithName:(NSString *)name row:(size_t)row {
@@ -2625,8 +2705,10 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     UIImage *image = nil;
     if (NSString *icon = [package icon])
         image = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (image == nil) if (NSString *icon = [source defaultIcon])
-        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (image == nil) if (NSString *section = [package section])
+        image = [UIImage applicationImageNamed:[Simplify(section) stringByAppendingString:@".png"]];
+    /*if (image == nil) if (NSString *icon = [source defaultIcon])
+        image = [UIImage imageAtPath:[icon substringFromIndex:6]];*/
     if (image == nil)
         image = [UIImage applicationImageNamed:@"unknown.png"];
     [icon_ setImage:image];
@@ -2724,24 +2806,29 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 + (int) heightForPackage:(Package *)package {
+    NSString *tagline([package tagline]);
+    int height = tagline == nil || [tagline length] == 0 ? -15 : 0;
 #ifdef USE_BADGES
     if ([package hasMode] || [package half])
-        return 96;
+        return height + 96;
     else
 #endif
-        return 73;
+        return height + 73;
 }
 
 @end
 /* }}} */
 /* Section Cell {{{ */
 @interface SectionCell : UITableCell {
+    NSString *section_;
     UITextLabel *name_;
     UITextLabel *count_;
+    UISwitchControl *switch_;
+    BOOL editing_;
 }
 
 - (id) init;
-- (void) setSection:(Section *)section;
+- (void) setSection:(Section *)section editing:(BOOL)editing;
 
 - (void) _setSelected:(float)fraction;
 - (void) setSelected:(BOOL)selected;
@@ -2753,8 +2840,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 @implementation SectionCell
 
 - (void) dealloc {
+    if (section_ != nil)
+        [section_ release];
     [name_ release];
     [count_ release];
+    [switch_ release];
     [super dealloc];
 }
 
@@ -2763,7 +2853,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
         GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 12);
 
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 9, 250, 25)];
+        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(0, 0, 0, 0)];
         [name_ setBackgroundColor:Clear_];
         [name_ setFont:bold];
 
@@ -2776,6 +2866,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         UIImageView *folder = [[[UIImageView alloc] initWithFrame:CGRectMake(8, 7, 32, 32)] autorelease];
         [folder setImage:[UIImage applicationImageNamed:@"folder.png"]];
 
+        switch_ = [[UISwitchControl alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
+        [switch_ addTarget:self action:@selector(onSwitch:) forEvents:kUIControlEventMouseUpInside];
+
         [self addSubview:folder];
         [self addSubview:name_];
         [self addSubview:count_];
@@ -2787,15 +2880,46 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     } return self;
 }
 
-- (void) setSection:(Section *)section {
+- (void) onSwitch:(id)sender {
+    NSMutableDictionary *metadata = [Sections_ objectForKey:section_];
+    if (metadata == nil) {
+        metadata = [NSMutableDictionary dictionaryWithCapacity:2];
+        [Sections_ setObject:metadata forKey:section_];
+    }
+
+    Changed_ = true;
+    [metadata setObject:[NSNumber numberWithBool:([switch_ value] == 0)] forKey:@"Hidden"];
+}
+
+- (void) setSection:(Section *)section editing:(BOOL)editing {
+    if (editing != editing_) {
+        if (editing_)
+            [switch_ removeFromSuperview];
+        else
+            [self addSubview:switch_];
+        editing_ = editing;
+    }
+
+    if (section_ != nil) {
+        [section_ release];
+        section_ = nil;
+    }
+
     if (section == nil) {
         [name_ setText:@"All Packages"];
         [count_ setText:nil];
     } else {
-        NSString *name = [section name];
-        [name_ setText:(name == nil ? @"(No Section)" : name)];
+        section_ = [section name];
+        if (section_ != nil)
+            section_ = [section_ retain];
+        [name_ setText:(section_ == nil ? @"(No Section)" : section_)];
         [count_ setText:[NSString stringWithFormat:@"%d", [section count]]];
+
+        if (editing_)
+            [switch_ setValue:isSectionVisible(section_) animated:NO];
     }
+
+    [name_ setFrame:CGRectMake(48, 9, editing_ ? 165 : 250, 25)];
 }
 
 - (void) _setSelected:(float)fraction {
@@ -3027,7 +3151,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
-    if (description_ == nil || group != 0 || row != 1)
+    if (description_ == nil || group != 0 || row != ([package_ author] == nil ? 1 : 2))
         return proposed;
     else
         return [description_ visibleTextRect].size.height + TextViewOffset_;
@@ -3707,8 +3831,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
     if ([frame parentFrame] != nil)
         return;
-    [self setTitle:[error localizedDescription]];
     [self _finishLoading];
+    [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
+        [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"home" ofType:@"html"]] absoluteString],
+        [[error localizedDescription] stringByAddingPercentEscapes]
+    ]]];
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -4082,14 +4209,17 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 /* Install View {{{ */
 @interface InstallView : RVPage {
     _transient Database *database_;
-    NSMutableArray *packages_;
     NSMutableArray *sections_;
+    NSMutableArray *filtered_;
+    UITransitionView *transition_;
     UITable *list_;
     UIView *accessory_;
+    BOOL editing_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
 - (void) reloadData;
+- (void) resetView;
 
 @end
 
@@ -4099,15 +4229,16 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [list_ setDataSource:nil];
     [list_ setDelegate:nil];
 
-    [packages_ release];
     [sections_ release];
+    [filtered_ release];
+    [transition_ release];
     [list_ release];
     [accessory_ release];
     [super dealloc];
 }
 
 - (int) numberOfRowsInTable:(UITable *)table {
-    return [sections_ count] + 1;
+    return editing_ ? [sections_ count] : [filtered_ count] + 1;
 }
 
 - (float) table:(UITable *)table heightForRow:(int)row {
@@ -4117,12 +4248,19 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
     if (reusing == nil)
         reusing = [[[SectionCell alloc] init] autorelease];
-    [(SectionCell *)reusing setSection:(row == 0 ? nil : [sections_ objectAtIndex:(row - 1)])];
+    [(SectionCell *)reusing setSection:(editing_ ?
+        [sections_ objectAtIndex:row] :
+        (row == 0 ? nil : [filtered_ objectAtIndex:(row - 1)])
+    ) editing:editing_];
     return reusing;
 }
 
 - (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
-    return YES;
+    return !editing_;
+}
+
+- (BOOL) table:(UITable *)table canSelectRow:(int)row {
+    return !editing_;
 }
 
 - (void) tableRowSelected:(NSNotification *)notification {
@@ -4139,7 +4277,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         name = nil;
         title = @"All Packages";
     } else {
-        section = [sections_ objectAtIndex:(row - 1)];
+        section = [filtered_ objectAtIndex:(row - 1)];
         name = [section name];
 
         if (name != nil)
@@ -4167,11 +4305,14 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     if ((self = [super initWithBook:book]) != nil) {
         database_ = database;
 
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        filtered_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITable alloc] initWithFrame:[self bounds]];
-        [self addSubview:list_];
+        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
+        [self addSubview:transition_];
+
+        list_ = [[UITable alloc] initWithFrame:[transition_ bounds]];
+        [transition_ transition:0 toView:list_];
 
         UITableColumn *column = [[[UITableColumn alloc]
             initWithTitle:@"Name"
@@ -4192,25 +4333,43 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (void) reloadData {
     NSArray *packages = [database_ packages];
 
-    [packages_ removeAllObjects];
     [sections_ removeAllObjects];
+    [filtered_ removeAllObjects];
+
+    NSMutableArray *filtered = [NSMutableArray arrayWithCapacity:[packages count]];
+    NSMutableDictionary *sections = [NSMutableDictionary dictionaryWithCapacity:32];
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([package valid] && [package installed] == nil)
-            [packages_ addObject:package];
+        NSString *name([package section]);
+
+        if (name != nil) {
+            Section *section([sections objectForKey:name]);
+            if (section == nil) {
+                section = [[[Section alloc] initWithName:name] autorelease];
+                [sections setObject:section forKey:name];
+            }
+        }
+
+        if ([package valid] && [package installed] == nil && [package visible])
+            [filtered addObject:package];
     }
 
-    [packages_ sortUsingSelector:@selector(compareBySection:)];
+    [sections_ addObjectsFromArray:[sections allValues]];
+    [sections_ sortUsingSelector:@selector(compareByName:)];
+
+    [filtered sortUsingSelector:@selector(compareBySection:)];
 
     Section *section = nil;
-    for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
-        Package *package = [packages_ objectAtIndex:offset];
+    for (size_t offset = 0, count = [filtered count]; offset != count; ++offset) {
+        Package *package = [filtered objectAtIndex:offset];
         NSString *name = [package section];
 
         if (section == nil || name != nil && ![[section name] isEqualToString:name]) {
-            section = [[[Section alloc] initWithName:name row:offset] autorelease];
-            [sections_ addObject:section];
+            section = name == nil ?
+                [[[Section alloc] initWithName:nil] autorelease] :
+                [sections objectForKey:name];
+            [filtered_ addObject:section];
         }
 
         [section addToCount];
@@ -4219,16 +4378,36 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [list_ reloadData];
 }
 
+- (void) resetView {
+    if (editing_)
+        [self _rightButtonClicked];
+}
+
 - (void) resetViewAnimated:(BOOL)animated {
     [list_ resetViewAnimated:animated];
 }
 
+- (void) _rightButtonClicked {
+    if ((editing_ = !editing_))
+        [list_ reloadData];
+    else {
+        [delegate_ updateData];
+    }
+
+    [book_ setTitle:[self title] forPage:self];
+    [book_ reloadButtonsForPage:self];
+}
+
 - (NSString *) title {
-    return @"Install";
+    return editing_ ? @"Section Visibility" : @"Install by Section";
 }
 
 - (NSString *) backButtonTitle {
     return @"Sections";
+}
+
+- (NSString *) rightButtonTitle {
+    return [sections_ count] == 0 ? nil : editing_ ? @"Done" : @"Edit";
 }
 
 - (UIView *) accessoryView {
@@ -4352,13 +4531,17 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([package installed] == nil && [package valid] || [package upgradableAndEssential:NO])
+
+        if (
+            [package installed] == nil && [package valid] && [package visible] ||
+            [package upgradableAndEssential:NO]
+        )
             [packages_ addObject:package];
     }
 
     [packages_ sortUsingSelector:@selector(compareForChanges:)];
 
-    Section *upgradable = [[[Section alloc] initWithName:@"Available Upgrades" row:0] autorelease];
+    Section *upgradable = [[[Section alloc] initWithName:@"Available Upgrades"] autorelease];
     Section *section = nil;
 
     upgrades_ = 0;
@@ -4661,7 +4844,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         1, 38}, {17, 18}};
 
         CGRect area;
-        area.origin.x = cnfrect.origin.x + cnfrect.size.width + 14;
+        area.origin.x = /*cnfrect.origin.x + cnfrect.size.width + 4 +*/ 10;
         area.origin.y = 30;
 
         area.size.width =
@@ -4687,12 +4870,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [field_ setPaddingTop:5];
 #endif
 
-#ifndef __OBJC2__
         UITextTraits *traits = [field_ textTraits];
-        [traits setEditingDelegate:self];
-        [traits setReturnKeyType:6];
         [traits setAutoCapsType:0];
         [traits setAutoCorrectionType:1];
+        [traits setReturnKeyType:6];
+
+#ifndef __OBJC2__
+        [traits setEditingDelegate:self];
 #endif
 
         CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height + 30}};
@@ -4700,11 +4884,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         accessory_ = [[UIView alloc] initWithFrame:accrect];
         [accessory_ addSubview:field_];
 
-        UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
+        /*UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
         [configure setShowPressFeedback:YES];
         [configure setImage:[UIImage applicationImageNamed:@"advanced.png"]];
         [configure addTarget:self action:@selector(configurePushed) forEvents:1];
-        [accessory_ addSubview:configure];
+        [accessory_ addSubview:configure];*/
     } return self;
 }
 
@@ -5001,6 +5185,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [Metadata_ setObject:Packages_ forKey:@"Packages"];
     }
 
+    if (Sections_ == nil) {
+        Sections_ = [[NSMutableDictionary alloc] initWithCapacity:32];
+        [Metadata_ setObject:Sections_ forKey:@"Sections"];
+    }
+
     size_t changes(0);
 
     [essential_ removeAllObjects];
@@ -5031,6 +5220,21 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [self removeApplicationBadge];
     }
 
+    [self updateData];
+
+    if ([packages count] == 0);
+    else if (Loaded_)
+        [self _loaded];
+    else {
+        Loaded_ = YES;
+        [book_ update];
+    }
+
+    /*[hud show:NO];
+    [hud removeFromSuperview];*/
+}
+
+- (void) updateData {
     if (Changed_) {
         _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
         Changed_ = false;
@@ -5047,17 +5251,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [search_ reloadData];
 
     [book_ reloadData];
-
-    if ([packages count] == 0);
-    else if (Loaded_)
-        [self _loaded];
-    else {
-        Loaded_ = YES;
-        [book_ update];
-    }
-
-    /*[hud show:NO];
-    [hud removeFromSuperview];*/
 }
 
 - (void) reloadData {
@@ -5250,7 +5443,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     if (tag == tag_) {
         [book_ resetViewAnimated:YES];
         return;
-    }
+    } else if (tag_ == 2 && tag != 2)
+        [install_ resetView];
 
     switch (tag) {
         case 1: [self _setHomePage]; break;
@@ -5284,6 +5478,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         exit(0);
     }
 }
+
+#include "internals.h"
 
 - (void) applicationWillSuspend {
     [database_ clean];
@@ -5339,7 +5535,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             @"install-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:2], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            @"Install", kUIButtonBarButtonTitle,
+            @"Sections", kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -5434,6 +5630,16 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [super applicationSuspend:event];
 }
 
+- (void) _animateSuspension:(BOOL)arg0 duration:(double)arg1 startTime:(double)arg2 scale:(float)arg3 {
+    if (hud_ == nil)
+        [super _animateSuspension:arg0 duration:arg1 startTime:arg2 scale:arg3];
+}
+
+- (void) _setSuspended:(BOOL)value {
+    if (hud_ == nil)
+        [super _setSuspended:value];
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
@@ -5461,14 +5667,16 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [progress_ resetView];
 
-    /*if (
+    if (
         readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL
     ) {
         hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
-        [hud_ setText:@"Reorganizing\nOne Minute!\nPlease Wait...\nDO NOT STOP"];
+        [hud_ setText:@"Reorganizing\n\nWill Restart When Done"];
         [hud_ show:YES];
         [underlay_ addSubview:hud_];
 
@@ -5479,7 +5687,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             toTarget:self
             withObject:nil
         ];
-    } else*/
+    } else
         [self finish];
 }
 
@@ -5635,8 +5843,10 @@ int main(int argc, char *argv[]) {
 
     if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)
         Metadata_ = [[NSMutableDictionary alloc] initWithCapacity:2];
-    else
+    else {
         Packages_ = [Metadata_ objectForKey:@"Packages"];
+        Sections_ = [Metadata_ objectForKey:@"Sections"];
+    }
 
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");

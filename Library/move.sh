@@ -42,7 +42,7 @@ function mv_() {
 }
 
 function shift_() {
-    dir=$1
+    dir=${1%/}
 
     if [[ -d ${dir} && ! -h ${dir} ]]; then
         used=$(du -bs "${dir}")

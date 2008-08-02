@@ -40,6 +40,7 @@
     #define textTraits textInputTraits
     #define setAutoCapsType setAutocapitalizationType
     #define setAutoCorrectionType setAutocorrectionType
+    #define setPreferredKeyboardType setKeyboardType
 #endif
 
 /* #include Directives {{{ */
@@ -267,8 +268,6 @@ class Pcre {
 };
 /* }}} */
 /* Mime Addresses {{{ */
-Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
-
 @interface Address : NSObject {
     NSString *name_;
     NSString *email_;
@@ -306,6 +305,8 @@ Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
     if ((self = [super init]) != nil) {
         const char *data = [string UTF8String];
         size_t size = [string length];
+
+        static Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
 
         if (email_r(data, size)) {
             name_ = [email_r[1] retain];
@@ -429,6 +430,7 @@ static CGColor Black_;
 static CGColor Clear_;
 static CGColor Red_;
 static CGColor White_;
+static CGColor Gray_;
 
 static NSString *Home_;
 static BOOL Sounds_Keyboard_;
@@ -456,9 +458,13 @@ CGColorSpaceRef space_;
 bool bootstrap_;
 bool reload_;
 
+static NSMutableDictionary *SectionMap_;
 static NSMutableDictionary *Metadata_;
-static NSMutableDictionary *Packages_;
-static NSMutableDictionary *Sections_;
+static _transient NSMutableDictionary *Settings_;
+static _transient NSString *Role_;
+static _transient NSMutableDictionary *Packages_;
+static _transient NSMutableDictionary *Sections_;
+static _transient NSMutableDictionary *Sources_;
 static bool Changed_;
 static NSDate *now_;
 
@@ -527,11 +533,19 @@ NSString *Simplify(NSString *title) {
     const char *data = [title UTF8String];
     size_t size = [title length];
 
-    Pcre title_r("^(.*?)( \\(.*\\))?$");
+    static Pcre square_r("^\\[(.*)\\]$");
+    if (square_r(data, size))
+        return Simplify(square_r[1]);
+
+    static Pcre paren_r("^\\((.*)\\)$");
+    if (paren_r(data, size))
+        return Simplify(paren_r[1]);
+
+    static Pcre title_r("^(.*?) \\(.*\\)$");
     if (title_r(data, size))
-        return title_r[1];
-    else
-        return title;
+        return Simplify(title_r[1]);
+
+    return title;
 }
 /* }}} */
 
@@ -577,6 +591,9 @@ bool isSectionVisible(NSString *section) {
 - (void) slideUp:(UIAlertSheet *)alert;
 - (void) distUpgrade;
 - (void) updateData;
+- (void) syncData;
+- (void) askForSettings;
+- (UIProgressHUD *) addProgressHUD;
 @end
 /* }}} */
 
@@ -710,6 +727,7 @@ class Progress :
 - (pkgProblemResolver *) resolver;
 - (pkgAcquire &) fetcher;
 - (NSArray *) packages;
+- (NSArray *) sources;
 - (void) reloadData;
 
 - (void) configure;
@@ -738,23 +756,31 @@ class Progress :
 
     NSString *defaultIcon_;
 
+    NSDictionary *record_;
     BOOL trusted_;
 }
 
 - (Source *) initWithMetaIndex:(metaIndex *)index;
 
+- (NSComparisonResult) compareByNameAndType:(Source *)source;
+
+- (NSDictionary *) record;
 - (BOOL) trusted;
 
 - (NSString *) uri;
 - (NSString *) distribution;
 - (NSString *) type;
+- (NSString *) key;
+- (NSString *) host;
 
+- (NSString *) name;
 - (NSString *) description;
 - (NSString *) label;
 - (NSString *) origin;
 - (NSString *) version;
 
 - (NSString *) defaultIcon;
+
 @end
 
 @implementation Source
@@ -774,6 +800,8 @@ class Progress :
         [version_ release];
     if (defaultIcon_ != nil)
         [defaultIcon_ release];
+    if (record_ != nil)
+        [record_ release];
 
     [super dealloc];
 }
@@ -818,7 +846,38 @@ class Progress :
                     version_ = [[NSString stringWithUTF8String:value.c_str()] retain];
             }
         }
+
+        record_ = [Sources_ objectForKey:[self key]];
+        if (record_ != nil)
+            record_ = [record_ retain];
     } return self;
+}
+
+- (NSComparisonResult) compareByNameAndType:(Source *)source {
+    NSDictionary *lhr = [self record];
+    NSDictionary *rhr = [source record];
+
+    if (lhr != rhr)
+        return lhr == nil ? NSOrderedDescending : NSOrderedAscending;
+
+    NSString *lhs = [self name];
+    NSString *rhs = [source name];
+
+    if ([lhs length] != 0 && [rhs length] != 0) {
+        unichar lhc = [lhs characterAtIndex:0];
+        unichar rhc = [rhs characterAtIndex:0];
+
+        if (isalpha(lhc) && !isalpha(rhc))
+            return NSOrderedAscending;
+        else if (!isalpha(lhc) && isalpha(rhc))
+            return NSOrderedDescending;
+    }
+
+    return [lhs caseInsensitiveCompare:rhs];
+}
+
+- (NSDictionary *) record {
+    return record_;
 }
 
 - (BOOL) trusted {
@@ -837,12 +896,24 @@ class Progress :
     return type_;
 }
 
+- (NSString *) key {
+    return [NSString stringWithFormat:@"%@:%@:%@", type_, uri_, distribution_];
+}
+
+- (NSString *) host {
+    return [[[NSURL URLWithString:[self uri]] host] lowercaseString];
+}
+
+- (NSString *) name {
+    return origin_ == nil ? [self host] : origin_;
+}
+
 - (NSString *) description {
     return description_;
 }
 
 - (NSString *) label {
-    return label_;
+    return label_ == nil ? [self host] : label_;
 }
 
 - (NSString *) origin {
@@ -944,6 +1015,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     Address *sponsor_;
     Address *author_;
     NSArray *tags_;
+    NSString *role_;
 
     NSArray *relationships_;
 }
@@ -986,10 +1058,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSArray *) relationships;
 
 - (Source *) source;
+- (NSString *) role;
 
 - (BOOL) matches:(NSString *)text;
 
-- (bool) hasUsefulPurpose;
+- (bool) hasSupportingRole;
 - (BOOL) hasTag:(NSString *)tag;
 
 - (NSComparisonResult) compareByName:(Package *)package;
@@ -1000,9 +1073,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) install;
 - (void) remove;
 
-- (NSNumber *) isSearchedForBy:(NSString *)search;
+- (NSNumber *) isVisiblySearchedForBy:(NSString *)search;
 - (NSNumber *) isInstalledInSection:(NSString *)section;
-- (NSNumber *) isUninstalledInSection:(NSString *)section;
+- (NSNumber *) isVisiblyUninstalledInSection:(NSString *)section;
+- (NSNumber *) isVisibleInSource:(Source *)source;
 
 @end
 
@@ -1030,6 +1104,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [author_ release];
     if (tags_ != nil)
         [tags_ release];
+    if (role_ != nil)
+        [role_ release];
 
     if (relationships_ != nil)
         [relationships_ release];
@@ -1086,6 +1162,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
                 tags_ = [[tags componentsSeparatedByString:@", "] retain];
         }
 
+        if (tags_ != nil)
+            for (int i(0), e([tags_ count]); i != e; ++i) {
+                NSString *tag = [tags_ objectAtIndex:i];
+                if ([tag hasPrefix:@"role::"]) {
+                    role_ = [[tag substringFromIndex:6] retain];
+                    break;
+                }
+            }
+
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
         if (metadata == nil || [metadata count] == 0) {
             metadata = [NSMutableDictionary dictionaryWithObjectsAndKeys:
@@ -1111,7 +1196,13 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) section {
     const char *section = iterator_.Section();
-    return section == NULL ? nil : [[NSString stringWithUTF8String:section] stringByReplacingCharacter:'_' withCharacter:' '];
+    if (section == NULL)
+        return nil;
+    NSString *key = [[NSString stringWithUTF8String:section] stringByReplacingCharacter:' ' withCharacter:'_'];
+    NSString *value = [SectionMap_ objectForKey:key];
+    if (value == nil)
+        value = key;
+    return [value stringByReplacingCharacter:'_' withCharacter:' '];
 }
 
 - (Address *) maintainer {
@@ -1187,7 +1278,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (BOOL) visible {
     NSString *section = [self section];
-    return [self hasUsefulPurpose] && (section == nil || isSectionVisible(section));
+    return [self hasSupportingRole] && (section == nil || isSectionVisible(section));
 }
 
 - (BOOL) half {
@@ -1285,6 +1376,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return source_;
 }
 
+- (NSString *) role {
+    return role_;
+}
+
 - (BOOL) matches:(NSString *)text {
     if (text == nil)
         return NO;
@@ -1306,27 +1401,22 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return NO;
 }
 
-- (bool) hasUsefulPurpose {
-    if (tags_ == nil)
+- (bool) hasSupportingRole {
+    if (role_ == nil)
         return true;
-    bool purpose(false);
-
-    for (int i(0), e([tags_ count]); i != e; ++i) {
-        NSString *tag = [tags_ objectAtIndex:i];
-        if ([tag hasPrefix:@"purpose::"]) {
-            bool purpose(false);
-            if ([tag isEqualToString:@"purpose::console"]) {
-                return true;
-            } else if ([tag isEqualToString:@"purpose::library"]) {
-                return true;
-            } else if ([tag isEqualToString:@"purpose::x"]) {
-                return true;
-            } else
-                purpose = true;
-        }
-    }
-
-    return !purpose;
+    if ([role_ isEqualToString:@"enduser"])
+        return true;
+    if ([Role_ isEqualToString:@"User"])
+        return false;
+    if ([role_ isEqualToString:@"hacker"])
+        return true;
+    if ([Role_ isEqualToString:@"Hacker"])
+        return false;
+    if ([role_ isEqualToString:@"developer"])
+        return true;
+    if ([Role_ isEqualToString:@"Developer"])
+        return false;
+    _assert(false);
 }
 
 - (BOOL) hasTag:(NSString *)tag {
@@ -1425,22 +1515,29 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [database_ cache]->MarkDelete(iterator_, true);
 }
 
-- (NSNumber *) isSearchedForBy:(NSString *)search {
-    return [NSNumber numberWithBool:([self valid] && [self matches:search])];
+- (NSNumber *) isVisiblySearchedForBy:(NSString *)search {
+    return [NSNumber numberWithBool:([self valid] && [self visible] && [self matches:search])];
 }
 
 - (NSNumber *) isInstalledInSection:(NSString *)section {
     return [NSNumber numberWithBool:([self installed] != nil && (section == nil || [section isEqualToString:[self section]]))];
 }
 
-- (NSNumber *) isUninstalledInSection:(NSString *)name {
+- (NSNumber *) isVisiblyUninstalledInSection:(NSString *)name {
     NSString *section = [self section];
 
-    return [NSNumber numberWithBool:([self valid] && [self installed] == nil && (
-        (name == nil && [self visible] ||
-        section == nil && [name length] == 0 ||
-        [name isEqualToString:section])
-    ))];
+    return [NSNumber numberWithBool:(
+        [self valid] && [self visible] &&
+        [self installed] == nil && (
+            name == nil ||
+            section == nil && [name length] == 0 ||
+            [name isEqualToString:section]
+        )
+    )];
+}
+
+- (NSNumber *) isVisibleInSource:(Source *)source {
+    return [NSNumber numberWithBool:([self source] == source && [self visible])];
 }
 
 @end
@@ -1548,8 +1645,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     std::istream is(&ib);
     std::string line;
 
-    Pcre conffile_r("^status: [^ ]* : conffile-prompt : (.*?) *$");
-    Pcre pmstatus_r("^([^:]*):([^:]*):([^:]*):(.*)$");
+    static Pcre conffile_r("^status: [^ ]* : conffile-prompt : (.*?) *$");
+    static Pcre pmstatus_r("^([^:]*):([^:]*):([^:]*):(.*)$");
 
     while (std::getline(is, line)) {
         const char *data(line.c_str());
@@ -1688,6 +1785,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSArray *) packages {
     return packages_;
+}
+
+- (NSArray *) sources {
+    return [sources_ allValues];
 }
 
 - (void) reloadData {
@@ -2256,8 +2357,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 /* Progress View {{{ */
-Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
-
 @interface ProgressView : UIView <
     ConfigurationDelegate,
     ProgressDelegate
@@ -2403,7 +2502,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [close_ setAutosizesToFit:NO];
         [close_ setDrawsShadow:YES];
         [close_ setStretchBackground:YES];
-        [close_ setTitle:@"Close Window"];
+        [close_ setTitle:@"Return to Cydia"];
         [close_ setEnabled:YES];
 
         GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
@@ -2564,6 +2663,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) _setConfigurationData:(NSString *)data {
+    static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
+
     _assert(conffile_r(data));
 
     NSString *ofile = conffile_r[1];
@@ -2627,11 +2728,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (PackageCell *) init;
 - (void) setPackage:(Package *)package;
 
-- (void) _setSelected:(float)fraction;
-- (void) setSelected:(BOOL)selected;
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
-- (void) _setSelectionFadeFraction:(float)fraction;
-
 + (int) heightForPackage:(Package *)package;
 
 @end
@@ -2653,7 +2749,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 - (PackageCell *) init {
     if ((self = [super init]) != nil) {
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 20);
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 18);
         GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
         GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
 
@@ -2663,7 +2759,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [name_ setBackgroundColor:Clear_];
         [name_ setFont:bold];
 
-        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(58, 28, 225, 20)];
+        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(58, 27, 225, 20)];
         [source_ setBackgroundColor:Clear_];
         [source_ setFont:large];
 
@@ -2681,10 +2777,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [status_ setBackgroundColor:Clear_];
         [status_ setFont:small];
 #endif
-
-        /*[icon_ setImage:[UIImage applicationImageNamed:@"unknown.png"]];
-        [icon_ zoomToScale:0.5];
-        [icon_ setFrame:CGRectMake(10, 10, 30, 30)];*/
 
         [self addSubview:icon_];
         [self addSubview:name_];
@@ -2709,7 +2801,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     if (NSString *icon = [package icon])
         image = [UIImage imageAtPath:[icon substringFromIndex:6]];
     if (image == nil) if (NSString *section = [package section])
-        image = [UIImage applicationImageNamed:[Simplify(section) stringByAppendingString:@".png"]];
+        image = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sections/%@.png", Simplify(section)]];
     /*if (image == nil) if (NSString *icon = [source defaultIcon])
         image = [UIImage imageAtPath:[icon substringFromIndex:6]];*/
     if (image == nil)
@@ -2735,8 +2827,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         trusted = [source trusted];
     } else if ([[package id] isEqualToString:@"firmware"])
         label = @"Apple";
-
-    if (label == nil)
+    else
         label = @"Unknown/Local";
 
     NSString *from = [NSString stringWithFormat:@"from %@", label];
@@ -2833,11 +2924,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (id) init;
 - (void) setSection:(Section *)section editing:(BOOL)editing;
 
-- (void) _setSelected:(float)fraction;
-- (void) setSelected:(BOOL)selected;
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
-- (void) _setSelectionFadeFraction:(float)fraction;
-
 @end
 
 @implementation SectionCell
@@ -2849,6 +2935,32 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [count_ release];
     [switch_ release];
     [super dealloc];
+}
+
+- (void) _setSelected:(float)fraction {
+    CGColor black(space_,
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+    1.0);
+
+    [name_ setColor:black];
+}
+
+- (void) setSelected:(BOOL)selected {
+    [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    if (!fade)
+        [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected withFade:fade];
+}
+
+- (void) _setSelectionFadeFraction:(float)fraction {
+    [self _setSelected:fraction];
+    [super _setSelectionFadeFraction:fraction];
 }
 
 - (id) init {
@@ -2923,32 +3035,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     }
 
     [name_ setFrame:CGRectMake(48, 9, editing_ ? 165 : 250, 25)];
-}
-
-- (void) _setSelected:(float)fraction {
-    CGColor black(space_,
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-    1.0);
-
-    [name_ setColor:black];
-}
-
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
-}
-
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
-}
-
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
 }
 
 @end
@@ -3649,6 +3735,633 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 @end
 /* }}} */
 
+/* Add Source View {{{ */
+@interface AddSourceView : RVPage {
+    _transient Database *database_;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+
+@end
+
+@implementation AddSourceView
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+    } return self;
+}
+
+@end
+/* }}} */
+/* Source Cell {{{ */
+@interface SourceCell : UITableCell {
+    UIImageView *icon_;
+    UITextLabel *origin_;
+    UITextLabel *description_;
+    UITextLabel *label_;
+}
+
+- (void) dealloc;
+
+- (SourceCell *) initWithSource:(Source *)source;
+
+@end
+
+@implementation SourceCell
+
+- (void) dealloc {
+    [origin_ release];
+    [description_ release];
+    [label_ release];
+    [super dealloc];
+}
+
+- (SourceCell *) initWithSource:(Source *)source {
+    if ((self = [super init]) != nil) {
+        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 18);
+        GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
+        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
+
+        icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
+
+        UIImage *image = nil;
+        if (image == nil)
+            image = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
+        if (image == nil)
+            image = [UIImage applicationImageNamed:@"unknown.png"];
+
+        [icon_ setImage:image];
+        [icon_ zoomToScale:0.5];
+        [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
+
+        origin_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 8, 240, 25)];
+        [origin_ setBackgroundColor:Clear_];
+        [origin_ setFont:bold];
+
+        label_ = [[UITextLabel alloc] initWithFrame:CGRectMake(58, 27, 225, 20)];
+        [label_ setBackgroundColor:Clear_];
+        [label_ setFont:large];
+
+        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 46, 280, 20)];
+        [description_ setBackgroundColor:Clear_];
+        [description_ setFont:small];
+
+        [origin_ setText:[source name]];
+        [label_ setText:[source uri]];
+        [description_ setText:[source description]];
+
+        [self addSubview:icon_];
+        [self addSubview:origin_];
+        [self addSubview:description_];
+        [self addSubview:label_];
+
+        CFRelease(small);
+        CFRelease(bold);
+    } return self;
+}
+
+- (void) _setSelected:(float)fraction {
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+
+    float black[] = {
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+        Interpolate(0.0, 1.0, fraction),
+    1.0};
+
+    float blue[] = {
+        Interpolate(0.2, 1.0, fraction),
+        Interpolate(0.2, 1.0, fraction),
+        Interpolate(1.0, 1.0, fraction),
+    1.0};
+
+    float gray[] = {
+        Interpolate(0.4, 1.0, fraction),
+        Interpolate(0.4, 1.0, fraction),
+        Interpolate(0.4, 1.0, fraction),
+    1.0};
+
+    [origin_ setColor:CGColorCreate(space, black)];
+    [label_ setColor:CGColorCreate(space, blue)];
+    [description_ setColor:CGColorCreate(space, gray)];
+}
+
+- (void) setSelected:(BOOL)selected {
+    [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    if (!fade)
+        [self _setSelected:(selected ? 1.0 : 0.0)];
+    [super setSelected:selected withFade:fade];
+}
+
+- (void) _setSelectionFadeFraction:(float)fraction {
+    [self _setSelected:fraction];
+    [super _setSelectionFadeFraction:fraction];
+}
+
+@end
+/* }}} */
+/* Source Table {{{ */
+@interface SourceTable : RVPage {
+    _transient Database *database_;
+    UISectionList *list_;
+    NSMutableArray *sources_;
+    UIAlertSheet *alert_;
+    int offset_;
+
+    NSString *href_;
+    UIProgressHUD *hud_;
+    NSError *error_;
+
+    //NSURLConnection *installer_;
+    NSURLConnection *trivial_bz2_;
+    NSURLConnection *trivial_gz_;
+    //NSURLConnection *automatic_;
+
+    BOOL trivial_;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+
+@end
+
+@implementation SourceTable
+
+- (void) _deallocConnection:(NSURLConnection *)connection {
+    if (connection != nil) {
+        [connection cancel];
+        //[connection setDelegate:nil];
+        [connection release];
+    }
+}
+
+- (void) dealloc {
+    [[list_ table] setDelegate:nil];
+    [list_ setDataSource:nil];
+
+    if (href_ != nil)
+        [href_ release];
+    if (hud_ != nil)
+        [hud_ release];
+    if (error_ != nil)
+        [error_ release];
+
+    //[self _deallocConnection:installer_];
+    [self _deallocConnection:trivial_gz_];
+    [self _deallocConnection:trivial_bz2_];
+    //[self _deallocConnection:automatic_];
+
+    [sources_ release];
+    [list_ release];
+    [super dealloc];
+}
+
+- (int) numberOfSectionsInSectionList:(UISectionList *)list {
+    return offset_ == 0 ? 1 : 2;
+}
+
+- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
+    switch (section + (offset_ == 0 ? 1 : 0)) {
+        case 0: return @"Entered by User";
+        case 1: return @"Installed by Packages";
+
+        default:
+            _assert(false);
+            return nil;
+    }
+}
+
+- (int) sectionList:(UISectionList *)list rowForSection:(int)section {
+    switch (section + (offset_ == 0 ? 1 : 0)) {
+        case 0: return 0;
+        case 1: return offset_;
+
+        default:
+            _assert(false);
+            return -1;
+    }
+}
+
+- (int) numberOfRowsInTable:(UITable *)table {
+    return [sources_ count];
+}
+
+- (float) table:(UITable *)table heightForRow:(int)row {
+    Source *source = [sources_ objectAtIndex:row];
+    return [source description] == nil ? 58 : 73;
+}
+
+- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
+    Source *source = [sources_ objectAtIndex:row];
+    // XXX: weird warning, stupid selectors ;P
+    return [[[SourceCell alloc] initWithSource:(id)source] autorelease];
+}
+
+- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
+    return YES;
+}
+
+- (BOOL) table:(UITable *)table canSelectRow:(int)row {
+    return YES;
+}
+
+- (void) tableRowSelected:(NSNotification*)notification {
+    UITable *table([list_ table]);
+    int row([table selectedRow]);
+    if (row == INT_MAX)
+        return;
+
+    Source *source = [sources_ objectAtIndex:row];
+
+    PackageTable *packages = [[[PackageTable alloc]
+        initWithBook:book_
+        database:database_
+        title:[source label]
+        filter:@selector(isVisibleInSource:)
+        with:source
+    ] autorelease];
+
+    [packages setDelegate:delegate_];
+
+    [book_ pushPage:packages];
+}
+
+- (BOOL) table:(UITable *)table canDeleteRow:(int)row {
+    Source *source = [sources_ objectAtIndex:row];
+    return [source record] != nil;
+}
+
+- (void) table:(UITable *)table willSwipeToDeleteRow:(int)row {
+    [[list_ table] setDeleteConfirmationRow:row];
+}
+
+- (void) table:(UITable *)table deleteRow:(int)row {
+    Source *source = [sources_ objectAtIndex:row];
+    [Sources_ removeObjectForKey:[source key]];
+    [delegate_ syncData];
+}
+
+- (void) _endConnection:(NSURLConnection *)connection {
+    NSURLConnection **field = NULL;
+    if (connection == trivial_bz2_)
+        field = &trivial_bz2_;
+    else if (connection == trivial_gz_)
+        field = &trivial_gz_;
+    _assert(field != NULL);
+    [connection release];
+    *field = nil;
+
+    if (
+        trivial_bz2_ == nil &&
+        trivial_gz_ == nil
+    ) {
+        [delegate_ setStatusBarShowsProgress:NO];
+
+        [hud_ show:NO];
+        [hud_ removeFromSuperview];
+        [hud_ autorelease];
+        hud_ = nil;
+
+        if (trivial_) {
+            [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                @"deb", @"Type",
+                href_, @"URI",
+                @"./", @"Distribution",
+            nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href_]];
+
+            [delegate_ syncData];
+        } else if (error_ != nil) {
+            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+                initWithTitle:@"Verification Error"
+                buttons:[NSArray arrayWithObjects:@"OK", nil]
+                defaultButtonIndex:0
+                delegate:self
+                context:@"urlerror"
+            ] autorelease];
+
+            [sheet setBodyText:[error_ localizedDescription]];
+            [sheet popupAlertAnimated:YES];
+        } else {
+            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+                initWithTitle:@"Did not Find Repository"
+                buttons:[NSArray arrayWithObjects:@"OK", nil]
+                defaultButtonIndex:0
+                delegate:self
+                context:@"trivial"
+            ] autorelease];
+
+            [sheet setBodyText:@"The indicated repository could not be found. This could be because you are trying to add a legacy Installer repository (these are not supported). Also, this interface is only capable of working with exact repository URLs. If you host a repository and are having issues please contact the author of Cydia with any questions you have."];
+            [sheet popupAlertAnimated:YES];
+        }
+
+        [href_ release];
+        href_ = nil;
+
+        if (error_ != nil) {
+            [error_ release];
+            error_ = nil;
+        }
+    }
+}
+
+- (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {
+    switch ([response statusCode]) {
+        case 200:
+            trivial_ = YES;
+    }
+}
+
+- (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
+    fprintf(stderr, "connection:\"%s\" didFailWithError:\"%s\"", [href_ UTF8String], [[error localizedDescription] UTF8String]);
+    if (error_ != nil)
+        error_ = [error retain];
+    [self _endConnection:connection];
+}
+
+- (void) connectionDidFinishLoading:(NSURLConnection *)connection {
+    [self _endConnection:connection];
+}
+
+- (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
+    NSMutableURLRequest *request = [NSMutableURLRequest
+        requestWithURL:[NSURL URLWithString:href]
+        cachePolicy:NSURLRequestUseProtocolCachePolicy
+        timeoutInterval:20.0
+    ];
+
+    [request setHTTPMethod:method];
+
+    return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    NSString *context = [sheet context];
+    if ([context isEqualToString:@"source"])
+        switch (button) {
+            case 1: {
+                NSString *href = [[sheet textField] text];
+
+                //installer_ = [[self _requestHRef:href method:@"GET"] retain];
+
+                if (![href hasSuffix:@"/"])
+                    href_ = [href stringByAppendingString:@"/"];
+                else
+                    href_ = href;
+                href_ = [href_ retain];
+
+                trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
+                trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
+                //trivial_bz2_ = [[self _requestHRef:[href stringByAppendingString:@"dists/Release"] method:@"HEAD"] retain];
+
+                trivial_ = false;
+
+                hud_ = [delegate_ addProgressHUD];
+                [hud_ setText:@"Verifying URL"];
+            } break;
+
+            case 2:
+            break;
+
+            default:
+                _assert(false);
+        }
+
+    [sheet dismiss];
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+        sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
+
+        //list_ = [[UITable alloc] initWithFrame:[self bounds]];
+        list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:NO];
+        [list_ setShouldHideHeaderInShortLists:NO];
+
+        [self addSubview:list_];
+        [list_ setDataSource:self];
+
+        UITableColumn *column = [[UITableColumn alloc]
+            initWithTitle:@"Name"
+            identifier:@"name"
+            width:[self frame].size.width
+        ];
+
+        UITable *table = [list_ table];
+        [table setSeparatorStyle:1];
+        [table addTableColumn:column];
+        [table setDelegate:self];
+
+        [self reloadData];
+    } return self;
+}
+
+- (void) reloadData {
+    pkgSourceList list;
+    _assert(list.ReadMainList());
+
+    [sources_ removeAllObjects];
+    [sources_ addObjectsFromArray:[database_ sources]];
+    [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
+
+    int count = [sources_ count];
+    for (offset_ = 0; offset_ != count; ++offset_) {
+        Source *source = [sources_ objectAtIndex:offset_];
+        if ([source record] == nil)
+            break;
+    }
+
+    [list_ reloadData];
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [list_ resetViewAnimated:animated];
+}
+
+- (void) _leftButtonClicked {
+    /*[book_ pushPage:[[[AddSourceView alloc]
+        initWithBook:book_
+        database:database_
+    ] autorelease]];*/
+
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:@"Enter Cydia/APT URL"
+        buttons:[NSArray arrayWithObjects:@"Add Source", @"Cancel", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"source"
+    ] autorelease];
+
+    [sheet addTextFieldWithValue:@"http://" label:@""];
+
+    UITextTraits *traits = [[sheet textField] textTraits];
+    [traits setAutoCapsType:0];
+    [traits setPreferredKeyboardType:3];
+    [traits setAutoCorrectionType:1];
+
+    [sheet popupAlertAnimated:YES];
+}
+
+- (void) _rightButtonClicked {
+    UITable *table = [list_ table];
+    BOOL editing = [table isRowDeletionEnabled];
+    [table enableRowDeletion:!editing animated:YES];
+    [book_ reloadButtonsForPage:self];
+}
+
+- (NSString *) title {
+    return @"Sources";
+}
+
+- (NSString *) backButtonTitle {
+    return @"Sources";
+}
+
+- (NSString *) leftButtonTitle {
+    return [[list_ table] isRowDeletionEnabled] ? @"Add" : nil;
+}
+
+- (NSString *) rightButtonTitle {
+    return [[list_ table] isRowDeletionEnabled] ? @"Done" : @"Edit";
+}
+
+- (RVUINavBarButtonStyle) rightButtonStyle {
+    return [[list_ table] isRowDeletionEnabled] ? RVUINavBarButtonStyleHighlighted : RVUINavBarButtonStyleNormal;
+}
+
+@end
+/* }}} */
+
+/* Installed View {{{ */
+@interface InstalledView : RVPage {
+    _transient Database *database_;
+    PackageTable *packages_;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database;
+
+@end
+
+@implementation InstalledView
+
+- (void) dealloc {
+    [packages_ release];
+    [super dealloc];
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+
+        packages_ = [[PackageTable alloc]
+            initWithBook:book
+            database:database
+            title:nil
+            filter:@selector(isInstalledInSection:)
+            with:nil
+        ];
+
+        [self addSubview:packages_];
+    } return self;
+}
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [packages_ resetViewAnimated:animated];
+}
+
+- (void) reloadData {
+    [packages_ reloadData];
+}
+
+- (NSString *) title {
+    return @"Installed Packages";
+}
+
+- (NSString *) backButtonTitle {
+    return @"Packages";
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [packages_ setDelegate:delegate];
+}
+
+@end
+/* }}} */
+
+@interface HomeView : BrowserView {
+}
+
+@end
+
+@implementation HomeView
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    [sheet dismiss];
+}
+
+- (void) _leftButtonClicked {
+    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        initWithTitle:@"About Cydia Installer"
+        buttons:[NSArray arrayWithObjects:@"Close", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"about"
+    ] autorelease];
+
+    [sheet setBodyText:
+        @"Copyright (C) 2008\n"
+        "Jay Freeman (saurik)\n"
+        "saurik@saurik.com\n"
+        "http://www.saurik.com/\n"
+        "\n"
+        "The Okori Group\n"
+        "http://www.theokorigroup.com/\n"
+        "\n"
+        "College of Creative Studies,\n"
+        "University of California,\n"
+        "Santa Barbara\n"
+        "http://www.ccs.ucsb.edu/"
+    ];
+
+    [sheet popupAlertAnimated:YES];
+}
+
+- (NSString *) leftButtonTitle {
+    return @"About";
+}
+
+@end
+
+@interface ManageView : BrowserView {
+}
+
+@end
+
+@implementation ManageView
+
+- (NSString *) title {
+    return @"Manage";
+}
+
+- (void) _leftButtonClicked {
+    [delegate_ askForSettings];
+}
+
+- (NSString *) leftButtonTitle {
+    return @"Settings";
+}
+
+- (NSString *) rightButtonTitle {
+    return nil;
+}
+
+@end
+
 /* Browser Implementation {{{ */
 @implementation BrowserView
 
@@ -3671,27 +4384,28 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
-    NSMutableURLRequest *request = [NSMutableURLRequest
+    [self loadRequest:[NSURLRequest
         requestWithURL:url
         cachePolicy:policy
         timeoutInterval:30.0
-    ];
-
-    [request addValue:[NSString stringWithUTF8String:Firmware_] forHTTPHeaderField:@"X-Firmware"];
-    [request addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    [request addValue:[NSString stringWithUTF8String:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
-
-    [self loadRequest:request];
+    ]];
 }
-
 
 - (void) loadURL:(NSURL *)url {
     [self loadURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy];
 }
 
-// XXX: this needs to add the headers
 - (NSURLRequest *) _addHeadersToRequest:(NSURLRequest *)request {
-    return request;
+    NSMutableURLRequest *copy = [request mutableCopy];
+
+    [copy addValue:[NSString stringWithUTF8String:Firmware_] forHTTPHeaderField:@"X-Firmware"];
+    [copy addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    [copy addValue:[NSString stringWithUTF8String:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
+
+    if (Role_ != nil)
+        [copy addValue:Role_ forHTTPHeaderField:@"X-Role"];
+
+    return copy;
 }
 
 - (void) loadRequest:(NSURLRequest *)request {
@@ -3717,6 +4431,26 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [self view:sender didSetFrame:frame];
 }
 
+- (void) pushPage:(RVPage *)page {
+    [self setBackButtonTitle:title_];
+    [page setDelegate:delegate_];
+    [book_ pushPage:page];
+}
+
+- (void) getCydia:(NSString *)href {
+    RVPage *page = nil;
+
+    if ([href isEqualToString:@"cydia://add-source"])
+        page = [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([href isEqualToString:@"cydia://sources"])
+        page = [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([href isEqualToString:@"cydia://packages"])
+        page = [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
+
+    if (page != nil)
+        [self pushPage:page];
+}
+
 - (void) getAppTapp:(NSString *)href {
     if ([href hasPrefix:@"apptapp://package/"]) {
         NSString *name = [href substringFromIndex:18];
@@ -3736,28 +4470,39 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
             [sheet popupAlertAnimated:YES];
         } else {
-            [self setBackButtonTitle:title_];
             PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
-            [view setDelegate:delegate_];
             [view setPackage:package];
-            [book_ pushPage:view];
+            [self pushPage:view];
         }
     }
 }
 
 - (void) webView:(WebView *)sender willClickElement:(id)element {
+    if ([[element localName] isEqualToString:@"img"])
+        do if ((element = [element parentNode]) == nil)
+            return;
+        while (![[element localName] isEqualToString:@"a"]);
     if (![element respondsToSelector:@selector(href)])
         return;
     NSString *href = [element href];
     if (href == nil)
         return;
-    if ([href hasPrefix:@"apptapp://package/"])
+    if ([href hasPrefix:@"cydia://"])
+        [self getCydia:href];
+    if ([href hasPrefix:@"apptapp://"])
         [self getAppTapp:href];
 }
 
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
-    if ([[[request URL] scheme] isEqualToString:@"apptapp"]) {
+    NSString *scheme = [[request URL] scheme];
+
+    if ([scheme isEqualToString:@"apptapp"]) {
         [self getAppTapp:[[request URL] absoluteString]];
+        return nil;
+    }
+
+    if ([scheme isEqualToString:@"cydia"]) {
+        [self getCydia:[[request URL] absoluteString]];
         return nil;
     }
 
@@ -3770,21 +4515,27 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 }
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
-    if (request != nil && [[[request URL] scheme] isEqualToString:@"apptapp"])
-        return nil;
-    else {
-        [self setBackButtonTitle:title_];
+    if (request != nil) {
+        NSString *scheme = [[request URL] scheme];
 
-        BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
-        [browser setDelegate:delegate_];
-
-        if (request != nil) {
-            [browser loadRequest:[self _addHeadersToRequest:request]];
-            [book_ pushPage:browser];
-        }
-
-        return [browser webView];
+        if (
+            [scheme isEqualToString:@"apptapp"] ||
+            [scheme isEqualToString:@"cydia"]
+        )
+            return nil;
     }
+
+    [self setBackButtonTitle:title_];
+
+    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+    [browser setDelegate:delegate_];
+
+    if (request != nil) {
+        [browser loadRequest:[self _addHeadersToRequest:request]];
+        [book_ pushPage:browser];
+    }
+
+    return [browser webView];
 }
 
 - (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
@@ -3835,8 +4586,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     if ([frame parentFrame] != nil)
         return;
     [self _finishLoading];
+
     [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
-        [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"home" ofType:@"html"]] absoluteString],
+        [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
         [[error localizedDescription] stringByAddingPercentEscapes]
     ]]];
 }
@@ -3894,44 +4646,9 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     } return self;
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    [sheet dismiss];
-}
-
-- (void) _leftButtonClicked {
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
-        initWithTitle:@"About Cydia Installer"
-        buttons:[NSArray arrayWithObjects:@"Close", nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:@"about"
-    ] autorelease];
-
-    [sheet setBodyText:
-        @"Copyright (C) 2008\n"
-        "Jay Freeman (saurik)\n"
-        "saurik@saurik.com\n"
-        "http://www.saurik.com/\n"
-        "\n"
-        "The Okori Group\n"
-        "http://www.theokorigroup.com/\n"
-        "\n"
-        "College of Creative Studies,\n"
-        "University of California,\n"
-        "Santa Barbara\n"
-        "http://www.ccs.ucsb.edu/"
-    ];
-
-    [sheet popupAlertAnimated:YES];
-}
-
 - (void) _rightButtonClicked {
     reloading_ = true;
     [self reloadURL];
-}
-
-- (NSString *) leftButtonTitle {
-    return @"About";
 }
 
 - (NSString *) rightButtonTitle {
@@ -3979,235 +4696,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (BOOL) updating;
 
 @end
-
-/* Source Cell {{{ */
-@interface SourceCell : UITableCell {
-    UITextLabel *description_;
-    UIRightTextLabel *label_;
-    UITextLabel *origin_;
-}
-
-- (void) dealloc;
-
-- (SourceCell *) initWithSource:(Source *)source;
-
-- (void) _setSelected:(float)fraction;
-- (void) setSelected:(BOOL)selected;
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade;
-- (void) _setSelectionFadeFraction:(float)fraction;
-
-@end
-
-@implementation SourceCell
-
-- (void) dealloc {
-    [description_ release];
-    [label_ release];
-    [origin_ release];
-    [super dealloc];
-}
-
-- (SourceCell *) initWithSource:(Source *)source {
-    if ((self = [super init]) != nil) {
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 20);
-        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
-
-        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-        float clear[] = {0, 0, 0, 0};
-
-        NSString *description = [source description];
-        if (description == nil)
-            description = [source uri];
-
-        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 7, 270, 25)];
-        [description_ setBackgroundColor:CGColorCreate(space, clear)];
-        [description_ setFont:bold];
-        [description_ setText:description];
-
-        NSString *label = [source label];
-        if (label == nil)
-            label = [source type];
-
-        label_ = [[UIRightTextLabel alloc] initWithFrame:CGRectMake(290, 32, 90, 25)];
-        [label_ setBackgroundColor:CGColorCreate(space, clear)];
-        [label_ setFont:small];
-        [label_ setText:label];
-
-        NSString *origin = [source origin];
-        if (origin == nil)
-            origin = [source distribution];
-
-        origin_ = [[UITextLabel alloc] initWithFrame:CGRectMake(13, 35, 315, 20)];
-        [origin_ setBackgroundColor:CGColorCreate(space, clear)];
-        [origin_ setFont:small];
-        [origin_ setText:origin];
-
-        [self addSubview:description_];
-        [self addSubview:label_];
-        [self addSubview:origin_];
-
-        CFRelease(small);
-        CFRelease(bold);
-    } return self;
-}
-
-- (void) _setSelected:(float)fraction {
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-
-    float black[] = {
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-    1.0};
-
-    float blue[] = {
-        Interpolate(0.2, 1.0, fraction),
-        Interpolate(0.2, 1.0, fraction),
-        Interpolate(1.0, 1.0, fraction),
-    1.0};
-
-    float gray[] = {
-        Interpolate(0.4, 1.0, fraction),
-        Interpolate(0.4, 1.0, fraction),
-        Interpolate(0.4, 1.0, fraction),
-    1.0};
-
-    [description_ setColor:CGColorCreate(space, black)];
-    [label_ setColor:CGColorCreate(space, blue)];
-    [origin_ setColor:CGColorCreate(space, gray)];
-}
-
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
-}
-
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
-}
-
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
-}
-
-@end
-/* }}} */
-/* Source Table {{{ */
-@interface SourceTable : RVPage {
-    _transient Database *database_;
-    UISectionList *list_;
-    NSMutableArray *sources_;
-    UIAlertSheet *alert_;
-}
-
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
-
-@end
-
-@implementation SourceTable
-
-- (void) dealloc {
-    [list_ setDataSource:nil];
-
-    if (sources_ != nil)
-        [sources_ release];
-    [list_ release];
-    [super dealloc];
-}
-
-- (int) numberOfSectionsInSectionList:(UISectionList *)list {
-    return 1;
-}
-
-- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
-    return @"Sources";
-}
-
-- (int) sectionList:(UISectionList *)list rowForSection:(int)section {
-    return 0;
-}
-
-- (int) numberOfRowsInTable:(UITable *)table {
-    return [sources_ count];
-}
-
-- (float) table:(UITable *)table heightForRow:(int)row {
-    return 64;
-}
-
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
-    return [[[SourceCell alloc] initWithSource:[sources_ objectAtIndex:row]] autorelease];
-}
-
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
-    return NO;
-}
-
-- (void) tableRowSelected:(NSNotification*)notification {
-    UITable *table([list_ table]);
-    int row([table selectedRow]);
-    if (row == INT_MAX)
-        return;
-
-    [table selectRow:-1 byExtendingSelection:NO withFade:YES];
-}
-
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
-        database_ = database;
-        sources_ = nil;
-
-        list_ = [[UISectionList alloc] initWithFrame:[self bounds]];
-
-        [self addSubview:list_];
-
-        [list_ setDataSource:self];
-        [list_ setShouldHideHeaderInShortLists:NO];
-
-        UITableColumn *column = [[UITableColumn alloc]
-            initWithTitle:@"Name"
-            identifier:@"name"
-            width:[self frame].size.width
-        ];
-
-        UITable *table = [list_ table];
-        [table setSeparatorStyle:1];
-        [table addTableColumn:column];
-        [table setDelegate:self];
-    } return self;
-}
-
-- (void) reloadData {
-    pkgSourceList list;
-    _assert(list.ReadMainList());
-
-    if (sources_ != nil)
-        [sources_ release];
-
-    sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
-    for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
-        [sources_ addObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]];
-
-    [list_ reloadData];
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [list_ resetViewAnimated:animated];
-}
-
-- (NSString *) leftTitle {
-    return @"Refresh All";
-}
-
-- (NSString *) rightTitle {
-    return @"Edit";
-}
-
-@end
-/* }}} */
 
 /* Install View {{{ */
 @interface InstallView : RVPage {
@@ -4295,7 +4783,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         initWithBook:book_
         database:database_
         title:title
-        filter:@selector(isUninstalledInSection:)
+        filter:@selector(isVisiblyUninstalledInSection:)
         with:name
     ] autorelease];
 
@@ -4614,72 +5102,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
 @end
 /* }}} */
-/* Manage View {{{ */
-@interface ManageView : RVPage {
-    _transient Database *database_;
-    PackageTable *packages_;
-    SourceTable *sources_;
-}
-
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
-
-@end
-
-@implementation ManageView
-
-- (void) dealloc {
-    [packages_ release];
-    [sources_ release];
-    [super dealloc];
-}
-
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
-        database_ = database;
-
-        packages_ = [[PackageTable alloc]
-            initWithBook:book
-            database:database
-            title:nil
-            filter:@selector(isInstalledInSection:)
-            with:nil
-        ];
-
-        sources_ = [[SourceTable alloc]
-            initWithBook:book
-            database:database
-        ];
-
-        [self addSubview:packages_];
-    } return self;
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [packages_ resetViewAnimated:animated];
-    [sources_ resetViewAnimated:animated];
-}
-
-- (void) reloadData {
-    [packages_ reloadData];
-    [sources_ reloadData];
-}
-
-- (NSString *) title {
-    return @"Installed Packages";
-}
-
-- (NSString *) backButtonTitle {
-    return @"Packages";
-}
-
-- (void) setDelegate:(id)delegate {
-    [super setDelegate:delegate];
-    [packages_ setDelegate:delegate];
-    [sources_ setDelegate:delegate];
-}
-
-@end
-/* }}} */
 /* Search View {{{ */
 @protocol SearchViewDelegate
 - (void) showKeyboard:(BOOL)show;
@@ -4833,7 +5255,7 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             initWithBook:book
             database:database
             title:nil
-            filter:@selector(isSearchedForBy:)
+            filter:@selector(isVisiblySearchedForBy:)
             with:nil
         ];
 
@@ -5183,16 +5605,6 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     [database_ reloadData];
 
-    if (Packages_ == nil) {
-        Packages_ = [[NSMutableDictionary alloc] initWithCapacity:128];
-        [Metadata_ setObject:Packages_ forKey:@"Packages"];
-    }
-
-    if (Sections_ == nil) {
-        Sections_ = [[NSMutableDictionary alloc] initWithCapacity:32];
-        [Metadata_ setObject:Sections_ forKey:@"Sections"];
-    }
-
     size_t changes(0);
 
     [essential_ removeAllObjects];
@@ -5237,23 +5649,58 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [hud removeFromSuperview];*/
 }
 
-- (void) updateData {
+- (void) _saveConfig {
     if (Changed_) {
         _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
         Changed_ = false;
     }
+}
+
+- (void) updateData {
+    [self _saveConfig];
 
     /* XXX: this is just stupid */
     if (tag_ != 2)
         [install_ reloadData];
     if (tag_ != 3)
         [changes_ reloadData];
-    if (tag_ != 4)
-        [manage_ reloadData];
     if (tag_ != 5)
         [search_ reloadData];
 
     [book_ reloadData];
+}
+
+- (void) update_ {
+    [database_ update];
+}
+
+- (void) syncData {
+    FILE *file = fopen("/etc/apt/sources.list.d/cydia.list", "w");
+    _assert(file != NULL);
+
+    NSArray *keys = [Sources_ allKeys];
+
+    for (int i(0), e([keys count]); i != e; ++i) {
+        NSString *key = [keys objectAtIndex:i];
+        NSDictionary *source = [Sources_ objectForKey:key];
+
+        fprintf(file, "%s %s %s\n",
+            [[source objectForKey:@"Type"] UTF8String],
+            [[source objectForKey:@"URI"] UTF8String],
+            [[source objectForKey:@"Distribution"] UTF8String]
+        );
+    }
+
+    fclose(file);
+
+    [self _saveConfig];
+
+    [progress_
+        detachNewThreadSelector:@selector(update_)
+        toTarget:self
+        withObject:nil
+        title:@"Updating Sources..."
+    ];
 }
 
 - (void) reloadData {
@@ -5373,72 +5820,20 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     }
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
-    NSString *context = [sheet context];
-    if ([context isEqualToString:@"fixhalf"])
-        switch (button) {
-            case 1:
-                @synchronized (self) {
-                    for (int i = 0, e = [broken_ count]; i != e; ++i) {
-                        Package *broken = [broken_ objectAtIndex:i];
-                        [broken remove];
-
-                        NSString *id = [broken id];
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
-                    }
-
-                    [self resolve];
-                    [self perform];
-                }
-            break;
-
-            case 2:
-                [broken_ removeAllObjects];
-                [self _loaded];
-            break;
-
-            default:
-                _assert(false);
-        }
-    else if ([context isEqualToString:@"upgrade"])
-        switch (button) {
-            case 1:
-                @synchronized (self) {
-                    for (int i = 0, e = [essential_ count]; i != e; ++i) {
-                        Package *essential = [essential_ objectAtIndex:i];
-                        [essential install];
-                    }
-
-                    [self resolve];
-                    [self perform];
-                }
-            break;
-
-            case 2:
-                Ignored_ = YES;
-            break;
-
-            default:
-                _assert(false);
-        }
-
-    [sheet dismiss];
-}
-
 - (void) setPage:(RVPage *)page {
     [page resetViewAnimated:NO];
     [page setDelegate:self];
     [book_ setPage:page];
 }
 
-- (RVPage *) _setHomePage {
-    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
-    [self setPage:browser];
-    [browser loadURL:[NSURL URLWithString:@"http://cydia.saurik.com/"]];
+- (RVPage *) _pageForURL:(NSURL *)url withClass:(Class)_class {
+    BrowserView *browser = [[[_class alloc] initWithBook:book_ database:database_] autorelease];
+    [browser loadURL:url];
     return browser;
+}
+
+- (void) _setHomePage {
+    [self setPage:[self _pageForURL:[NSURL URLWithString:@"http://cydia.saurik.com/"] withClass:[HomeView class]]];
 }
 
 - (void) buttonBarItemTapped:(id)sender {
@@ -5494,6 +5889,23 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     [super applicationWillSuspend];
 }
 
+- (void) askForSettings {
+    UIAlertSheet *role = [[[UIAlertSheet alloc]
+        initWithTitle:@"Who Are You?"
+        buttons:[NSArray arrayWithObjects:
+            @"User (Graphical Only)",
+            @"Hacker (Command Line)",
+            @"Developer (No Filters)",
+        nil]
+        defaultButtonIndex:-1
+        delegate:self
+        context:@"role"
+    ] autorelease];
+
+    [role setBodyText:@"Not all of the packages available via Cydia are designed to be used by all users. Please categorize yourself so that Cydia can apply helpful filters.\n\nThis choice can be changed from \"Settings\" under the \"Manage\" tab."];
+    [role popupAlertAnimated:YES];
+}
+
 - (void) finish {
     if (hud_ != nil) {
         [self setStatusBarShowsProgress:NO];
@@ -5509,6 +5921,11 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
             perror("launchctl stop");
         }
 
+        return;
+    }
+
+    if (Role_ == nil) {
+        [self askForSettings];
         return;
     }
 
@@ -5609,8 +6026,12 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     install_ = [[InstallView alloc] initWithBook:book_ database:database_];
     changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
-    manage_ = [[ManageView alloc] initWithBook:book_ database:database_];
     search_ = [[SearchView alloc] initWithBook:book_ database:database_];
+
+    manage_ = (ManageView *) [[self
+        _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
+        withClass:[ManageView class]
+    ] retain];
 
     if (!bootstrap_)
         [underlay_ addSubview:overlay_];
@@ -5621,6 +6042,86 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
         [self bootstrap];
     else
         [self _setHomePage];
+}
+
+- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+    NSString *context = [sheet context];
+    if ([context isEqualToString:@"fixhalf"])
+        switch (button) {
+            case 1:
+                @synchronized (self) {
+                    for (int i = 0, e = [broken_ count]; i != e; ++i) {
+                        Package *broken = [broken_ objectAtIndex:i];
+                        [broken remove];
+
+                        NSString *id = [broken id];
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
+                    }
+
+                    [self resolve];
+                    [self perform];
+                }
+            break;
+
+            case 2:
+                [broken_ removeAllObjects];
+                [self _loaded];
+            break;
+
+            default:
+                _assert(false);
+        }
+    else if ([context isEqualToString:@"role"]) {
+        switch (button) {
+            case 1: Role_ = @"User"; break;
+            case 2: Role_ = @"Hacker"; break;
+            case 3: Role_ = @"Developer"; break;
+
+            default:
+                Role_ = nil;
+                _assert(false);
+        }
+
+        bool reset = Settings_ != nil;
+
+        Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+            Role_, @"Role",
+        nil];
+
+        [Metadata_ setObject:Settings_ forKey:@"Settings"];
+
+        Changed_ = true;
+
+        if (reset)
+            [self updateData];
+        else
+            [self finish];
+    } else if ([context isEqualToString:@"upgrade"])
+        switch (button) {
+            case 1:
+                @synchronized (self) {
+                    for (int i = 0, e = [essential_ count]; i != e; ++i) {
+                        Package *essential = [essential_ objectAtIndex:i];
+                        [essential install];
+                    }
+
+                    [self resolve];
+                    [self perform];
+                }
+            break;
+
+            case 2:
+                Ignored_ = YES;
+            break;
+
+            default:
+                _assert(false);
+        }
+
+    [sheet dismiss];
 }
 
 - (void) reorganize {
@@ -5643,6 +6144,13 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 - (void) _setSuspended:(BOOL)value {
     if (hud_ == nil)
         [super _setSuspended:value];
+}
+
+- (UIProgressHUD *) addProgressHUD {
+    UIProgressHUD *hud = [[UIProgressHUD alloc] initWithWindow:window_];
+    [hud show:YES];
+    [underlay_ addSubview:hud];
+    return hud;
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -5682,10 +6190,8 @@ Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
     ) {
         [self setIdleTimerDisabled:YES];
 
-        hud_ = [[UIProgressHUD alloc] initWithWindow:window_];
+        hud_ = [self addProgressHUD];
         [hud_ setText:@"Reorganizing\n\nWill Automatically\nRestart When Done"];
-        [hud_ show:YES];
-        [underlay_ addSubview:hud_];
 
         [self setStatusBarShowsProgress:YES];
 
@@ -5851,8 +6357,29 @@ int main(int argc, char *argv[]) {
     if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)
         Metadata_ = [[NSMutableDictionary alloc] initWithCapacity:2];
     else {
+        Settings_ = [Metadata_ objectForKey:@"Settings"];
+
         Packages_ = [Metadata_ objectForKey:@"Packages"];
         Sections_ = [Metadata_ objectForKey:@"Sections"];
+        Sources_ = [Metadata_ objectForKey:@"Sources"];
+    }
+
+    if (Settings_ != nil)
+        Role_ = [Settings_ objectForKey:@"Role"];
+
+    if (Packages_ == nil) {
+        Packages_ = [[[NSMutableDictionary alloc] initWithCapacity:128] autorelease];
+        [Metadata_ setObject:Packages_ forKey:@"Packages"];
+    }
+
+    if (Sections_ == nil) {
+        Sections_ = [[[NSMutableDictionary alloc] initWithCapacity:32] autorelease];
+        [Metadata_ setObject:Sections_ forKey:@"Sections"];
+    }
+
+    if (Sources_ == nil) {
+        Sources_ = [[[NSMutableDictionary alloc] initWithCapacity:0] autorelease];
+        [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
 
     if (access("/User", F_OK) != 0)
@@ -5866,6 +6393,22 @@ int main(int argc, char *argv[]) {
     Clear_.Set(space_, 0.0, 0.0, 0.0, 0.0);
     Red_.Set(space_, 1.0, 0.0, 0.0, 1.0);
     White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
+    Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);
+
+    SectionMap_ = [NSMutableDictionary dictionaryWithCapacity:16]; {
+        std::ifstream fin([[[NSBundle mainBundle] pathForResource:@"sections" ofType:@"txt"] UTF8String]);
+        std::string line;
+        while (std::getline(fin, line)) {
+            size_t space = line.find_first_of(' ');
+            if (space == std::string::npos)
+                continue;
+            [SectionMap_
+                setObject:[NSString stringWithUTF8String:line.substr(space + 1).c_str()]
+                forKey:[NSString stringWithUTF8String:line.substr(0, space).c_str()]
+            ];
+        }
+    }
+
 
     int value = UIApplicationMain(argc, argv, [Cydia class]);
 

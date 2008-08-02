@@ -24,6 +24,14 @@
     return nil;
 }
 
+- (RVUINavBarButtonStyle) leftButtonStyle {
+    return [self leftButtonTitle] == nil ? RVUINavBarButtonStyleBack : RVUINavBarButtonStyleNormal;
+}
+
+- (RVUINavBarButtonStyle) rightButtonStyle {
+    return RVUINavBarButtonStyleNormal;
+}
+
 - (void) _rightButtonClicked {
     [self doesNotRecognizeSelector:_cmd];
 }

@@ -2,6 +2,13 @@
 
 #import <UIKit/UIView.h>
 
+enum RVUINavBarButtonStyle {
+    RVUINavBarButtonStyleNormal,
+    RVUINavBarButtonStyleBack,
+    RVUINavBarButtonStyleHighlighted,
+    RVUINavBarButtonStyleDestructive
+};
+
 @class NSString;
 @class RVBook;
 
@@ -15,6 +22,9 @@
 - (NSString *) rightButtonTitle;
 - (NSString *) leftButtonTitle;
 - (UIView *) accessoryView;
+
+- (RVUINavBarButtonStyle) leftButtonStyle;
+- (RVUINavBarButtonStyle) rightButtonStyle;
 
 - (void) _rightButtonClicked;
 - (void) _leftButtonClicked;

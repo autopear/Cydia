@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<html><head>
+    <title>Manage</title>
+    <meta name="viewport" content="width=320, minimum-scale=1.0, maximum-scale=1.0"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+
+    <style>
+        body {
+            background: url(pinstripe.png);
+            display: table;
+            font-family: Helvetica;
+            height: 337px;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: none;
+            -webkit-user-select: none;
+        }
+
+        div.page {
+            display: table-cell;
+            text-align: center;
+            margin: 0 auto;
+            vertical-align: middle;
+            width: 320px;
+        }
+
+        a.giant-button {
+            color: #193250;
+            display: block;
+            margin: 10px;
+            text-decoration: none;
+        }
+
+        a.giant-button > div.contents {
+            position: absolute;
+            text-align: left;
+            width: 300px;
+            -webkit-background-size: 75px auto;
+            z-index: 2;
+        }
+
+        a.giant-button > div.contents > img {
+            float: left;
+            height: 80px;
+            margin: 10px;
+            width: 80px;
+            vertical-align: middle;
+        }
+
+        a.giant-button > div.contents > label {
+            display: block;
+            float: left;
+            font-size: 30px;
+            margin: 10px 0 4px 4px;
+            text-align: center;
+            text-shadow: rgba(200, 200, 200, 0.75) 1px 1px 0;
+            width: 180px;
+        }
+
+        a.giant-button > div.contents > div {
+            display: block;
+            float: left;
+            font-size: 14px;
+            margin-left: 4px;
+            text-align: center;
+            width: 180px;
+        }
+
+        a.giant-button > div.background {
+            background-color: #000000;
+            height: 98px;
+            opacity: 0.15;
+            -webkit-border-radius: 10px;
+        }
+    </style>
+</head><body><div class="page">
+<div class="dialog">
+    <div class="panel">
+
+<a href="cydia://packages" class="giant-button">
+    <div class="contents">
+        <img src="packages.png"/>
+        <label>Packages</label>
+        <div>View or remove packages you previously installed.</div>
+    </div>
+
+    <div class="background"></div>
+</a>
+
+<a href="cydia://sources" class="giant-button">
+    <div class="contents">
+        <img src="sources.png"/>
+        <label>Sources</label>
+        <div>List current sources and add custom ones you may know.</div>
+    </div>
+
+    <div class="background"></div>
+</a>
+
+<a href="cydia://storage" class="giant-button" style="opacity: 0.4">
+    <div class="contents">
+        <img src="storage.png" class="icon"/>
+        <label>Storage</label>
+        <div>See how much room you have left for new packages.</div>
+    </div>
+
+    <div class="background"></div>
+</a>
+
+    <div style="position: absolute; top: 256px; color: red; margin: 0 auto; font-size: 40px; height: 40px; width: 320px; -webkit-transform:rotate(-10deg); text-shadow: rgba(250, 150, 150, 0.75) 1px 1px 0">Coming Soon!</div>
+
+    </div>
+</div>
+</div></body></html>

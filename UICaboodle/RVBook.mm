@@ -172,8 +172,17 @@
 - (void) reloadButtonsForPage:(RVPage *)page {
     if ([pages_ count] == 0 || page != [pages_ lastObject])
         return;
-    NSString *leftButtonTitle([pages_ count] == 1 ? [page leftButtonTitle] : nil);
-    [navbar_ showButtonsWithLeftTitle:leftButtonTitle rightTitle:[page rightButtonTitle]];
+    NSString *leftButtonTitle([page leftButtonTitle]);
+    RVUINavBarButtonStyle leftButtonStyle = [page leftButtonStyle];
+    RVUINavBarButtonStyle rightButtonStyle = [page rightButtonStyle];
+    //[navbar_ showButtonsWithLeftTitle:leftButtonTitle rightTitle:[page rightButtonTitle] leftBack:(leftButtonTitle == nil)];
+
+    [navbar_
+        showLeftButton:leftButtonTitle
+        withStyle:leftButtonStyle
+        rightButton:[page rightButtonTitle]
+        withStyle:rightButtonStyle
+    ];
 }
 
 - (NSString *) getTitleForPage:(RVPage *)page {

@@ -469,7 +469,7 @@ CGColorSpaceRef space_;
 bool bootstrap_;
 bool reload_;
 
-static NSMutableDictionary *SectionMap_;
+static NSDictionary *SectionMap_;
 static NSMutableDictionary *Metadata_;
 static _transient NSMutableDictionary *Settings_;
 static _transient NSString *Role_;
@@ -1209,11 +1209,17 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     const char *section = iterator_.Section();
     if (section == NULL)
         return nil;
-    NSString *key = [[NSString stringWithUTF8String:section] stringByReplacingCharacter:' ' withCharacter:'_'];
-    NSString *value = [SectionMap_ objectForKey:key];
-    if (value == nil)
-        value = key;
-    return [value stringByReplacingCharacter:'_' withCharacter:' '];
+
+    NSString *name = [[NSString stringWithUTF8String:section] stringByReplacingCharacter:' ' withCharacter:'_'];
+
+  lookup:
+    if (NSDictionary *value = [SectionMap_ objectForKey:name])
+        if (NSString *rename = [value objectForKey:@"Rename"]) {
+            name = rename;
+            goto lookup;
+        }
+
+    return [name stringByReplacingCharacter:'_' withCharacter:' '];
 }
 
 - (Address *) maintainer {
@@ -2737,7 +2743,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UIImageView *badge_;
     UITextLabel *status_;
 #endif
-    BOOL setup_;
 }
 
 - (PackageCell *) init;
@@ -2794,10 +2799,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) setPackage:(Package *)package {
-    /*if (setup_)
-        return;
-    else
-        setup_ = YES;*/
+    [self clearPackage];
 
     Source *source = [package source];
 
@@ -6325,19 +6327,7 @@ int main(int argc, char *argv[]) {
     White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
     Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);
 
-    SectionMap_ = [NSMutableDictionary dictionaryWithCapacity:16]; {
-        std::ifstream fin([[[NSBundle mainBundle] pathForResource:@"sections" ofType:@"txt"] UTF8String]);
-        std::string line;
-        while (std::getline(fin, line)) {
-            size_t space = line.find_first_of(' ');
-            if (space == std::string::npos)
-                continue;
-            [SectionMap_
-                setObject:[NSString stringWithUTF8String:line.substr(space + 1).c_str()]
-                forKey:[NSString stringWithUTF8String:line.substr(0, space).c_str()]
-            ];
-        }
-    }
+    SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
 
     int value = UIApplicationMain(argc, argv, [Cydia class]);
 

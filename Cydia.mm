@@ -3148,10 +3148,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 /* Package View {{{ */
-@protocol PackageViewDelegate
-- (void) performPackage:(Package *)package;
-@end
-
 @interface PackageView : RVPage {
     _transient Database *database_;
     UIPreferencesTable *table_;
@@ -4225,6 +4221,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 
+/* Home View {{{ */
 @interface HomeView : BrowserView {
 }
 
@@ -4268,7 +4265,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 @end
-
+/* }}} */
+/* Manage View {{{ */
 @interface ManageView : BrowserView {
 }
 
@@ -4293,6 +4291,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 @end
+/* }}} */
 
 /* Browser Implementation {{{ */
 @implementation BrowserView

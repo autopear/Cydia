@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# XXX: FIX THIS!!
+architecture=iphoneos-arm
 version=$(sw_vers -productVersion)
 
 if grep '^Package: firmware$' /var/lib/dpkg/status >/dev/null; then
@@ -8,6 +10,9 @@ if grep '^Package: firmware$' /var/lib/dpkg/status >/dev/null; then
             firmware=
         elif [[ ${line} == '' ]]; then
             unset firmware
+        elif [[ ${line} == Architecture:* && "${firmware+@}" ]]; then
+            echo "Architecture: ${architecture}"
+            continue
         elif [[ ${line} == Version:* && "${firmware+@}" ]]; then
             echo "Version: ${version}"
             continue
@@ -24,7 +29,7 @@ Priority: required
 Section: System
 Installed-Size: 0
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
-Architecture: darwin-arm
+Architecture: ${architecture}
 Version: ${version}
 Description: almost impressive Apple frameworks
 Name: iPhone Firmware

@@ -104,6 +104,8 @@ extern "C" {
 @interface UIFont {
 }
 
++ (id)systemFontOfSize:(float)fp8;
++ (id)boldSystemFontOfSize:(float)fp8;
 - (UIFont *) fontWithSize:(CGFloat)size;
 @end
 
@@ -415,6 +417,8 @@ class GSFont {
 @end
 /* }}} */
 
+extern "C" void UISetColor(CGColorRef color);
+
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
 static const int ButtonBarHeight_ = 48;
@@ -425,6 +429,7 @@ static const char * const SpringBoard_ = "/System/Library/LaunchDaemons/com.appl
 #define Cydia_ ""
 #endif
 
+static CGColor Blue_;
 static CGColor Blueish_;
 static CGColor Black_;
 static CGColor Clear_;
@@ -436,8 +441,14 @@ static NSString *Home_;
 static BOOL Sounds_Keyboard_;
 
 static BOOL Advanced_;
-static BOOL Loaded_;
+//static BOOL Loaded_;
 static BOOL Ignored_;
+
+static UIFont *Font12_;
+static UIFont *Font12Bold_;
+static UIFont *Font14_;
+static UIFont *Font18Bold_;
+static UIFont *Font22Bold_;
 
 const char *Firmware_ = NULL;
 const char *Machine_ = NULL;
@@ -1074,7 +1085,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) remove;
 
 - (NSNumber *) isVisiblySearchedForBy:(NSString *)search;
-- (NSNumber *) isInstalledInSection:(NSString *)section;
+- (NSNumber *) isInstalledAndVisible:(NSNumber *)number;
 - (NSNumber *) isVisiblyUninstalledInSection:(NSString *)section;
 - (NSNumber *) isVisibleInSource:(Source *)source;
 
@@ -1516,11 +1527,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSNumber *) isVisiblySearchedForBy:(NSString *)search {
-    return [NSNumber numberWithBool:([self valid] && [self visible] && [self matches:search])];
+    return [NSNumber numberWithBool:(
+        [self valid] && [self visible] && [self matches:search]
+    )];
 }
 
-- (NSNumber *) isInstalledInSection:(NSString *)section {
-    return [NSNumber numberWithBool:([self installed] != nil && (section == nil || [section isEqualToString:[self section]]))];
+- (NSNumber *) isInstalledAndVisible:(NSNumber *)number {
+    return [NSNumber numberWithBool:(
+        (![number boolValue] || [self visible]) && [self installed] != nil
+    )];
 }
 
 - (NSNumber *) isVisiblyUninstalledInSection:(NSString *)name {
@@ -2712,11 +2727,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 /* }}} */
 
 /* Package Cell {{{ */
-@interface PackageCell : UITableCell {
-    UIImageView *icon_;
-    UITextLabel *name_;
-    UITextLabel *description_;
-    UITextLabel *source_;
+@interface PackageCell : UISimpleTableCell {
+    UIImage *icon_;
+    NSString *name_;
+    NSString *description_;
+    NSString *source_;
     //UIImageView *trusted_;
 #ifdef USE_BADGES
     UIImageView *badge_;
@@ -2734,11 +2749,30 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 @implementation PackageCell
 
+- (void) clearPackage {
+    if (icon_ != nil) {
+        [icon_ release];
+        icon_ = nil;
+    }
+
+    if (name_ != nil) {
+        [name_ release];
+        name_ = nil;
+    }
+
+    if (description_ != nil) {
+        [description_ release];
+        description_ = nil;
+    }
+
+    if (source_ != nil) {
+        [source_ release];
+        source_ = nil;
+    }
+}
+
 - (void) dealloc {
-    [icon_ release];
-    [name_ release];
-    [description_ release];
-    [source_ release];
+    [self clearPackage];
 #ifdef USE_BADGES
     [badge_ release];
     [status_ release];
@@ -2749,27 +2783,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (PackageCell *) init {
     if ((self = [super init]) != nil) {
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 18);
-        GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
-        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
-
-        icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
-
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 8, 240, 25)];
-        [name_ setBackgroundColor:Clear_];
-        [name_ setFont:bold];
-
-        source_ = [[UITextLabel alloc] initWithFrame:CGRectMake(58, 27, 225, 20)];
-        [source_ setBackgroundColor:Clear_];
-        [source_ setFont:large];
-
-        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 46, 280, 20)];
-        [description_ setBackgroundColor:Clear_];
-        [description_ setFont:small];
-
-        /*trusted_ = [[UIImageView alloc] initWithFrame:CGRectMake(30, 30, 16, 16)];
-        [trusted_ setImage:[UIImage applicationImageNamed:@"trusted.png"]];*/
-
 #ifdef USE_BADGES
         badge_ = [[UIImageView alloc] initWithFrame:CGRectMake(17, 70, 16, 16)];
 
@@ -2777,15 +2790,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [status_ setBackgroundColor:Clear_];
         [status_ setFont:small];
 #endif
-
-        [self addSubview:icon_];
-        [self addSubview:name_];
-        [self addSubview:description_];
-        [self addSubview:source_];
-
-        CFRelease(small);
-        CFRelease(large);
-        CFRelease(bold);
     } return self;
 }
 
@@ -2797,27 +2801,20 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     Source *source = [package source];
 
-    UIImage *image = nil;
+    icon_ = nil;
     if (NSString *icon = [package icon])
-        image = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (image == nil) if (NSString *section = [package section])
-        image = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sections/%@.png", Simplify(section)]];
-    /*if (image == nil) if (NSString *icon = [source defaultIcon])
-        image = [UIImage imageAtPath:[icon substringFromIndex:6]];*/
-    if (image == nil)
-        image = [UIImage applicationImageNamed:@"unknown.png"];
-    [icon_ setImage:image];
+        icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (icon_ == nil) if (NSString *section = [package section])
+        icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sections/%@.png", Simplify(section)]];
+    /*if (icon_ == nil) if (NSString *icon = [source defaultIcon])
+        icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];*/
+    if (icon_ == nil)
+        icon_ = [UIImage applicationImageNamed:@"unknown.png"];
 
-    /*if (image != nil) {
-        CGSize size = [image size];
-        float scale = 30 / std::max(size.width, size.height);
-        [icon_ zoomToScale:scale];
-    }*/
+    icon_ = [icon_ retain];
 
-    [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
-
-    [name_ setText:[package name]];
-    [description_ setText:[package tagline]];
+    name_ = [[package name] retain];
+    description_ = [[package tagline] retain];
 
     NSString *label = nil;
     bool trusted = false;
@@ -2836,7 +2833,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if (section != nil && ![section isEqualToString:label])
         from = [from stringByAppendingString:[NSString stringWithFormat:@" (%@)", section]];
 
-    [source_ setText:from];
+    source_ = [from retain];
 
 #ifdef USE_BADGES
     [badge_ removeFromSuperview];
@@ -2865,43 +2862,28 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 #endif
 }
 
-- (void) _setSelected:(float)fraction {
-    CGColor black(space_,
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-    1.0);
+- (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
+    if (icon_ != nil)
+        [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
 
-    CGColor gray(space_,
-        Interpolate(0.4, 1.0, fraction),
-        Interpolate(0.4, 1.0, fraction),
-        Interpolate(0.4, 1.0, fraction),
-    1.0);
+    if (selected)
+        UISetColor(White_);
 
-    [name_ setColor:black];
-    [description_ setColor:gray];
-    [source_ setColor:black];
-}
+    if (!selected)
+        UISetColor(Black_);
+    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:240 withFont:Font18Bold_ ellipsis:2];
+    [source_ drawAtPoint:CGPointMake(58, 29) forWidth:225 withFont:Font12_ ellipsis:2];
 
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
-}
+    if (!selected)
+        UISetColor(Gray_);
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
 
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
-}
-
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
+    [super drawContentInRect:rect selected:selected];
 }
 
 + (int) heightForPackage:(Package *)package {
     NSString *tagline([package tagline]);
-    int height = tagline == nil || [tagline length] == 0 ? -15 : 0;
+    int height = tagline == nil || [tagline length] == 0 ? -17 : 0;
 #ifdef USE_BADGES
     if ([package hasMode] || [package half])
         return height + 96;
@@ -2913,10 +2895,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 /* Section Cell {{{ */
-@interface SectionCell : UITableCell {
+@interface SectionCell : UISimpleTableCell {
     NSString *section_;
-    UITextLabel *name_;
-    UITextLabel *count_;
+    NSString *name_;
+    NSString *count_;
+    UIImage *icon_;
     UISwitchControl *switch_;
     BOOL editing_;
 }
@@ -2928,70 +2911,36 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 @implementation SectionCell
 
-- (void) dealloc {
-    if (section_ != nil)
+- (void) clearSection {
+    if (section_ != nil) {
         [section_ release];
-    [name_ release];
-    [count_ release];
+        section_ = nil;
+    }
+
+    if (name_ != nil) {
+        [name_ release];
+        name_ = nil;
+    }
+
+    if (count_ != nil) {
+        [count_ release];
+        count_ = nil;
+    }
+}
+
+- (void) dealloc {
+    [self clearSection];
+    [icon_ release];
     [switch_ release];
     [super dealloc];
 }
 
-- (void) _setSelected:(float)fraction {
-    CGColor black(space_,
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-    1.0);
-
-    [name_ setColor:black];
-}
-
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
-}
-
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
-}
-
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
-}
-
 - (id) init {
     if ((self = [super init]) != nil) {
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
-        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 12);
-
-        name_ = [[UITextLabel alloc] initWithFrame:CGRectMake(0, 0, 0, 0)];
-        [name_ setBackgroundColor:Clear_];
-        [name_ setFont:bold];
-
-        count_ = [[UITextLabel alloc] initWithFrame:CGRectMake(11, 7, 29, 32)];
-        [count_ setCentersHorizontally:YES];
-        [count_ setBackgroundColor:Clear_];
-        [count_ setFont:small];
-        [count_ setColor:White_];
-
-        UIImageView *folder = [[[UIImageView alloc] initWithFrame:CGRectMake(8, 7, 32, 32)] autorelease];
-        [folder setImage:[UIImage applicationImageNamed:@"folder.png"]];
+        icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
 
         switch_ = [[UISwitchControl alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:kUIControlEventMouseUpInside];
-
-        [self addSubview:folder];
-        [self addSubview:name_];
-        [self addSubview:count_];
-
-        [self _setSelected:0];
-
-        CFRelease(small);
-        CFRelease(bold);
     } return self;
 }
 
@@ -3015,26 +2964,40 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         editing_ = editing;
     }
 
-    if (section_ != nil) {
-        [section_ release];
-        section_ = nil;
-    }
+    [self clearSection];
 
     if (section == nil) {
-        [name_ setText:@"All Packages"];
-        [count_ setText:nil];
+        name_ = [@"All Packages" retain];
+        count_ = nil;
     } else {
         section_ = [section name];
         if (section_ != nil)
             section_ = [section_ retain];
-        [name_ setText:(section_ == nil ? @"(No Section)" : section_)];
-        [count_ setText:[NSString stringWithFormat:@"%d", [section count]]];
+        name_  = [(section_ == nil ? @"(No Section)" : section_) retain];
+        count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
 
         if (editing_)
             [switch_ setValue:isSectionVisible(section_) animated:NO];
     }
+}
 
-    [name_ setFrame:CGRectMake(48, 9, editing_ ? 165 : 250, 25)];
+- (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
+    [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
+
+    if (selected)
+        UISetColor(White_);
+
+    if (!selected)
+        UISetColor(Black_);
+    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(editing_ ? 164 : 250) withFont:Font22Bold_ ellipsis:2];
+
+    CGSize size = [count_ sizeWithFont:Font14_];
+
+    UISetColor(White_);
+    if (count_ != nil)
+        [count_ drawAtPoint:CGPointMake(12 + (29 - size.width) / 2, 15) withFont:Font12Bold_];
+
+    [super drawContentInRect:rect selected:selected];
 }
 
 @end
@@ -3756,10 +3719,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 /* }}} */
 /* Source Cell {{{ */
 @interface SourceCell : UITableCell {
-    UIImageView *icon_;
-    UITextLabel *origin_;
-    UITextLabel *description_;
-    UITextLabel *label_;
+    UIImage *icon_;
+    NSString *origin_;
+    NSString *description_;
+    NSString *label_;
 }
 
 - (void) dealloc;
@@ -3771,6 +3734,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @implementation SourceCell
 
 - (void) dealloc {
+    [icon_ release];
     [origin_ release];
     [description_ release];
     [label_ release];
@@ -3779,88 +3743,38 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (SourceCell *) initWithSource:(Source *)source {
     if ((self = [super init]) != nil) {
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 18);
-        GSFontRef large = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
-        GSFontRef small = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 14);
+        if (icon_ == nil)
+            icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
+        if (icon_ == nil)
+            icon_ = [UIImage applicationImageNamed:@"unknown.png"];
+        icon_ = [icon_ retain];
 
-        icon_ = [[UIImageView alloc] initWithFrame:CGRectMake(10, 10, 30, 30)];
-
-        UIImage *image = nil;
-        if (image == nil)
-            image = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
-        if (image == nil)
-            image = [UIImage applicationImageNamed:@"unknown.png"];
-
-        [icon_ setImage:image];
-        [icon_ zoomToScale:0.5];
-        [icon_ setFrame:CGRectMake(10, 10, 30, 30)];
-
-        origin_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 8, 240, 25)];
-        [origin_ setBackgroundColor:Clear_];
-        [origin_ setFont:bold];
-
-        label_ = [[UITextLabel alloc] initWithFrame:CGRectMake(58, 27, 225, 20)];
-        [label_ setBackgroundColor:Clear_];
-        [label_ setFont:large];
-
-        description_ = [[UITextLabel alloc] initWithFrame:CGRectMake(12, 46, 280, 20)];
-        [description_ setBackgroundColor:Clear_];
-        [description_ setFont:small];
-
-        [origin_ setText:[source name]];
-        [label_ setText:[source uri]];
-        [description_ setText:[source description]];
-
-        [self addSubview:icon_];
-        [self addSubview:origin_];
-        [self addSubview:description_];
-        [self addSubview:label_];
-
-        CFRelease(small);
-        CFRelease(bold);
+        origin_ = [[source name] retain];
+        label_ = [[source uri] retain];
+        description_ = [[source description] retain];
     } return self;
 }
 
-- (void) _setSelected:(float)fraction {
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+- (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
+    if (icon_ != nil)
+        [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
 
-    float black[] = {
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-        Interpolate(0.0, 1.0, fraction),
-    1.0};
+    if (selected)
+        UISetColor(White_);
 
-    float blue[] = {
-        Interpolate(0.2, 1.0, fraction),
-        Interpolate(0.2, 1.0, fraction),
-        Interpolate(1.0, 1.0, fraction),
-    1.0};
+    if (!selected)
+        UISetColor(Black_);
+    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:240 withFont:Font18Bold_ ellipsis:2];
 
-    float gray[] = {
-        Interpolate(0.4, 1.0, fraction),
-        Interpolate(0.4, 1.0, fraction),
-        Interpolate(0.4, 1.0, fraction),
-    1.0};
+    if (!selected)
+        UISetColor(Blue_);
+    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:225 withFont:Font12_ ellipsis:2];
 
-    [origin_ setColor:CGColorCreate(space, black)];
-    [label_ setColor:CGColorCreate(space, blue)];
-    [description_ setColor:CGColorCreate(space, gray)];
-}
+    if (!selected)
+        UISetColor(Gray_);
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
 
-- (void) setSelected:(BOOL)selected {
-    [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected];
-}
-
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    if (!fade)
-        [self _setSelected:(selected ? 1.0 : 0.0)];
-    [super setSelected:selected withFade:fade];
-}
-
-- (void) _setSelectionFadeFraction:(float)fraction {
-    [self _setSelected:fraction];
-    [super _setSelectionFadeFraction:fraction];
+    [super drawContentInRect:rect selected:selected];
 }
 
 @end
@@ -3952,7 +3866,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 - (float) table:(UITable *)table heightForRow:(int)row {
     Source *source = [sources_ objectAtIndex:row];
-    return [source description] == nil ? 58 : 73;
+    return [source description] == nil ? 56 : 73;
 }
 
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
@@ -4240,6 +4154,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @interface InstalledView : RVPage {
     _transient Database *database_;
     PackageTable *packages_;
+    BOOL expert_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -4261,8 +4176,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             initWithBook:book
             database:database
             title:nil
-            filter:@selector(isInstalledInSection:)
-            with:nil
+            filter:@selector(isInstalledAndVisible:)
+            with:[NSNumber numberWithBool:YES]
         ];
 
         [self addSubview:packages_];
@@ -4277,12 +4192,27 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [packages_ reloadData];
 }
 
+- (void) _rightButtonClicked {
+    [packages_ setObject:[NSNumber numberWithBool:expert_]];
+    [packages_ reloadData];
+    expert_ = !expert_;
+    [book_ reloadButtonsForPage:self];
+}
+
 - (NSString *) title {
-    return @"Installed Packages";
+    return @"Installed";
 }
 
 - (NSString *) backButtonTitle {
     return @"Packages";
+}
+
+- (NSString *) rightButtonTitle {
+    return Role_ != nil && [Role_ isEqualToString:@"Developer"] ? nil : expert_ ? @"Expert" : @"Simple";
+}
+
+- (RVUINavBarButtonStyle) rightButtonStyle {
+    return expert_ ? RVUINavBarButtonStyleHighlighted : RVUINavBarButtonStyleNormal;
 }
 
 - (void) setDelegate:(id)delegate {
@@ -4437,25 +4367,25 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [book_ pushPage:page];
 }
 
-- (void) getCydia:(NSString *)href {
+- (void) getSpecial:(NSString *)href {
     RVPage *page = nil;
 
-    if ([href isEqualToString:@"cydia://add-source"])
+    if ([href hasPrefix:@"mailto:"])
+        [delegate_ openURL:[NSURL URLWithString:href]];
+    else if ([href isEqualToString:@"cydia://add-source"])
         page = [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://sources"])
         page = [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://packages"])
         page = [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
-
-    if (page != nil)
-        [self pushPage:page];
-}
-
-- (void) getAppTapp:(NSString *)href {
-    if ([href hasPrefix:@"apptapp://package/"]) {
+    else if ([href hasPrefix:@"apptapp://package/"]) {
         NSString *name = [href substringFromIndex:18];
-        Package *package = [database_ packageWithName:name];
-        if (package == nil) {
+
+        if (Package *package = [database_ packageWithName:name]) {
+            PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+            [view setPackage:package];
+            page = view;
+        } else {
             UIAlertSheet *sheet = [[[UIAlertSheet alloc]
                 initWithTitle:@"Cannot Locate Package"
                 buttons:[NSArray arrayWithObjects:@"Close", nil]
@@ -4469,12 +4399,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             , name]];
 
             [sheet popupAlertAnimated:YES];
-        } else {
-            PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
-            [view setPackage:package];
-            [self pushPage:view];
         }
     }
+
+    if (page != nil)
+        [self pushPage:page];
 }
 
 - (void) webView:(WebView *)sender willClickElement:(id)element {
@@ -4487,22 +4416,20 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSString *href = [element href];
     if (href == nil)
         return;
-    if ([href hasPrefix:@"cydia://"])
-        [self getCydia:href];
-    if ([href hasPrefix:@"apptapp://"])
-        [self getAppTapp:href];
+    [self getSpecial:href];
+}
+
+- (BOOL) isSpecialScheme:(NSString *)scheme {
+    return
+        [scheme isEqualToString:@"apptapp"] ||
+        [scheme isEqualToString:@"cydia"] ||
+        [scheme isEqualToString:@"mailto"];
 }
 
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
-    NSString *scheme = [[request URL] scheme];
-
-    if ([scheme isEqualToString:@"apptapp"]) {
-        [self getAppTapp:[[request URL] absoluteString]];
-        return nil;
-    }
-
-    if ([scheme isEqualToString:@"cydia"]) {
-        [self getCydia:[[request URL] absoluteString]];
+    NSURL *url = [request URL];
+    if ([self isSpecialScheme:[url scheme]]) {
+        [self getSpecial:[url absoluteString]];
         return nil;
     }
 
@@ -4517,11 +4444,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
     if (request != nil) {
         NSString *scheme = [[request URL] scheme];
-
-        if (
-            [scheme isEqualToString:@"apptapp"] ||
-            [scheme isEqualToString:@"cydia"]
-        )
+        if ([self isSpecialScheme:scheme])
             return nil;
     }
 
@@ -5093,7 +5016,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (NSString *) rightButtonTitle {
-    return upgrades_ == 0 ? nil : [NSString stringWithFormat:@"Upgrade All (%u)", upgrades_];
+    return upgrades_ == 0 ? nil : [NSString stringWithFormat:@"Upgrade (%u)", upgrades_];
 }
 
 - (NSString *) title {
@@ -5637,13 +5560,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [self updateData];
 
-    if ([packages count] == 0);
-    else if (Loaded_)
+    /*if ([packages count] == 0);
+    else if (Loaded_)*/
         [self _loaded];
-    else {
+    /*else {
         Loaded_ = YES;
         [book_ update];
-    }
+    }*/
 
     /*[hud show:NO];
     [hud removeFromSuperview];*/
@@ -5894,7 +5817,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         initWithTitle:@"Who Are You?"
         buttons:[NSArray arrayWithObjects:
             @"User (Graphical Only)",
-            @"Hacker (Command Line)",
+            @"Hacker (+ Command Line)",
             @"Developer (No Filters)",
         nil]
         defaultButtonIndex:-1
@@ -6154,6 +6077,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
+    Font12_ = [[UIFont systemFontOfSize:12] retain];
+    Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
+    Font14_ = [[UIFont systemFontOfSize:14] retain];
+    Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
+    Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
+
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
 
@@ -6166,9 +6095,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
     window_ = [[UIWindow alloc] initWithContentRect:screenrect];
 
-    [window_ orderFront: self];
-    [window_ makeKey: self];
-    [window_ _setHidden: NO];
+    [window_ orderFront:self];
+    [window_ makeKey:self];
+    [window_ _setHidden:NO];
 
     database_ = [[Database alloc] init];
     progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
@@ -6388,6 +6317,7 @@ int main(int argc, char *argv[]) {
     Locale_ = CFLocaleCopyCurrent();
     space_ = CGColorSpaceCreateDeviceRGB();
 
+    Blue_.Set(space_, 0.2, 0.2, 1.0, 1.0);
     Blueish_.Set(space_, 0x19/255.f, 0x32/255.f, 0x50/255.f, 1.0);
     Black_.Set(space_, 0.0, 0.0, 0.0, 1.0);
     Clear_.Set(space_, 0.0, 0.0, 0.0, 0.0);
@@ -6408,7 +6338,6 @@ int main(int argc, char *argv[]) {
             ];
         }
     }
-
 
     int value = UIApplicationMain(argc, argv, [Cydia class]);
 

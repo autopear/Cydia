@@ -3,4 +3,4 @@ set -e
 Cydia=$(dirname "$0")
 rsync -SPaz saurik@carrier.saurik.com:menes/cydia/Cydia "${Cydia}"/Cydia_
 chmod +s "${Cydia}"/Cydia_
-NSZombieEnabled=YES su -c "${Cydia}"/Cydia_ mobile
+#NSZombieEnabled=YES su -c "${Cydia}"/Cydia_ mobile

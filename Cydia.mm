@@ -437,10 +437,6 @@ static const int ButtonBarHeight_ = 48;
 static const float KeyboardTime_ = 0.3f;
 static const char * const SpringBoard_ = "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist";
 
-#ifndef Cydia_
-#define Cydia_ ""
-#endif
-
 static CGColor Blue_;
 static CGColor Blueish_;
 static CGColor Black_;
@@ -1670,6 +1666,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 @end
 /* }}} */
 
+int Finish_;
+NSArray *Finishes_;
+
 /* Database Implementation {{{ */
 @implementation Database
 
@@ -1685,10 +1684,19 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     std::istream is(&ib);
     std::string line;
 
+    static Pcre finish_r("^finish:([^:]*)$");
+
     while (std::getline(is, line)) {
         const char *data(line.c_str());
-        //size_t size = line.size();
+        size_t size = line.size();
         fprintf(stderr, "C:%s\n", data);
+
+        if (finish_r(data, size)) {
+            NSString *finish = finish_r[1];
+            int index = [Finishes_ indexOfObject:finish];
+            if (index != INT_MAX && index > Finish_)
+                Finish_ = index;
+        }
     }
 
     [pool release];
@@ -1785,7 +1793,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         cydiafd_ = fds[1];
 
         _config->Set("APT::Keep-Fds::", cydiafd_);
-        setenv("CYDIA", [[[[NSNumber numberWithInt:cydiafd_] stringValue] stringByAppendingString:@" 0"] UTF8String], _not(int));
+        setenv("CYDIA", [[[[NSNumber numberWithInt:cydiafd_] stringValue] stringByAppendingString:@" 1"] UTF8String], _not(int));
 
         [NSThread
             detachNewThreadSelector:@selector(_readCydia:)
@@ -2559,7 +2567,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [close_ setAutosizesToFit:NO];
         [close_ setDrawsShadow:YES];
         [close_ setStretchBackground:YES];
-        [close_ setTitle:@"Return to Cydia"];
         [close_ setEnabled:YES];
 
         GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
@@ -2603,8 +2610,28 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) closeButtonPushed {
-    [delegate_ progressViewIsComplete:self];
-    [self resetView];
+    switch (Finish_) {
+        case 0:
+            [delegate_ progressViewIsComplete:self];
+           [self resetView];
+        break;
+
+        case 1:
+            [delegate_ suspendWithAnimation:YES];
+        break;
+
+        case 2:
+            system("killall SpringBoard");
+        break;
+
+        case 3:
+            system("launchctl unload /System/Library/LaunchDaemons/com.apple.SpringBoard.plist; launchctl load /System/Library/LaunchDaemons/com.apple.SpringBoard.plist");
+        break;
+
+        case 4:
+            system("reboot");
+        break;
+    }
 }
 
 - (void) _retachThread {
@@ -2614,6 +2641,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [overlay_ addSubview:close_];
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
+
+    switch (Finish_) {
+        case 0: [close_ setTitle:@"Return to Cydia"]; break;
+        case 1: [close_ setTitle:@"Close Cydia (Restart)"]; break;
+        case 2: [close_ setTitle:@"Restart SpringBoard"]; break;
+        case 3: [close_ setTitle:@"Reload SpringBoard"]; break;
+        case 4: [close_ setTitle:@"Reboot Device"]; break;
+    }
 
 #ifdef __OBJC2__
     notify_post("com.apple.mobile.application_installed");
@@ -3230,8 +3265,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    _trace();
-    NSLog(@"%@", package_);
     [window setValue:package_ forKey:@"package"];
 }
 
@@ -6131,6 +6164,8 @@ int main(int argc, char *argv[]) {
     Red_.Set(space_, 1.0, 0.0, 0.0, 1.0);
     White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
     Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);
+
+    Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
     SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
 

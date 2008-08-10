@@ -79,6 +79,14 @@ $(function () {
         $("#maintainer-link").href("mailto:" + maintainer.address + "?subject=" + regarding);
     }
 
+    var sponsor = package.maintainer;
+    if (sponsor == null)
+        $(".sponsor").remove();
+    else {
+        $("#sponsor").html(sponsor.name);
+        $("#sponsor-link").href(sponsor.address);
+    }
+
     var source = package.source;
     if (source == null)
         $(".source").remove();

@@ -272,11 +272,11 @@ class Pcre {
 /* Mime Addresses {{{ */
 @interface Address : NSObject {
     NSString *name_;
-    NSString *email_;
+    NSString *address_;
 }
 
 - (NSString *) name;
-- (NSString *) email;
+- (NSString *) address;
 
 + (Address *) addressWithString:(NSString *)string;
 - (Address *) initWithString:(NSString *)string;
@@ -286,8 +286,8 @@ class Pcre {
 
 - (void) dealloc {
     [name_ release];
-    if (email_ != nil)
-        [email_ release];
+    if (address_ != nil)
+        [address_ release];
     [super dealloc];
 }
 
@@ -295,12 +295,24 @@ class Pcre {
     return name_;
 }
 
-- (NSString *) email {
-    return email_;
+- (NSString *) address {
+    return address_;
 }
 
 + (Address *) addressWithString:(NSString *)string {
     return [[[Address alloc] initWithString:string] autorelease];
+}
+
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:@"address", @"name", nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
 - (Address *) initWithString:(NSString *)string {
@@ -308,11 +320,11 @@ class Pcre {
         const char *data = [string UTF8String];
         size_t size = [string length];
 
-        static Pcre email_r("^\"?(.*)\"? <([^>]*)>$");
+        static Pcre address_r("^\"?(.*)\"? <([^>]*)>$");
 
-        if (email_r(data, size)) {
-            name_ = [email_r[1] retain];
-            email_ = [email_r[2] retain];
+        if (address_r(data, size)) {
+            name_ = [address_r[1] retain];
+            address_ = [address_r[2] retain];
         } else {
             name_ = [[NSString alloc]
                 initWithBytes:data
@@ -320,7 +332,7 @@ class Pcre {
                 encoding:kCFStringEncodingUTF8
             ];
 
-            email_ = nil;
+            address_ = nil;
         }
     } return self;
 }
@@ -441,7 +453,7 @@ static NSString *Home_;
 static BOOL Sounds_Keyboard_;
 
 static BOOL Advanced_;
-//static BOOL Loaded_;
+static BOOL Loaded_;
 static BOOL Ignored_;
 
 static UIFont *Font12_;
@@ -817,6 +829,18 @@ class Progress :
     [super dealloc];
 }
 
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:@"description", @"distribution", @"host", @"key", @"label", @"name", @"origin", @"trusted", @"type", @"uri", @"version", nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
 - (Source *) initWithMetaIndex:(metaIndex *)index {
     if ((self = [super init]) != nil) {
         trusted_ = index->IsTrusted();
@@ -1022,7 +1046,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *name_;
     NSString *tagline_;
     NSString *icon_;
-    NSString *website_;
+    NSString *homepage_;
     Address *sponsor_;
     Address *author_;
     NSArray *tags_;
@@ -1063,7 +1087,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) name;
 - (NSString *) tagline;
 - (NSString *) icon;
-- (NSString *) website;
+- (NSString *) homepage;
 - (Address *) author;
 
 - (NSArray *) relationships;
@@ -1107,8 +1131,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [tagline_ release];
     if (icon_ != nil)
         [icon_ release];
-    if (website_ != nil)
-        [website_ release];
+    if (homepage_ != nil)
+        [homepage_ release];
     if (sponsor_ != nil)
         [sponsor_ release];
     if (author_ != nil)
@@ -1122,6 +1146,18 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [relationships_ release];
 
     [super dealloc];
+}
+
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:@"author", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"section", @"size", @"source", @"sponsor", @"tagline", nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
 - (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
@@ -1157,11 +1193,11 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             icon_ = Scour("Icon", begin, end);
             if (icon_ != nil)
                 icon_ = [icon_ retain];
-            website_ = Scour("Homepage", begin, end);
-            if (website_ == nil)
-                website_ = Scour("Website", begin, end);
-            if (website_ != nil)
-                website_ = [website_ retain];
+            homepage_ = Scour("Homepage", begin, end);
+            if (homepage_ == nil)
+                homepage_ = Scour("Website", begin, end);
+            if (homepage_ != nil)
+                homepage_ = [homepage_ retain];
             NSString *sponsor = Scour("Sponsor", begin, end);
             if (sponsor != nil)
                 sponsor_ = [[Address addressWithString:sponsor] retain];
@@ -1368,8 +1404,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return icon_;
 }
 
-- (NSString *) website {
-    return website_;
+- (NSString *) homepage {
+    return homepage_;
 }
 
 - (Address *) sponsor {
@@ -3148,12 +3184,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @end
 /* }}} */
 /* Package View {{{ */
-@interface PackageView : RVPage {
-    _transient Database *database_;
-    UIPreferencesTable *table_;
+@interface PackageView : BrowserView {
     Package *package_;
     NSString *name_;
-    UITextView *description_;
     NSMutableArray *buttons_;
 }
 
@@ -3165,236 +3198,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 @implementation PackageView
 
 - (void) dealloc {
-    [table_ setDataSource:nil];
-    [table_ setDelegate:nil];
-
     if (package_ != nil)
         [package_ release];
     if (name_ != nil)
         [name_ release];
-    if (description_ != nil)
-        [description_ release];
-    [table_ release];
     [buttons_ release];
     [super dealloc];
-}
-
-- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
-    int number = 2;
-    if ([package_ installed] != nil)
-        ++number;
-    if ([package_ source] != nil)
-        ++number;
-    return number;
-}
-
-- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
-    if (group-- == 0)
-        return nil;
-    else if ([package_ installed] != nil && group-- == 0)
-        return @"Installed Package";
-    else if (group-- == 0)
-        return @"Package Details";
-    else if ([package_ source] != nil && group-- == 0)
-        return @"Source Information";
-    else _assert(false);
-}
-
-- (float) preferencesTable:(UIPreferencesTable *)table heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed {
-    if (description_ == nil || group != 0 || row != ([package_ author] == nil ? 1 : 2))
-        return proposed;
-    else
-        return [description_ visibleTextRect].size.height + TextViewOffset_;
-}
-
-- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
-    if (group-- == 0) {
-        int number = 1;
-        if ([package_ author] != nil)
-            ++number;
-        if (description_ != nil)
-            ++number;
-        if ([package_ website] != nil)
-            ++number;
-        return number;
-    } else if ([package_ installed] != nil && group-- == 0)
-        return 2;
-    else if (group-- == 0) {
-        int number = 2;
-        if ([package_ size] != 0)
-            ++number;
-        if ([package_ maintainer] != nil)
-            ++number;
-        if ([package_ sponsor] != nil)
-            ++number;
-        if ([package_ relationships] != nil)
-            ++number;
-        if ([[package_ source] trusted])
-            ++number;
-        return number;
-    } else if ([package_ source] != nil && group-- == 0) {
-        Source *source = [package_ source];
-        NSString *description = [source description];
-        int number = 1;
-        if (description != nil && ![description isEqualToString:[source label]])
-            ++number;
-        if ([source origin] != nil)
-            ++number;
-        return number;
-    } else _assert(false);
-}
-
-- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
-    UIPreferencesTableCell *cell = [[[UIPreferencesTableCell alloc] init] autorelease];
-    [cell setShowSelection:NO];
-
-    if (group-- == 0) {
-        if (false) {
-        } else if (row-- == 0) {
-            [cell setTitle:[package_ name]];
-            [cell setValue:[package_ latest]];
-        } else if ([package_ author] != nil && row-- == 0) {
-            [cell setTitle:@"Author"];
-            [cell setValue:[[package_ author] name]];
-            [cell setShowDisclosure:YES];
-            [cell setShowSelection:YES];
-        } else if (description_ != nil && row-- == 0) {
-            [cell addSubview:description_];
-        } else if ([package_ website] != nil && row-- == 0) {
-            [cell setTitle:@"More Information"];
-            [cell setShowDisclosure:YES];
-            [cell setShowSelection:YES];
-        } else _assert(false);
-    } else if ([package_ installed] != nil && group-- == 0) {
-        if (false) {
-        } else if (row-- == 0) {
-            [cell setTitle:@"Version"];
-            NSString *installed([package_ installed]);
-            [cell setValue:(installed == nil ? @"n/a" : installed)];
-        } else if (row-- == 0) {
-            [cell setTitle:@"Filesystem Content"];
-            [cell setShowDisclosure:YES];
-            [cell setShowSelection:YES];
-        } else _assert(false);
-    } else if (group-- == 0) {
-        if (false) {
-        } else if (row-- == 0) {
-            [cell setTitle:@"Identifier"];
-            [cell setValue:[package_ id]];
-        } else if (row-- == 0) {
-            [cell setTitle:@"Section"];
-            NSString *section([package_ section]);
-            [cell setValue:(section == nil ? @"n/a" : section)];
-        } else if ([package_ size] != 0 && row-- == 0) {
-            [cell setTitle:@"Expanded Size"];
-            [cell setValue:SizeString([package_ size])];
-        } else if ([package_ maintainer] != nil && row-- == 0) {
-            [cell setTitle:@"Maintainer"];
-            [cell setValue:[[package_ maintainer] name]];
-            [cell setShowDisclosure:YES];
-            [cell setShowSelection:YES];
-        } else if ([package_ sponsor] != nil && row-- == 0) {
-            [cell setTitle:@"Sponsor"];
-            [cell setValue:[[package_ sponsor] name]];
-            [cell setShowDisclosure:YES];
-            [cell setShowSelection:YES];
-        } else if ([package_ relationships] != nil && row-- == 0) {
-            [cell setTitle:@"Package Relationships"];
-            [cell setShowDisclosure:YES];
-            [cell setShowSelection:YES];
-        } else if ([[package_ source] trusted] && row-- == 0) {
-            [cell setIcon:[UIImage applicationImageNamed:@"trusted.png"]];
-            [cell setValue:@"This package has been signed."];
-        } else _assert(false);
-    } else if ([package_ source] != nil && group-- == 0) {
-        Source *source = [package_ source];
-        NSString *description = [source description];
-
-        if (false) {
-        } else if (row-- == 0) {
-            NSString *label = [source label];
-            if (label == nil)
-                label = [source uri];
-            [cell setTitle:label];
-            [cell setValue:[source version]];
-        } else if (description != nil && ![description isEqualToString:[source label]] && row-- == 0) {
-            [cell setValue:description];
-        } else if ([source origin] != nil && row-- == 0) {
-            [cell setTitle:@"Origin"];
-            [cell setValue:[source origin]];
-        } else _assert(false);
-    } else _assert(false);
-
-    return cell;
-}
-
-- (BOOL) canSelectRow:(int)row {
-    return YES;
-}
-
-- (void) tableRowSelected:(NSNotification *)notification {
-    int row = [table_ selectedRow];
-    if (row == INT_MAX)
-        return;
-
-    #define _else else goto _label; return; } _label:
-
-    if (true) {
-        if (row-- == 0) {
-        } else if (row-- == 0) {
-        } else if ([package_ author] != nil && row-- == 0) {
-            [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
-                [[package_ author] email],
-                [[NSString stringWithFormat:@"regarding apt package \"%@\"",
-                    [package_ name]
-                ] stringByAddingPercentEscapes]
-            ]]];
-        } else if (description_ != nil && row-- == 0) {
-        } else if ([package_ website] != nil && row-- == 0) {
-            NSURL *url = [NSURL URLWithString:[package_ website]];
-            BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
-            [browser setDelegate:delegate_];
-            [book_ pushPage:browser];
-            [browser loadURL:url];
-    } _else if ([package_ installed] != nil) {
-        if (row-- == 0) {
-        } else if (row-- == 0) {
-        } else if (row-- == 0) {
-            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
-            [files setDelegate:delegate_];
-            [files setPackage:package_];
-            [book_ pushPage:files];
-    } _else if (true) {
-        if (row-- == 0) {
-        } else if (row-- == 0) {
-        } else if (row-- == 0) {
-        } else if ([package_ size] != 0 && row-- == 0) {
-        } else if ([package_ maintainer] != nil && row-- == 0) {
-            [delegate_ openURL:[NSURL URLWithString:[NSString stringWithFormat:@"mailto:%@?subject=%@",
-                [[package_ maintainer] email],
-                [[NSString stringWithFormat:@"regarding apt package \"%@\"",
-                    [package_ name]
-                ] stringByAddingPercentEscapes]
-            ]]];
-        } else if ([package_ sponsor] != nil && row-- == 0) {
-            NSURL *url = [NSURL URLWithString:[[package_ sponsor] email]];
-            BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
-            [browser setDelegate:delegate_];
-            [book_ pushPage:browser];
-            [browser loadURL:url];
-        } else if ([package_ relationships] != nil && row-- == 0) {
-        } else if ([[package_ source] trusted] && row-- == 0) {
-    } _else if ([package_ source] != nil) {
-        Source *source = [package_ source];
-        NSString *description = [source description];
-
-        if (row-- == 0) {
-        } else if (row-- == 0) {
-        } else if (description != nil && ![description isEqualToString:[source label]] && row-- == 0) {
-        } else if ([source origin] != nil && row-- == 0) {
-    } _else _assert(false);
-
-    #undef _else
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
@@ -3420,7 +3229,16 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [sheet dismiss];
 }
 
+- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    _trace();
+    NSLog(@"%@", package_);
+    [window setValue:package_ forKey:@"package"];
+}
+
 - (void) _rightButtonClicked {
+    /*[super _rightButtonClicked];
+    return;*/
+
     int count = [buttons_ count];
     _assert(count != 0);
 
@@ -3441,7 +3259,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 }
 
-- (NSString *) rightButtonTitle {
+- (NSString *) _rightButtonTitle {
     int count = [buttons_ count];
     return count == 0 ? nil : count != 1 ? @"Modify" : [buttons_ objectAtIndex:0];
 }
@@ -3451,15 +3269,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+    if ((self = [super initWithBook:book database:database]) != nil) {
         database_ = database;
-
-        table_ = [[UIPreferencesTable alloc] initWithFrame:[self bounds]];
-        [self addSubview:table_];
-
-        [table_ setDataSource:self];
-        [table_ setDelegate:self];
-
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
     } return self;
 }
@@ -3475,26 +3286,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         name_ = nil;
     }
 
-    if (description_ != nil) {
-        [description_ release];
-        description_ = nil;
-    }
-
     [buttons_ removeAllObjects];
 
     if (package != nil) {
         package_ = [package retain];
         name_ = [[package id] retain];
 
-        NSString *description([package description]);
-        if (description == nil)
-            description = [package tagline];
-        if (description != nil) {
-            description_ = [GetTextView(description, 12, true) retain];
-            [description_ setTextColor:Black_];
-        }
-
-        [table_ reloadData];
+        [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"package" ofType:@"html"]]];
 
         if ([package_ source] == nil);
         else if ([package_ upgradableAndEssential:NO])
@@ -3506,10 +3304,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         if ([package_ installed] != nil)
             [buttons_ addObject:@"Remove"];
     }
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [table_ resetViewAnimated:animated];
 }
 
 - (void) reloadData {
@@ -4286,7 +4080,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     return @"Settings";
 }
 
-- (NSString *) rightButtonTitle {
+- (NSString *) _rightButtonTitle {
     return nil;
 }
 
@@ -4379,7 +4173,15 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         page = [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://packages"])
         page = [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href hasPrefix:@"apptapp://package/"]) {
+    else if ([href hasPrefix:@"cydia://files/"]) {
+        NSString *name = [href substringFromIndex:14];
+
+        if (Package *package = [database_ packageWithName:name]) {
+            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
+            [files setPackage:package];
+            page = files;
+        }
+    } else if ([href hasPrefix:@"apptapp://package/"]) {
         NSString *name = [href substringFromIndex:18];
 
         if (Package *package = [database_ packageWithName:name]) {
@@ -4575,8 +4377,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [self reloadURL];
 }
 
+- (NSString *) _rightButtonTitle {
+    return @"Reload";
+}
+
 - (NSString *) rightButtonTitle {
-    return loading_ ? @"" : @"Reload";
+    return loading_ ? @"" : [self _rightButtonTitle];
 }
 
 - (NSString *) title {
@@ -5561,13 +5367,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [self updateData];
 
-    /*if ([packages count] == 0);
-    else if (Loaded_)*/
+    if ([packages count] == 0);
+    else if (Loaded_)
         [self _loaded];
-    /*else {
+    else {
         Loaded_ = YES;
         [book_ update];
-    }*/
+    }
 
     /*[hud show:NO];
     [hud removeFromSuperview];*/

@@ -1,0 +1,215 @@
+/* .clearfix {{{ */
+.clearfix:after {
+    content: ".";
+    display: block;
+    clear: both;
+    visibility: hidden;
+    line-height: 0;
+    height: 0;
+}
+
+.clearfix {
+    display: inline-block;
+}
+
+html[xmlns] .clearfix {
+    display: block;
+}
+
+* html .clearfix {
+    height: 1%;
+}
+/* }}} */
+
+* {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+}
+
+body {
+    font-family: Helvetica;
+    margin: 0;
+    padding: 0;
+    -webkit-text-size-adjust: none;
+    -webkit-user-select: none;
+}
+
+#page {
+    position: relative;
+}
+
+.dialog {
+    position: absolute;
+    width: 100%;
+}
+
+hr {
+    margin-top: 10px;
+}
+
+.dialog > .panel {
+    background: #c8c8c8 url(pinstripes.png);
+    padding: 1px 0 1px 0;
+}
+
+p {
+    margin: 0px;
+    padding: 0px;
+}
+
+a {
+    text-decoration: none;
+    text-underline-style: dotted;
+}
+
+strong {
+    font-weight: bold
+}
+
+/* #toolbar {{{ */
+.dialog > .toolbar {
+    background: url(toolbar.png) #6d84a2 repeat-x;
+    border-bottom: 1px solid #2d3642;
+    height: 45px;
+    padding: 10px;
+}
+
+.dialog > .toolbar > h1 {
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: bold;
+    height: 100%;
+    margin: 1px auto 0 auto;
+    text-shadow: rgba(0, 0, 0, 0.4) 0px -1px 0;
+    text-align: center;
+    white-space: nowrap;
+}
+/* }}} */
+/* (back|forward)-button {{{ */
+.dialog > .toolbar > a.back-button,
+.dialog > .toolbar > a.forward-button {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    height: 30px;
+    line-height: 30px;
+    margin-top: -28px;
+    padding: 0 3px;
+    text-decoration: none;
+    text-shadow: rgba(0, 0, 0, 0.6) 0px -1px 0;
+    white-space: nowrap;
+}
+
+.dialog > .toolbar > a.back-button {
+    -webkit-border-image: url(backButton.png) 0 8 0 14;
+    border-width: 0 8px 0 14px;
+    float: left;
+}
+
+.dialog > .toolbar > a.forward-button {
+    -webkit-border-image: url(toolButton.png) 0 5 0 5;
+    border-width: 0 5px;
+    float: right;
+}
+/* }}} */
+/* fieldset {{{ */
+.dialog > .panel > fieldset {
+    background: #ffffff;
+    border: 1px solid #999999;
+    -webkit-border-radius: 10px;
+    font-size: 16px;
+    margin: 9px;
+    padding: 0;
+}
+
+.dialog > .panel > label {
+    display: block;
+    margin: 13px 0 -4px 27px;
+    line-height: 24px;
+    font-size: inherit;
+    font-weight: bold;
+    color: #4d4d70;
+    text-shadow: rgba(255, 255, 255, 0.75) 1px 1px 0;
+}
+
+.dialog > .panel > fieldset > a,
+.dialog > .panel > fieldset > div {
+    border-top: 1px solid #999999;
+    min-height: 19px;
+    padding: 11px 17px;
+}
+
+.dialog > .panel > fieldset > a:first-child,
+.dialog > .panel > fieldset > div:first-child {
+    border-top: none;
+}
+
+.dialog > .panel > fieldset > a img.icon,
+.dialog > .panel > fieldset > div img.icon {
+    height: auto;
+    margin: -13px 5px -10px -10px;
+    max-height: 30px;
+    min-width: 30px;
+    vertical-align: middle;
+    width: 30px;
+}
+
+.dialog > .panel > fieldset > div > p {
+    margin-top: .5em;
+    text-align: center;
+}
+
+.dialog > .panel > fieldset > div > p:first-child {
+    margin-top: 0;
+}
+
+.dialog > .panel > fieldset > a {
+    background: 275px 11px no-repeat url(listArrow.png);
+    color: inherit;
+    display: block;
+}
+
+.dialog > .panel > fieldset > div > select {
+    font-size: 16px;
+    margin: -4px -10px -5px 86px;
+    width: 190px;
+}
+
+.dialog > .panel > fieldset > div > input {
+    background: none;
+    border: none;
+    color: #193250;
+    font-size: 16px;
+    height: 45px;
+    margin: -12px -18px;
+    padding: 12px 10px 0 111px;
+    width: 302px;
+}
+
+.dialog > .panel > fieldset > div > input[type="submit"] {
+    border-width: 0 12px;
+    color: #000000;
+    display: block;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 10px;
+    text-align: center;
+    -webkit-border-image: url(whiteButton.png) 0 12 0 12;
+}
+
+.dialog > .panel > fieldset > a > label,
+.dialog > .panel > fieldset > div > label {
+    font-weight: bold;
+    position: absolute;
+}
+
+.dialog > .panel > fieldset > a > label + div {
+    margin-right: 16px;
+}
+
+.dialog > .panel > fieldset > a > label + div,
+.dialog > .panel > fieldset > div > label + div {
+    color: #335588;
+    text-align: right;
+}
+/* }}} */

@@ -16,7 +16,8 @@
         "address": "saurik@saurik.com"
     },
     "source": {
-        "name": "Telesphoreo Tangelo"
+        "name": "Telesphoreo Tangelo",
+        "description": "Distribution of Unix Software for the iPhone"
     }
 };*/
 
@@ -79,7 +80,7 @@ $(function () {
         $("#maintainer-link").href("mailto:" + maintainer.address + "?subject=" + regarding);
     }
 
-    var sponsor = package.maintainer;
+    var sponsor = package.sponsor;
     if (sponsor == null)
         $(".sponsor").remove();
     else {
@@ -90,6 +91,13 @@ $(function () {
     var source = package.source;
     if (source == null)
         $(".source").remove();
-    else
-        $("#origin").html(source.name);
+    else {
+        $("#source-name").html(source.name);
+
+        var description = source.description;
+        if (description == null)
+            $(".source-description").remove();
+        else
+            $("#source-description").html(description);
+    }
 });

@@ -74,12 +74,15 @@
 #include <apt-pkg/debmetaindex.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/init.h>
+#include <apt-pkg/mmap.h>
 #include <apt-pkg/pkgrecords.h>
+#include <apt-pkg/sha1.h>
 #include <apt-pkg/sourcelist.h>
 #include <apt-pkg/sptr.h>
 
 #include <sys/sysctl.h>
 #include <notify.h>
+#include <dlfcn.h>
 
 extern "C" {
 #include <mach-o/nlist.h>
@@ -151,8 +154,9 @@ extern "C" {
 
 #ifdef __OBJC2__
 typedef enum {
+    kUIProgressIndicatorStyleLargeWhite = 0,
     kUIProgressIndicatorStyleMediumWhite = 1,
-    kUIProgressIndicatorStyleSmallWhite = 0,
+    kUIProgressIndicatorStyleSmallWhite = 3,
     kUIProgressIndicatorStyleSmallBlack = 4
 } UIProgressIndicatorStyle;
 #else
@@ -2281,8 +2285,6 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         CGRect bounds = [overlay_ bounds];
 
         navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        if (Advanced_)
-            [navbar_ setBarStyle:1];
         [navbar_ setDelegate:self];
 
         UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:@"Confirm"] autorelease];
@@ -2438,6 +2440,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UIPushButton *close_;
     id delegate_;
     BOOL running_;
+    SHA1SumValue springlist_;
 }
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
@@ -2642,6 +2645,15 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
 
+    {
+        FileFd file("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist", FileFd::ReadOnly);
+        MMap mmap(file, MMap::ReadOnly);
+        SHA1Summation sha1;
+        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+        if (!(springlist_ == sha1.Result()))
+            Finish_ = 3;
+    }
+
     switch (Finish_) {
         case 0: [close_ setTitle:@"Return to Cydia"]; break;
         case 1: [close_ setTitle:@"Close Cydia (Restart)"]; break;
@@ -2684,6 +2696,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [delegate_ setStatusBarShowsProgress:YES];
     running_ = YES;
+
+    {
+        FileFd file("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist", FileFd::ReadOnly);
+        MMap mmap(file, MMap::ReadOnly);
+        SHA1Summation sha1;
+        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+        springlist_ = sha1.Result();
+    }
 
     [transition_ transition:6 toView:overlay_];
 
@@ -5183,17 +5203,16 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ((self = [super initWithFrame:frame]) != nil) {
         database_ = database;
 
-        if (Advanced_)
-            [navbar_ setBarStyle:1];
-
         CGRect ovrrect = [navbar_ bounds];
         ovrrect.size.height = ([UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height);
 
         overlay_ = [[UIView alloc] initWithFrame:ovrrect];
 
-        UIProgressIndicatorStyle style = Advanced_ ?
-            kUIProgressIndicatorStyleSmallWhite :
-            kUIProgressIndicatorStyleSmallBlack;
+        bool ugly = [navbar_ _barStyle:NO] == 0;
+
+        UIProgressIndicatorStyle style = ugly ?
+            kUIProgressIndicatorStyleSmallBlack :
+            kUIProgressIndicatorStyleSmallWhite;
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:style];
         unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
@@ -5217,7 +5236,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
 
-        [prompt_ setColor:(Advanced_ ? White_ : Blueish_)];
+        [prompt_ setColor:(ugly ? Blueish_ : White_)];
         [prompt_ setBackgroundColor:Clear_];
         [prompt_ setFont:font];
 
@@ -6150,6 +6169,9 @@ int main(int argc, char *argv[]) {
         Sources_ = [[[NSMutableDictionary alloc] initWithCapacity:0] autorelease];
         [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
+
+    if (access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
+        dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);
 
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");

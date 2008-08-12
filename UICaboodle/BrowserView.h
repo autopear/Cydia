@@ -9,6 +9,8 @@
 @class UIScroller;
 @class UIWebView;
 
+@class WebView;
+
 @class Database;
 
 @interface BrowserView : RVPage {

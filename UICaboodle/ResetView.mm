@@ -3,6 +3,11 @@
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
+#include <errno.h>
+
+#include <cstdio>
+#include <cstdlib>
+
 @implementation UIView (RVBook)
 
 - (void) resetViewAnimated:(BOOL)animated {

@@ -35,14 +35,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifdef __OBJC2__
-    #define UITextTraits UITextInputTraits
-    #define textTraits textInputTraits
-    #define setAutoCapsType setAutocapitalizationType
-    #define setAutoCorrectionType setAutocorrectionType
-    #define setPreferredKeyboardType setKeyboardType
-#endif
-
 /* #include Directives {{{ */
 #include <objc/objc.h>
 #include <objc/runtime.h>
@@ -50,12 +42,62 @@
 #include <CoreGraphics/CoreGraphics.h>
 #include <GraphicsServices/GraphicsServices.h>
 #include <Foundation/Foundation.h>
-#include <UIKit/UIKit.h>
 #include <WebCore/DOMHTML.h>
 
-#import "BrowserView.h"
-#import "ResetView.h"
-#import "UICaboodle.h"
+#import <UIKit/UIActionSheet.h>
+#import <UIKit/UIAnimator.h>
+#import <UIKit/UIApplication.h>
+#import <UIKit/UIColor.h>
+#import <UIKit/UIFieldEditor.h>
+#import <UIKit/UIFrameAnimation.h>
+#import <UIKit/UIHardware.h>
+#import <UIKit/UIImage.h>
+#import <UIKit/UIImageAndTextTableCell.h>
+#import <UIKit/UIImageView.h>
+#import <UIKit/UIKeyboard.h>
+#import <UIKit/UIKeyboardImpl.h>
+#import <UIKit/UINavigationBar.h>
+#import <UIKit/UINavigationItem.h>
+#import <UIKit/UIPreferencesTable.h>
+#import <UIKit/UIPreferencesTableCell.h>
+#import <UIKit/UIProgressBar.h>
+#import <UIKit/UIProgressHUD.h>
+#import <UIKit/UIProgressIndicator.h>
+#import <UIKit/UIPushButton.h>
+#import <UIKit/UISearchField.h>
+#import <UIKit/UISimpleTableCell.h>
+#import <UIKit/_UISwitchSlider.h>
+#import <UIKit/UITableCell.h>
+#import <UIKit/UITableColumn.h>
+#import <UIKit/UITextField.h>
+#import <UIKit/UITextInputTraits.h>
+#import <UIKit/UITextLabel.h>
+#import <UIKit/UITextView.h>
+#import <UIKit/UIToolbar.h>
+#import <UIKit/UITransitionView.h>
+#import <UIKit/UIWebDocumentView.h>
+#import <UIKit/UIWebView.h>
+#import <UIKit/UIWindow.h>
+
+#import <UIKit/UIView-Geometry.h>
+#import <UIKit/UIView-Hierarchy.h>
+#import <UIKit/UIView-Rendering.h>
+
+#import <UIKit/NSString-UIStringDrawing.h>
+
+// XXX: remove
+#import <UIKit/UIActionSheet-Private.h>
+#import <UIKit/UIControl-UIControlPrivate.h>
+#import <UIKit/UIImage-UIImageDeprecated.h>
+#import <UIKit/UIImage-UIImagePrivate.h>
+#import <UIKit/UINavigationBar-Static.h>
+#import <UIKit/UIProgressHUD-Deprecated.h>
+#import <UIKit/UIToolbar-UIButtonBarPrivate.h>
+#import <UIKit/UIView-Deprecated.h>
+#import <UIKit/UIWindow-Static.h>
+
+// XXX: remove
+#import <UIKit/NSString-UIStringDrawingDeprecated.h>
 
 #include <WebKit/WebFrame.h>
 #include <WebKit/WebView.h>
@@ -94,6 +136,12 @@ extern "C" {
 
 #include <errno.h>
 #include <pcre.h>
+
+#define UIWebView UIWebDocumentView
+
+#import "BrowserView.h"
+#import "ResetView.h"
+#import "UICaboodle.h"
 /* }}} */
 
 /* iPhoneOS 2.0 Compatibility {{{ */
@@ -152,20 +200,26 @@ extern "C" {
 - (void) setIdleTimerDisabled:(char)arg0;
 @end
 
-#ifdef __OBJC2__
+extern "C" int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSString *delegateClassName);
+
+extern NSString *kUIButtonBarButtonAction;
+extern NSString *kUIButtonBarButtonInfo;
+extern NSString *kUIButtonBarButtonInfoOffset;
+extern NSString *kUIButtonBarButtonSelectedInfo;
+extern NSString *kUIButtonBarButtonStyle;
+extern NSString *kUIButtonBarButtonTag;
+extern NSString *kUIButtonBarButtonTarget;
+extern NSString *kUIButtonBarButtonTitle;
+extern NSString *kUIButtonBarButtonTitleVerticalHeight;
+extern NSString *kUIButtonBarButtonTitleWidth;
+extern NSString *kUIButtonBarButtonType;
+
 typedef enum {
     kUIProgressIndicatorStyleLargeWhite = 0,
     kUIProgressIndicatorStyleMediumWhite = 1,
     kUIProgressIndicatorStyleSmallWhite = 3,
     kUIProgressIndicatorStyleSmallBlack = 4
 } UIProgressIndicatorStyle;
-#else
-typedef enum {
-    kUIProgressIndicatorStyleMediumWhite = 0,
-    kUIProgressIndicatorStyleSmallWhite = 2,
-    kUIProgressIndicatorStyleSmallBlack = 3
-} UIProgressIndicatorStyle;
-#endif
 
 typedef enum {
     kUIControlEventMouseDown = 1 << 0,
@@ -390,48 +444,6 @@ class GSFont {
     }
 };
 /* }}} */
-/* Right Alignment {{{ */
-@interface UIRightTextLabel : UITextLabel {
-    float       _savedRightEdgeX;
-    BOOL        _sizedtofit_flag;
-}
-
-- (void) setFrame:(CGRect)frame;
-- (void) setText:(NSString *)text;
-- (void) realignText;
-@end
-
-@implementation UIRightTextLabel
-
-- (void) setFrame:(CGRect)frame {
-    [super setFrame:frame];
-    if (_sizedtofit_flag == NO) {
-        _savedRightEdgeX = frame.origin.x;
-        [self realignText];
-    }
-}
-
-- (void) setText:(NSString *)text {
-    [super setText:text];
-    [self realignText];
-}
-
-- (void) realignText {
-    CGRect oldFrame = [self frame];
-
-    _sizedtofit_flag = YES;
-    [self sizeToFit]; // shrink down size so I can right align it
-
-    CGRect newFrame = [self frame];
-
-    oldFrame.origin.x = _savedRightEdgeX - newFrame.size.width;
-    oldFrame.size.width = newFrame.size.width;
-    [super setFrame:oldFrame];
-    _sizedtofit_flag = NO;
-}
-
-@end
-/* }}} */
 
 extern "C" void UISetColor(CGColorRef color);
 
@@ -541,7 +553,7 @@ UITextView *GetTextView(NSString *value, float left, bool html) {
         [text setText:value];
     [text setEnabled:NO];
 
-    [text setBackgroundColor:Clear_];
+    [text setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
 
     CGRect frame = [text frame];
     [text setFrame:frame];
@@ -611,7 +623,7 @@ bool isSectionVisible(NSString *section) {
 @protocol CydiaDelegate
 - (void) installPackage:(Package *)package;
 - (void) removePackage:(Package *)package;
-- (void) slideUp:(UIAlertSheet *)alert;
+- (void) slideUp:(UIActionSheet *)alert;
 - (void) distUpgrade;
 - (void) updateData;
 - (void) syncData;
@@ -2114,7 +2126,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [fields setObject:text forKey:key];
 
     CGColor blue(space_, 0, 0, 0.4, 1);
-    [text setTextColor:blue];
+    [text setTextColor:[UIColor colorWithCGColor:blue]];
 }
 
 @protocol ConfirmationViewDelegate
@@ -2130,7 +2142,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UINavigationBar *navbar_;
     UIPreferencesTable *table_;
     NSMutableDictionary *fields_;
-    UIAlertSheet *essential_;
+    UIActionSheet *essential_;
 }
 
 - (void) cancel;
@@ -2181,7 +2193,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context = [sheet context];
 
     if ([context isEqualToString:@"remove"])
@@ -2333,7 +2345,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         if (!remove)
             essential_ = nil;
         else if (Advanced_ || true) {
-            essential_ = [[UIAlertSheet alloc]
+            essential_ = [[UIActionSheet alloc]
                 initWithTitle:@"Removing Essentials"
                 buttons:[NSArray arrayWithObjects:
                     @"Cancel Operation (Safe)",
@@ -2349,7 +2361,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 #endif
             [essential_ setBodyText:@"This operation involves the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. If you continue, you may not be able to use Cydia to repair any damage."];
         } else {
-            essential_ = [[UIAlertSheet alloc]
+            essential_ = [[UIActionSheet alloc]
                 initWithTitle:@"Unable to Comply"
                 buttons:[NSArray arrayWithObjects:@"Okay", nil]
                 defaultButtonIndex:0
@@ -2501,10 +2513,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
 
         if (bootstrap_)
-            [overlay_ setBackgroundColor:Black_];
+            [overlay_ setBackgroundColor:[UIColor colorWithCGColor:Black_]];
         else {
             background_ = [[UIView alloc] initWithFrame:[self bounds]];
-            [background_ setBackgroundColor:Black_];
+            [background_ setBackgroundColor:[UIColor colorWithCGColor:Black_]];
             [self addSubview:background_];
         }
 
@@ -2540,8 +2552,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             24
         )];
 
-        [status_ setColor:White_];
-        [status_ setBackgroundColor:Clear_];
+        [status_ setColor:[UIColor colorWithCGColor:White_]];
+        [status_ setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
 
         [status_ setCentersHorizontally:YES];
         //[status_ setFont:font];
@@ -2556,8 +2568,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         //[output_ setTextFont:@"Courier New"];
         [output_ setTextSize:12];
 
-        [output_ setTextColor:White_];
-        [output_ setBackgroundColor:Clear_];
+        [output_ setTextColor:[UIColor colorWithCGColor:White_]];
+        [output_ setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
 
         [output_ setMarginTop:0];
         [output_ setAllowsRubberBanding:YES];
@@ -2577,9 +2589,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [close_ setStretchBackground:YES];
         [close_ setEnabled:YES];
 
-        GSFontRef bold = GSFontCreateWithName("Helvetica", kGSFontTraitBold, 22);
+        UIFont *bold = [UIFont boldSystemFontOfSize:22];
         [close_ setTitleFont:bold];
-        CFRelease(bold);
 
         [close_ addTarget:self action:@selector(closeButtonPushed) forEvents:kUIControlEventMouseUpInside];
         [close_ setBackground:[UIImage applicationImageNamed:@"green-up.png"] forState:0];
@@ -2595,7 +2606,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [transition_ transition:6 toView:view_];
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context = [sheet context];
     if ([context isEqualToString:@"conffile"]) {
         FILE *input = [database_ input];
@@ -2743,7 +2754,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
     Package *package = id == nil ? nil : [database_ packageWithName:id];
 
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:(package == nil ? @"Source Error" : [package name])
         buttons:[NSArray arrayWithObjects:@"Okay", nil]
         defaultButtonIndex:0
@@ -2787,7 +2798,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSString *ofile = conffile_r[1];
     //NSString *nfile = conffile_r[2];
 
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:@"Configuration Upgrade"
         buttons:[NSArray arrayWithObjects:
             @"Keep My Old Copy",
@@ -2998,7 +3009,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSString *name_;
     NSString *count_;
     UIImage *icon_;
-    UISwitchControl *switch_;
+    _UISwitchSlider *switch_;
     BOOL editing_;
 }
 
@@ -3037,7 +3048,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ((self = [super init]) != nil) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
 
-        switch_ = [[UISwitchControl alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
+        switch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:kUIControlEventMouseUpInside];
     } return self;
 }
@@ -3138,9 +3149,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 - (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
     if (reusing == nil) {
         reusing = [[[UIImageAndTextTableCell alloc] init] autorelease];
-        GSFontRef font = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
+        UIFont *font = [UIFont systemFontOfSize:16];
         [[(UIImageAndTextTableCell *)reusing titleTextLabel] setFont:font];
-        CFRelease(font);
     }
     [(UIImageAndTextTableCell *)reusing setTitle:[files_ objectAtIndex:row]];
     return reusing;
@@ -3278,7 +3288,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     else _assert(false);
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     int count = [buttons_ count];
     _assert(count != 0);
     _assert(button <= count + 1);
@@ -3307,7 +3317,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [buttons addObjectsFromArray:buttons_];
         [buttons addObject:@"Cancel"];
 
-        [delegate_ slideUp:[[[UIAlertSheet alloc]
+        [delegate_ slideUp:[[[UIActionSheet alloc]
             initWithTitle:nil
             buttons:buttons
             defaultButtonIndex:2
@@ -3634,7 +3644,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     _transient Database *database_;
     UISectionList *list_;
     NSMutableArray *sources_;
-    UIAlertSheet *alert_;
+    UIActionSheet *alert_;
     int offset_;
 
     NSString *href_;
@@ -3799,7 +3809,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
             [delegate_ syncData];
         } else if (error_ != nil) {
-            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+            UIActionSheet *sheet = [[[UIActionSheet alloc]
                 initWithTitle:@"Verification Error"
                 buttons:[NSArray arrayWithObjects:@"OK", nil]
                 defaultButtonIndex:0
@@ -3810,7 +3820,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             [sheet setBodyText:[error_ localizedDescription]];
             [sheet popupAlertAnimated:YES];
         } else {
-            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+            UIActionSheet *sheet = [[[UIActionSheet alloc]
                 initWithTitle:@"Did not Find Repository"
                 buttons:[NSArray arrayWithObjects:@"OK", nil]
                 defaultButtonIndex:0
@@ -3862,7 +3872,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context = [sheet context];
     if ([context isEqualToString:@"source"])
         switch (button) {
@@ -3952,7 +3962,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         database:database_
     ] autorelease]];*/
 
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:@"Enter Cydia/APT URL"
         buttons:[NSArray arrayWithObjects:@"Add Source", @"Cancel", nil]
         defaultButtonIndex:0
@@ -3962,10 +3972,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     [sheet addTextFieldWithValue:@"http://" label:@""];
 
-    UITextTraits *traits = [[sheet textField] textTraits];
-    [traits setAutoCapsType:0];
-    [traits setPreferredKeyboardType:3];
-    [traits setAutoCorrectionType:1];
+    UITextInputTraits *traits = [[sheet textField] textInputTraits];
+    [traits setAutocapitalizationType:0];
+    [traits setKeyboardType:3];
+    [traits setAutocorrectionType:1];
 
     [sheet popupAlertAnimated:YES];
 }
@@ -4081,12 +4091,12 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
 @implementation HomeView
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     [sheet dismiss];
 }
 
 - (void) _leftButtonClicked {
-    UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:@"About Cydia Installer"
         buttons:[NSArray arrayWithObjects:@"Close", nil]
         defaultButtonIndex:0
@@ -4247,7 +4257,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             [view setPackage:package];
             page = view;
         } else {
-            UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+            UIActionSheet *sheet = [[[UIActionSheet alloc]
                 initWithTitle:@"Cannot Locate Package"
                 buttons:[NSArray arrayWithObjects:@"Close", nil]
                 defaultButtonIndex:0
@@ -5040,7 +5050,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
         CGColor dimmed(space_, 0, 0, 0, 0.5);
-        [dimmed_ setBackgroundColor:dimmed];
+        [dimmed_ setBackgroundColor:[UIColor colorWithCGColor:dimmed]];
 
         table_ = [[PackageTable alloc]
             initWithBook:book
@@ -5073,27 +5083,18 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         field_ = [[UISearchField alloc] initWithFrame:area];
 
-        GSFontRef font = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 16);
+        UIFont *font = [UIFont systemFontOfSize:16];
         [field_ setFont:font];
-        CFRelease(font);
 
         [field_ setPlaceholder:@"Package Names & Descriptions"];
         [field_ setDelegate:self];
 
-#ifdef __OBJC2__
         [field_ setPaddingTop:3];
-#else
-        [field_ setPaddingTop:5];
-#endif
 
-        UITextTraits *traits = [field_ textTraits];
-        [traits setAutoCapsType:0];
-        [traits setAutoCorrectionType:1];
+        UITextInputTraits *traits = [field_ textInputTraits];
+        [traits setAutocapitalizationType:0];
+        [traits setAutocorrectionType:1];
         [traits setReturnKeyType:6];
-
-#ifndef __OBJC2__
-        [traits setEditingDelegate:self];
-#endif
 
         CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height + 30}};
 
@@ -5240,15 +5241,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             (ovrrect.size.height - prmsize.height) / 2
         }, prmsize};
 
-        GSFontRef font = GSFontCreateWithName("Helvetica", kGSFontTraitNone, 12);
+        UIFont *font = [UIFont systemFontOfSize:12];
 
         prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
 
-        [prompt_ setColor:(ugly ? Blueish_ : White_)];
-        [prompt_ setBackgroundColor:Clear_];
+        [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : White_)]];
+        [prompt_ setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
         [prompt_ setFont:font];
-
-        CFRelease(font);
 
         [overlay_ addSubview:prompt_];
 
@@ -5305,7 +5304,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     ];
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     [sheet dismiss];
 }
 
@@ -5329,7 +5328,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UIView *underlay_;
     UIView *overlay_;
     CYBook *book_;
-    UIButtonBar *buttonbar_;
+    UIToolbar *buttonbar_;
 
     ConfirmationView *confirm_;
 
@@ -5358,7 +5357,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if ([broken_ count] != 0) {
         int count = [broken_ count];
 
-        UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
             initWithTitle:[NSString stringWithFormat:@"%d Half-Installed Package%@", count, (count == 1 ? @"" : @"s")]
             buttons:[NSArray arrayWithObjects:
                 @"Forcibly Clear",
@@ -5374,7 +5373,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];
 
-        UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
             initWithTitle:[NSString stringWithFormat:@"%d Essential Upgrade%@", count, (count == 1 ? @"" : @"s")]
             buttons:[NSArray arrayWithObjects:@"Upgrade Essential", @"Ignore (Temporary)", nil]
             defaultButtonIndex:0
@@ -5523,7 +5522,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 [broken addObject:[package name]];
         }
 
-        UIAlertSheet *sheet = [[[UIAlertSheet alloc]
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
             initWithTitle:[NSString stringWithFormat:@"%d Broken Packages", [database_ cache]->BrokenCount()]
             buttons:[NSArray arrayWithObjects:@"Okay", nil]
             defaultButtonIndex:0
@@ -5680,7 +5679,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) askForSettings {
-    UIAlertSheet *role = [[[UIAlertSheet alloc]
+    UIActionSheet *role = [[[UIActionSheet alloc]
         initWithTitle:@"Who Are You?"
         buttons:[NSArray arrayWithObjects:
             @"User (Graphical Only)",
@@ -5782,7 +5781,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         nil],
     nil];
 
-    buttonbar_ = [[UIButtonBar alloc]
+    buttonbar_ = [[UIToolbar alloc]
         initInView:overlay_
         withFrame:CGRectMake(
             0, screenrect.size.height - ButtonBarHeight_,
@@ -5834,7 +5833,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [self _setHomePage];
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context = [sheet context];
     if ([context isEqualToString:@"fixhalf"])
         switch (button) {
@@ -6026,7 +6025,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     ];
 }
 
-- (void) slideUp:(UIAlertSheet *)alert {
+- (void) slideUp:(UIActionSheet *)alert {
     if (Advanced_)
         [alert presentSheetFromButtonBar:buttonbar_];
     else
@@ -6199,7 +6198,7 @@ int main(int argc, char *argv[]) {
 
     SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
 
-    int value = UIApplicationMain(argc, argv, [Cydia class]);
+    int value = UIApplicationMain(argc, argv, @"Cydia", @"Cydia");
 
     CGColorSpaceRelease(space_);
     CFRelease(Locale_);

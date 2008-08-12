@@ -19,7 +19,7 @@ exec: exec.mm makefile
 	$(target)g++ -Wall -Werror -o $@ $< -framework Foundation -framework CoreFoundation -lobjc
 
 Cydia: Cydia.mm ../uicaboodle.m/*.mm *.h makefile
-	$(target)g++ -march=armv6 -mcpu=arm1176jzf-s -I../uicaboodle.m -fobjc-call-cxx-cdtors -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework UIKit -framework IOKit -framework CoreFoundation -framework Foundation -framework CoreGraphics -framework GraphicsServices $(frameworks) -lobjc -lapt-pkg -lpcre -fobjc-exceptions -I/apl/i20 -F"$${PKG_ROOT}"/System/Library/PrivateFrameworks
+	$(target)g++ -march=armv6 -mcpu=arm1176jzf-s -I../uicaboodle.m -fobjc-call-cxx-cdtors -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework UIKit -framework IOKit -framework CoreFoundation -framework Foundation -framework CoreGraphics -framework GraphicsServices $(frameworks) -lobjc -lapt-pkg -lpcre -fobjc-exceptions -I/apl/inc/iPhoneOS-2.0 -F"$${PKG_ROOT}"/System/Library/PrivateFrameworks
 
 sign: Cydia
 	CODESIGN_ALLOCATE=$$(which "$(target)codesign_allocate") /apl/tel/util/ldid -S Cydia

@@ -232,7 +232,7 @@
     Database *database_;
     id delegate_;
     NSMutableArray *sources_;
-    UIAlertSheet *alert_;
+    UIActionSheet *alert_;
 }
 
 - (int) numberOfSectionsInSectionList:(UISectionList *)list;
@@ -294,7 +294,7 @@
     [table selectRow:-1 byExtendingSelection:NO withFade:YES];
 }
 
-- (void) alertSheet:(UIAlertSheet *)sheet buttonClicked:(int)button {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     [alert_ dismiss];
     [alert_ release];
     alert_ = nil;
@@ -303,7 +303,7 @@
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
     switch (button) {
         case 0:
-            alert_ = [[UIAlertSheet alloc]
+            alert_ = [[UIActionSheet alloc]
                 initWithTitle:@"Unimplemented"
                 buttons:[NSArray arrayWithObjects:@"Okay", nil]
                 defaultButtonIndex:0

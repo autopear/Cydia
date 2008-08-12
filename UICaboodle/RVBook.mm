@@ -8,6 +8,14 @@
 #import <UIKit/UIView-Geometry.h>
 #import <UIKit/UIView-Hierarchy.h>
 
+#import <Foundation/Foundation.h>
+#import <CoreGraphics/CGGeometry.h>
+
+#include <cstdio>
+#include <cstdlib>
+
+#include <errno.h>
+
 #import "RVPage.h"
 
 @implementation RVBook
@@ -102,10 +110,7 @@
     [pages_ addObject:page];
     [self reloadButtonsForPage:page];
 
-    if ([navbar_ respondsToSelector:@selector(setAccessoryView:animate:goingBack:)])
-        [navbar_ setAccessoryView:[page accessoryView] animate:animated goingBack:NO];
-    else
-        [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+    [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
 }
 
 - (void) popPages:(unsigned)pages {
@@ -149,10 +154,7 @@
     [page setPageActive:YES];
     [self reloadButtonsForPage:page];
 
-    if ([navbar_ respondsToSelector:@selector(setAccessoryView:animate:goingBack:)])
-        [navbar_ setAccessoryView:[page accessoryView] animate:animated goingBack:YES];
-    else
-        [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+    [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
 }
 
 - (void) setTitle:(NSString *)title forPage:(RVPage *)page {

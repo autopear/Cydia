@@ -5,8 +5,10 @@
         "name": "Allen Porter",
         "address": "allen.porter@gmail.com"
     },
+    "depiction": "http://planet-iphones.com/repository/info/chromium1.3.php",
     "description": "this is a sample description",
-    "homepage": "http://cydia.saurik.com/terminal.html",
+    //"homepage": "http://cydia.saurik.com/terminal.html",
+    "homepage": "http://planet-iphones.com/repository/info/chromium1.3.php",
     "installed": "286u-4",
     "id": "mobileterminal",
     "section": "Terminal Support",
@@ -34,28 +36,36 @@ $(function () {
         $(".author").remove();
     else {
         $("#author").html(author.name);
-        $("#author-link").href("mailto:" + author.address + "?subject=" + regarding);
+        $("#author-href").href("mailto:" + author.address + "?subject=" + regarding);
     }
 
-    var description = package.description;
-    if (description == null)
-        description = package.tagline;
-    else
-        description = description.replace(/\n/g, "<br/>");
-    $("#description").html(description);
+    var depiction = package.depiction;
+    if (depiction != null) {
+        $(".description").remove();
+        $("#depiction-src").src(depiction);
+    } else {
+        $(".depiction").remove();
+
+        var description = package.description;
+        if (description == null)
+            description = package.tagline;
+        else
+            description = description.replace(/\n/g, "<br/>");
+        $("#description").html(description);
+    }
 
     var homepage = package.homepage;
     if (homepage == null)
         $(".homepage").remove();
     else
-        $("#homepage-link").href(homepage);
+        $("#homepage-href").href(homepage);
 
     var installed = package.installed;
     if (installed == null)
         $(".installed").remove();
     else {
         $("#installed").html(installed);
-        $("#files-link").href("cydia://files/" + id);
+        $("#files-href").href("cydia://files/" + id);
     }
 
     $("#id").html(id);
@@ -77,7 +87,7 @@ $(function () {
         $(".maintainer").remove();
     else {
         $("#maintainer").html(maintainer.name);
-        $("#maintainer-link").href("mailto:" + maintainer.address + "?subject=" + regarding);
+        $("#maintainer-href").href("mailto:" + maintainer.address + "?subject=" + regarding);
     }
 
     var sponsor = package.sponsor;
@@ -85,14 +95,18 @@ $(function () {
         $(".sponsor").remove();
     else {
         $("#sponsor").html(sponsor.name);
-        $("#sponsor-link").href(sponsor.address);
+        $("#sponsor-href").href(sponsor.address);
     }
 
     var source = package.source;
-    if (source == null)
+    if (source == null) {
         $(".source").remove();
-    else {
+        $(".trusted").remove();
+    } else {
         $("#source-name").html(source.name);
+
+        if (!source.trusted)
+            $(".trusted").remove();
 
         var description = source.description;
         if (description == null)

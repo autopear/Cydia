@@ -849,12 +849,6 @@ class Progress :
         distribution_ = [[NSString stringWithUTF8String:index->GetDist().c_str()] retain];
         type_ = [[NSString stringWithUTF8String:index->GetType()] retain];
 
-        description_ = nil;
-        label_ = nil;
-        origin_ = nil;
-        version_ = nil;
-        defaultIcon_ = nil;
-
         debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
         if (dindex != NULL) {
             std::ifstream release(dindex->MetaIndexFile("Release").c_str());
@@ -1047,6 +1041,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *tagline_;
     NSString *icon_;
     NSString *homepage_;
+    NSString *depiction_;
     Address *sponsor_;
     Address *author_;
     NSArray *tags_;
@@ -1088,6 +1083,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) tagline;
 - (NSString *) icon;
 - (NSString *) homepage;
+- (NSString *) depiction;
 - (Address *) author;
 
 - (NSArray *) relationships;
@@ -1133,6 +1129,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         [icon_ release];
     if (homepage_ != nil)
         [homepage_ release];
+    if (depiction_ != nil)
+        [depiction_ release];
     if (sponsor_ != nil)
         [sponsor_ release];
     if (author_ != nil)
@@ -1149,7 +1147,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"author", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"section", @"size", @"source", @"sponsor", @"tagline", nil];
+    return [NSArray arrayWithObjects:@"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"section", @"size", @"source", @"sponsor", @"tagline", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -1198,6 +1196,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
                 homepage_ = Scour("Website", begin, end);
             if (homepage_ != nil)
                 homepage_ = [homepage_ retain];
+            depiction_ = Scour("Depiction", begin, end);
+            if (depiction_ != nil)
+                depiction_ = [depiction_ retain];
             NSString *sponsor = Scour("Sponsor", begin, end);
             if (sponsor != nil)
                 sponsor_ = [[Address addressWithString:sponsor] retain];
@@ -1406,6 +1407,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSString *) homepage {
     return homepage_;
+}
+
+- (NSString *) depiction {
+    return depiction_;
 }
 
 - (Address *) sponsor {
@@ -4318,6 +4323,9 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 }
 
 - (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
+    if ([frame parentFrame] != nil)
+        return;
+
     title_ = [title retain];
     [self setTitle:title];
 }

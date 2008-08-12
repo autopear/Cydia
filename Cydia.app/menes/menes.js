@@ -24,9 +24,10 @@ var $ = function (arg, doc) {
     else if (type == "string") {
         if (doc == undefined)
             doc = document;
-        if (arg.charAt(0) == '#')
-            return new $([doc.getElementById(arg.substring(1))]);
-        else if (arg.charAt(0) == '.')
+        if (arg.charAt(0) == '#') {
+            var node = doc.getElementById(arg.substring(1));
+            return $(node == null ? [] : [node]);
+        } else if (arg.charAt(0) == '.')
             return new $(doc.getElementsByClassName(arg.substring(1)));
         else
             return $([doc]).descendants(arg);
@@ -198,6 +199,15 @@ $.inject({
         },
         set: function (node, value) {
             node.href = value;
+        }
+    },
+
+    src: {
+        get: function (node) {
+            return node.src;
+        },
+        set: function (node, value) {
+            node.src = value;
         }
     },
 

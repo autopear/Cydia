@@ -1433,7 +1433,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSString *) homepage {
-    return homepage_ == nil ? depiction_ : homepage_;
+    return homepage_;
 }
 
 - (NSString *) depiction {

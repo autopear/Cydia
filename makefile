@@ -6,6 +6,10 @@ endif
 
 frameworks :=
 
+ifneq ($(wildcard $(PKG_ROOT)/System/Library/*Frameworks/QuartzCore.framework),)
+frameworks += -framework QuartzCore
+endif
+
 ifneq ($(wildcard $(PKG_ROOT)/System/Library/*Frameworks/LayerKit.framework),)
 frameworks += -framework LayerKit
 endif

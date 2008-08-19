@@ -42,7 +42,9 @@
 #include <CoreGraphics/CoreGraphics.h>
 #include <GraphicsServices/GraphicsServices.h>
 #include <Foundation/Foundation.h>
+
 #include <WebCore/DOMHTML.h>
+#import <QuartzCore/CALayer.h>
 
 #import <UIKit/UIActionSheet.h>
 #import <UIKit/UIAnimator.h>
@@ -80,8 +82,11 @@
 #import <UIKit/UIWindow.h>
 
 #import <UIKit/UIView-Geometry.h>
+#import <UIKit/UIView-Gestures.h>
 #import <UIKit/UIView-Hierarchy.h>
 #import <UIKit/UIView-Rendering.h>
+
+#import <UIKit/UIWebDocumentView-Forms.h>
 
 #import <UIKit/NSString-UIStringDrawing.h>
 
@@ -143,6 +148,10 @@ extern "C" {
 #import "ResetView.h"
 #import "UICaboodle.h"
 /* }}} */
+
+@interface WebView (Cydia)
+- (void) _setLayoutInterval:(float)interval;
+@end
 
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
@@ -461,6 +470,7 @@ static CGColor Red_;
 static CGColor White_;
 static CGColor Gray_;
 
+static NSString *App_;
 static NSString *Home_;
 static BOOL Sounds_Keyboard_;
 
@@ -1082,6 +1092,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (BOOL) upgradableAndEssential:(BOOL)essential;
 - (BOOL) essential;
 - (BOOL) broken;
+- (BOOL) unfiltered;
 - (BOOL) visible;
 
 - (BOOL) half;
@@ -1116,8 +1127,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) install;
 - (void) remove;
 
-- (NSNumber *) isVisiblySearchedForBy:(NSString *)search;
-- (NSNumber *) isInstalledAndVisible:(NSNumber *)number;
+- (NSNumber *) isUnfilteredAndSearchedForBy:(NSString *)search;
+- (NSNumber *) isInstalledAndUnfiltered:(NSNumber *)number;
 - (NSNumber *) isVisiblyUninstalledInSection:(NSString *)section;
 - (NSNumber *) isVisibleInSource:(Source *)source;
 
@@ -1342,9 +1353,13 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return [database_ cache][iterator_].InstBroken();
 }
 
-- (BOOL) visible {
+- (BOOL) unfiltered {
     NSString *section = [self section];
-    return [self hasSupportingRole] && (section == nil || isSectionVisible(section));
+    return section == nil || isSectionVisible(section);
+}
+
+- (BOOL) visible {
+    return [self hasSupportingRole] && [self unfiltered];
 }
 
 - (BOOL) half {
@@ -1585,15 +1600,15 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [database_ cache]->MarkDelete(iterator_, true);
 }
 
-- (NSNumber *) isVisiblySearchedForBy:(NSString *)search {
+- (NSNumber *) isUnfilteredAndSearchedForBy:(NSString *)search {
     return [NSNumber numberWithBool:(
-        [self valid] && [self visible] && [self matches:search]
+        [self unfiltered] && [self matches:search]
     )];
 }
 
-- (NSNumber *) isInstalledAndVisible:(NSNumber *)number {
+- (NSNumber *) isInstalledAndUnfiltered:(NSNumber *)number {
     return [NSNumber numberWithBool:(
-        (![number boolValue] || [self visible]) && [self installed] != nil
+        (![number boolValue] || [self unfiltered]) && [self installed] != nil
     )];
 }
 
@@ -1601,7 +1616,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *section = [self section];
 
     return [NSNumber numberWithBool:(
-        [self valid] && [self visible] &&
+        [self visible] &&
         [self installed] == nil && (
             name == nil ||
             section == nil && [name length] == 0 ||
@@ -2914,7 +2929,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     if (NSString *icon = [package icon])
         icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];
     if (icon_ == nil) if (NSString *section = [package section])
-        icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sections/%@.png", Simplify(section)]];
+        icon_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, Simplify(section)]];
     /*if (icon_ == nil) if (NSString *icon = [source defaultIcon])
         icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];*/
     if (icon_ == nil)
@@ -3299,6 +3314,13 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [sheet dismiss];
 }
 
+#include "internals.h"
+
+- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
+    [[frame windowObject] evaluateWebScript:@"document.base.target = '_top'"];
+    return [super webView:sender didFinishLoadForFrame:frame];
+}
+
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [window setValue:package_ forKey:@"package"];
 }
@@ -3514,7 +3536,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([[package performSelector:filter_ withObject:object_] boolValue])
+        if ([package valid] && [[package performSelector:filter_ withObject:object_] boolValue])
             [packages_ addObject:package];
     }
 
@@ -4036,7 +4058,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             initWithBook:book
             database:database
             title:nil
-            filter:@selector(isInstalledAndVisible:)
+            filter:@selector(isInstalledAndUnfiltered:)
             with:[NSNumber numberWithBool:YES]
         ];
 
@@ -4360,7 +4382,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     NSString *href = [webview mainFrameURL];
     [urls_ addObject:[NSURL URLWithString:href]];
 
-    CGRect webrect = [scroller_ frame];
+    CGRect webrect = [scroller_ bounds];
     webrect.size.height = 0;
     [webview_ setFrame:webrect];
 }
@@ -4373,10 +4395,31 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     }
 }
 
+- (BOOL) webView:(WebView *)sender shouldScrollToPoint:(struct CGPoint)point forFrame:(WebFrame *)frame {
+    _trace();
+    return [webview_ webView:sender shouldScrollToPoint:point forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didReceiveViewportArguments:(id)arguments forFrame:(WebFrame *)frame {
+    return [webview_ webView:sender didReceiveViewportArguments:arguments forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender needsScrollNotifications:(id)notifications forFrame:(WebFrame *)frame {
+    return [webview_ webView:sender needsScrollNotifications:notifications forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didCommitLoadForFrame:(WebFrame *)frame {
+    return [webview_ webView:sender didCommitLoadForFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didReceiveDocTypeForFrame:(WebFrame *)frame {
+    return [webview_ webView:sender didReceiveDocTypeForFrame:frame];
+}
+
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    if ([frame parentFrame] != nil)
-        return;
-    [self _finishLoading];
+    if ([frame parentFrame] == nil)
+        [self _finishLoading];
+    return [webview_ webView:sender didFinishLoadForFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
@@ -4417,11 +4460,26 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         webview_ = [[UIWebView alloc] initWithFrame:webrect];
         [scroller_ addSubview:webview_];
 
-        [webview_ setTilingEnabled:YES];
         [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
+
+        [webview_ setTilingEnabled:YES];
+        [webview_ setTileMinificationFilter:kCAFilterNearest];
         [webview_ setAutoresizes:YES];
+
+        [webview_ setViewportSize:CGSizeMake(980, -1) forDocumentTypes:0x10];
+        [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x2];
+        [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x8];
+
+        [webview_ _setDocumentType:0x4];
+
+        [webview_ setZoomsFocusedFormControl:YES];
+        [webview_ setContentsPosition:7];
+        [webview_ setEnabledGestures:0xa];
+        [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x4];
+        [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x7];
         [webview_ setDelegate:self];
-        //[webview_ setEnabledGestures:2];
+        [webview_ setGestureDelegate:self];
+        [webview_ setSmoothsFonts:YES];
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:kUIProgressIndicatorStyleMediumWhite];
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 42, indsize.width, indsize.height)];
@@ -4439,8 +4497,14 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         [webview setResourceLoadDelegate:self];
         [webview setUIDelegate:self];
 
+        //[webview _setLayoutInterval:0.5];
+
         urls_ = [[NSMutableArray alloc] initWithCapacity:16];
     } return self;
+}
+
+- (void) didFinishGesturesInView:(UIView *)view forEvent:(id)event {
+    [webview_ redrawScaledDocument];
 }
 
 - (void) _rightButtonClicked {
@@ -5056,7 +5120,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             initWithBook:book
             database:database
             title:nil
-            filter:@selector(isVisiblySearchedForBy:)
+            filter:@selector(isUnfilteredAndSearchedForBy:)
             with:nil
         ];
 
@@ -6094,6 +6158,7 @@ int main(int argc, char *argv[]) {
 
     bootstrap_ = argc > 1 && strcmp(argv[1], "--bootstrap") == 0;
 
+    App_ = [[NSBundle mainBundle] bundlePath];
     Home_ = NSHomeDirectory();
 
     {

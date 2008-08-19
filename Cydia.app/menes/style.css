@@ -44,7 +44,7 @@ body {
 }
 
 hr {
-    margin-top: 10px;
+    margin: 0;
 }
 
 .dialog > .panel {
@@ -155,12 +155,16 @@ strong {
 }
 
 .dialog > .panel > fieldset > div > p {
-    margin-top: .5em;
+    margin: 11px 0;
     text-align: center;
 }
 
 .dialog > .panel > fieldset > div > p:first-child {
     margin-top: 0;
+}
+
+.dialog > .panel > fieldset > div > p:last-child {
+    margin-bottom: 0;
 }
 
 .dialog > .panel > fieldset > a {

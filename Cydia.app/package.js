@@ -5,10 +5,10 @@
         "name": "Allen Porter",
         "address": "allen.porter@gmail.com"
     },
-    "depiction": "http://planet-iphones.com/repository/info/chromium1.3.php",
+    //"depiction": "http://planet-iphones.com/repository/info/chromium1.3.php",
+    "depiction": "http://cydia.saurik.com/terminal.html",
     "description": "this is a sample description",
-    //"homepage": "http://cydia.saurik.com/terminal.html",
-    "homepage": "http://planet-iphones.com/repository/info/chromium1.3.php",
+    "homepage": "http://cydia.saurik.com/terminal.html",
     "installed": "286u-4",
     "id": "mobileterminal",
     "section": "Terminal Support",
@@ -39,20 +39,22 @@ $(function () {
         $("#author-href").href("mailto:" + author.address + "?subject=" + regarding);
     }
 
-    var depiction = package.depiction;
-    if (depiction != null) {
-        $(".description").remove();
-        $("#depiction-src").src(depiction);
-    } else {
-        $(".depiction").remove();
+    $("#notice-src").src("http://cydia.saurik.com/notice/" + encodeURIComponent(id) + ".html");
 
-        var description = package.description;
-        if (description == null)
-            description = package.tagline;
-        else
-            description = description.replace(/\n/g, "<br/>");
-        $("#description").html(description);
+    var depiction = package.depiction;
+    if (depiction == null)
+        $(".depiction").remove();
+    else {
+        $(".description").display("none");
+        $("#depiction-src").src(depiction);
     }
+
+    var description = package.description;
+    if (description == null)
+        description = package.tagline;
+    else
+        description = description.replace(/\n/g, "<br/>");
+    $("#description").html(description);
 
     var homepage = package.homepage;
     if (homepage == null)

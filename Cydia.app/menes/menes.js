@@ -27,9 +27,10 @@ var $ = function (arg, doc) {
         if (arg.charAt(0) == '#') {
             var node = doc.getElementById(arg.substring(1));
             return $(node == null ? [] : [node]);
-        } else if (arg.charAt(0) == '.')
-            return new $(doc.getElementsByClassName(arg.substring(1)));
-        else
+        } else if (arg.charAt(0) == '.') {
+            var nodes = doc.getElementsByClassName(arg.substring(1));
+            return $(nodes == null ? [] : nodes);
+        } else
             return $([doc]).descendants(arg);
     } else {
         _assert(doc == undefined);
@@ -184,6 +185,15 @@ $.inject = function (a, b) {
 };
 
 $.inject({
+    display: {
+        get: function (node) {
+            return node.style.display;
+        },
+        set: function (node, value) {
+            node.style.display = value;
+        }
+    },
+
     html: {
         get: function (node) {
             return node.innerHTML;

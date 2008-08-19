@@ -1128,7 +1128,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) remove;
 
 - (NSNumber *) isUnfilteredAndSearchedForBy:(NSString *)search;
-- (NSNumber *) isInstalledAndUnfiltered:(NSNumber *)number;
+- (NSNumber *) isInstalledAndVisible:(NSNumber *)number;
 - (NSNumber *) isVisiblyUninstalledInSection:(NSString *)section;
 - (NSNumber *) isVisibleInSource:(Source *)source;
 
@@ -1606,9 +1606,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     )];
 }
 
-- (NSNumber *) isInstalledAndUnfiltered:(NSNumber *)number {
+- (NSNumber *) isInstalledAndVisible:(NSNumber *)number {
     return [NSNumber numberWithBool:(
-        (![number boolValue] || [self unfiltered]) && [self installed] != nil
+        (![number boolValue] || [self visible]) && [self installed] != nil
     )];
 }
 
@@ -4058,7 +4058,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             initWithBook:book
             database:database
             title:nil
-            filter:@selector(isInstalledAndUnfiltered:)
+            filter:@selector(isInstalledAndVisible:)
             with:[NSNumber numberWithBool:YES]
         ];
 

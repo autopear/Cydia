@@ -1062,8 +1062,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     NSString *name_;
     NSString *tagline_;
     NSString *icon_;
-    NSString *homepage_;
     NSString *depiction_;
+    NSString *homepage_;
     Address *sponsor_;
     Address *author_;
     NSArray *tags_;
@@ -1150,10 +1150,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     [tagline_ release];
     if (icon_ != nil)
         [icon_ release];
-    if (homepage_ != nil)
-        [homepage_ release];
     if (depiction_ != nil)
         [depiction_ release];
+    if (homepage_ != nil)
+        [homepage_ release];
     if (sponsor_ != nil)
         [sponsor_ release];
     if (author_ != nil)
@@ -1214,14 +1214,16 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             icon_ = Scour("Icon", begin, end);
             if (icon_ != nil)
                 icon_ = [icon_ retain];
-            homepage_ = Scour("Homepage", begin, end);
-            if (homepage_ == nil)
-                homepage_ = Scour("Website", begin, end);
-            if (homepage_ != nil)
-                homepage_ = [homepage_ retain];
             depiction_ = Scour("Depiction", begin, end);
             if (depiction_ != nil)
                 depiction_ = [depiction_ retain];
+            homepage_ = Scour("Homepage", begin, end);
+            if (homepage_ == nil)
+                homepage_ = Scour("Website", begin, end);
+            if ([homepage_ isEqualToString:depiction_])
+                homepage_ = nil;
+            if (homepage_ != nil)
+                homepage_ = [homepage_ retain];
             NSString *sponsor = Scour("Sponsor", begin, end);
             if (sponsor != nil)
                 sponsor_ = [[Address addressWithString:sponsor] retain];
@@ -2144,6 +2146,21 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [text setTextColor:[UIColor colorWithCGColor:blue]];
 }
 
+bool DepSubstrate(const pkgCache::VerIterator &iterator) {
+    if (!iterator.end())
+        for (pkgCache::DepIterator dep(iterator.DependsList()); !dep.end(); ++dep) {
+            if (dep->Type != pkgCache::Dep::Depends && dep->Type != pkgCache::Dep::PreDepends)
+                continue;
+            pkgCache::PkgIterator package(dep.TargetPkg());
+            if (package.end())
+                continue;
+            if (strcmp(package.Name(), "mobilesubstrate") == 0)
+                return true;
+        }
+
+    return false;
+}
+
 @protocol ConfirmationViewDelegate
 - (void) cancel;
 - (void) confirm;
@@ -2158,6 +2175,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     UIPreferencesTable *table_;
     NSMutableDictionary *fields_;
     UIActionSheet *essential_;
+    BOOL substrate_;
 }
 
 - (void) cancel;
@@ -2198,8 +2216,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         case 0:
             if (essential_ != nil)
                 [essential_ popupAlertAnimated:YES];
-            else
+            else {
+                if (substrate_)
+                    Finish_ = 2;
                 [delegate_ confirm];
+            }
         break;
 
         case 1:
@@ -2217,6 +2238,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 [self cancel];
                 break;
             case 2:
+                if (substrate_)
+                    Finish_ = 2;
                 [delegate_ confirm];
                 break;
             default:
@@ -2333,6 +2356,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
 
         bool remove(false);
 
+        pkgDepCache::Policy *policy([database_ policy]);
+
         pkgCacheFile &cache([database_ cache]);
         NSArray *packages = [database_ packages];
         for (size_t i(0), e = [packages count]; i != e; ++i) {
@@ -2354,7 +2379,10 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
                 if ([package essential])
                     remove = true;
                 [removing addObject:name];
-            }
+            } else continue;
+
+            substrate_ |= DepSubstrate(policy->GetCandidateVer(iterator));
+            substrate_ |= DepSubstrate(iterator.CurrentVer());
         }
 
         if (!remove)
@@ -2647,7 +2675,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     switch (Finish_) {
         case 0:
             [delegate_ progressViewIsComplete:self];
-           [self resetView];
+            [self resetView];
         break;
 
         case 1:
@@ -2655,7 +2683,7 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
         break;
 
         case 2:
-            system("killall SpringBoard");
+            system("launchctl stop com.apple.SpringBoard");
         break;
 
         case 3:
@@ -4252,10 +4280,36 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [book_ pushPage:page];
 }
 
-- (void) getSpecial:(NSString *)href {
+- (RVPage *) _pageForPackage:(NSString *)name {
+    if (Package *package = [database_ packageWithName:name]) {
+        PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+        [view setPackage:package];
+        return view;
+    } else {
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
+            initWithTitle:@"Cannot Locate Package"
+            buttons:[NSArray arrayWithObjects:@"Close", nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:@"missing"
+        ] autorelease];
+
+        [sheet setBodyText:[NSString stringWithFormat:
+            @"The package %@ cannot be found in your current sources. I might recommend installing more sources."
+        , name]];
+
+        [sheet popupAlertAnimated:YES];
+        return nil;
+    }
+}
+
+- (BOOL) getSpecial:(NSString *)href {
     RVPage *page = nil;
 
-    if ([href hasPrefix:@"mailto:"])
+    if (
+        [href hasPrefix:@"http://phobos.apple.com/"] ||
+        [href hasPrefix:@"mailto:"]
+    )
         [delegate_ openURL:[NSURL URLWithString:href]];
     else if ([href isEqualToString:@"cydia://add-source"])
         page = [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
@@ -4271,32 +4325,16 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
             [files setPackage:package];
             page = files;
         }
-    } else if ([href hasPrefix:@"apptapp://package/"]) {
-        NSString *name = [href substringFromIndex:18];
-
-        if (Package *package = [database_ packageWithName:name]) {
-            PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
-            [view setPackage:package];
-            page = view;
-        } else {
-            UIActionSheet *sheet = [[[UIActionSheet alloc]
-                initWithTitle:@"Cannot Locate Package"
-                buttons:[NSArray arrayWithObjects:@"Close", nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:@"missing"
-            ] autorelease];
-
-            [sheet setBodyText:[NSString stringWithFormat:
-                @"The package %@ cannot be found in your current sources. I might recommend installing more sources."
-            , name]];
-
-            [sheet popupAlertAnimated:YES];
-        }
-    }
+    } else if ([href hasPrefix:@"apptapp://package/"])
+        page = [self _pageForPackage:[href substringFromIndex:18]];
+    else if ([href hasPrefix:@"cydia://package/"])
+        page = [self _pageForPackage:[href substringFromIndex:16]];
+    else if (![href hasPrefix:@"apptapp:"] && ![href hasPrefix:@"cydia:"])
+        return false;
 
     if (page != nil)
         [self pushPage:page];
+    return true;
 }
 
 - (void) webView:(WebView *)sender willClickElement:(id)element {
@@ -4312,19 +4350,11 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     [self getSpecial:href];
 }
 
-- (BOOL) isSpecialScheme:(NSString *)scheme {
-    return
-        [scheme isEqualToString:@"apptapp"] ||
-        [scheme isEqualToString:@"cydia"] ||
-        [scheme isEqualToString:@"mailto"];
-}
-
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
     NSURL *url = [request URL];
-    if ([self isSpecialScheme:[url scheme]]) {
-        [self getSpecial:[url absoluteString]];
+    NSLog(@"Cydia:%@", url);
+    if ([self getSpecial:[url absoluteString]])
         return nil;
-    }
 
     if (!pushed_) {
         pushed_ = true;
@@ -4334,10 +4364,18 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     return [self _addHeadersToRequest:request];
 }
 
+- (BOOL) isSpecialScheme:(NSString *)scheme {
+    return
+        [scheme isEqualToString:@"apptapp"] ||
+        [scheme isEqualToString:@"cydia"] ||
+        [scheme isEqualToString:@"mailto"];
+}
+
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
     if (request != nil) {
-        NSString *scheme = [[request URL] scheme];
-        if ([self isSpecialScheme:scheme])
+        NSURL *url = [request URL];
+        NSString *scheme = [url scheme];
+        if ([self isSpecialScheme:scheme] || [[url absoluteString] hasPrefix:@"http://phobos.apple.com/"])
             return nil;
     }
 
@@ -4381,6 +4419,8 @@ void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString
     WebView *webview = [webview_ webView];
     NSString *href = [webview mainFrameURL];
     [urls_ addObject:[NSURL URLWithString:href]];
+
+    [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
 
     CGRect webrect = [scroller_ bounds];
     webrect.size.height = 0;

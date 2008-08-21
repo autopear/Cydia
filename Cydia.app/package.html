@@ -41,6 +41,12 @@
             top: -5px;
         }
 
+        #depiction {
+            margin-bottom: -7px;
+            overflow: hidden;
+            width: 320px;
+        }
+
         #notice {
             margin-bottom: -14px;
             overflow: hidden;
@@ -86,13 +92,13 @@
     target="_top"
 ></iframe></div>
 
-<div id="remove" class="depiction">
+<!--div id="remove" class="depiction">
     <a href="javascript:remove()">Remove Custom Depiction</a>
 </div>
 
-<hr id="upper-bar" class="depiction"/>
+<hr id="upper-bar" class="depiction"/-->
 
-<div style="width: 320px; overflow: hidden" class="depiction"><iframe
+<div id="depiction" class="depiction"><iframe
     id="depiction-src"
     frameborder="0"
     width="320"
@@ -101,7 +107,7 @@
     onLoad="loaded()"
 ></iframe></div>
 
-<hr id="lower-bar" class="depiction"/>
+<!--hr id="lower-bar" class="depiction"/-->
 
 <fieldset class="description">
     <div id="description"></div>

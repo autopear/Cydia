@@ -149,6 +149,8 @@ extern "C" {
 #import "UICaboodle.h"
 /* }}} */
 
+static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSForcedOrderingSearch;
+
 @interface WebView (Cydia)
 - (void) _setLayoutInterval:(float)interval;
 @end
@@ -924,7 +926,7 @@ class Progress :
             return NSOrderedDescending;
     }
 
-    return [lhs caseInsensitiveCompare:rhs];
+    return [lhs compare:rhs options:CompareOptions_];
 }
 
 - (NSDictionary *) record {
@@ -1473,7 +1475,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     NSRange range;
 
-    range = [[self id] rangeOfString:text options:NSCaseInsensitiveSearch];
+    range = [[self id] rangeOfString:text options:NSCaseInsentiveSearch];
     if (range.location != NSNotFound)
         return YES;
 
@@ -1524,7 +1526,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             return NSOrderedDescending;
     }
 
-    return [lhs caseInsensitiveCompare:rhs];
+    return [lhs compare:rhs options:CompareOptions_];
 }
 
 - (NSComparisonResult) compareBySection:(Package *)package {
@@ -1536,7 +1538,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     else if (lhs != NULL && rhs == NULL)
         return NSOrderedDescending;
     else if (lhs != NULL && rhs != NULL) {
-        NSComparisonResult result = [lhs caseInsensitiveCompare:rhs];
+        NSComparisonResult result = [lhs compare:rhs options:CompareOptions_];
         if (result != NSOrderedSame)
             return result;
     }
@@ -1671,7 +1673,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             return NSOrderedDescending;
     }
 
-    return [lhs caseInsensitiveCompare:rhs];
+    return [lhs compare:rhs options:CompareOptions_];
 }
 
 - (Section *) initWithName:(NSString *)name {
@@ -6085,7 +6087,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL /*||
+        readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL*/
     ) {
         [self setIdleTimerDisabled:YES];
 

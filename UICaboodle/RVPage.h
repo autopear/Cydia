@@ -1,13 +1,6 @@
 #import "UICaboodle.h"
 
-#import <UIKit/UIView.h>
-
-enum RVUINavBarButtonStyle {
-    RVUINavBarButtonStyleNormal,
-    RVUINavBarButtonStyleBack,
-    RVUINavBarButtonStyleHighlighted,
-    RVUINavBarButtonStyleDestructive
-};
+#import <UIKit/UIKit.h>
 
 @class NSString;
 @class RVBook;
@@ -23,8 +16,8 @@ enum RVUINavBarButtonStyle {
 - (NSString *) leftButtonTitle;
 - (UIView *) accessoryView;
 
-- (RVUINavBarButtonStyle) leftButtonStyle;
-- (RVUINavBarButtonStyle) rightButtonStyle;
+- (UINavigationButtonStyle) leftButtonStyle;
+- (UINavigationButtonStyle) rightButtonStyle;
 
 - (void) _rightButtonClicked;
 - (void) _leftButtonClicked;

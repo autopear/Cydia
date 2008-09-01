@@ -29,6 +29,10 @@
     [super dealloc];
 }
 
+- (UINavigationBar *) navigationBar {
+    return navbar_;
+}
+
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
     _assert([pages_ count] != 0);
     RVPage *page = [pages_ lastObject];
@@ -52,7 +56,7 @@
         pages_ = [[NSMutableArray arrayWithCapacity:4] retain];
 
         struct CGRect bounds = [self bounds];
-        CGSize navsize = [UINavigationBar defaultSizeWithPrompt];
+        CGSize navsize = [UINavigationBar defaultSize];
         CGRect navrect = {{0, 0}, navsize};
 
         navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
@@ -60,8 +64,6 @@
 
         [navbar_ setBarStyle:0];
         [navbar_ setDelegate:self];
-
-        [navbar_ setPrompt:@""];
 
         transition_ = [[UITransitionView alloc] initWithFrame:CGRectMake(
             bounds.origin.x, bounds.origin.y + navsize.height, bounds.size.width, bounds.size.height - navsize.height
@@ -104,6 +106,7 @@
     [navbar_ pushNavigationItem:navitem];
 
     BOOL animated = [pages_ count] == 0 ? NO : YES;
+    [page setFrame:[transition_ bounds]];
     [transition_ transition:(animated ? 1 : 0) toView:page];
     [page setPageActive:YES];
 
@@ -127,10 +130,6 @@
     [self resetViewAnimated:YES toPage:[pages_ lastObject]];
 }
 
-- (void) setPrompt:(NSString *)prompt {
-    [navbar_ setPrompt:prompt];
-}
-
 - (void) resetViewAnimated:(BOOL)animated {
     resetting_ = true;
 
@@ -150,6 +149,7 @@
 
 - (void) resetViewAnimated:(BOOL)animated toPage:(RVPage *)page {
     [page resetViewAnimated:animated];
+    [page setFrame:[transition_ bounds]];
     [transition_ transition:(animated ? 2 : 0) toView:page];
     [page setPageActive:YES];
     [self reloadButtonsForPage:page];
@@ -175,8 +175,8 @@
     if ([pages_ count] == 0 || page != [pages_ lastObject])
         return;
     NSString *leftButtonTitle([page leftButtonTitle]);
-    RVUINavBarButtonStyle leftButtonStyle = [page leftButtonStyle];
-    RVUINavBarButtonStyle rightButtonStyle = [page rightButtonStyle];
+    UINavigationButtonStyle leftButtonStyle = [page leftButtonStyle];
+    UINavigationButtonStyle rightButtonStyle = [page rightButtonStyle];
     //[navbar_ showButtonsWithLeftTitle:leftButtonTitle rightTitle:[page rightButtonTitle] leftBack:(leftButtonTitle == nil)];
 
     [navbar_

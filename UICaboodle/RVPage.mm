@@ -1,7 +1,7 @@
 #import "RVPage.h"
 
 #import <Foundation/Foundation.h>
-#import <UIKit/UIView.h>
+#import <UIKit/UIKit.h>
 
 #import "RVBook.h"
 
@@ -24,12 +24,12 @@
     return nil;
 }
 
-- (RVUINavBarButtonStyle) leftButtonStyle {
-    return [self leftButtonTitle] == nil ? RVUINavBarButtonStyleBack : RVUINavBarButtonStyleNormal;
+- (UINavigationButtonStyle) leftButtonStyle {
+    return [self leftButtonTitle] == nil ? UINavigationButtonStyleBack : UINavigationButtonStyleNormal;
 }
 
-- (RVUINavBarButtonStyle) rightButtonStyle {
-    return RVUINavBarButtonStyleNormal;
+- (UINavigationButtonStyle) rightButtonStyle {
+    return UINavigationButtonStyleNormal;
 }
 
 - (void) _rightButtonClicked {

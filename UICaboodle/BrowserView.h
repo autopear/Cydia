@@ -7,18 +7,20 @@
 
 @class UIProgressIndicator;
 @class UIScroller;
-@class UIWebView;
+@class UIDocumentWebView;
 
 @class WebView;
 
 @class Database;
+@class IndirectDelegate;
 
 @interface BrowserView : RVPage {
     _transient Database *database_;
     UIScroller *scroller_;
-    UIWebView *webview_;
+    UIWebDocumentView *webview_;
     NSMutableArray *urls_;
     UIProgressIndicator *indicator_;
+    IndirectDelegate *indirect_;
 
     NSString *title_;
     bool loading_;

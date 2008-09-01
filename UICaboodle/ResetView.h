@@ -1,8 +1,7 @@
 #import <RVPage.h>
 #import <RVBook.h>
 
-#import <UIKit/UISectionList.h>
-#import <UIKit/UITable.h>
+#import <UIKit/UIKit.h>
 
 @interface UIView (RVBook)
 - (void) resetViewAnimated:(BOOL)animated;

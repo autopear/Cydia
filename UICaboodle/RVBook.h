@@ -21,6 +21,8 @@
     _transient id delegate_;
 }
 
+- (UINavigationBar *) navigationBar;
+
 - (id) initWithFrame:(CGRect)frame;
 - (void) setDelegate:(id)delegate;
 
@@ -28,8 +30,6 @@
 
 - (void) pushPage:(RVPage *)page;
 - (void) popPages:(unsigned)pages;
-
-- (void) setPrompt:(NSString *)prompt;
 
 - (void) resetViewAnimated:(BOOL)animated;
 - (void) resetViewAnimated:(BOOL)animated toPage:(RVPage *)page;

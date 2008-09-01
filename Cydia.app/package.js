@@ -39,7 +39,7 @@ $(function () {
         $("#author-href").href("mailto:" + author.address + "?subject=" + regarding);
     }
 
-    $("#notice-src").src("http://apt.saurik.com/notice/" + encodeURIComponent(id) + ".html");
+    //$("#notice-src").src("http://saurik.cachefly.net/notice/" + encodeURIComponent(id) + ".html");
 
     var depiction = package.depiction;
     if (depiction == null)

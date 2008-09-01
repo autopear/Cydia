@@ -46,49 +46,7 @@
 #include <WebCore/DOMHTML.h>
 #import <QuartzCore/CALayer.h>
 
-#import <UIKit/UIActionSheet.h>
-#import <UIKit/UIAnimator.h>
-#import <UIKit/UIApplication.h>
-#import <UIKit/UIColor.h>
-#import <UIKit/UIFieldEditor.h>
-#import <UIKit/UIFrameAnimation.h>
-#import <UIKit/UIHardware.h>
-#import <UIKit/UIImage.h>
-#import <UIKit/UIImageAndTextTableCell.h>
-#import <UIKit/UIImageView.h>
-#import <UIKit/UIKeyboard.h>
-#import <UIKit/UIKeyboardImpl.h>
-#import <UIKit/UINavigationBar.h>
-#import <UIKit/UINavigationItem.h>
-#import <UIKit/UIPreferencesTable.h>
-#import <UIKit/UIPreferencesTableCell.h>
-#import <UIKit/UIProgressBar.h>
-#import <UIKit/UIProgressHUD.h>
-#import <UIKit/UIProgressIndicator.h>
-#import <UIKit/UIPushButton.h>
-#import <UIKit/UISearchField.h>
-#import <UIKit/UISimpleTableCell.h>
-#import <UIKit/_UISwitchSlider.h>
-#import <UIKit/UITableCell.h>
-#import <UIKit/UITableColumn.h>
-#import <UIKit/UITextField.h>
-#import <UIKit/UITextInputTraits.h>
-#import <UIKit/UITextLabel.h>
-#import <UIKit/UITextView.h>
-#import <UIKit/UIToolbar.h>
-#import <UIKit/UITransitionView.h>
-#import <UIKit/UIWebDocumentView.h>
-#import <UIKit/UIWebView.h>
-#import <UIKit/UIWindow.h>
-
-#import <UIKit/UIView-Geometry.h>
-#import <UIKit/UIView-Gestures.h>
-#import <UIKit/UIView-Hierarchy.h>
-#import <UIKit/UIView-Rendering.h>
-
-#import <UIKit/UIWebDocumentView-Forms.h>
-
-#import <UIKit/NSString-UIStringDrawing.h>
+#import <UIKit/UIKit.h>
 
 // XXX: remove
 #import <UIKit/UIActionSheet-Private.h>
@@ -142,8 +100,6 @@ extern "C" {
 #include <errno.h>
 #include <pcre.h>
 
-#define UIWebView UIWebDocumentView
-
 #import "BrowserView.h"
 #import "ResetView.h"
 #import "UICaboodle.h"
@@ -161,14 +117,6 @@ static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | 
 }
 
 - (id) initWithCGColor:(CGColorRef)color;
-@end
-
-@interface UIFont {
-}
-
-+ (id)systemFontOfSize:(float)fp8;
-+ (id)boldSystemFontOfSize:(float)fp8;
-- (UIFont *) fontWithSize:(CGFloat)size;
 @end
 
 @interface NSObject (iPhoneOS)
@@ -228,8 +176,10 @@ extern NSString *kUIButtonBarButtonType;
 typedef enum {
     kUIProgressIndicatorStyleLargeWhite = 0,
     kUIProgressIndicatorStyleMediumWhite = 1,
+    kUIProgressIndicatorStyleMediumBrown = 2,
     kUIProgressIndicatorStyleSmallWhite = 3,
-    kUIProgressIndicatorStyleSmallBlack = 4
+    kUIProgressIndicatorStyleSmallBlack = 4,
+    kUIProgressIndicatorStyleTinyWhite = 5,
 } UIProgressIndicatorStyle;
 
 typedef enum {
@@ -467,7 +417,7 @@ static const char * const SpringBoard_ = "/System/Library/LaunchDaemons/com.appl
 static CGColor Blue_;
 static CGColor Blueish_;
 static CGColor Black_;
-static CGColor Clear_;
+static CGColor Off_;
 static CGColor Red_;
 static CGColor White_;
 static CGColor Gray_;
@@ -512,6 +462,7 @@ static _transient NSString *Role_;
 static _transient NSMutableDictionary *Packages_;
 static _transient NSMutableDictionary *Sections_;
 static _transient NSMutableDictionary *Sources_;
+static _transient NSMutableArray *Documents_;
 static bool Changed_;
 static NSDate *now_;
 
@@ -565,7 +516,7 @@ UITextView *GetTextView(NSString *value, float left, bool html) {
         [text setText:value];
     [text setEnabled:NO];
 
-    [text setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
+    [text setBackgroundColor:[UIColor clearColor]];
 
     CGRect frame = [text frame];
     [text setFrame:frame];
@@ -624,7 +575,9 @@ bool isSectionVisible(NSString *section) {
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id;
 - (void) setProgressTitle:(NSString *)title;
 - (void) setProgressPercent:(float)percent;
+- (void) startProgress;
 - (void) addProgressOutput:(NSString *)output;
+- (bool) isCancelling:(size_t)received;
 @end
 
 @protocol ConfigurationDelegate
@@ -697,10 +650,11 @@ class Status :
         );
 
         [delegate_ setProgressPercent:percent];
-        return value;
+        return [delegate_ isCancelling:CurrentBytes] ? false : value;
     }
 
     virtual void Start() {
+        [delegate_ startProgress];
     }
 
     virtual void Stop() {
@@ -1475,7 +1429,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     NSRange range;
 
-    range = [[self id] rangeOfString:text options:NSCaseInsentiveSearch];
+    range = [[self id] rangeOfString:text options:NSCaseInsensitiveSearch];
     if (range.location != NSNotFound)
         return YES;
 
@@ -2427,7 +2381,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             0, navsize.height, bounds.size.width, bounds.size.height - navsize.height
         )];
 
-        [table_ setReusesTableCells:YES];
         [table_ setDataSource:self];
         [table_ reloadData];
 
@@ -2503,6 +2456,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     id delegate_;
     BOOL running_;
     SHA1SumValue springlist_;
+    size_t received_;
+    NSTimeInterval last_;
 }
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
@@ -2558,10 +2513,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
 
         if (bootstrap_)
-            [overlay_ setBackgroundColor:[UIColor colorWithCGColor:Black_]];
+            [overlay_ setBackgroundColor:[UIColor blackColor]];
         else {
             background_ = [[UIView alloc] initWithFrame:[self bounds]];
-            [background_ setBackgroundColor:[UIColor colorWithCGColor:Black_]];
+            [background_ setBackgroundColor:[UIColor blackColor]];
             [self addSubview:background_];
         }
 
@@ -2597,8 +2552,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             24
         )];
 
-        [status_ setColor:[UIColor colorWithCGColor:White_]];
-        [status_ setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
+        [status_ setColor:[UIColor whiteColor]];
+        [status_ setBackgroundColor:[UIColor clearColor]];
 
         [status_ setCentersHorizontally:YES];
         //[status_ setFont:font];
@@ -2613,8 +2568,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         //[output_ setTextFont:@"Courier New"];
         [output_ setTextSize:12];
 
-        [output_ setTextColor:[UIColor colorWithCGColor:White_]];
-        [output_ setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
+        [output_ setTextColor:[UIColor whiteColor]];
+        [output_ setBackgroundColor:[UIColor clearColor]];
 
         [output_ setMarginTop:0];
         [output_ setAllowsRubberBanding:YES];
@@ -2751,6 +2706,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [output_ setText:@""];
     [progress_ setProgress:0];
 
+    received_ = 0;
+    last_ = 0;//[NSDate timeIntervalSinceReferenceDate];
+
     [close_ removeFromSuperview];
     [overlay_ addSubview:progress_];
     [overlay_ addSubview:status_];
@@ -2784,7 +2742,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:selector
         toTarget:database_
         withObject:nil
-        title:@"Repairing..."
+        title:@"Repairing"
     ];
 }
 
@@ -2827,12 +2785,29 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
+- (void) startProgress {
+    last_ = [NSDate timeIntervalSinceReferenceDate];
+}
+
 - (void) addProgressOutput:(NSString *)output {
     [self
         performSelectorOnMainThread:@selector(_addProgressOutput:)
         withObject:output
         waitUntilDone:YES
     ];
+}
+
+- (bool) isCancelling:(size_t)received {
+    if (last_ != 0) {
+        NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+        if (received_ != received) {
+            received_ = received;
+            last_ = now;
+        } else if (now - last_ > 30)
+            return true;
+    }
+
+    return false;
 }
 
 - (void) _setConfigurationData:(NSString *)data {
@@ -2863,7 +2838,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _setProgressTitle:(NSString *)title {
-    [status_ setText:[title stringByAppendingString:@"..."]];
+    [status_ setText:title];
 }
 
 - (void) _setProgressPercent:(NSNumber *)percent {
@@ -2944,7 +2919,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         badge_ = [[UIImageView alloc] initWithFrame:CGRectMake(17, 70, 16, 16)];
 
         status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 68, 280, 20)];
-        [status_ setBackgroundColor:Clear_];
+        [status_ setBackgroundColor:[UIColor clearColor]];
         [status_ setFont:small];
 #endif
     } return self;
@@ -3003,7 +2978,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else if ([package half]) {
         [badge_ setImage:[UIImage applicationImageNamed:@"damaged.png"]];
         [status_ setText:@"Package Damaged"];
-        [status_ setColor:Red_];
+        [status_ setColor:[UIColor redColor]];
     } else {
         [badge_ setImage:nil];
         [status_ setText:nil];
@@ -3017,8 +2992,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
-    if (icon_ != nil)
-        [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
+    if (icon_ != nil) {
+        CGRect rect;
+        rect.size = [icon_ size];
+
+        rect.size.width /= 2;
+        rect.size.height /= 2;
+
+        rect.origin.x = 25 - rect.size.width / 2;
+        rect.origin.y = 25 - rect.size.height / 2;
+
+        [icon_ drawInRect:rect];
+    }
 
     if (selected)
         UISetColor(White_);
@@ -3542,6 +3527,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self addSubview:list_];
         [self reloadData];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -3983,6 +3971,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [table setDelegate:self];
 
         [self reloadData];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -4055,8 +4046,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[list_ table] isRowDeletionEnabled] ? @"Done" : @"Edit";
 }
 
-- (RVUINavBarButtonStyle) rightButtonStyle {
-    return [[list_ table] isRowDeletionEnabled] ? RVUINavBarButtonStyleHighlighted : RVUINavBarButtonStyleNormal;
+- (UINavigationButtonStyle) rightButtonStyle {
+    return [[list_ table] isRowDeletionEnabled] ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
 }
 
 @end
@@ -4093,6 +4084,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ];
 
         [self addSubview:packages_];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [packages_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -4123,8 +4117,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return Role_ != nil && [Role_ isEqualToString:@"Developer"] ? nil : expert_ ? @"Expert" : @"Simple";
 }
 
-- (RVUINavBarButtonStyle) rightButtonStyle {
-    return expert_ ? RVUINavBarButtonStyleHighlighted : RVUINavBarButtonStyleNormal;
+- (UINavigationButtonStyle) rightButtonStyle {
+    return expert_ ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
 }
 
 - (void) setDelegate:(id)delegate {
@@ -4207,6 +4201,41 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* Indirect Delegate {{{ */
+@interface IndirectDelegate : NSProxy {
+    _transient id delegate_;
+}
+
+- (void) setDelegate:(id)delegate;
+- (id) initWithDelegate:(id)delegate;
+@end
+
+@implementation IndirectDelegate
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (id) initWithDelegate:(id)delegate {
+    delegate_ = delegate;
+    return self;
+}
+
+- (NSMethodSignature*) methodSignatureForSelector:(SEL)sel {
+    if (delegate_ != nil)
+        if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
+            return sig;
+    return nil;
+}
+
+- (void) forwardInvocation:(NSInvocation*)inv {
+    SEL sel = [inv selector];
+    if (delegate_ != nil && [delegate_ respondsToSelector:sel])
+        [inv invokeWithTarget:delegate_];
+}
+
+@end
+/* }}} */
 /* Browser Implementation {{{ */
 @implementation BrowserView
 
@@ -4216,11 +4245,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [webview setResourceLoadDelegate:nil];
     [webview setUIDelegate:nil];
 
-    [scroller_ setDelegate:nil];
     [webview_ setDelegate:nil];
+    [webview_ setGestureDelegate:nil];
+
+    /*WebFrame *frame = [webview mainFrame];
+    [frame loadHTMLString:@"" baseURL:[NSURL URLWithString:@"http://cydia.saurik.com/"]];*/
+
+    //[webview_ removeFromSuperview];
+    //[Documents_ addObject:[webview_ autorelease]];
+    [webview_ release];
+
+    [indirect_ setDelegate:nil];
+    [indirect_ release];
+
+    [scroller_ setDelegate:nil];
 
     [scroller_ release];
-    [webview_ release];
     [urls_ release];
     [indicator_ release];
     if (title_ != nil)
@@ -4309,8 +4349,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     RVPage *page = nil;
 
     if (
+        [href hasPrefix:@"http://ax.phobos.apple.com/"] ||
         [href hasPrefix:@"http://phobos.apple.com/"] ||
-        [href hasPrefix:@"mailto:"]
+        [href hasPrefix:@"http://www.youtube.com/watch?"] ||
+        [href hasPrefix:@"mailto:"] ||
+        [href hasPrefix:@"tel:"]
     )
         [delegate_ openURL:[NSURL URLWithString:href]];
     else if ([href isEqualToString:@"cydia://add-source"])
@@ -4354,7 +4397,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
     NSURL *url = [request URL];
-    NSLog(@"Cydia:%@", url);
     if ([self getSpecial:[url absoluteString]])
         return nil;
 
@@ -4370,14 +4412,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return
         [scheme isEqualToString:@"apptapp"] ||
         [scheme isEqualToString:@"cydia"] ||
-        [scheme isEqualToString:@"mailto"];
+        [scheme isEqualToString:@"mailto"] ||
+        [scheme isEqualToString:@"tel"];
 }
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
     if (request != nil) {
         NSURL *url = [request URL];
         NSString *scheme = [url scheme];
-        if ([self isSpecialScheme:scheme] || [[url absoluteString] hasPrefix:@"http://phobos.apple.com/"])
+        NSString *absolute = [url absoluteString];
+        if (
+            [self isSpecialScheme:scheme] ||
+            [absolute hasPrefix:@"http://ax.phobos.apple.com/"] ||
+            [absolute hasPrefix:@"http://phobos.apple.com/"] ||
+            [absolute hasPrefix:@"http://www.yahoo.com/watch?"]
+        )
             return nil;
     }
 
@@ -4416,7 +4465,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         title_ = nil;
     }
 
-    [self setTitle:@"Loading..."];
+    [self setTitle:@"Loading"];
 
     WebView *webview = [webview_ webView];
     NSString *href = [webview mainFrameURL];
@@ -4499,32 +4548,40 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect webrect = [scroller_ bounds];
         webrect.size.height = 0;
 
-        webview_ = [[UIWebView alloc] initWithFrame:webrect];
-        [scroller_ addSubview:webview_];
+        webview_ = [Documents_ lastObject];
+        if (webview_ != nil) {
+            webview_ = [webview_ retain];
+            [Documents_ removeLastObject];
+            [webview_ setFrame:webrect];
+        } else {
+            webview_ = [[UIWebDocumentView alloc] initWithFrame:webrect];
 
-        [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
+            [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
 
-        [webview_ setTilingEnabled:YES];
-        [webview_ setTileMinificationFilter:kCAFilterNearest];
-        [webview_ setAutoresizes:YES];
+            [webview_ setTilingEnabled:YES];
+            [webview_ setTileMinificationFilter:kCAFilterNearest];
+            [webview_ setAutoresizes:YES];
 
-        [webview_ setViewportSize:CGSizeMake(980, -1) forDocumentTypes:0x10];
-        [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x2];
-        [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x8];
+            [webview_ setViewportSize:CGSizeMake(980, -1) forDocumentTypes:0x10];
+            [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x2];
+            [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x8];
 
-        [webview_ _setDocumentType:0x4];
+            [webview_ _setDocumentType:0x4];
 
-        [webview_ setZoomsFocusedFormControl:YES];
-        [webview_ setContentsPosition:7];
-        [webview_ setEnabledGestures:0xa];
-        [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x4];
-        [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x7];
+            [webview_ setZoomsFocusedFormControl:YES];
+            [webview_ setContentsPosition:7];
+            [webview_ setEnabledGestures:0xa];
+            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x4];
+            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x7];
+            [webview_ setSmoothsFonts:YES];
+        }
+
         [webview_ setDelegate:self];
         [webview_ setGestureDelegate:self];
-        [webview_ setSmoothsFonts:YES];
+        [scroller_ addSubview:webview_];
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:kUIProgressIndicatorStyleMediumWhite];
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 42, indsize.width, indsize.height)];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 12, indsize.width, indsize.height)];
         [indicator_ setStyle:kUIProgressIndicatorStyleMediumWhite];
 
         Package *package([database_ packageWithName:@"cydia"]);
@@ -4533,15 +4590,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [package installed]
         ];
 
+        indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
+
         WebView *webview = [webview_ webView];
         [webview setApplicationNameForUserAgent:application];
         [webview setFrameLoadDelegate:self];
-        [webview setResourceLoadDelegate:self];
+        [webview setResourceLoadDelegate:indirect_];
         [webview setUIDelegate:self];
 
         //[webview _setLayoutInterval:0.5];
 
         urls_ = [[NSMutableArray alloc] initWithCapacity:16];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [pinstripe setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -4571,10 +4634,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setPageActive:(BOOL)active {
-    if (active)
-        [book_ addSubview:indicator_];
-    else
+    if (!active)
         [indicator_ removeFromSuperview];
+    else
+        [[book_ navigationBar] addSubview:indicator_];
 }
 
 - (void) resetViewAnimated:(BOOL)animated {
@@ -4591,11 +4654,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ProgressDelegate
 > {
     _transient Database *database_;
-    UIView *overlay_;
+    UINavigationBar *overlay_;
     UIProgressIndicator *indicator_;
     UITextLabel *prompt_;
     UIProgressBar *progress_;
+    UINavigationButton *cancel_;
     bool updating_;
+    size_t received_;
+    NSTimeInterval last_;
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database;
@@ -4725,6 +4791,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [list_ setReusesTableCells:YES];
 
         [self reloadData];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -4806,6 +4875,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSString *) rightButtonTitle {
     return [sections_ count] == 0 ? nil : editing_ ? @"Done" : @"Edit";
+}
+
+- (UINavigationButtonStyle) rightButtonStyle {
+    return editing_ ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
 }
 
 - (UIView *) accessoryView {
@@ -4918,6 +4991,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [table setReusesTableCells:YES];
 
         [self reloadData];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -5177,7 +5253,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         CGRect area;
         area.origin.x = /*cnfrect.origin.x + cnfrect.size.width + 4 +*/ 10;
-        area.origin.y = 30;
+        area.origin.y = 1;
 
         area.size.width =
 #ifdef __OBJC2__
@@ -5202,7 +5278,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [traits setAutocorrectionType:1];
         [traits setReturnKeyType:6];
 
-        CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height + 30}};
+        CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height}};
 
         accessory_ = [[UIView alloc] initWithFrame:accrect];
         [accessory_ addSubview:field_];
@@ -5212,6 +5288,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [configure setImage:[UIImage applicationImageNamed:@"advanced.png"]];
         [configure addTarget:self action:@selector(configurePushed) forEvents:1];
         [accessory_ addSubview:configure];*/
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -5277,6 +5356,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [indicator_ release];
     [prompt_ release];
     [progress_ release];
+    [cancel_ release];
     [super dealloc];
 }
 
@@ -5289,13 +5369,31 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) update {
-    [navbar_ setPrompt:@""];
-    [navbar_ addSubview:overlay_];
+    [UIView beginAnimations:nil context:NULL];
+
+    CGRect ovrframe = [overlay_ frame];
+    ovrframe.origin.y = 0;
+    [overlay_ setFrame:ovrframe];
+
+    CGRect barframe = [navbar_ frame];
+    barframe.origin.y += ovrframe.size.height;
+    [navbar_ setFrame:barframe];
+
+    CGRect trnframe = [transition_ frame];
+    trnframe.origin.y += ovrframe.size.height;
+    trnframe.size.height -= ovrframe.size.height;
+    [transition_ setFrame:trnframe];
+
+    [UIView endAnimations];
+
     [indicator_ startAnimation];
-    [prompt_ setText:@"Updating Database..."];
+    [prompt_ setText:@"Updating Database"];
     [progress_ setProgress:0];
 
+    received_ = 0;
+    last_ = [NSDate timeIntervalSinceReferenceDate];
     updating_ = true;
+    [overlay_ addSubview:cancel_];
 
     [NSThread
         detachNewThreadSelector:@selector(_update)
@@ -5307,11 +5405,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _update_ {
     updating_ = false;
 
-    [overlay_ removeFromSuperview];
     [indicator_ stopAnimation];
-    [delegate_ reloadData];
 
-    [self setPrompt:[NSString stringWithFormat:@"Last Updated: %@", GetLastUpdate()]];
+    [UIView beginAnimations:nil context:NULL];
+
+    CGRect ovrframe = [overlay_ frame];
+    ovrframe.origin.y = -ovrframe.size.height;
+    [overlay_ setFrame:ovrframe];
+
+    CGRect barframe = [navbar_ frame];
+    barframe.origin.y -= ovrframe.size.height;
+    [navbar_ setFrame:barframe];
+
+    CGRect trnframe = [transition_ frame];
+    trnframe.origin.y -= ovrframe.size.height;
+    trnframe.size.height += ovrframe.size.height;
+    [transition_ setFrame:trnframe];
+
+    [UIView commitAnimations];
+
+    [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database {
@@ -5319,15 +5432,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
 
         CGRect ovrrect = [navbar_ bounds];
-        ovrrect.size.height = ([UINavigationBar defaultSizeWithPrompt].height - [UINavigationBar defaultSize].height);
+        ovrrect.size.height = [UINavigationBar defaultSize].height;
+        ovrrect.origin.y = -ovrrect.size.height;
 
-        overlay_ = [[UIView alloc] initWithFrame:ovrrect];
+        overlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
+        [self addSubview:overlay_];
 
-        bool ugly = [navbar_ _barStyle:NO] == 0;
+        [overlay_ setBarStyle:1];
+        int barstyle = [overlay_ _barStyle:NO];
+        bool ugly = barstyle == 0;
 
         UIProgressIndicatorStyle style = ugly ?
-            kUIProgressIndicatorStyleSmallBlack :
-            kUIProgressIndicatorStyleSmallWhite;
+            kUIProgressIndicatorStyleMediumBrown :
+            kUIProgressIndicatorStyleMediumWhite;
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:style];
         unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
@@ -5337,22 +5454,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [indicator_ setStyle:style];
         [overlay_ addSubview:indicator_];
 
-        CGSize prmsize = {200, indsize.width + 4};
+        CGSize prmsize = {215, indsize.height + 4};
 
         CGRect prmrect = {{
             indoffset * 2 + indsize.width,
 #ifdef __OBJC2__
             -1 +
 #endif
-            (ovrrect.size.height - prmsize.height) / 2
+            unsigned(ovrrect.size.height - prmsize.height) / 2
         }, prmsize};
 
-        UIFont *font = [UIFont systemFontOfSize:12];
+        UIFont *font = [UIFont systemFontOfSize:15];
 
         prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
 
-        [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : White_)]];
-        [prompt_ setBackgroundColor:[UIColor colorWithCGColor:Clear_]];
+        [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : Off_)]];
+        [prompt_ setBackgroundColor:[UIColor clearColor]];
         [prompt_ setFont:font];
 
         [overlay_ addSubview:prompt_];
@@ -5367,7 +5484,23 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
         [progress_ setStyle:0];
         [overlay_ addSubview:progress_];
+
+        cancel_ = [[UINavigationButton alloc] initWithTitle:@"Cancel" style:UINavigationButtonStyleHighlighted];
+        [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
+
+        CGRect frame = [cancel_ frame];
+        frame.size.width = 65;
+        frame.origin.x = ovrrect.size.width - frame.size.width - 5;
+        frame.origin.y = (ovrrect.size.height - frame.size.height) / 2;
+        [cancel_ setFrame:frame];
+
+        [cancel_ setBarStyle:barstyle];
     } return self;
+}
+
+- (void) _onCancel {
+    updating_ = false;
+    [cancel_ removeFromSuperview];
 }
 
 - (void) _update {
@@ -5400,6 +5533,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setProgressPercent:(float)percent {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressPercent:)
+        withObject:[NSNumber numberWithFloat:percent]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) startProgress {
 }
 
 - (void) addProgressOutput:(NSString *)output {
@@ -5410,12 +5551,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
+- (bool) isCancelling:(size_t)received {
+    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+    if (received_ != received) {
+        received_ = received;
+        last_ = now;
+    } else if (now - last_ > 15)
+        return true;
+    return !updating_;
+}
+
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     [sheet dismiss];
 }
 
 - (void) _setProgressTitle:(NSString *)title {
-    [prompt_ setText:[title stringByAppendingString:@"..."]];
+    [prompt_ setText:title];
+}
+
+- (void) _setProgressPercent:(NSNumber *)percent {
+    [progress_ setProgress:[percent floatValue]];
 }
 
 - (void) _addProgressOutput:(NSString *)output {
@@ -5594,7 +5749,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:@selector(update_)
         toTarget:self
         withObject:nil
-        title:@"Updating Sources..."
+        title:@"Updating Sources"
     ];
 }
 
@@ -5682,7 +5837,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:@selector(perform)
         toTarget:database_
         withObject:nil
-        title:@"Running..."
+        title:@"Running"
     ];
 }
 
@@ -5698,7 +5853,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:@selector(bootstrap_)
         toTarget:self
         withObject:nil
-        title:@"Bootstrap Install..."
+        title:@"Bootstrap Install"
     ];
 }
 
@@ -6285,6 +6440,8 @@ int main(int argc, char *argv[]) {
         [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
 
+    Documents_ = [[[NSMutableArray alloc] initWithCapacity:4] autorelease];
+
     if (access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);
 
@@ -6297,7 +6454,7 @@ int main(int argc, char *argv[]) {
     Blue_.Set(space_, 0.2, 0.2, 1.0, 1.0);
     Blueish_.Set(space_, 0x19/255.f, 0x32/255.f, 0x50/255.f, 1.0);
     Black_.Set(space_, 0.0, 0.0, 0.0, 1.0);
-    Clear_.Set(space_, 0.0, 0.0, 0.0, 0.0);
+    Off_.Set(space_, 0.9, 0.9, 0.9, 1.0);
     Red_.Set(space_, 1.0, 0.0, 0.0, 1.0);
     White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
     Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);

@@ -1,3 +1,31 @@
-Tweaks_2.0 Tweaks
-Themes_(SummerBoard) Themes_(WinterBoard)
-Network Networking
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+
+<dict>
+    <key>Tweaks_2.0</key>
+    <dict>
+        <key>Rename</key>
+        <string>Tweaks</string>
+    </dict>
+
+    <key>Themes_(SummerBoard)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(SpringBoard)</string>
+    </dict>
+
+    <key>Intelliborn</key>
+    <dict>
+        <key>Rename</key>
+        <string>Utilities</string>
+    </dict>
+
+    <key>Network</key>
+    <dict>
+        <key>Rename</key>
+        <string>Networking</string>
+    </dict>
+</dict>
+
+</plist>

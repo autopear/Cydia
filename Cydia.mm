@@ -2673,7 +2673,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #define Cache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
 
-    if (NSMutableDictionary *cache = [[NSDictionary alloc] initWithContentsOfFile:@ Cache_]) {
+    if (NSMutableDictionary *cache = [[NSMutableDictionary alloc] initWithContentsOfFile:@ Cache_]) {
         [cache autorelease];
 
         NSFileManager *manager = [NSFileManager defaultManager];

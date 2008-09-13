@@ -162,6 +162,33 @@ static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | 
 - (void) setIdleTimerDisabled:(char)arg0;
 @end
 
+/* Information Dictionaries {{{ */
+@interface NSMutableArray (Cydia)
+- (void) addInfoDictionary:(NSDictionary *)info;
+@end
+
+@implementation NSMutableArray (Cydia)
+
+- (void) addInfoDictionary:(NSDictionary *)info {
+    [self addObject:info];
+}
+
+@end
+
+@interface NSMutableDictionary (Cydia)
+- (void) addInfoDictionary:(NSDictionary *)info;
+@end
+
+@implementation NSMutableDictionary (Cydia)
+
+- (void) addInfoDictionary:(NSDictionary *)info {
+    NSString *bundle = [info objectForKey:@"CFBundleIdentifier"];
+    [self setObject:info forKey:bundle];
+}
+
+@end
+/* }}} */
+
 extern "C" int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSString *delegateClassName);
 
 extern NSString *kUIButtonBarButtonAction;
@@ -2677,9 +2704,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [cache autorelease];
 
         NSFileManager *manager = [NSFileManager defaultManager];
-        id error = nil;
+        NSError *error = nil;
 
-        NSMutableDictionary *system = [cache objectForKey:@"System"];
+        id system = [cache objectForKey:@"System"];
         if (system == nil)
             goto error;
 
@@ -2689,7 +2716,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [system removeAllObjects];
 
-        if (NSArray *apps = [manager contentsOfDirectoryAtPath:@"/Applications" error:&error])
+        if (NSArray *apps = [manager contentsOfDirectoryAtPath:@"/Applications" error:&error]) {
             for (NSString *app in apps)
                 if ([app hasSuffix:@".app"]) {
                     NSString *path = [@"/Applications" stringByAppendingPathComponent:app];
@@ -2698,11 +2725,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                         [info autorelease];
                         [info setObject:path forKey:@"Path"];
                         [info setObject:@"System" forKey:@"ApplicationType"];
-                        NSString *bundle = [info objectForKey:@"CFBundleIdentifier"];
-                        [system setObject:info forKey:bundle];
+                        [system addInfoDictionary:info];
                     }
                 }
-        else goto error;
+        } else goto error;
 
         [cache writeToFile:@Cache_ atomically:YES];
 

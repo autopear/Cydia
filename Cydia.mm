@@ -85,7 +85,10 @@
 #include <apt-pkg/sourcelist.h>
 #include <apt-pkg/sptr.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/sysctl.h>
+
 #include <notify.h>
 #include <dlfcn.h>
 
@@ -394,16 +397,6 @@ class CGColor {
         return color_;
     }
 };
-
-class GSFont {
-  private:
-    GSFontRef font_;
-
-  public:
-    ~GSFont() {
-        CFRelease(font_);
-    }
-};
 /* }}} */
 
 extern "C" void UISetColor(CGColorRef color);
@@ -436,9 +429,9 @@ static UIFont *Font14_;
 static UIFont *Font18Bold_;
 static UIFont *Font22Bold_;
 
-const char *Firmware_ = NULL;
-const char *Machine_ = NULL;
-const char *SerialNumber_ = NULL;
+static const char *Firmware_ = NULL;
+static const char *Machine_ = NULL;
+static const NSString *UniqueID_ = NULL;
 
 unsigned Major_;
 unsigned Minor_;
@@ -2678,9 +2671,51 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 4: [close_ setTitle:@"Reboot Device"]; break;
     }
 
-#ifdef __OBJC2__
+#define Cache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
+
+    if (NSMutableDictionary *cache = [[NSDictionary alloc] initWithContentsOfFile:@ Cache_]) {
+        [cache autorelease];
+
+        NSFileManager *manager = [NSFileManager defaultManager];
+        id error = nil;
+
+        NSMutableDictionary *system = [cache objectForKey:@"System"];
+        if (system == nil)
+            goto error;
+
+        struct stat info;
+        if (stat(Cache_, &info) == -1)
+            goto error;
+
+        [system removeAllObjects];
+
+        if (NSArray *apps = [manager contentsOfDirectoryAtPath:@"/Applications" error:&error])
+            for (NSString *app in apps)
+                if ([app hasSuffix:@".app"]) {
+                    NSString *path = [@"/Applications" stringByAppendingPathComponent:app];
+                    NSString *plist = [path stringByAppendingPathComponent:@"Info.plist"];
+                    if (NSMutableDictionary *info = [[NSMutableDictionary alloc] initWithContentsOfFile:plist]) {
+                        [info autorelease];
+                        [info setObject:path forKey:@"Path"];
+                        [info setObject:@"System" forKey:@"ApplicationType"];
+                        NSString *bundle = [info objectForKey:@"CFBundleIdentifier"];
+                        [system setObject:info forKey:bundle];
+                    }
+                }
+        else goto error;
+
+        [cache writeToFile:@Cache_ atomically:YES];
+
+        if (chown(Cache_, info.st_uid, info.st_gid) == -1)
+            goto error;
+        if (chmod(Cache_, info.st_mode) == -1)
+            goto error;
+
+        if (false) error:
+            fprintf(stderr, "%s\n", error == nil ? strerror(errno) : [[error localizedDescription] UTF8String]);
+    }
+
     notify_post("com.apple.mobile.application_installed");
-#endif
 
     [delegate_ setStatusBarShowsProgress:NO];
 
@@ -3328,8 +3363,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sheet dismiss];
 }
-
-#include "internals.h"
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
     [[frame windowObject] evaluateWebScript:@"document.base.target = '_top'"];
@@ -4221,6 +4254,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return self;
 }
 
+- (void) doesNotRecognizeSelector:(SEL)sel {
+    fprintf(stderr, "doesNotRecognizeSelector:@selector(%s)", sel_getName(sel));
+}
+
 - (NSMethodSignature*) methodSignatureForSelector:(SEL)sel {
     if (delegate_ != nil)
         if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
@@ -4285,7 +4322,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [copy addValue:[NSString stringWithUTF8String:Firmware_] forHTTPHeaderField:@"X-Firmware"];
     [copy addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    [copy addValue:[NSString stringWithUTF8String:SerialNumber_] forHTTPHeaderField:@"X-Serial-Number"];
+    [copy addValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
 
     if (Role_ != nil)
         [copy addValue:Role_ forHTTPHeaderField:@"X-Role"];
@@ -4299,6 +4336,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadURL {
+    if ([urls_ count] == 0)
+        return;
     NSURL *url = [[[urls_ lastObject] retain] autorelease];
     [urls_ removeLastObject];
     [self loadURL:url cachePolicy:NSURLRequestReloadIgnoringCacheData];
@@ -4352,11 +4391,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [href hasPrefix:@"http://ax.phobos.apple.com/"] ||
         [href hasPrefix:@"http://phobos.apple.com/"] ||
         [href hasPrefix:@"http://www.youtube.com/watch?"] ||
-        [href hasPrefix:@"mailto:"] ||
         [href hasPrefix:@"tel:"]
     )
         [delegate_ openURL:[NSURL URLWithString:href]];
-    else if ([href isEqualToString:@"cydia://add-source"])
+    else if ([href hasPrefix:@"mailto:"]) {
+        [delegate_ openURL:[NSURL URLWithString:href]];
+    } else if ([href isEqualToString:@"cydia://add-source"])
         page = [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://sources"])
         page = [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
@@ -4471,11 +4511,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *href = [webview mainFrameURL];
     [urls_ addObject:[NSURL URLWithString:href]];
 
-    [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
-
     CGRect webrect = [scroller_ bounds];
     webrect.size.height = 0;
     [webview_ setFrame:webrect];
+
+    [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
 }
 
 - (void) _finishLoading {
@@ -5109,9 +5149,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SearchView
 
 - (void) dealloc {
-#ifndef __OBJC2__
-    [[field_ textTraits] setEditingDelegate:nil];
-#endif
     [field_ setDelegate:nil];
 
     [accessory_ release];
@@ -5173,9 +5210,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (show)
         [animator performSelector:@selector(startAnimation:) withObject:animation afterDelay:delay];
 
-#ifndef __OBJC2__
     [delegate_ showKeyboard:show];
-#endif
 }
 
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
@@ -5271,7 +5306,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [field_ setPlaceholder:@"Package Names & Descriptions"];
         [field_ setDelegate:self];
 
-        [field_ setPaddingTop:3];
+        [field_ setPaddingTop:5];
 
         UITextInputTraits *traits = [field_ textInputTraits];
         [traits setAutocapitalizationType:0];
@@ -5908,34 +5943,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     tag_ = tag;
 }
 
-- (void) fixSpringBoard {
-    pid_t pid = ExecFork();
-    if (pid == 0) {
-        sleep(1);
-
-        if (pid_t child = fork()) {
-            waitpid(child, NULL, 0);
-        } else {
-            execlp("launchctl", "launchctl", "unload", SpringBoard_, NULL);
-            perror("launchctl unload");
-            exit(0);
-        }
-
-        execlp("launchctl", "launchctl", "load", SpringBoard_, NULL);
-        perror("launchctl load");
-        exit(0);
-    }
-}
-
 - (void) applicationWillSuspend {
     [database_ clean];
-
-    if (reload_) {
-#ifndef __OBJC2__
-        [self fixSpringBoard];
-#endif
-}
-
     [super applicationWillSuspend];
 }
 
@@ -6358,6 +6367,7 @@ int main(int argc, char *argv[]) {
 
     App_ = [[NSBundle mainBundle] bundlePath];
     Home_ = NSHomeDirectory();
+    Locale_ = CFLocaleCopyCurrent();
 
     {
         NSString *plist = [Home_ stringByAppendingString:@"/Library/Preferences/com.apple.preferences.sounds.plist"];
@@ -6399,15 +6409,7 @@ int main(int argc, char *argv[]) {
     sysctlbyname("hw.machine", machine, &size, NULL, 0);
     Machine_ = machine;
 
-    if (CFMutableDictionaryRef dict = IOServiceMatching("IOPlatformExpertDevice"))
-        if (io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, dict)) {
-            if (CFTypeRef serial = IORegistryEntryCreateCFProperty(service, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0)) {
-                SerialNumber_ = strdup(CFStringGetCStringPtr((CFStringRef) serial, CFStringGetSystemEncoding()));
-                CFRelease(serial);
-            }
-
-            IOObjectRelease(service);
-        }
+    UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 
     /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
     AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/
@@ -6448,7 +6450,13 @@ int main(int argc, char *argv[]) {
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");
 
-    Locale_ = CFLocaleCopyCurrent();
+    _assert([[NSFileManager defaultManager]
+        createDirectoryAtPath:@"/var/cache/apt/archives/partial"
+        withIntermediateDirectories:YES
+        attributes:nil
+        error:NULL
+    ]);
+
     space_ = CGColorSpaceCreateDeviceRGB();
 
     Blue_.Set(space_, 0.2, 0.2, 1.0, 1.0);
@@ -6462,6 +6470,9 @@ int main(int argc, char *argv[]) {
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
     SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
+
+    UIApplicationUseLegacyEvents(YES);
+    UIKeyboardDisableAutomaticAppearance();
 
     int value = UIApplicationMain(argc, argv, @"Cydia", @"Cydia");
 

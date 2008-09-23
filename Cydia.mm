@@ -49,18 +49,7 @@
 #import <UIKit/UIKit.h>
 
 // XXX: remove
-#import <UIKit/UIActionSheet-Private.h>
-#import <UIKit/UIControl-UIControlPrivate.h>
-#import <UIKit/UIImage-UIImageDeprecated.h>
-#import <UIKit/UIImage-UIImagePrivate.h>
-#import <UIKit/UINavigationBar-Static.h>
-#import <UIKit/UIProgressHUD-Deprecated.h>
-#import <UIKit/UIToolbar-UIButtonBarPrivate.h>
-#import <UIKit/UIView-Deprecated.h>
-#import <UIKit/UIWindow-Static.h>
-
-// XXX: remove
-#import <UIKit/NSString-UIStringDrawingDeprecated.h>
+#import <MessageUI/MailComposeController.h>
 
 #include <WebKit/WebFrame.h>
 #include <WebKit/WebView.h>
@@ -110,10 +99,6 @@ extern "C" {
 
 static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSForcedOrderingSearch;
 
-@interface WebView (Cydia)
-- (void) _setLayoutInterval:(float)interval;
-@end
-
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
 @interface UICGColor : NSObject {
@@ -158,6 +143,8 @@ static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | 
 #endif
 /* }}} */
 
+extern NSString * const kCAFilterNearest;
+
 @interface UIApplication (IdleTimer)
 - (void) setIdleTimerDisabled:(char)arg0;
 @end
@@ -188,6 +175,9 @@ static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | 
 
 @end
 /* }}} */
+
+#define lprintf(args...) fprintf(stderr, args)
+#define ForSaurik 0
 
 extern "C" int UIApplicationMain(int argc, char *argv[], NSString *principalClassName, NSString *delegateClassName);
 
@@ -290,7 +280,7 @@ class Pcre {
         code_ = pcre_compile(regex, 0, &error, &offset, NULL);
 
         if (code_ == NULL) {
-            fprintf(stderr, "%d:%s\n", offset, error);
+            lprintf("%d:%s\n", offset, error);
             _assert(false);
         }
 
@@ -447,7 +437,9 @@ static NSString *Home_;
 static BOOL Sounds_Keyboard_;
 
 static BOOL Advanced_;
+#if !ForSaurik
 static BOOL Loaded_;
+#endif
 static BOOL Ignored_;
 
 static UIFont *Font12_;
@@ -614,6 +606,9 @@ bool isSectionVisible(NSString *section) {
 - (void) syncData;
 - (void) askForSettings;
 - (UIProgressHUD *) addProgressHUD;
+- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag;
+- (RVPage *) pageForPackage:(NSString *)name;
+- (void) openMailToURL:(NSURL *)url;
 @end
 /* }}} */
 
@@ -1094,6 +1089,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (bool) hasSupportingRole;
 - (BOOL) hasTag:(NSString *)tag;
+- (NSString *) primaryPurpose;
 
 - (NSComparisonResult) compareByName:(Package *)package;
 - (NSComparisonResult) compareBySection:(Package *)package;
@@ -1486,6 +1482,13 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return tags_ == nil ? NO : [tags_ containsObject:tag];
 }
 
+- (NSString *) primaryPurpose {
+    for (NSString *tag in tags_)
+        if ([tag hasPrefix:@"purpose::"])
+            return [tag substringFromIndex:9];
+    return nil;
+}
+
 - (NSComparisonResult) compareByName:(Package *)package {
     NSString *lhs = [self name];
     NSString *rhs = [package name];
@@ -1703,7 +1706,7 @@ NSArray *Finishes_;
     while (std::getline(is, line)) {
         const char *data(line.c_str());
         size_t size = line.size();
-        fprintf(stderr, "C:%s\n", data);
+        lprintf("C:%s\n", data);
 
         if (finish_r(data, size)) {
             NSString *finish = finish_r[1];
@@ -1730,7 +1733,7 @@ NSArray *Finishes_;
     while (std::getline(is, line)) {
         const char *data(line.c_str());
         size_t size = line.size();
-        fprintf(stderr, "S:%s\n", data);
+        lprintf("S:%s\n", data);
 
         if (conffile_r(data, size)) {
             [delegate_ setConfigurationData:conffile_r[1]];
@@ -1771,7 +1774,7 @@ NSArray *Finishes_;
     std::string line;
 
     while (std::getline(is, line)) {
-        fprintf(stderr, "O:%s\n", line.c_str());
+        lprintf("O:%s\n", line.c_str());
         [delegate_ addProgressOutput:[NSString stringWithUTF8String:line.c_str()]];
     }
 
@@ -1894,7 +1897,7 @@ NSArray *Finishes_;
         if (!_error->PopMessage(error))
             _assert(false);
         _error->Discard();
-        fprintf(stderr, "cache_.Open():[%s]\n", error.c_str());
+        lprintf("cache_.Open():[%s]\n", error.c_str());
 
         if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
             [delegate_ repairWithSelector:@selector(configure)];
@@ -1974,7 +1977,7 @@ NSArray *Finishes_;
     if (!cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)) {
         std::string error;
         while (_error->PopMessage(error))
-            fprintf(stderr, "ArchiveCleaner: %s\n", error.c_str());
+            lprintf("ArchiveCleaner: %s\n", error.c_str());
     }
 }
 
@@ -2015,7 +2018,7 @@ NSArray *Finishes_;
         std::string uri = (*item)->DescURI();
         std::string error = (*item)->ErrorText;
 
-        fprintf(stderr, "pAf:%s:%s\n", uri.c_str(), error.c_str());
+        lprintf("pAf:%s:%s\n", uri.c_str(), error.c_str());
         failed = true;
 
         [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
@@ -2110,6 +2113,112 @@ NSArray *Finishes_;
 @end
 /* }}} */
 
+/* Pop Up Windows {{{ */
+@interface PopUpView : UIView {
+    _transient id delegate_;
+    UITransitionView *transition_;
+    UIView *overlay_;
+}
+
+- (void) cancel;
+- (id) initWithView:(UIView *)view delegate:(id)delegate;
+
+@end
+
+@implementation PopUpView
+
+- (void) dealloc {
+    [transition_ setDelegate:nil];
+    [transition_ release];
+    [overlay_ release];
+    [super dealloc];
+}
+
+- (void) cancel {
+    [transition_ transition:UITransitionPushFromTop toView:nil];
+}
+
+- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
+    if (from != nil && to == nil)
+        [self removeFromSuperview];
+}
+
+- (id) initWithView:(UIView *)view delegate:(id)delegate {
+    if ((self = [super initWithFrame:[view bounds]]) != nil) {
+        delegate_ = delegate;
+
+        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
+        [self addSubview:transition_];
+
+        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
+
+        [view addSubview:self];
+
+        [transition_ setDelegate:self];
+
+        UIView *blank = [[[UIView alloc] initWithFrame:[transition_ bounds]] autorelease];
+        [transition_ transition:UITransitionNone toView:blank];
+        [transition_ transition:UITransitionPushFromBottom toView:overlay_];
+    } return self;
+}
+
+@end
+/* }}} */
+
+/* Mail Composition {{{ */
+@interface MailToView : PopUpView {
+    MailComposeController *controller_;
+}
+
+- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url;
+
+@end
+
+@implementation MailToView
+
+- (void) dealloc {
+    [controller_ release];
+    [super dealloc];
+}
+
+#include "internals.h"
+
+- (void) mailComposeControllerWillAttemptToSend:(MailComposeController *)controller {
+    NSLog(@"will");
+}
+
+- (void) mailComposeControllerDidAttemptToSend:(MailComposeController *)controller mailDelivery:(id)delivery {
+    NSLog(@"did:%@", delivery);
+// [UIApp setStatusBarShowsProgress:NO];
+if ([controller error]){
+NSArray *buttons = [NSArray arrayWithObjects:@"OK", nil];
+UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:@"Error" buttons:buttons defaultButtonIndex:0 delegate:self context:self];
+[mailAlertSheet setBodyText:[controller error]];
+[mailAlertSheet popupAlertAnimated:YES];
+}
+}
+
+- (void) mailComposeControllerCompositionFinished:(MailComposeController *)controller {
+    if ([controller needsDelivery])
+        [controller deliverMessage];
+    else
+        [self cancel];
+}
+
+- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url {
+    if ((self = [super initWithView:view delegate:delegate]) != nil) {
+        controller_ = [[MailComposeController alloc] initForContentSize:[overlay_ bounds].size];
+        [controller_ setDelegate:self];
+        [controller_ initializeUI];
+        [controller_ setupForURL:url];
+
+        UIView *view([controller_ view]);
+        [overlay_ addSubview:view];
+    } return self;
+}
+
+@end
+/* }}} */
 /* Confirmation View {{{ */
 void AddTextView(NSMutableDictionary *fields, NSMutableArray *packages, NSString *key) {
     if ([packages count] == 0)
@@ -2142,11 +2251,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) confirm;
 @end
 
-@interface ConfirmationView : UIView {
+@interface ConfirmationView : PopUpView {
     Database *database_;
-    id delegate_;
-    UITransitionView *transition_;
-    UIView *overlay_;
     UINavigationBar *navbar_;
     UIPreferencesTable *table_;
     NSMutableDictionary *fields_;
@@ -2156,7 +2262,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) cancel;
 
-- (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate;
+- (id) initWithView:(UIView *)view delegate:(id)delegate database:(Database *)database;
 
 @end
 
@@ -2164,11 +2270,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [navbar_ setDelegate:nil];
-    [transition_ setDelegate:nil];
     [table_ setDataSource:nil];
 
-    [transition_ release];
-    [overlay_ release];
     [navbar_ release];
     [table_ release];
     [fields_ release];
@@ -2178,13 +2281,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) cancel {
-    [transition_ transition:7 toView:nil];
+    [super cancel];
     [delegate_ cancel];
-}
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
-    if (from != nil && to == nil)
-        [self removeFromSuperview];
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
@@ -2301,15 +2399,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return cell;
 }
 
-- (id) initWithView:(UIView *)view database:(Database *)database delegate:(id)delegate {
-    if ((self = [super initWithFrame:[view bounds]]) != nil) {
+- (id) initWithView:(UIView *)view delegate:(id)delegate database:(Database *)database {
+    if ((self = [super initWithView:view delegate:delegate]) != nil) {
         database_ = database;
-        delegate_ = delegate;
-
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [self addSubview:transition_];
-
-        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
 
         CGSize navsize = [UINavigationBar defaultSize];
         CGRect navrect = {{0, 0}, navsize};
@@ -2406,14 +2498,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [overlay_ addSubview:navbar_];
         [overlay_ addSubview:table_];
-
-        [view addSubview:self];
-
-        [transition_ setDelegate:self];
-
-        UIView *blank = [[[UIView alloc] initWithFrame:[transition_ bounds]] autorelease];
-        [transition_ transition:0 toView:blank];
-        [transition_ transition:3 toView:overlay_];
     } return self;
 }
 
@@ -2651,7 +2735,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) closeButtonPushed {
     switch (Finish_) {
         case 0:
-            [delegate_ progressViewIsComplete:self];
             [self resetView];
         break;
 
@@ -2680,6 +2763,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [overlay_ addSubview:close_];
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
+
+    [delegate_ progressViewIsComplete:self];
 
     {
         FileFd file("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist", FileFd::ReadOnly);
@@ -2738,7 +2823,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             goto error;
 
         if (false) error:
-            fprintf(stderr, "%s\n", error == nil ? strerror(errno) : [[error localizedDescription] UTF8String]);
+            lprintf("%s\n", error == nil ? strerror(errno) : [[error localizedDescription] UTF8String]);
     }
 
     notify_post("com.apple.mobile.application_installed");
@@ -2927,8 +3012,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *description_;
     NSString *source_;
     //UIImageView *trusted_;
+    UIImage *badge_;
 #ifdef USE_BADGES
-    UIImageView *badge_;
     UITextLabel *status_;
 #endif
 }
@@ -2962,12 +3047,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [source_ release];
         source_ = nil;
     }
+
+    if (badge_ != nil) {
+        [badge_ release];
+        badge_ = nil;
+    }
 }
 
 - (void) dealloc {
     [self clearPackage];
 #ifdef USE_BADGES
-    [badge_ release];
     [status_ release];
 #endif
     //[trusted_ release];
@@ -2977,8 +3066,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (PackageCell *) init {
     if ((self = [super init]) != nil) {
 #ifdef USE_BADGES
-        badge_ = [[UIImageView alloc] initWithFrame:CGRectMake(17, 70, 16, 16)];
-
         status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 68, 280, 20)];
         [status_ setBackgroundColor:[UIColor clearColor]];
         [status_ setFont:small];
@@ -2990,14 +3077,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self clearPackage];
 
     Source *source = [package source];
+    NSString *section = [package section];
+    if (section != nil)
+        section = Simplify(section);
 
     icon_ = nil;
     if (NSString *icon = [package icon])
         icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (icon_ == nil) if (NSString *section = [package section])
-        icon_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, Simplify(section)]];
-    /*if (icon_ == nil) if (NSString *icon = [source defaultIcon])
-        icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];*/
+    if (icon_ == nil) if (section != nil)
+        icon_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
+    if (icon_ == nil) if (NSString *icon = [source defaultIcon])
+        icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];
     if (icon_ == nil)
         icon_ = [UIImage applicationImageNamed:@"unknown.png"];
 
@@ -3019,11 +3109,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSString *from = [NSString stringWithFormat:@"from %@", label];
 
-    NSString *section = Simplify([package section]);
     if (section != nil && ![section isEqualToString:label])
         from = [from stringByAppendingString:[NSString stringWithFormat:@" (%@)", section]];
 
     source_ = [from retain];
+
+    if (NSString *purpose = [package primaryPurpose])
+        if ((badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]]) != nil)
+            badge_ = [badge_ retain];
 
 #ifdef USE_BADGES
     [badge_ removeFromSuperview];
@@ -3064,6 +3157,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         rect.origin.y = 25 - rect.size.height / 2;
 
         [icon_ drawInRect:rect];
+    }
+
+    if (badge_ != nil) {
+        CGSize size = [badge_ size];
+
+        [badge_ drawAtPoint:CGPointMake(
+            36 - size.width / 2,
+            36 - size.height / 2
+        )];
     }
 
     if (selected)
@@ -3195,7 +3297,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UISetColor(White_);
     if (count_ != nil)
-        [count_ drawAtPoint:CGPointMake(12 + (29 - size.width) / 2, 15) withFont:Font12Bold_];
+        [count_ drawAtPoint:CGPointMake(13 + (29 - size.width) / 2, 16) withFont:Font12Bold_];
 
     [super drawContentInRect:rect selected:selected];
 }
@@ -3397,6 +3499,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [window setValue:package_ forKey:@"package"];
+    [super webView:sender didClearWindowObject:window forFrame:frame];
 }
 
 - (void) _rightButtonClicked {
@@ -3949,7 +4052,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    fprintf(stderr, "connection:\"%s\" didFailWithError:\"%s\"", [href_ UTF8String], [[error localizedDescription] UTF8String]);
+    lprintf("connection:\"%s\" didFailWithError:\"%s\"", [href_ UTF8String], [[error localizedDescription] UTF8String]);
     if (error_ != nil)
         error_ = [error retain];
     [self _endConnection:connection];
@@ -4260,9 +4363,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+@interface WebView (Cydia)
+- (void) setScriptDebugDelegate:(id)delegate;
+- (void) _setFormDelegate:(id)delegate;
+- (void) _setUIKitDelegate:(id)delegate;
+- (void) setWebMailDelegate:(id)delegate;
+- (void) _setLayoutInterval:(float)interval;
+@end
+
 /* Indirect Delegate {{{ */
 @interface IndirectDelegate : NSProxy {
-    _transient id delegate_;
+    _transient volatile id delegate_;
 }
 
 - (void) setDelegate:(id)delegate;
@@ -4280,18 +4391,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return self;
 }
 
-- (void) doesNotRecognizeSelector:(SEL)sel {
-    fprintf(stderr, "doesNotRecognizeSelector:@selector(%s)", sel_getName(sel));
-}
-
 - (NSMethodSignature*) methodSignatureForSelector:(SEL)sel {
     if (delegate_ != nil)
         if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
             return sig;
-    return nil;
+    // XXX: I fucking hate Apple so very very bad
+    return [NSMethodSignature signatureWithObjCTypes:"v@:"];
 }
 
-- (void) forwardInvocation:(NSInvocation*)inv {
+- (void) forwardInvocation:(NSInvocation *)inv {
     SEL sel = [inv selector];
     if (delegate_ != nil && [delegate_ respondsToSelector:sel])
         [inv invokeWithTarget:delegate_];
@@ -4307,12 +4415,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [webview setFrameLoadDelegate:nil];
     [webview setResourceLoadDelegate:nil];
     [webview setUIDelegate:nil];
+    [webview setScriptDebugDelegate:nil];
+    [webview setPolicyDelegate:nil];
+
+    [webview setDownloadDelegate:nil];
+
+    [webview _setFormDelegate:nil];
+    [webview _setUIKitDelegate:nil];
+    [webview setWebMailDelegate:nil];
+    [webview setEditingDelegate:nil];
 
     [webview_ setDelegate:nil];
     [webview_ setGestureDelegate:nil];
 
+    //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+
     /*WebFrame *frame = [webview mainFrame];
     [frame loadHTMLString:@"" baseURL:[NSURL URLWithString:@"http://cydia.saurik.com/"]];*/
+
+    [webview close];
 
     //[webview_ removeFromSuperview];
     //[Documents_ addObject:[webview_ autorelease]];
@@ -4347,8 +4468,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableURLRequest *copy = [request mutableCopy];
 
     [copy addValue:[NSString stringWithUTF8String:Firmware_] forHTTPHeaderField:@"X-Firmware"];
-    [copy addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    [copy addValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+    if (Machine_ != NULL)
+        [copy addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    if (UniqueID_ != nil)
+        [copy addValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
 
     if (Role_ != nil)
         [copy addValue:Role_ forHTTPHeaderField:@"X-Role"];
@@ -4387,29 +4510,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [book_ pushPage:page];
 }
 
-- (RVPage *) _pageForPackage:(NSString *)name {
-    if (Package *package = [database_ packageWithName:name]) {
-        PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
-        [view setPackage:package];
-        return view;
-    } else {
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:@"Cannot Locate Package"
-            buttons:[NSArray arrayWithObjects:@"Close", nil]
-            defaultButtonIndex:0
-            delegate:self
-            context:@"missing"
-        ] autorelease];
-
-        [sheet setBodyText:[NSString stringWithFormat:
-            @"The package %@ cannot be found in your current sources. I might recommend installing more sources."
-        , name]];
-
-        [sheet popupAlertAnimated:YES];
-        return nil;
-    }
-}
-
 - (BOOL) getSpecial:(NSString *)href {
     RVPage *page = nil;
 
@@ -4420,32 +4520,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [href hasPrefix:@"tel:"]
     )
         [delegate_ openURL:[NSURL URLWithString:href]];
-    else if ([href hasPrefix:@"mailto:"]) {
+    else if ([href hasPrefix:@"mailto:"])
         [delegate_ openURL:[NSURL URLWithString:href]];
-    } else if ([href isEqualToString:@"cydia://add-source"])
-        page = [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href isEqualToString:@"cydia://sources"])
-        page = [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href isEqualToString:@"cydia://packages"])
-        page = [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href hasPrefix:@"cydia://files/"]) {
-        NSString *name = [href substringFromIndex:14];
-
-        if (Package *package = [database_ packageWithName:name]) {
-            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
-            [files setPackage:package];
-            page = files;
-        }
-    } else if ([href hasPrefix:@"apptapp://package/"])
-        page = [self _pageForPackage:[href substringFromIndex:18]];
-    else if ([href hasPrefix:@"cydia://package/"])
-        page = [self _pageForPackage:[href substringFromIndex:16]];
-    else if (![href hasPrefix:@"apptapp:"] && ![href hasPrefix:@"cydia:"])
+    else if ([href hasPrefix:@"apptapp://package/"])
+        page = [delegate_ pageForPackage:[href substringFromIndex:18]];
+    else if ([href hasPrefix:@"cydia://"])
+        page = [delegate_ pageForURL:[NSURL URLWithString:href] hasTag:NULL];
+    else if (![href hasPrefix:@"apptapp:"])
         return false;
 
     if (page != nil)
         [self pushPage:page];
     return true;
+}
+
+- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [window setValue:delegate_ forKey:@"cydia"];
 }
 
 - (void) webView:(WebView *)sender willClickElement:(id)element {
@@ -4461,16 +4551,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self getSpecial:href];
 }
 
+- (void) webView:(WebView *)sender setStatusText:(NSString *)text {
+    //lprintf("Status:%s\n", [text UTF8String]);
+}
+
+- (void) _pushPage {
+    if (pushed_)
+        return;
+    pushed_ = true;
+    [book_ pushPage:self];
+}
+
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
     NSURL *url = [request URL];
     if ([self getSpecial:[url absoluteString]])
         return nil;
-
-    if (!pushed_) {
-        pushed_ = true;
-        [book_ pushPage:self];
-    }
-
+    [self _pushPage];
     return [self _addHeadersToRequest:request];
 }
 
@@ -4482,7 +4578,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [scheme isEqualToString:@"tel"];
 }
 
-- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
+- (WebView *) _createWebViewWithRequest:(NSURLRequest *)request pushed:(BOOL)pushed {
     if (request != nil) {
         NSURL *url = [request URL];
         NSString *scheme = [url scheme];
@@ -4501,12 +4597,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
     [browser setDelegate:delegate_];
 
-    if (request != nil) {
+    if (pushed) {
         [browser loadRequest:[self _addHeadersToRequest:request]];
         [book_ pushPage:browser];
     }
 
     return [browser webView];
+}
+
+- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
+    return [self _createWebViewWithRequest:request pushed:(request != nil)];
+}
+
+- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
+    return [self _createWebViewWithRequest:request pushed:YES];
 }
 
 - (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
@@ -4537,11 +4641,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *href = [webview mainFrameURL];
     [urls_ addObject:[NSURL URLWithString:href]];
 
+    [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+
     CGRect webrect = [scroller_ bounds];
     webrect.size.height = 0;
     [webview_ setFrame:webrect];
-
-    [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
 }
 
 - (void) _finishLoading {
@@ -4553,7 +4657,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (BOOL) webView:(WebView *)sender shouldScrollToPoint:(struct CGPoint)point forFrame:(WebFrame *)frame {
-    _trace();
     return [webview_ webView:sender shouldScrollToPoint:point forFrame:frame];
 }
 
@@ -4588,6 +4691,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
         [[error localizedDescription] stringByAddingPercentEscapes]
     ]]];
+}
+
+- (void) webView:(WebView *)sender addMessageToConsole:(NSDictionary *)dictionary {
+#if ForSaurik
+    lprintf("Console:%s\n", [[dictionary description] UTF8String]);
+#endif
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -4640,11 +4749,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x4];
             [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x7];
             [webview_ setSmoothsFonts:YES];
+
+            [webview_ setAllowsMessaging:YES];
         }
 
         [webview_ setDelegate:self];
         [webview_ setGestureDelegate:self];
         [scroller_ addSubview:webview_];
+
+        //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:kUIProgressIndicatorStyleMediumWhite];
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 12, indsize.width, indsize.height)];
@@ -4663,6 +4776,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [webview setFrameLoadDelegate:self];
         [webview setResourceLoadDelegate:indirect_];
         [webview setUIDelegate:self];
+        [webview setScriptDebugDelegate:self];
+        [webview setPolicyDelegate:self];
 
         //[webview _setLayoutInterval:0.5];
 
@@ -5748,13 +5863,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [self updateData];
 
+#if !ForSaurik
     if ([packages count] == 0);
     else if (Loaded_)
+#endif
         [self _loaded];
+#if !ForSaurik
     else {
         Loaded_ = YES;
         [book_ update];
     }
+#endif
 
     /*[hud show:NO];
     [hud removeFromSuperview];*/
@@ -5833,7 +5952,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [database_ prepare];
 
     if ([database_ cache]->BrokenCount() == 0)
-        confirm_ = [[ConfirmationView alloc] initWithView:underlay_ database:database_ delegate:self];
+        confirm_ = [[ConfirmationView alloc] initWithView:underlay_ delegate:self database:database_];
     else {
         NSMutableArray *broken = [NSMutableArray arrayWithCapacity:16];
         NSArray *packages = [database_ packages];
@@ -5884,9 +6003,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) cancel {
     @synchronized (self) {
-        [confirm_ release];
-        confirm_ = nil;
         [self _reloadData];
+        if (confirm_ != nil) {
+            [confirm_ release];
+            confirm_ = nil;
+        }
     }
 }
 
@@ -5919,16 +6040,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) progressViewIsComplete:(ProgressView *)progress {
-    @synchronized (self) {
-        [self _reloadData];
-
-        if (confirm_ != nil) {
-            [underlay_ addSubview:overlay_];
-            [confirm_ removeFromSuperview];
-            [confirm_ release];
-            confirm_ = nil;
-        }
+    if (confirm_ != nil) {
+        [underlay_ addSubview:overlay_];
+        [confirm_ removeFromSuperview];
     }
+
+    [self cancel];
 }
 
 - (void) setPage:(RVPage *)page {
@@ -6238,6 +6355,72 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return hud;
 }
 
+- (void) openMailToURL:(NSURL *)url {
+    [[[MailToView alloc] initWithView:underlay_ delegate:self url:url] autorelease];
+}
+
+- (RVPage *) pageForPackage:(NSString *)name {
+    if (Package *package = [database_ packageWithName:name]) {
+        PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+        [view setPackage:package];
+        return view;
+    } else {
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
+            initWithTitle:@"Cannot Locate Package"
+            buttons:[NSArray arrayWithObjects:@"Close", nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:@"missing"
+        ] autorelease];
+
+        [sheet setBodyText:[NSString stringWithFormat:
+            @"The package %@ cannot be found in your current sources. I might recommend installing more sources."
+        , name]];
+
+        [sheet popupAlertAnimated:YES];
+        return nil;
+    }
+}
+
+- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
+    NSString *href = [url absoluteString];
+
+    if (tag != NULL)
+        tag = 0;
+
+    if ([href isEqualToString:@"cydia://add-source"])
+        return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([href isEqualToString:@"cydia://sources"])
+        return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([href isEqualToString:@"cydia://packages"])
+        return [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([href hasPrefix:@"cydia://url/"])
+        return [self _pageForURL:[NSURL URLWithString:[href substringFromIndex:12]] withClass:[BrowserView class]];
+    else if ([href hasPrefix:@"cydia://package/"])
+        return [self pageForPackage:[href substringFromIndex:16]];
+    else if ([href hasPrefix:@"cydia://files/"]) {
+        NSString *name = [href substringFromIndex:14];
+
+        if (Package *package = [database_ packageWithName:name]) {
+            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
+            [files setPackage:package];
+            return files;
+        }
+    }
+
+    return nil;
+}
+
+- (void) applicationOpenURL:(NSURL *)url {
+    [super applicationOpenURL:url];
+    int tag;
+    if (RVPage *page = [self pageForURL:url hasTag:&tag]) {
+        [self setPage:page];
+        [buttonbar_ showSelectionForButton:tag];
+        tag_ = tag;
+    }
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
     Font12_ = [[UIFont systemFontOfSize:12] retain];
     Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
@@ -6248,7 +6431,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
 
-    confirm_ = nil;
     tag_ = 1;
 
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
@@ -6259,7 +6441,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [window_ orderFront:self];
     [window_ makeKey:self];
-    [window_ _setHidden:NO];
+    [window_ setHidden:NO];
 
     database_ = [[Database alloc] init];
     progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
@@ -6294,6 +6476,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ];
     } else
         [self finish];
+}
+
++ (NSString *) webScriptNameForSelector:(SEL)selector {
+    if (selector == @selector(supports:))
+        return @"supports";
+    return nil;
+}
+
+- (BOOL) supports:(NSString *)feature {
+    return [feature isEqualToString:@"window.open"];
+}
+
++ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
+    NSLog(@"exc:%s", sel_getName(selector));
+    return selector != @selector(supports:);
 }
 
 - (void) showKeyboard:(BOOL)show {
@@ -6375,14 +6572,14 @@ void AddPreferences(NSString *plist) {
 /*IMP alloc_;
 id Alloc_(id self, SEL selector) {
     id object = alloc_(self, selector);
-    fprintf(stderr, "[%s]A-%p\n", self->isa->name, object);
+    lprintf("[%s]A-%p\n", self->isa->name, object);
     return object;
 }*/
 
 /*IMP dealloc_;
 id Dealloc_(id self, SEL selector) {
     id object = dealloc_(self, selector);
-    fprintf(stderr, "[%s]D-%p\n", self->isa->name, object);
+    lprintf("[%s]D-%p\n", self->isa->name, object);
     return object;
 }*/
 
@@ -6430,10 +6627,23 @@ int main(int argc, char *argv[]) {
     }
 
     size_t size;
+
+    int maxproc;
+    size = sizeof(maxproc);
+    if (sysctlbyname("kern.maxproc", &maxproc, &size, NULL, 0) == -1)
+        perror("sysctlbyname(\"kern.maxproc\", ?)");
+    else if (maxproc < 64) {
+        maxproc = 64;
+        if (sysctlbyname("kern.maxproc", NULL, NULL, &maxproc, sizeof(maxproc)) == -1)
+            perror("sysctlbyname(\"kern.maxproc\", #)");
+    }
+
     sysctlbyname("hw.machine", NULL, &size, NULL, 0);
     char *machine = new char[size];
-    sysctlbyname("hw.machine", machine, &size, NULL, 0);
-    Machine_ = machine;
+    if (sysctlbyname("hw.machine", machine, &size, NULL, 0) == -1)
+        perror("sysctlbyname(\"hw.machine\", ?)");
+    else
+        Machine_ = machine;
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 

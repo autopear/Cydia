@@ -40,5 +40,6 @@
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
 
 @end

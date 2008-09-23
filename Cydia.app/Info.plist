@@ -32,6 +32,18 @@
 
     <key>SBUsesNetwork</key>
     <integer>3</integer>
+
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>Cydia Internal URL</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>cydia</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 
 </plist>

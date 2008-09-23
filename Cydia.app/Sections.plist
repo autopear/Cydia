@@ -21,6 +21,12 @@
         <string>Utilities</string>
     </dict>
 
+    <key>CarrierBundle</key>
+    <dict>
+        <key>Rename</key>
+        <string>Carrier_Bundles</string>
+    </dict>
+
     <key>Network</key>
     <dict>
         <key>Rename</key>

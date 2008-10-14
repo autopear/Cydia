@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <html><head>
     <title>Details</title>
-    <meta name="viewport" content="width=320, minimum-scale=1.0, maximum-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <link rel="stylesheet" type="text/css" href="menes/style.css"/>
     <script type="text/javascript" src="menes/menes.js"></script>
@@ -26,10 +26,6 @@
     </script>
 
     <style>
-        body {
-            background: #c8c8c8 url(menes/pinstripes.png);
-        }
-
         #remove {
             margin-top: 7px;
             text-align: center;
@@ -67,6 +63,14 @@
             margin-bottom: 10px;
             margin-top: 0;
         }
+
+        #warnings {
+            background-color: #ffdddd;
+        }
+
+        #warnings > div > label {
+            color: red;
+        }
     </style>
 </head><body><div class="page">
 <div class="dialog">
@@ -74,14 +78,31 @@
 
 <fieldset>
     <div>
+        <img id="icon" class="icon"/>
         <label id="name"></label>
         <div id="latest"></div>
     </div>
+</fieldset>
 
+<fieldset id="actions">
     <a id="author-href" class="author">
+        <img id="author-icon" class="icon" src="email.png"/>
         <label>Author</label>
         <div id="author"></div>
     </a>
+
+    <a id="application">
+        <img class="icon"/>
+        <label class="application"></label>
+    </a>
+</fieldset>
+
+<label class="warnings">Warnings</label>
+<fieldset class="warnings" id="warnings">
+    <div id="warning">
+        <img class="icon" src="warning.png"/>
+        <label class="warning"></label>
+    </div>
 </fieldset>
 
 <div id="notice" class="notice"><iframe
@@ -98,14 +119,14 @@
 
 <hr id="upper-bar" class="depiction"/-->
 
-<div id="depiction" class="depiction"><iframe
+<div id="depiction" class="depiction"><!--iframe
     id="depiction-src"
     frameborder="0"
     width="320"
     height="0"
     target="_top"
     onLoad="loaded()"
-></iframe></div>
+></iframe--></div>
 
 <!--hr id="lower-bar" class="depiction"/-->
 
@@ -145,7 +166,8 @@
     </div>
 
     <a id="maintainer-href" class="maintainer">
-        <label>Maintainer</label>
+        <img id="maintainer-icon" class="icon" src="email.png"/>
+        <label>Contact</label>
         <div id="maintainer"></div>
     </a>
 

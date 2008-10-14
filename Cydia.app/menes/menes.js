@@ -5,7 +5,6 @@ var _assert = function (expr) {
         throw message;
     }
 }
-
 // Compatibility {{{
 if (typeof Array.prototype.push != "function")
     Array.prototype.push = function (value) {
@@ -38,6 +37,16 @@ var $ = function (arg, doc) {
         return this;
     }
 };
+
+$.xml = function (value) {
+    return value
+        .replace(/&/, "&amp;")
+        .replace(/</, "&lt;")
+        .replace(/>/, "&gt;")
+        .replace(/"/, "&quot;")
+        .replace(/'/, "&apos;")
+    ;
+}
 
 $.type = function (value) {
     var type = typeof value;
@@ -120,7 +129,7 @@ $.prototype = {
     },
 
     append: function (html) {
-        $.each(this, function (node) {
+        $.each(this, $.type(html) == "string" ? function (node) {
             var doc = $.document(node);
 
             // XXX: implement wrapper system
@@ -131,7 +140,17 @@ $.prototype = {
                 var child = div.childNodes[0];
                 node.appendChild(child);
             }
+        } : function (node) {
+            $.each(html, function (value) {
+                node.appendChild(value);
+            });
         });
+    },
+
+    clone: function (deep) {
+        return $($.map(this, function (node) {
+            return node.cloneNode(deep);
+        }));
     },
 
     descendants: function (expression) {
@@ -154,6 +173,25 @@ $.prototype = {
         return $($.map(this, function (node) {
             return node.parentNode;
         }));
+    },
+
+    xpath: function (expression) {
+        var value = $([]);
+
+        $.each(this, function (node) {
+            var doc = $.document(node);
+            var result = doc.evaluate(expression, node, null, XPathResult.ANY_TYPE, null);
+
+            if (result.resultType == XPathResult.UNORDERED_NODE_ITERATOR_TYPE)
+                for (;;) {
+                    var next = result.iterateNext();
+                    if (next == null)
+                        break;
+                    value.add([next]);
+                }
+        });
+
+        return value;
     }
 };
 
@@ -209,6 +247,15 @@ $.inject({
         },
         set: function (node, value) {
             node.href = value;
+        }
+    },
+
+    id: {
+        get: function (node) {
+            return node.id;
+        },
+        set: function (node, value) {
+            node.id = value;
         }
     },
 

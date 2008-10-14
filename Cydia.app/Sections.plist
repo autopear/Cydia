@@ -3,12 +3,6 @@
 <plist version="1.0">
 
 <dict>
-    <key>Tweaks_2.0</key>
-    <dict>
-        <key>Rename</key>
-        <string>Tweaks</string>
-    </dict>
-
     <key>Themes_(SummerBoard)</key>
     <dict>
         <key>Rename</key>
@@ -19,6 +13,12 @@
     <dict>
         <key>Rename</key>
         <string>Utilities</string>
+    </dict>
+
+    <key>SMS</key>
+    <dict>
+        <key>Rename</key>
+        <string>Messaging</string>
     </dict>
 
     <key>CarrierBundle</key>

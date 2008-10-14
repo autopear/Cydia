@@ -85,7 +85,7 @@ hr {
 }
 
 .dialog > .panel {
-    background: #c8c8c8 url(pinstripes.png);
+    background: #c7ced5 url(pinstripes.png);
     padding: 1px 0 1px 0;
 }
 
@@ -101,6 +101,10 @@ a {
 
 strong {
     font-weight: bold
+}
+
+pre {
+    letter-spacing: -2px;
 }
 
 /* #toolbar {{{ */
@@ -173,7 +177,7 @@ strong {
 .dialog > .panel > fieldset > div {
     border-top: 1px solid #999999;
     min-height: 19px;
-    padding: 11px 17px;
+    padding: 12px 17px 11px 17px;
 }
 
 .dialog > .panel > fieldset > a:first-child,
@@ -196,11 +200,17 @@ strong {
     text-align: center;
 }
 
-.dialog > .panel > fieldset > div > p:first-child {
+.dialog > .panel > fieldset > div > ul {
+    margin-left: -20px;
+}
+
+.dialog > .panel > fieldset > div > p:first-child,
+.dialog > .panel > fieldset > div > ul:first-child {
     margin-top: 0;
 }
 
-.dialog > .panel > fieldset > div > p:last-child {
+.dialog > .panel > fieldset > div > p:last-child,
+.dialog > .panel > fieldset > div > ul:last-child {
     margin-bottom: 0;
 }
 
@@ -212,7 +222,7 @@ strong {
 
 .dialog > .panel > fieldset > div > select {
     font-size: 16px;
-    margin: -4px -10px -5px 86px;
+    margin: -5px -10px -5px 86px;
     width: 190px;
 }
 
@@ -222,8 +232,8 @@ strong {
     color: #193250;
     font-size: 16px;
     height: 45px;
-    margin: -12px -18px;
-    padding: 12px 10px 0 111px;
+    margin: -13px -18px;
+    padding: 13px 10px 0 111px;
     width: 302px;
 }
 
@@ -241,6 +251,7 @@ strong {
 .dialog > .panel > fieldset > a > label,
 .dialog > .panel > fieldset > div > label {
     font-weight: bold;
+    padding: 1px 0 0 0;
     position: absolute;
 }
 
@@ -251,6 +262,14 @@ strong {
 .dialog > .panel > fieldset > a > label + div,
 .dialog > .panel > fieldset > div > label + div {
     color: #335588;
+    float: right;
     text-align: right;
+}
+
+.dialog > .panel > img {
+    display: block;
+    margin: 9px auto 4px auto;
+    height: auto;
+    width: 300px;
 }
 /* }}} */

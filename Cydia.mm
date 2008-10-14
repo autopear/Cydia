@@ -36,6 +36,8 @@
 */
 
 /* #include Directives {{{ */
+#import "UICaboodle.h"
+
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
@@ -100,11 +102,19 @@ extern "C" {
 
 #import "BrowserView.h"
 #import "ResetView.h"
-#import "UICaboodle.h"
 /* }}} */
 
 //#define _finline __attribute__((force_inline))
 #define _finline inline
+
+struct timeval _ltv;
+bool _itv;
+
+#define _limit(count) do { \
+    static size_t _count(0); \
+    if (++_count == count) \
+        exit(0); \
+} while (false)
 
 /* Objective-C Handle<> {{{ */
 template <typename Type_>
@@ -241,6 +251,84 @@ extern NSString * const kCAFilterNearest;
 
 #define ForSaurik 1
 #define RecycleWebViews 0
+
+/* Radix Sort {{{ */
+@interface NSMutableArray (Radix)
+- (void) radixUsingSelector:(SEL)selector withObject:(id)object;
+@end
+
+@implementation NSMutableArray (Radix)
+
+- (void) radixUsingSelector:(SEL)selector withObject:(id)object {
+    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:"L12@0:4@8"]]);
+    [invocation setSelector:selector];
+    [invocation setArgument:&object atIndex:2];
+
+    size_t count([self count]);
+
+    struct RadixItem {
+        size_t index;
+        uint32_t key;
+    } *swap(new RadixItem[count * 2]), *lhs(swap), *rhs(swap + count);
+
+    for (size_t i(0); i != count; ++i) {
+        RadixItem &item(lhs[i]);
+        item.index = i;
+
+        id object([self objectAtIndex:i]);
+        [invocation setTarget:object];
+
+        [invocation invoke];
+        [invocation getReturnValue:&item.key];
+    }
+
+    static const size_t bits = 11;
+    static const size_t slots = 1 << bits;
+    static const size_t passes = (32 + (bits - 1)) / bits;
+
+    size_t *hist(new size_t[slots]);
+
+    for (size_t pass(0); pass != passes; ++pass) {
+        memset(hist, 0, sizeof(size_t) * slots);
+
+        for (size_t i(0); i != count; ++i) {
+            uint32_t key(lhs[i].key);
+            key >>= pass * bits;
+            key &= _not(uint32_t) >> 32 - bits;
+            ++hist[key];
+        }
+
+        size_t offset(0);
+        for (size_t i(0); i != slots; ++i) {
+            size_t local(offset);
+            offset += hist[i];
+            hist[i] = local;
+        }
+
+        for (size_t i(0); i != count; ++i) {
+            uint32_t key(lhs[i].key);
+            key >>= pass * bits;
+            key &= _not(uint32_t) >> 32 - bits;
+            rhs[hist[key]++] = lhs[i];
+        }
+
+        RadixItem *tmp(lhs);
+        lhs = rhs;
+        rhs = tmp;
+    }
+
+    delete [] hist;
+
+    NSMutableArray *values([NSMutableArray arrayWithCapacity:count]);
+    for (size_t i(0); i != count; ++i)
+        [values addObject:[self objectAtIndex:lhs[i].index]];
+    [self setArray:values];
+
+    delete [] swap;
+}
+
+@end
+/* }}} */
 
 typedef enum {
     kUIControlEventMouseDown = 1 << 0,
@@ -1057,6 +1145,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     Source *source_;
     bool cached_;
 
+    NSString *section_;
+
     NSString *latest_;
     NSString *installed_;
 
@@ -1085,7 +1175,10 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) description;
 - (NSString *) index;
 
+- (NSMutableDictionary *) metadata;
 - (NSDate *) seen;
+- (BOOL) subscribed;
+- (BOOL) ignored;
 
 - (NSString *) latest;
 - (NSString *) installed;
@@ -1128,8 +1221,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
 - (NSComparisonResult) compareByName:(Package *)package;
 - (NSComparisonResult) compareBySection:(Package *)package;
-- (NSComparisonResult) compareBySectionAndName:(Package *)package;
-- (NSComparisonResult) compareForChanges:(Package *)package;
+
+- (uint32_t) compareForChanges;
 
 - (void) install;
 - (void) remove;
@@ -1146,6 +1239,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (void) dealloc {
     if (source_ != nil)
         [source_ release];
+
+    if (section_ != nil)
+        [section_ release];
 
     [latest_ release];
     if (installed_ != nil)
@@ -1260,9 +1356,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
         NSMutableDictionary *metadata = [Packages_ objectForKey:key];
         if (metadata == nil) {
-            metadata = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+            metadata = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
                 now_, @"FirstSeen",
-            nil];
+            nil] mutableCopy];
 
             if (solid != nil)
                 [metadata setObject:solid forKey:@"LastVersion"];
@@ -1309,6 +1405,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSString *) section {
+    if (section_ != nil)
+        return section_;
+
     const char *section = iterator_.Section();
     if (section == NULL)
         return nil;
@@ -1322,7 +1421,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             goto lookup;
         }
 
-    return [name stringByReplacingCharacter:'_' withCharacter:' '];
+    section_ = [[name stringByReplacingCharacter:'_' withCharacter:' '] retain];
+    return section_;
 }
 
 - (Address *) maintainer {
@@ -1361,17 +1461,32 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return [index length] != 0 && isalpha([index characterAtIndex:0]) ? index : @"123";
 }
 
+- (NSMutableDictionary *) metadata {
+    return [Packages_ objectForKey:[id_ lowercaseString]];
+}
+
 - (NSDate *) seen {
-    NSDictionary *metadata([Packages_ objectForKey:[id_ lowercaseString]]);
-    bool subscribed;
-    if (NSNumber *isSubscribed = [metadata objectForKey:@"IsSubscribed"])
-        subscribed = [isSubscribed boolValue];
-    else
-        subscribed = false;
-    if (subscribed)
+    NSDictionary *metadata([self metadata]);
+    if ([self subscribed])
         if (NSDate *last = [metadata objectForKey:@"LastSeen"])
             return last;
     return [metadata objectForKey:@"FirstSeen"];
+}
+
+- (BOOL) subscribed {
+    NSDictionary *metadata([self metadata]);
+    if (NSNumber *subscribed = [metadata objectForKey:@"IsSubscribed"])
+        return [subscribed boolValue];
+    else
+        return false;
+}
+
+- (BOOL) ignored {
+    NSDictionary *metadata([self metadata]);
+    if (NSNumber *ignored = [metadata objectForKey:@"IsIgnored"])
+        return [ignored boolValue];
+    else
+        return false;
 }
 
 - (NSString *) latest {
@@ -1705,43 +1820,30 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return NSOrderedSame;
 }
 
-- (NSComparisonResult) compareBySectionAndName:(Package *)package {
-    NSString *lhs = [self section];
-    NSString *rhs = [package section];
+- (uint32_t) compareForChanges {
+    union {
+        uint32_t key;
 
-    if (lhs == NULL && rhs != NULL)
-        return NSOrderedAscending;
-    else if (lhs != NULL && rhs == NULL)
-        return NSOrderedDescending;
-    else if (lhs != NULL && rhs != NULL) {
-        NSComparisonResult result = [lhs compare:rhs];
-        if (result != NSOrderedSame)
-            return result;
+        struct {
+            uint32_t timestamp : 30;
+            uint32_t ignored : 1;
+            uint32_t upgradable : 1;
+        } bits;
+    } value;
+
+    value.bits.upgradable = [self upgradableAndEssential:YES] ? 1 : 0;
+
+    if ([self upgradableAndEssential:YES]) {
+        value.bits.timestamp = 0;
+        value.bits.ignored = [self ignored] ? 0 : 1;
+        value.bits.upgradable = 1;
+    } else {
+        value.bits.timestamp = static_cast<uint32_t>([[self seen] timeIntervalSince1970]) >> 2;
+        value.bits.ignored = 0;
+        value.bits.upgradable = 0;
     }
 
-    return [self compareByName:package];
-}
-
-- (NSComparisonResult) compareForChanges:(Package *)package {
-    BOOL lhs = [self upgradableAndEssential:YES];
-    BOOL rhs = [package upgradableAndEssential:YES];
-
-    if (lhs != rhs)
-        return lhs ? NSOrderedAscending : NSOrderedDescending;
-    else if (!lhs) {
-        switch ([[self seen] compare:[package seen]]) {
-            case NSOrderedAscending:
-                return NSOrderedDescending;
-            case NSOrderedSame:
-                break;
-            case NSOrderedDescending:
-                return NSOrderedAscending;
-            default:
-                _assert(false);
-        }
-    }
-
-    return [self compareByName:package];
+    return _not(uint32_t) - value.key;
 }
 
 - (void) install {
@@ -3448,7 +3550,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
 
         if (editing_)
-            [switch_ setValue:isSectionVisible(section_) animated:NO];
+            [switch_ setValue:(isSectionVisible(section_) ? 1 : 0) animated:NO];
     }
 }
 
@@ -3666,7 +3768,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super webView:sender didClearWindowObject:window forFrame:frame];
 }
 
-#if 0
 - (void) _rightButtonClicked {
     /*[super _rightButtonClicked];
     return;*/
@@ -3690,7 +3791,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ] autorelease]];
     }
 }
-#endif
 
 - (NSString *) _rightButtonTitle {
     int count = [buttons_ count];
@@ -4311,7 +4411,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sources_ removeAllObjects];
     [sources_ addObjectsFromArray:[database_ sources]];
+    _trace();
     [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
+    _trace();
 
     int count = [sources_ count];
     for (offset_ = 0; offset_ != count; ++offset_) {
@@ -4709,6 +4811,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [listener use];
 }
 
+- (void) webView:(WebView *)webView decidePolicyForMIMEType:(NSString *)type request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    if ([WebView canShowMIMEType:type])
+        [listener use];
+    else {
+        // XXX: handle more mime types!
+        [listener ignore];
+        if (frame == [webView mainFrame])
+            [UIApp openURL:[request URL]];
+    }
+}
+
 - (void) webView:(WebView *)sender decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
     NSURL *url([request URL]);
 
@@ -4732,6 +4845,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     int store(_not(int));
     if (NSURL *itms = [url itmsURL:&store]) {
+        NSLog(@"itms#%@#%u#%@", url, store, itms);
         if (
             store == 1 && [capability containsObject:@"com.apple.MobileStore"] ||
             store == 2 && [capability containsObject:@"com.apple.AppStore"]
@@ -5033,6 +5147,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* Cydia Book {{{ */
 @interface CYBook : RVBook <
     ProgressDelegate
 > {
@@ -5053,6 +5168,307 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (BOOL) updating;
 
 @end
+
+@implementation CYBook
+
+- (void) dealloc {
+    [overlay_ release];
+    [indicator_ release];
+    [prompt_ release];
+    [progress_ release];
+    [cancel_ release];
+    [super dealloc];
+}
+
+- (NSString *) getTitleForPage:(RVPage *)page {
+    return Simplify([super getTitleForPage:page]);
+}
+
+- (BOOL) updating {
+    return updating_;
+}
+
+- (void) update {
+    [UIView beginAnimations:nil context:NULL];
+
+    CGRect ovrframe = [overlay_ frame];
+    ovrframe.origin.y = 0;
+    [overlay_ setFrame:ovrframe];
+
+    CGRect barframe = [navbar_ frame];
+    barframe.origin.y += ovrframe.size.height;
+    [navbar_ setFrame:barframe];
+
+    CGRect trnframe = [transition_ frame];
+    trnframe.origin.y += ovrframe.size.height;
+    trnframe.size.height -= ovrframe.size.height;
+    [transition_ setFrame:trnframe];
+
+    [UIView endAnimations];
+
+    [indicator_ startAnimation];
+    [prompt_ setText:@"Updating Database"];
+    [progress_ setProgress:0];
+
+    received_ = 0;
+    last_ = [NSDate timeIntervalSinceReferenceDate];
+    updating_ = true;
+    [overlay_ addSubview:cancel_];
+
+    [NSThread
+        detachNewThreadSelector:@selector(_update)
+        toTarget:self
+        withObject:nil
+    ];
+}
+
+- (void) _update_ {
+    updating_ = false;
+
+    [indicator_ stopAnimation];
+
+    [UIView beginAnimations:nil context:NULL];
+
+    CGRect ovrframe = [overlay_ frame];
+    ovrframe.origin.y = -ovrframe.size.height;
+    [overlay_ setFrame:ovrframe];
+
+    CGRect barframe = [navbar_ frame];
+    barframe.origin.y -= ovrframe.size.height;
+    [navbar_ setFrame:barframe];
+
+    CGRect trnframe = [transition_ frame];
+    trnframe.origin.y -= ovrframe.size.height;
+    trnframe.size.height += ovrframe.size.height;
+    [transition_ setFrame:trnframe];
+
+    [UIView commitAnimations];
+
+    [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+}
+
+- (id) initWithFrame:(CGRect)frame database:(Database *)database {
+    if ((self = [super initWithFrame:frame]) != nil) {
+        database_ = database;
+
+        CGRect ovrrect = [navbar_ bounds];
+        ovrrect.size.height = [UINavigationBar defaultSize].height;
+        ovrrect.origin.y = -ovrrect.size.height;
+
+        overlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
+        [self addSubview:overlay_];
+
+        ovrrect.origin.y = frame.size.height;
+        underlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
+        [underlay_ setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
+        [self addSubview:underlay_];
+
+        [overlay_ setBarStyle:1];
+        [underlay_ setBarStyle:1];
+
+        int barstyle = [overlay_ _barStyle:NO];
+        bool ugly = barstyle == 0;
+
+        UIProgressIndicatorStyle style = ugly ?
+            UIProgressIndicatorStyleMediumBrown :
+            UIProgressIndicatorStyleMediumWhite;
+
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:style];
+        unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
+        CGRect indrect = {{indoffset, indoffset}, indsize};
+
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
+        [indicator_ setStyle:style];
+        [overlay_ addSubview:indicator_];
+
+        CGSize prmsize = {215, indsize.height + 4};
+
+        CGRect prmrect = {{
+            indoffset * 2 + indsize.width,
+#ifdef __OBJC2__
+            -1 +
+#endif
+            unsigned(ovrrect.size.height - prmsize.height) / 2
+        }, prmsize};
+
+        UIFont *font = [UIFont systemFontOfSize:15];
+
+        prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
+
+        [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : Off_)]];
+        [prompt_ setBackgroundColor:[UIColor clearColor]];
+        [prompt_ setFont:font];
+
+        [overlay_ addSubview:prompt_];
+
+        CGSize prgsize = {75, 100};
+
+        CGRect prgrect = {{
+            ovrrect.size.width - prgsize.width - 10,
+            (ovrrect.size.height - prgsize.height) / 2
+        } , prgsize};
+
+        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
+        [progress_ setStyle:0];
+        [overlay_ addSubview:progress_];
+
+        cancel_ = [[UINavigationButton alloc] initWithTitle:@"Cancel" style:UINavigationButtonStyleHighlighted];
+        [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
+
+        CGRect frame = [cancel_ frame];
+        frame.size.width = 65;
+        frame.origin.x = ovrrect.size.width - frame.size.width - 5;
+        frame.origin.y = (ovrrect.size.height - frame.size.height) / 2;
+        [cancel_ setFrame:frame];
+
+        [cancel_ setBarStyle:barstyle];
+    } return self;
+}
+
+- (void) _onCancel {
+    updating_ = false;
+    [cancel_ removeFromSuperview];
+}
+
+- (void) _update { _pooled
+    Status status;
+    status.setDelegate(self);
+
+    [database_ updateWithStatus:status];
+
+    [self
+        performSelectorOnMainThread:@selector(_update_)
+        withObject:nil
+        waitUntilDone:NO
+    ];
+}
+
+- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
+    [prompt_ setText:[NSString stringWithFormat:@"Error: %@", error]];
+}
+
+- (void) setProgressTitle:(NSString *)title {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressTitle:)
+        withObject:title
+        waitUntilDone:YES
+    ];
+}
+
+- (void) setProgressPercent:(float)percent {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressPercent:)
+        withObject:[NSNumber numberWithFloat:percent]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) startProgress {
+}
+
+- (void) addProgressOutput:(NSString *)output {
+    [self
+        performSelectorOnMainThread:@selector(_addProgressOutput:)
+        withObject:output
+        waitUntilDone:YES
+    ];
+}
+
+- (bool) isCancelling:(size_t)received {
+    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+    if (received_ != received) {
+        received_ = received;
+        last_ = now;
+    } else if (now - last_ > 15)
+        return true;
+    return !updating_;
+}
+
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    [sheet dismiss];
+}
+
+- (void) _setProgressTitle:(NSString *)title {
+    [prompt_ setText:title];
+}
+
+- (void) _setProgressPercent:(NSNumber *)percent {
+    [progress_ setProgress:[percent floatValue]];
+}
+
+- (void) _addProgressOutput:(NSString *)output {
+}
+
+@end
+/* }}} */
+/* Cydia:// Protocol {{{ */
+@interface CydiaURLProtocol : NSURLProtocol {
+}
+
+@end
+
+@implementation CydiaURLProtocol
+
++ (BOOL) canInitWithRequest:(NSURLRequest *)request {
+    NSURL *url([request URL]);
+    if (url == nil)
+        return NO;
+    NSString *scheme([[url scheme] lowercaseString]);
+    if (scheme == nil || ![scheme isEqualToString:@"cydia"])
+        return NO;
+    return YES;
+}
+
++ (NSURLRequest *) canonicalRequestForRequest:(NSURLRequest *)request {
+    return request;
+}
+
+- (void) startLoading {
+    id<NSURLProtocolClient> client([self client]);
+    NSURLRequest *request([self request]);
+
+    NSURL *url([request URL]);
+    NSString *href([url absoluteString]);
+
+    NSString *path([href substringFromIndex:8]);
+    NSRange slash([path rangeOfString:@"/"]);
+
+    NSString *command;
+    if (slash.location == NSNotFound) {
+        command = path;
+        path = nil;
+    } else {
+        command = [path substringToIndex:slash.location];
+        path = [path substringFromIndex:(slash.location + 1)];
+    }
+
+    Database *database([Database sharedInstance]);
+
+    if ([command isEqualToString:@"package-icon"]) {
+        if (path == nil)
+            goto fail;
+        Package *package([database packageWithName:path]);
+        if (package == nil)
+            goto fail;
+
+        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+
+        UIImage *icon([package icon]);
+        NSData *data(UIImagePNGRepresentation(icon));
+
+        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+        [client URLProtocol:self didLoadData:data];
+        [client URLProtocolDidFinishLoading:self];
+    } else fail: {
+        [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]];
+    }
+}
+
+- (void) stopLoading {
+}
+
+@end
+/* }}} */
 
 /* Install View {{{ */
 @interface InstallView : RVPage {
@@ -5190,6 +5606,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *filtered = [NSMutableArray arrayWithCapacity:[packages count]];
     NSMutableDictionary *sections = [NSMutableDictionary dictionaryWithCapacity:32];
 
+    _trace();
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
         NSString *name([package section]);
@@ -5205,11 +5622,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ([package valid] && [package installed] == nil && [package visible])
             [filtered addObject:package];
     }
+    _trace();
 
     [sections_ addObjectsFromArray:[sections allValues]];
     [sections_ sortUsingSelector:@selector(compareByName:)];
 
+    _trace();
     [filtered sortUsingSelector:@selector(compareBySection:)];
+    _trace();
 
     Section *section = nil;
     for (size_t offset = 0, count = [filtered count]; offset != count; ++offset) {
@@ -5225,8 +5645,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [section addToCount];
     }
+    _trace();
 
     [list_ reloadData];
+    _trace();
 }
 
 - (void) resetView {
@@ -5241,10 +5663,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _rightButtonClicked {
     if ((editing_ = !editing_))
         [list_ reloadData];
-    else {
+    else
         [delegate_ updateData];
-    }
-
     [book_ reloadTitleForPage:self];
     [book_ reloadButtonsForPage:self];
 }
@@ -5387,6 +5807,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [packages_ removeAllObjects];
     [sections_ removeAllObjects];
 
+    _trace();
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
 
@@ -5397,43 +5818,46 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [packages_ addObject:package];
     }
 
-    [packages_ sortUsingSelector:@selector(compareForChanges:)];
+    _trace();
+    [packages_ radixUsingSelector:@selector(compareForChanges) withObject:nil];
+    _trace();
 
     Section *upgradable = [[[Section alloc] initWithName:@"Available Upgrades"] autorelease];
+    Section *ignored = [[[Section alloc] initWithName:@"Ignored Upgrades"] autorelease];
     Section *section = nil;
+    NSDate *last = nil;
 
     upgrades_ = 0;
     bool unseens = false;
 
     CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
 
+    _trace();
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
         Package *package = [packages_ objectAtIndex:offset];
 
-        if ([package upgradableAndEssential:YES]) {
-            ++upgrades_;
-            [upgradable addToCount];
-        } else {
+        if (![package upgradableAndEssential:YES]) {
             unseens = true;
             NSDate *seen = [package seen];
 
-            NSString *name;
+            if (section == nil || last != seen && (seen == nil || [seen compare:last] != NSOrderedSame)) {
+                last = seen;
 
-            if (seen == nil)
-                name = [@"n/a ?" retain];
-            else {
-                name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
-            }
-
-            if (section == nil || ![[section name] isEqualToString:name]) {
+                NSString *name(seen == nil ? [@"n/a ?" retain] : (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen));
                 section = [[[Section alloc] initWithName:name row:offset] autorelease];
                 [sections_ addObject:section];
+                [name release];
             }
 
-            [name release];
             [section addToCount];
+        } else if ([package ignored])
+            [ignored addToCount];
+        else {
+            ++upgrades_;
+            [upgradable addToCount];
         }
     }
+    _trace();
 
     CFRelease(formatter);
 
@@ -5444,6 +5868,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [sections_ removeLastObject];
     }
 
+    if ([ignored count] != 0)
+        [sections_ insertObject:ignored atIndex:0];
     if (upgrades_ != 0)
         [sections_ insertObject:upgradable atIndex:0];
 
@@ -5731,305 +6157,198 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-@implementation CYBook
+@interface SettingsView : RVPage {
+    _transient Database *database_;
+    NSString *name_;
+    Package *package_;
+    UIPreferencesTable *table_;
+    _UISwitchSlider *subscribedSwitch_;
+    _UISwitchSlider *ignoredSwitch_;
+    UIPreferencesControlTableCell *subscribedCell_;
+    UIPreferencesControlTableCell *ignoredCell_;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package;
+
+@end
+
+@implementation SettingsView
 
 - (void) dealloc {
-    [overlay_ release];
-    [indicator_ release];
-    [prompt_ release];
-    [progress_ release];
-    [cancel_ release];
+    [table_ setDataSource:nil];
+
+    [name_ release];
+    if (package_ != nil)
+        [package_ release];
+    [table_ release];
+    [subscribedSwitch_ release];
+    [ignoredSwitch_ release];
+    [subscribedCell_ release];
+    [ignoredCell_ release];
     [super dealloc];
 }
 
-- (NSString *) getTitleForPage:(RVPage *)page {
-    return Simplify([super getTitleForPage:page]);
+- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
+    if (package_ == nil)
+        return 0;
+
+    return 2;
 }
 
-- (BOOL) updating {
-    return updating_;
+- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
+    if (package_ == nil)
+        return nil;
+
+    switch (group) {
+        case 0: return nil;
+        case 1: return nil;
+
+        default: _assert(false);
+    }
+
+    return nil;
 }
 
-- (void) update {
-    [UIView beginAnimations:nil context:NULL];
+- (BOOL) preferencesTable:(UIPreferencesTable *)table isLabelGroup:(int)group {
+    if (package_ == nil)
+        return NO;
 
-    CGRect ovrframe = [overlay_ frame];
-    ovrframe.origin.y = 0;
-    [overlay_ setFrame:ovrframe];
+    switch (group) {
+        case 0: return NO;
+        case 1: return YES;
 
-    CGRect barframe = [navbar_ frame];
-    barframe.origin.y += ovrframe.size.height;
-    [navbar_ setFrame:barframe];
+        default: _assert(false);
+    }
 
-    CGRect trnframe = [transition_ frame];
-    trnframe.origin.y += ovrframe.size.height;
-    trnframe.size.height -= ovrframe.size.height;
-    [transition_ setFrame:trnframe];
-
-    [UIView endAnimations];
-
-    [indicator_ startAnimation];
-    [prompt_ setText:@"Updating Database"];
-    [progress_ setProgress:0];
-
-    received_ = 0;
-    last_ = [NSDate timeIntervalSinceReferenceDate];
-    updating_ = true;
-    [overlay_ addSubview:cancel_];
-
-    [NSThread
-        detachNewThreadSelector:@selector(_update)
-        toTarget:self
-        withObject:nil
-    ];
+    return NO;
 }
 
-- (void) _update_ {
-    updating_ = false;
+- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
+    if (package_ == nil)
+        return 0;
 
-    [indicator_ stopAnimation];
+    switch (group) {
+        case 0: return 1;
+        case 1: return 1;
 
-    [UIView beginAnimations:nil context:NULL];
+        default: _assert(false);
+    }
 
-    CGRect ovrframe = [overlay_ frame];
-    ovrframe.origin.y = -ovrframe.size.height;
-    [overlay_ setFrame:ovrframe];
-
-    CGRect barframe = [navbar_ frame];
-    barframe.origin.y -= ovrframe.size.height;
-    [navbar_ setFrame:barframe];
-
-    CGRect trnframe = [transition_ frame];
-    trnframe.origin.y -= ovrframe.size.height;
-    trnframe.size.height += ovrframe.size.height;
-    [transition_ setFrame:trnframe];
-
-    [UIView commitAnimations];
-
-    [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+    return 0;
 }
 
-- (id) initWithFrame:(CGRect)frame database:(Database *)database {
-    if ((self = [super initWithFrame:frame]) != nil) {
+- (void) onSomething:(UIPreferencesControlTableCell *)cell withKey:(NSString *)key {
+    if (package_ == nil)
+        return;
+
+    _UISwitchSlider *slider([cell control]);
+    // XXX: this is just weird
+    BOOL value([slider value] != 0);
+    NSMutableDictionary *metadata([package_ metadata]);
+
+    BOOL before;
+    if (NSNumber *number = [metadata objectForKey:key])
+        before = [number boolValue];
+    else
+        before = NO;
+    NSLog(@"%@:%@ %@:%@ : %u:%u", cell, slider, name_, key, value, before);
+
+    if (value != before) {
+        [metadata setObject:[NSNumber numberWithBool:value] forKey:key];
+        Changed_ = true;
+        //[delegate_ performSelector:@selector(updateData) withObject:nil afterDelay:0];
+        [delegate_ updateData];
+    }
+}
+
+- (void) onSubscribed:(UIPreferencesControlTableCell *)cell {
+    [self onSomething:cell withKey:@"IsSubscribed"];
+}
+
+- (void) onIgnored:(UIPreferencesControlTableCell *)cell {
+    [self onSomething:cell withKey:@"IsIgnored"];
+}
+
+- (id) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
+    if (package_ == nil)
+        return nil;
+
+    switch (group) {
+        case 0: switch (row) {
+            case 0:
+                return subscribedCell_;
+            case 1:
+                return ignoredCell_;
+            default: _assert(false);
+        } break;
+
+        case 1: switch (row) {
+            case 0: {
+                UIPreferencesControlTableCell *cell([[[UIPreferencesControlTableCell alloc] init] autorelease]);
+                [cell setTitle:@"Changes only shows upgrades to installed packages. This minimizes spam from packagers. Activate this to see upgrades to this package even when it is not installed."];
+                return cell;
+            }
+
+            default: _assert(false);
+        } break;
+
+        default: _assert(false);
+    }
+
+    return nil;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package {
+    if ((self = [super initWithBook:book])) {
         database_ = database;
+        name_ = [package retain];
 
-        CGRect ovrrect = [navbar_ bounds];
-        ovrrect.size.height = [UINavigationBar defaultSize].height;
-        ovrrect.origin.y = -ovrrect.size.height;
+        table_ = [[UIPreferencesTable alloc] initWithFrame:[self bounds]];
+        [self addSubview:table_];
 
-        overlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
-        [self addSubview:overlay_];
+        subscribedSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
+        [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:kUIControlEventMouseUpInside];
 
-        ovrrect.origin.y = frame.size.height;
-        underlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
-        [underlay_ setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
-        [self addSubview:underlay_];
+        ignoredSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
+        [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:kUIControlEventMouseUpInside];
 
-        [overlay_ setBarStyle:1];
-        [underlay_ setBarStyle:1];
+        subscribedCell_ = [[UIPreferencesControlTableCell alloc] init];
+        [subscribedCell_ setTitle:@"Show All Changes"];
+        [subscribedCell_ setControl:subscribedSwitch_];
 
-        int barstyle = [overlay_ _barStyle:NO];
-        bool ugly = barstyle == 0;
+        ignoredCell_ = [[UIPreferencesControlTableCell alloc] init];
+        [ignoredCell_ setTitle:@"Ignore Upgrades"];
+        [ignoredCell_ setControl:ignoredSwitch_];
 
-        UIProgressIndicatorStyle style = ugly ?
-            UIProgressIndicatorStyleMediumBrown :
-            UIProgressIndicatorStyleMediumWhite;
-
-        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:style];
-        unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
-        CGRect indrect = {{indoffset, indoffset}, indsize};
-
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
-        [indicator_ setStyle:style];
-        [overlay_ addSubview:indicator_];
-
-        CGSize prmsize = {215, indsize.height + 4};
-
-        CGRect prmrect = {{
-            indoffset * 2 + indsize.width,
-#ifdef __OBJC2__
-            -1 +
-#endif
-            unsigned(ovrrect.size.height - prmsize.height) / 2
-        }, prmsize};
-
-        UIFont *font = [UIFont systemFontOfSize:15];
-
-        prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
-
-        [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : Off_)]];
-        [prompt_ setBackgroundColor:[UIColor clearColor]];
-        [prompt_ setFont:font];
-
-        [overlay_ addSubview:prompt_];
-
-        CGSize prgsize = {75, 100};
-
-        CGRect prgrect = {{
-            ovrrect.size.width - prgsize.width - 10,
-            (ovrrect.size.height - prgsize.height) / 2
-        } , prgsize};
-
-        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
-        [progress_ setStyle:0];
-        [overlay_ addSubview:progress_];
-
-        cancel_ = [[UINavigationButton alloc] initWithTitle:@"Cancel" style:UINavigationButtonStyleHighlighted];
-        [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
-
-        CGRect frame = [cancel_ frame];
-        frame.size.width = 65;
-        frame.origin.x = ovrrect.size.width - frame.size.width - 5;
-        frame.origin.y = (ovrrect.size.height - frame.size.height) / 2;
-        [cancel_ setFrame:frame];
-
-        [cancel_ setBarStyle:barstyle];
+        [table_ setDataSource:self];
+        [self reloadData];
     } return self;
 }
 
-- (void) _onCancel {
-    updating_ = false;
-    [cancel_ removeFromSuperview];
+- (void) resetViewAnimated:(BOOL)animated {
+    [table_ resetViewAnimated:animated];
 }
 
-- (void) _update { _pooled
-    Status status;
-    status.setDelegate(self);
-
-    [database_ updateWithStatus:status];
-
-    [self
-        performSelectorOnMainThread:@selector(_update_)
-        withObject:nil
-        waitUntilDone:NO
-    ];
-}
-
-- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
-    [prompt_ setText:[NSString stringWithFormat:@"Error: %@", error]];
-}
-
-- (void) setProgressTitle:(NSString *)title {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressTitle:)
-        withObject:title
-        waitUntilDone:YES
-    ];
-}
-
-- (void) setProgressPercent:(float)percent {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressPercent:)
-        withObject:[NSNumber numberWithFloat:percent]
-        waitUntilDone:YES
-    ];
-}
-
-- (void) startProgress {
-}
-
-- (void) addProgressOutput:(NSString *)output {
-    [self
-        performSelectorOnMainThread:@selector(_addProgressOutput:)
-        withObject:output
-        waitUntilDone:YES
-    ];
-}
-
-- (bool) isCancelling:(size_t)received {
-    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-    if (received_ != received) {
-        received_ = received;
-        last_ = now;
-    } else if (now - last_ > 15)
-        return true;
-    return !updating_;
-}
-
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    [sheet dismiss];
-}
-
-- (void) _setProgressTitle:(NSString *)title {
-    [prompt_ setText:title];
-}
-
-- (void) _setProgressPercent:(NSNumber *)percent {
-    [progress_ setProgress:[percent floatValue]];
-}
-
-- (void) _addProgressOutput:(NSString *)output {
-}
-
-@end
-
-@interface CydiaURLProtocol : NSURLProtocol {
-}
-
-@end
-
-@implementation CydiaURLProtocol
-
-+ (BOOL) canInitWithRequest:(NSURLRequest *)request {
-    NSURL *url([request URL]);
-    if (url == nil)
-        return NO;
-    NSString *scheme([[url scheme] lowercaseString]);
-    if (scheme == nil || ![scheme isEqualToString:@"cydia"])
-        return NO;
-    return YES;
-}
-
-+ (NSURLRequest *) canonicalRequestForRequest:(NSURLRequest *)request {
-    return request;
-}
-
-- (void) startLoading {
-    id<NSURLProtocolClient> client([self client]);
-    NSURLRequest *request([self request]);
-
-    NSURL *url([request URL]);
-    NSString *href([url absoluteString]);
-
-    NSString *path([href substringFromIndex:8]);
-    NSRange slash([path rangeOfString:@"/"]);
-
-    NSString *command;
-    if (slash.location == NSNotFound) {
-        command = path;
-        path = nil;
-    } else {
-        command = [path substringToIndex:slash.location];
-        path = [path substringFromIndex:(slash.location + 1)];
+- (void) reloadData {
+    if (package_ != nil)
+        [package_ autorelease];
+    package_ = [database_ packageWithName:name_];
+    if (package_ != nil) {
+        [package_ retain];
+        [subscribedSwitch_ setValue:([package_ subscribed] ? 1 : 0) animated:NO];
+        [ignoredSwitch_ setValue:([package_ ignored] ? 1 : 0) animated:NO];
     }
 
-    Database *database([Database sharedInstance]);
-
-    if ([command isEqualToString:@"package-icon"]) {
-        if (path == nil)
-            goto fail;
-        Package *package([database packageWithName:path]);
-        if (package == nil)
-            goto fail;
-
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-
-        UIImage *icon([package icon]);
-        NSData *data(UIImagePNGRepresentation(icon));
-
-        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
-        [client URLProtocol:self didLoadData:data];
-        [client URLProtocolDidFinishLoading:self];
-    } else fail: {
-        [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]];
-    }
+    [table_ reloadData];
 }
 
-- (void) stopLoading {
+- (NSString *) title {
+    return @"Settings";
 }
 
 @end
 
+/* Signature View {{{ */
 @interface SignatureView : BrowserView {
     _transient Database *database_;
     NSString *package_;
@@ -6059,11 +6378,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
+- (void) resetViewAnimated:(BOOL)animated {
+}
+
 - (void) reloadData {
     [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"signature" ofType:@"html"]]];
 }
 
 @end
+/* }}} */
 
 @interface Cydia : UIApplication <
     ConfirmationViewDelegate,
@@ -6144,7 +6467,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [overlay_ addSubview:hud];
     [hud show:YES];*/
 
+    _trace();
     [database_ reloadData];
+    _trace();
 
     size_t changes(0);
 
@@ -6195,7 +6520,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _saveConfig {
     if (Changed_) {
+        _trace();
         _assert([Metadata_ writeToFile:@"/var/lib/cydia/metadata.plist" atomically:YES] == YES);
+        _trace();
         Changed_ = false;
     }
 }
@@ -6204,11 +6531,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self _saveConfig];
 
     /* XXX: this is just stupid */
-    if (tag_ != 2)
+    if (tag_ != 2 && install_ != nil)
         [install_ reloadData];
-    if (tag_ != 3)
+    if (tag_ != 3 && changes_ != nil)
         [changes_ reloadData];
-    if (tag_ != 5)
+    if (tag_ != 5 && search_ != nil)
         [search_ reloadData];
 
     [book_ reloadData];
@@ -6523,6 +6850,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
     [overlay_ addSubview:keyboard_];
 
+    if (!bootstrap_)
+        [underlay_ addSubview:overlay_];
+
+    [self reloadData];
+
     install_ = [[InstallView alloc] initWithBook:book_ database:database_];
     changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
     search_ = [[SearchView alloc] initWithBook:book_ database:database_];
@@ -6531,11 +6863,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
         withClass:[ManageView class]
     ] retain];
-
-    if (!bootstrap_)
-        [underlay_ addSubview:overlay_];
-
-    [self reloadData];
 
     if (bootstrap_)
         [self bootstrap];
@@ -6702,6 +7029,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return [self _pageForURL:[NSURL URLWithString:[href substringFromIndex:12]] withClass:[BrowserView class]];
     else if ([href hasPrefix:@"cydia://launch/"])
         [self launchApplicationWithIdentifier:[href substringFromIndex:15] suspended:NO];
+    else if ([href hasPrefix:@"cydia://package-settings/"])
+        return [[[SettingsView alloc] initWithBook:book_ database:database_ package:[href substringFromIndex:25]] autorelease];
     else if ([href hasPrefix:@"cydia://package-signature/"])
         return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[href substringFromIndex:26]] autorelease];
     else if ([href hasPrefix:@"cydia://package/"])

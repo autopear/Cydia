@@ -1,12 +1,12 @@
 $(function () {
     var downloading = sizes[0];
-    if (downloading == "0.0B")
+    if (downloading == "0.0 B")
         $(".downloading").remove();
     else
         $("#downloading").html($.xml(downloading));
 
     var resuming = sizes[1];
-    if (resuming == "0.0B")
+    if (resuming == "0.0 B")
         $(".resuming").remove();
     else
         $("#resuming").html($.xml(resuming));

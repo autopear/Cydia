@@ -548,7 +548,7 @@ NSString *SizeString(double size) {
 
     static const char *powers_[] = {"B", "kB", "MB", "GB"};
 
-    return [NSString stringWithFormat:@"%s%.1f%s", (negative ? "-" : ""), size, powers_[power]];
+    return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
 }
 
 NSString *StripVersion(NSString *version) {
@@ -1208,7 +1208,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
         }
 
-        id_ = [[[NSString stringWithUTF8String:iterator_.Name()] lowercaseString] retain];
+        id_ = [[NSString stringWithUTF8String:iterator_.Name()] retain];
 
         if (!file_.end()) {
             pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
@@ -1256,7 +1256,9 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         NSString *solid(latest == nil ? installed : latest);
         bool changed(false);
 
-        NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
+        NSString *key([id_ lowercaseString]);
+
+        NSMutableDictionary *metadata = [Packages_ objectForKey:key];
         if (metadata == nil) {
             metadata = [NSMutableDictionary dictionaryWithObjectsAndKeys:
                 now_, @"FirstSeen",
@@ -1289,7 +1291,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         }
 
         if (changed) {
-            [Packages_ setObject:metadata forKey:id_];
+            [Packages_ setObject:metadata forKey:key];
             Changed_ = true;
         }
     } return self;
@@ -1360,7 +1362,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSDate *) seen {
-    NSDictionary *metadata([Packages_ objectForKey:id_]);
+    NSDictionary *metadata([Packages_ objectForKey:[id_ lowercaseString]]);
     bool subscribed;
     if (NSNumber *isSubscribed = [metadata objectForKey:@"IsSubscribed"])
         subscribed = [isSubscribed boolValue];
@@ -2447,6 +2449,9 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:@"Error" bu
 }
 
 - (void) deliverMessage { _pooled
+    setuid(501);
+    setgid(501);
+
     if (![controller_ deliverMessage])
         [self performSelectorOnMainThread:@selector(showError) withObject:nil waitUntilDone:NO];
 }
@@ -2643,11 +2648,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
     } return self;
-}
-
-// XXX: replace with <title/>
-- (NSString *) title {
-    return issues_ == nil ? @"Confirm Changes" : @"Cannot Comply";
 }
 
 - (NSString *) backButtonTitle {
@@ -6655,7 +6655,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) openMailToURL:(NSURL *)url {
+// XXX: this makes me sad
+#if 0
     [[[MailToView alloc] initWithView:underlay_ delegate:self url:url] autorelease];
+#else
+    [UIApp openURL:url];
+#endif
 }
 
 - (RVPage *) pageForPackage:(NSString *)name {

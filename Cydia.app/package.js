@@ -142,8 +142,10 @@ $(function () {
     var section = package.section;
     if (section == null)
         $(".section").remove();
-    else
-        $("#section").html(package.section);
+    else {
+        $("#section-src").src("cydia://section-icon/" + encodeURIComponent(section));
+        $("#section").html(section);
+    }
 
     var size = package.size;
     if (size == 0)

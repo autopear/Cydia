@@ -1170,6 +1170,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (pkgCache::PkgIterator) iterator;
 
 - (NSString *) section;
+- (NSString *) simpleSection;
+
 - (Address *) maintainer;
 - (size_t) size;
 - (NSString *) description;
@@ -1425,6 +1427,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return section_;
 }
 
+- (NSString *) simpleSection {
+    if (NSString *section = [self section])
+        return Simplify(section);
+    else
+        return nil;
+
+}
+
 - (Address *) maintainer {
     if (file_.end())
         return nil;
@@ -1594,9 +1604,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (UIImage *) icon {
-    NSString *section = [self section];
-    if (section != nil)
-        section = Simplify(section);
+    NSString *section = [self simpleSection];
 
     UIImage *icon(nil);
     if (NSString *icon = icon_)
@@ -3366,9 +3374,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self clearPackage];
 
     Source *source = [package source];
-    NSString *section = [package section];
-    if (section != nil)
-        section = Simplify(section);
+    NSString *section = [package simpleSection];
 
     icon_ = [[package icon] retain];
 
@@ -5447,15 +5453,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([command isEqualToString:@"package-icon"]) {
         if (path == nil)
             goto fail;
+        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
         Package *package([database packageWithName:path]);
         if (package == nil)
             goto fail;
 
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-
         UIImage *icon([package icon]);
+
         NSData *data(UIImagePNGRepresentation(icon));
 
+        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+        [client URLProtocol:self didLoadData:data];
+        [client URLProtocolDidFinishLoading:self];
+    } else if ([command isEqualToString:@"section-icon"]) {
+        if (path == nil)
+            goto fail;
+        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        NSString *section(Simplify(path));
+
+        UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]]);
+        if (icon == nil)
+            icon = [UIImage applicationImageNamed:@"unknown.png"];
+
+        NSData *data(UIImagePNGRepresentation(icon));
+
+        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
         [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
         [client URLProtocol:self didLoadData:data];
         [client URLProtocolDidFinishLoading:self];

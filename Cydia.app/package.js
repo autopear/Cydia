@@ -151,7 +151,9 @@ $(function () {
     } else {
         $("#source-name").html(source.name);
 
-        if (!source.trusted)
+        if (source.trusted)
+            /*$("#trusted").href("cydia:///" + idc)*/;
+        else
             $(".trusted").remove();
 
         var description = source.description;

@@ -157,18 +157,19 @@
     [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
 }
 
-- (void) setTitle:(NSString *)title forPage:(RVPage *)page {
-    if ([pages_ count] == 0 || page != [pages_ lastObject])
-        return;
-    UINavigationItem *navitem = [navbar_ topItem];
-    [navitem setTitle:title];
-}
-
 - (void) setBackButtonTitle:(NSString *)title forPage:(RVPage *)page {
     if ([pages_ count] == 0 || page != [pages_ lastObject])
         return;
     UINavigationItem *navitem = [navbar_ topItem];
     [navitem setBackButtonTitle:title];
+}
+
+- (void) reloadTitleForPage:(RVPage *)page {
+    if ([pages_ count] == 0 || page != [pages_ lastObject])
+        return;
+    UINavigationItem *navitem = [navbar_ topItem];
+    NSString *title = [self getTitleForPage:page];
+    [navitem setTitle:title];
 }
 
 - (void) reloadButtonsForPage:(RVPage *)page {

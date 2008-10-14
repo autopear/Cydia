@@ -51,10 +51,6 @@
     [self doesNotRecognizeSelector:_cmd];
 }
 
-- (void) setTitle:(NSString *)title {
-    [book_ setTitle:title forPage:self];
-}
-
 - (void) setBackButtonTitle:(NSString *)title {
     [book_ setBackButtonTitle:title forPage:self];
 }

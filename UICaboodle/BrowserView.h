@@ -15,7 +15,6 @@
 @class IndirectDelegate;
 
 @interface BrowserView : RVPage {
-    _transient Database *database_;
     UIScroller *scroller_;
     UIWebDocumentView *webview_;
     NSMutableArray *urls_;
@@ -37,7 +36,7 @@
 
 - (WebView *) webView;
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithBook:(RVBook *)book;
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;

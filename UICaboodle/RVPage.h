@@ -25,7 +25,6 @@
 - (void) setPageActive:(BOOL)active;
 - (void) resetViewAnimated:(BOOL)animated;
 
-- (void) setTitle:(NSString *)title;
 - (void) setBackButtonTitle:(NSString *)title;
 
 - (void) reloadButtons;

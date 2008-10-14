@@ -34,8 +34,8 @@
 - (void) resetViewAnimated:(BOOL)animated;
 - (void) resetViewAnimated:(BOOL)animated toPage:(RVPage *)page;
 
-- (void) setTitle:(NSString *)title forPage:(RVPage *)page;
 - (void) setBackButtonTitle:(NSString *)title forPage:(RVPage *)page;
+- (void) reloadTitleForPage:(RVPage *)page;
 - (void) reloadButtonsForPage:(RVPage *)page;
 - (NSString *) getTitleForPage:(RVPage *)page;
 

@@ -71,24 +71,96 @@
         #warnings > div > label {
             color: red;
         }
+
+        #boundry {
+            float: left;
+            width: 60px;
+        }
+
+        #icon {
+            height: 59px;
+            max-width: 60px;
+            width: auto;
+        }
+
+        #reflection {
+            height: 59px;
+            max-width: 60px;
+            opacity: 0.4;
+            position: absolute;
+            -webkit-transform: matrix(1, 0, 0, -1, 0, 0);
+            width: auto;
+        }
+
+        #id {
+            white-space: nowrap;
+        }
+
+        #header {
+            background: transparent;
+            border: none;
+        }
+
+        #header > div {
+            padding: 0;
+            margin-left: 2px;
+        }
+
+        #content {
+            float: right;
+            margin: auto 0;
+        }
+
+        #content > div {
+            margin: 8px;
+        }
+
+        #name {
+            font-weight: bold;
+        }
+
+        #latest {
+            color: #335588;
+        }
     </style>
 </head><body><div class="page">
 <div class="dialog">
     <div class="panel">
 
-<fieldset>
-    <div>
-        <img id="icon" class="icon"/>
-        <label id="name"></label>
-        <div id="latest"></div>
+<fieldset id="header">
+    <div class="clearfix">
+        <div id="boundry">
+            <img id="icon"/>
+            <!--img id="reflection"/-->
+        </div>
+
+        <div id="content">
+            <div id="name"></div>
+            <div id="latest"></div>
+        </div>
     </div>
 </fieldset>
 
 <fieldset id="actions">
+    <a id="settings">
+        <img class="icon" src="settings.png"/>
+        <label>Change Package Settings</label>
+    </a>
+
     <a id="author-href" class="author">
         <img id="author-icon" class="icon" src="email.png"/>
         <label>Author</label>
         <div id="author"></div>
+    </a>
+
+    <div class="commercial">
+        <img class="icon" src="commercial.png"/>
+        <label>This is a commercial package!</label>
+    </div>
+
+    <a class="console" href="console.html">
+        <img class="icon" src="console.png"/>
+        <label>This is a console application!</label>
     </a>
 
     <a id="application">
@@ -119,14 +191,14 @@
 
 <hr id="upper-bar" class="depiction"/-->
 
-<div id="depiction" class="depiction"><!--iframe
+<div id="depiction" class="depiction"><iframe
     id="depiction-src"
     frameborder="0"
     width="320"
     height="0"
     target="_top"
     onLoad="loaded()"
-></iframe--></div>
+></iframe></div>
 
 <!--hr id="lower-bar" class="depiction"/-->
 
@@ -145,7 +217,10 @@
         <div id="installed"></div>
     </div>
 
-    <a id="files-href"><label>Filesystem Content</label></a>
+    <a id="files-href">
+        <img class="icon" src="filesystem.png"/>
+        <label>Filesystem Content</label>
+    </a>
 </fieldset>
 
 <label>Package Details</label>
@@ -161,6 +236,7 @@
     </div>
 
     <div class="size">
+        <img class="icon" src="expanded.png"/>
         <label>Expanded Size</label>
         <div id="size"></div>
     </div>
@@ -172,14 +248,21 @@
     </a>
 
     <a id="sponsor-href" class="sponsor">
+        <img class="icon" src="web.png"/>
         <label>Sponsor</label>
         <div id="sponsor"></div>
     </a>
 
-    <a class="trusted" id="trusted">
+    <!--a class="trusted" id="trusted">
         <img class="icon" src="trusted.png">
-        <label>View Package Signature</label>
-    </a>
+        <label>View Repository Signature</label>
+    </a-->
+
+    <div class="trusted">
+        <img class="icon" src="trusted.png">
+        <label></label>
+        <div>This package has been signed.</div>
+    </div>
 </fieldset>
 
 <label class="source">Source Information</label>

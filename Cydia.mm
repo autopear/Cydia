@@ -758,6 +758,8 @@ class Progress :
     FILE *input_;
 }
 
++ (Database *) sharedInstance;
+
 - (void) _readCydia:(NSNumber *)fd;
 - (void) _readStatus:(NSNumber *)fd;
 - (void) _readOutput:(NSNumber *)fd;
@@ -766,7 +768,6 @@ class Progress :
 
 - (Package *) packageWithName:(NSString *)name;
 
-- (Database *) init;
 - (pkgCacheFile &) cache;
 - (pkgDepCache::Policy *) policy;
 - (pkgRecords *) records;
@@ -1105,7 +1106,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (NSString *) id;
 - (NSString *) name;
 - (NSString *) tagline;
-- (NSString *) icon;
+- (UIImage *) icon;
 - (NSString *) homepage;
 - (NSString *) depiction;
 - (Address *) author;
@@ -1123,6 +1124,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 - (bool) hasSupportingRole;
 - (BOOL) hasTag:(NSString *)tag;
 - (NSString *) primaryPurpose;
+- (NSArray *) purposes;
 
 - (NSComparisonResult) compareByName:(Package *)package;
 - (NSComparisonResult) compareBySection:(Package *)package;
@@ -1175,7 +1177,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
+    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"purposes", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -1433,8 +1435,21 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
     return tagline_;
 }
 
-- (NSString *) icon {
-    return icon_;
+- (UIImage *) icon {
+    NSString *section = [self section];
+    if (section != nil)
+        section = Simplify(section);
+
+    UIImage *icon(nil);
+    if (NSString *icon = icon_)
+        icon = [UIImage imageAtPath:[icon_ substringFromIndex:6]];
+    if (icon == nil) if (section != nil)
+        icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
+    if (icon == nil) if (source_ != nil) if (NSString *icon = [source_ defaultIcon])
+        icon = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (icon == nil)
+        icon = [UIImage applicationImageNamed:@"unknown.png"];
+    return icon;
 }
 
 - (NSString *) homepage {
@@ -1603,6 +1618,14 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         if ([tag hasPrefix:@"purpose::"])
             return [tag substringFromIndex:9];
     return nil;
+}
+
+- (NSArray *) purposes {
+    NSMutableArray *purposes([NSMutableArray arrayWithCapacity:2]);
+    for (NSString *tag in tags_)
+        if ([tag hasPrefix:@"purpose::"])
+            [purposes addObject:[tag substringFromIndex:9]];
+    return [purposes count] == 0 ? nil : purposes;
 }
 
 - (NSComparisonResult) compareByName:(Package *)package {
@@ -1804,6 +1827,13 @@ static NSArray *Finishes_;
 
 /* Database Implementation {{{ */
 @implementation Database
+
++ (Database *) sharedInstance {
+    static Database *instance;
+    if (instance == nil)
+        instance = [[Database alloc] init];
+    return instance;
+}
 
 - (void) dealloc {
     _assert(false);
@@ -2352,8 +2382,6 @@ static NSArray *Finishes_;
     [super dealloc];
 }
 
-#include "internals.h"
-
 - (void) mailComposeControllerWillAttemptToSend:(MailComposeController *)controller {
     NSLog(@"will");
 }
@@ -2425,6 +2453,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @interface ConfirmationView : BrowserView {
+    _transient Database *database_;
     UIActionSheet *essential_;
     NSArray *changes_;
     NSArray *issues_;
@@ -2483,7 +2512,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book database:database]) != nil) {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+
         NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
         NSMutableArray *reinstalling = [NSMutableArray arrayWithCapacity:16];
         NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
@@ -3196,17 +3227,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (section != nil)
         section = Simplify(section);
 
-    icon_ = nil;
-    if (NSString *icon = [package icon])
-        icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (icon_ == nil) if (section != nil)
-        icon_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
-    if (icon_ == nil) if (NSString *icon = [source defaultIcon])
-        icon_ = [UIImage imageAtPath:[icon substringFromIndex:6]];
-    if (icon_ == nil)
-        icon_ = [UIImage applicationImageNamed:@"unknown.png"];
-
-    icon_ = [icon_ retain];
+    icon_ = [[package icon] retain];
 
     name_ = [[package name] retain];
     description_ = [[package tagline] retain];
@@ -3549,6 +3570,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Package View {{{ */
 @interface PackageView : BrowserView {
+    _transient Database *database_;
     Package *package_;
     NSString *name_;
     NSMutableArray *buttons_;
@@ -3639,7 +3661,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book database:database]) != nil) {
+    if ((self = [super initWithBook:book]) != nil) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
     } return self;
@@ -4616,9 +4638,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([href hasPrefix:@"apptapp://package/"])
         page = [delegate_ pageForPackage:[href substringFromIndex:18]];
-    else if ([scheme isEqualToString:@"cydia"])
+    else if ([scheme isEqualToString:@"cydia"]) {
         page = [delegate_ pageForURL:url hasTag:NULL];
-    else if (![scheme isEqualToString:@"apptapp"])
+        if (page == nil)
+            return false;
+    } else if (![scheme isEqualToString:@"apptapp"])
         return false;
 
     if (page != nil)
@@ -4720,7 +4744,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (WebView *) _createWebViewWithRequest:(NSURLRequest *)request pushed:(BOOL)pushed {
     [self setBackButtonTitle:title_];
 
-    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_ database:database_] autorelease];
+    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_] autorelease];
     [browser setDelegate:delegate_];
 
     if (pushed) {
@@ -4825,9 +4849,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
+- (id) initWithBook:(RVBook *)book {
     if ((self = [super initWithBook:book]) != nil) {
-        database_ = database;
         loading_ = false;
 
         struct CGRect bounds = [self bounds];
@@ -4905,7 +4928,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 12, indsize.width, indsize.height)];
         [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
 
-        Package *package([database_ packageWithName:@"cydia"]);
+        Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
         NSString *application = package == nil ? @"Cydia" : [NSString
             stringWithFormat:@"Cydia/%@",
             [package installed]
@@ -5899,6 +5922,108 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
+@interface CydiaURLProtocol : NSURLProtocol {
+}
+
+@end
+
+@implementation CydiaURLProtocol
+
++ (BOOL) canInitWithRequest:(NSURLRequest *)request {
+    NSURL *url([request URL]);
+    if (url == nil)
+        return NO;
+    NSString *scheme([[url scheme] lowercaseString]);
+    if (scheme == nil || ![scheme isEqualToString:@"cydia"])
+        return NO;
+    return YES;
+}
+
++ (NSURLRequest *) canonicalRequestForRequest:(NSURLRequest *)request {
+    return request;
+}
+
+- (void) startLoading {
+    id<NSURLProtocolClient> client([self client]);
+    NSURLRequest *request([self request]);
+
+    NSURL *url([request URL]);
+    NSString *href([url absoluteString]);
+
+    NSString *path([href substringFromIndex:8]);
+    NSRange slash([path rangeOfString:@"/"]);
+
+    NSString *command;
+    if (slash.location == NSNotFound) {
+        command = path;
+        path = nil;
+    } else {
+        command = [path substringToIndex:slash.location];
+        path = [path substringFromIndex:(slash.location + 1)];
+    }
+
+    Database *database([Database sharedInstance]);
+
+    if ([command isEqualToString:@"package-icon"]) {
+        if (path == nil)
+            goto fail;
+        Package *package([database packageWithName:path]);
+        if (package == nil)
+            goto fail;
+
+        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+
+        UIImage *icon([package icon]);
+        NSData *data(UIImagePNGRepresentation(icon));
+
+        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+        [client URLProtocol:self didLoadData:data];
+        [client URLProtocolDidFinishLoading:self];
+    } else fail: {
+        [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]];
+    }
+}
+
+- (void) stopLoading {
+}
+
+@end
+
+@interface SignatureView : BrowserView {
+    _transient Database *database_;
+    NSString *package_;
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package;
+
+@end
+
+@implementation SignatureView
+
+- (void) dealloc {
+    [package_ release];
+    [super dealloc];
+}
+
+- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    // XXX: dude!
+    [super webView:sender didClearWindowObject:window forFrame:frame];
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package {
+    if ((self = [super initWithBook:book]) != nil) {
+        database_ = database;
+        package_ = [package retain];
+        [self reloadData];
+    } return self;
+}
+
+- (void) reloadData {
+    [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"signature" ofType:@"html"]]];
+}
+
+@end
+
 @interface Cydia : UIApplication <
     ConfirmationViewDelegate,
     ProgressViewDelegate,
@@ -6186,7 +6311,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (RVPage *) _pageForURL:(NSURL *)url withClass:(Class)_class {
-    BrowserView *browser = [[[_class alloc] initWithBook:book_ database:database_] autorelease];
+    BrowserView *browser = [[[_class alloc] initWithBook:book_] autorelease];
     [browser loadURL:url];
     return browser;
 }
@@ -6531,6 +6656,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return [self _pageForURL:[NSURL URLWithString:[href substringFromIndex:12]] withClass:[BrowserView class]];
     else if ([href hasPrefix:@"cydia://launch/"])
         [self launchApplicationWithIdentifier:[href substringFromIndex:15] suspended:NO];
+    else if ([href hasPrefix:@"cydia://package-signature/"])
+        return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[href substringFromIndex:26]] autorelease];
     else if ([href hasPrefix:@"cydia://package/"])
         return [self pageForPackage:[href substringFromIndex:16]];
     else if ([href hasPrefix:@"cydia://files/"]) {
@@ -6571,6 +6698,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
+    [NSURLProtocol registerClass:[CydiaURLProtocol class]];
+
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
     window_ = [[UIWindow alloc] initWithContentRect:screenrect];
 
@@ -6578,7 +6707,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window_ makeKey:self];
     [window_ setHidden:NO];
 
-    database_ = [[Database alloc] init];
+    database_ = [Database sharedInstance];
     progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
     [database_ setDelegate:progress_];
     [window_ setContentView:progress_];
@@ -6621,7 +6750,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 + (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
-    NSLog(@"exc:%s", sel_getName(selector));
     return selector != @selector(supports:);
 }
 

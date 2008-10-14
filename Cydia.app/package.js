@@ -30,8 +30,12 @@ $(function () {
     var regarding = encodeURIComponent("Cydia/APT: " + name);
 
     $("#icon").src("cydia://package-icon/" + idc);
+    $("#reflection").src("cydia://package-icon/" + idc);
+
     $("#name").html(name);
     $("#latest").html(package.latest);
+
+    $("#settings").href("cydia://package-settings/" + idc);
 
     var warnings = package.warnings;
     var length = warnings == null ? 0 : warnings.length;
@@ -51,12 +55,12 @@ $(function () {
 
     var applications = package.applications;
     var length = applications == null ? 0 : applications.length;
-    if (length == 0)
-        $(".applications").remove();
-    else {
+
+    var child = $("#application");
+    child.remove();
+
+    /*if (length != 0) {
         var parent = $("#actions");
-        var child = $("#application");
-        child.remove();
 
         for (var i = 0; i != length; ++i) {
             var application = applications[i];
@@ -65,9 +69,24 @@ $(function () {
             clone.href("cydia://launch/" + application[0]);
             clone.xpath("label").html("Run " + $.xml(application[1]));
             clone.xpath("img").src(application[2]);
-            console.log(0);
         }
-    }
+    }*/
+
+    var purposes = package.purposes;
+    var commercial = false;
+    var _console = false;
+    if (purposes != null)
+        for (var i = 0, e = purposes.length; i != e; ++i) {
+            var purpose = purposes[i];
+            if (purpose == "commercial")
+                commercial = true;
+            else if (purpose == "console")
+                _console = true;
+        }
+    if (!commercial)
+        $(".commercial").remove();
+    if (!_console)
+        $(".console").remove();
 
     var author = package.author;
     if (author == null)
@@ -111,7 +130,14 @@ $(function () {
         $("#files-href").href("cydia://files/" + idc);
     }
 
-    $("#id").html(id);
+    var nid = $("#id");
+    nid.html(id);
+    var width = nid.width();
+
+    if (width > 240) {
+        var spacing = (240.0 - nid.width()) / (id.length - 1) + "px";
+        nid.css("letter-spacing", spacing);
+    }
 
     var section = package.section;
     if (section == null)
@@ -152,7 +178,7 @@ $(function () {
         $("#source-name").html(source.name);
 
         if (source.trusted)
-            /*$("#trusted").href("cydia:///" + idc)*/;
+            $("#trusted").href("cydia://package-signature/" + idc);
         else
             $(".trusted").remove();
 

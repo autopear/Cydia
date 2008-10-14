@@ -1194,7 +1194,12 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
         database_ = database;
 
         version_ = [database_ policy]->GetCandidateVer(iterator_);
-        latest_ = version_.end() ? nil : [StripVersion([NSString stringWithUTF8String:version_.VerStr()]) retain];
+        NSString *latest = version_.end() ? nil : [NSString stringWithUTF8String:version_.VerStr()];
+        latest_ = [StripVersion(latest) retain];
+
+        pkgCache::VerIterator current = iterator_.CurrentVer();
+        NSString *installed = current.end() ? nil : [NSString stringWithUTF8String:current.VerStr()];
+        installed_ = [StripVersion(installed) retain];
 
         if (!version_.end())
             file_ = version_.FileList();
@@ -1202,9 +1207,6 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             pkgCache &cache([database_ cache]);
             file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
         }
-
-        pkgCache::VerIterator current = iterator_.CurrentVer();
-        installed_ = current.end() ? nil : [StripVersion([NSString stringWithUTF8String:current.VerStr()]) retain];
 
         id_ = [[[NSString stringWithUTF8String:iterator_.Name()] lowercaseString] retain];
 
@@ -1251,12 +1253,42 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
                 }
             }
 
+        NSString *solid(latest == nil ? installed : latest);
+        bool changed(false);
+
         NSMutableDictionary *metadata = [Packages_ objectForKey:id_];
-        if (metadata == nil || [metadata count] == 0) {
+        if (metadata == nil) {
             metadata = [NSMutableDictionary dictionaryWithObjectsAndKeys:
                 now_, @"FirstSeen",
             nil];
 
+            if (solid != nil)
+                [metadata setObject:solid forKey:@"LastVersion"];
+            changed = true;
+        } else {
+            NSDate *first([metadata objectForKey:@"FirstSeen"]);
+            NSDate *last([metadata objectForKey:@"LastSeen"]);
+            NSString *version([metadata objectForKey:@"LastVersion"]);
+
+            if (first == nil) {
+                first = last == nil ? now_ : last;
+                [metadata setObject:first forKey:@"FirstSeen"];
+                changed = true;
+            }
+
+            if (solid != nil)
+                if (version == nil) {
+                    [metadata setObject:solid forKey:@"LastVersion"];
+                    changed = true;
+                } else if (![version isEqualToString:solid]) {
+                    [metadata setObject:solid forKey:@"LastVersion"];
+                    last = now_;
+                    [metadata setObject:last forKey:@"LastSeen"];
+                    changed = true;
+                }
+        }
+
+        if (changed) {
             [Packages_ setObject:metadata forKey:id_];
             Changed_ = true;
         }
@@ -1328,7 +1360,16 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 }
 
 - (NSDate *) seen {
-    return [[Packages_ objectForKey:id_] objectForKey:@"FirstSeen"];
+    NSDictionary *metadata([Packages_ objectForKey:id_]);
+    bool subscribed;
+    if (NSNumber *isSubscribed = [metadata objectForKey:@"IsSubscribed"])
+        subscribed = [isSubscribed boolValue];
+    else
+        subscribed = false;
+    if (subscribed)
+        if (NSDate *last = [metadata objectForKey:@"LastSeen"])
+            return last;
+    return [metadata objectForKey:@"FirstSeen"];
 }
 
 - (NSString *) latest {

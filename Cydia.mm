@@ -282,9 +282,10 @@ extern NSString * const kCAFilterNearest;
         [invocation getReturnValue:&item.key];
     }
 
+    static const size_t width = 32;
     static const size_t bits = 11;
     static const size_t slots = 1 << bits;
-    static const size_t passes = (32 + (bits - 1)) / bits;
+    static const size_t passes = (width + (bits - 1)) / bits;
 
     size_t *hist(new size_t[slots]);
 
@@ -294,7 +295,7 @@ extern NSString * const kCAFilterNearest;
         for (size_t i(0); i != count; ++i) {
             uint32_t key(lhs[i].key);
             key >>= pass * bits;
-            key &= _not(uint32_t) >> 32 - bits;
+            key &= _not(uint32_t) >> width - bits;
             ++hist[key];
         }
 
@@ -308,7 +309,7 @@ extern NSString * const kCAFilterNearest;
         for (size_t i(0); i != count; ++i) {
             uint32_t key(lhs[i].key);
             key >>= pass * bits;
-            key &= _not(uint32_t) >> 32 - bits;
+            key &= _not(uint32_t) >> width - bits;
             rhs[hist[key]++] = lhs[i];
         }
 
@@ -6265,7 +6266,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return;
 
     _UISwitchSlider *slider([cell control]);
-    // XXX: this is just weird
     BOOL value([slider value] != 0);
     NSMutableDictionary *metadata([package_ metadata]);
 
@@ -6274,12 +6274,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         before = [number boolValue];
     else
         before = NO;
-    NSLog(@"%@:%@ %@:%@ : %u:%u", cell, slider, name_, key, value, before);
 
     if (value != before) {
         [metadata setObject:[NSNumber numberWithBool:value] forKey:key];
         Changed_ = true;
-        //[delegate_ performSelector:@selector(updateData) withObject:nil afterDelay:0];
         [delegate_ updateData];
     }
 }

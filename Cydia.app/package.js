@@ -134,8 +134,9 @@ $(function () {
     nid.html(id);
     var width = nid.width();
 
-    if (width > 240) {
-        var spacing = (240.0 - nid.width()) / (id.length - 1) + "px";
+    var max = 238.0;
+    if (width > max) {
+        var spacing = (max - nid.width()) / (id.length - 1) + "px";
         nid.css("letter-spacing", spacing);
     }
 

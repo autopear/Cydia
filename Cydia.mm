@@ -7258,7 +7258,29 @@ id Dealloc_(id self, SEL selector) {
 }*/
 
 int main(int argc, char *argv[]) { _pooled
-    bootstrap_ = argc > 1 && strcmp(argv[1], "--bootstrap") == 0;
+    bool substrate(false);
+
+    if (argc != 0) {
+        char **args(argv);
+        int arge(1);
+
+        for (int argi(1); argi != argc; ++argi)
+            if (strcmp(argv[argi], "--") == 0) {
+                arge = argi;
+                argv[argi] = argv[0];
+                argv += argi;
+                argc -= argi;
+                break;
+            }
+
+        for (int argi(1); argi != arge; ++argi)
+            if (strcmp(args[argi], "--bootstrap") == 0)
+                bootstrap_ = true;
+            else if (strcmp(args[argi], "--substrate") == 0)
+                substrate = true;
+            else
+                fprintf(stderr, "unknown argument: %s\n", args[argi]);
+    }
 
     App_ = [[NSBundle mainBundle] bundlePath];
     Home_ = NSHomeDirectory();
@@ -7345,7 +7367,7 @@ int main(int argc, char *argv[]) { _pooled
     Documents_ = [[[NSMutableArray alloc] initWithCapacity:4] autorelease];
 #endif
 
-    if (access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
+    if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);
 
     if (access("/User", F_OK) != 0)

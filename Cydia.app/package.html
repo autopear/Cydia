@@ -38,13 +38,13 @@
         }
 
         #depiction {
-            margin-bottom: -7px;
+            margin: -8px 0;
             overflow: hidden;
             width: 320px;
         }
 
         #notice {
-            margin-bottom: -14px;
+            margin: -8px 0 -9px 0;
             overflow: hidden;
             width: 320px;
         }
@@ -107,8 +107,9 @@
         }
 
         #content {
-            float: right;
             margin: auto 0;
+            position: absolute;
+            left: 72px;
         }
 
         #content > div {
@@ -121,6 +122,15 @@
 
         #latest {
             color: #335588;
+        }
+
+        #description {
+            background-color: #c7ced5;
+            border-bottom: 1px solid #999999;
+            border-top: 1px solid #999999;
+            font-size: 16px;
+            margin: 9px 10px;
+            padding: 10px;
         }
     </style>
 </head><body><div class="page">
@@ -197,14 +207,14 @@
     width="320"
     height="0"
     target="_top"
-    onLoad="loaded()"
+    onLoad_="loaded()"
 ></iframe></div>
 
 <!--hr id="lower-bar" class="depiction"/-->
 
-<fieldset class="description">
-    <div id="description"></div>
+<div id="description" class="description"></div>
 
+<fieldset class="description homepage">
     <a class="homepage" id="homepage-href">
         <img class="icon" src="web.png"/>
         <label>More Information</label>

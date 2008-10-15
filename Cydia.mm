@@ -249,17 +249,19 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForSaurik 1
+#define ForRelease 0
+#define ForSaurik 1 && !ForRelease
 #define RecycleWebViews 0
+#define AlwaysReload 0 && !ForRelease
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
-- (void) radixUsingSelector:(SEL)selector withObject:(id)object;
+- (void) radixSortUsingSelector:(SEL)selector withObject:(id)object;
 @end
 
 @implementation NSMutableArray (Radix)
 
-- (void) radixUsingSelector:(SEL)selector withObject:(id)object {
+- (void) radixSortUsingSelector:(SEL)selector withObject:(id)object {
     NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:"L12@0:4@8"]]);
     [invocation setSelector:selector];
     [invocation setArgument:&object atIndex:2];
@@ -745,6 +747,7 @@ class Status :
     }
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
+        //NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
         [delegate_ setProgressTitle:[NSString stringWithUTF8String:("Downloading " + item.ShortDesc).c_str()]];
     }
 
@@ -1294,7 +1297,7 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
         version_ = [database_ policy]->GetCandidateVer(iterator_);
         NSString *latest = version_.end() ? nil : [NSString stringWithUTF8String:version_.VerStr()];
-        latest_ = [StripVersion(latest) retain];
+        latest_ = latest == nil ? nil : [StripVersion(latest) retain];
 
         pkgCache::VerIterator current = iterator_.CurrentVer();
         NSString *installed = current.end() ? nil : [NSString stringWithUTF8String:current.VerStr()];
@@ -1517,10 +1520,8 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
 
     if (current.end())
         return essential && [self essential];
-    else {
-        pkgCache::VerIterator candidate = [database_ policy]->GetCandidateVer(iterator_);
-        return !candidate.end() && candidate != current;
-    }
+    else
+        return !version_.end() && version_ != current;
 }
 
 - (BOOL) essential {
@@ -2049,9 +2050,9 @@ static NSArray *Finishes_;
                     withObject:[NSArray arrayWithObjects:string, id, nil]
                     waitUntilDone:YES
                 ];
-            else if (type == "pmstatus")
+            else if (type == "pmstatus") {
                 [delegate_ setProgressTitle:string];
-            else if (type == "pmconffile")
+            } else if (type == "pmconffile")
                 [delegate_ setConfigurationData:string];
             else _assert(false);
         } else _assert(false);
@@ -2247,6 +2248,7 @@ static NSArray *Finishes_;
 
     cache_.Close();
 
+    _trace();
     if (!cache_.Open(progress_, true)) {
         std::string error;
         if (!_error->PopMessage(error))
@@ -2265,6 +2267,7 @@ static NSArray *Finishes_;
 
         return;
     }
+    _trace();
 
     now_ = [[NSDate date] retain];
 
@@ -2297,11 +2300,13 @@ static NSArray *Finishes_;
     }
 
     [packages_ removeAllObjects];
+    _trace();
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
         if (Package *package = [Package packageWithIterator:iterator database:self])
             [packages_ addObject:package];
-
+    _trace();
     [packages_ sortUsingSelector:@selector(compareByName:)];
+    _trace();
 }
 
 - (void) configure {
@@ -2777,6 +2782,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self cancel];
 }
 
+#if !AlwaysReload
 - (void) _rightButtonClicked {
     if (essential_ != nil)
         [essential_ popupAlertAnimated:YES];
@@ -2786,6 +2792,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [delegate_ confirm];
     }
 }
+#endif
 
 @end
 /* }}} */
@@ -3284,7 +3291,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _setProgressTitle:(NSString *)title {
-    [status_ setText:title];
+    NSMutableArray *words([[title componentsSeparatedByString:@" "] mutableCopy]);
+    for (size_t i(0), e([words count]); i != e; ++i) {
+        NSString *word([words objectAtIndex:i]);
+        if (Package *package = [database_ packageWithName:word])
+            [words replaceObjectAtIndex:i withObject:[package name]];
+    }
+
+    [status_ setText:[words componentsJoinedByString:@" "]];
 }
 
 - (void) _setProgressPercent:(NSNumber *)percent {
@@ -3775,6 +3789,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super webView:sender didClearWindowObject:window forFrame:frame];
 }
 
+#if !AlwaysReload
 - (void) _rightButtonClicked {
     /*[super _rightButtonClicked];
     return;*/
@@ -3798,6 +3813,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ] autorelease]];
     }
 }
+#endif
 
 - (NSString *) _rightButtonTitle {
     int count = [buttons_ count];
@@ -5843,7 +5859,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     _trace();
-    [packages_ radixUsingSelector:@selector(compareForChanges) withObject:nil];
+    [packages_ radixSortUsingSelector:@selector(compareForChanges) withObject:nil];
     _trace();
 
     Section *upgradable = [[[Section alloc] initWithName:@"Available Upgrades"] autorelease];
@@ -6306,7 +6322,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 1: switch (row) {
             case 0: {
                 UIPreferencesControlTableCell *cell([[[UIPreferencesControlTableCell alloc] init] autorelease]);
-                [cell setTitle:@"Changes only shows upgrades to installed packages. This minimizes spam from packagers. Activate this to see upgrades to this package even when it is not installed."];
+                [cell setShowSelection:NO];
+                [cell setTitle:@"Changes only shows upgrades to installed packages so as to minimize spam from packagers. Activate this to see upgrades to this package even when it is not installed."];
                 return cell;
             }
 
@@ -6334,10 +6351,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:kUIControlEventMouseUpInside];
 
         subscribedCell_ = [[UIPreferencesControlTableCell alloc] init];
+        [subscribedCell_ setShowSelection:NO];
         [subscribedCell_ setTitle:@"Show All Changes"];
         [subscribedCell_ setControl:subscribedSwitch_];
 
         ignoredCell_ = [[UIPreferencesControlTableCell alloc] init];
+        [ignoredCell_ setShowSelection:NO];
         [ignoredCell_ setTitle:@"Ignore Upgrades"];
         [ignoredCell_ setControl:ignoredSwitch_];
 
@@ -6469,7 +6488,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             initWithTitle:[NSString stringWithFormat:@"%d Essential Upgrade%@", count, (count == 1 ? @"" : @"s")]
             buttons:[NSArray arrayWithObjects:
                 @"Upgrade Essential",
-                @"Upgrade Everything",
+                @"Complete Upgrade",
                 @"Ignore (Temporary)",
             nil]
             defaultButtonIndex:0
@@ -6488,9 +6507,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [overlay_ addSubview:hud];
     [hud show:YES];*/
 
-    _trace();
     [database_ reloadData];
-    _trace();
 
     size_t changes(0);
 
@@ -7257,10 +7274,12 @@ int main(int argc, char *argv[]) { _pooled
     setuid(0);
     setgid(0);
 
+#if 1 /* XXX: this costs 1.4s of startup performance */
     if (unlink("/var/cache/apt/pkgcache.bin") == -1)
         _assert(errno == ENOENT);
     if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
         _assert(errno == ENOENT);
+#endif
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;

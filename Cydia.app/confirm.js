@@ -37,7 +37,7 @@ $(function () {
         var length = list.length;
 
         if (length != 0) {
-            $("#modifications").append("<div>" +
+            $("#modifications").append("<div class=\"clearfix\">" +
                 "<label>" + keys[i] + "</label>" +
                 "<div id=\"i" + i + "\"></div>" +
             "</div>");

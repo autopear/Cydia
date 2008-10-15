@@ -46,15 +46,7 @@
 }
 
 .clearfix {
-    display: inline-block;
-}
-
-html[xmlns] .clearfix {
     display: block;
-}
-
-* html .clearfix {
-    height: 1%;
 }
 /* }}} */
 
@@ -154,8 +146,22 @@ pre {
 }
 /* }}} */
 /* fieldset {{{ */
+.dialog > .panel > block {
+    background-color: #c7ced5;
+    border-bottom: 1px solid #999999;
+    border-top: 1px solid #999999;
+    display: block;
+    font-size: 16px;
+    margin: 9px 10px;
+    padding: 0 10px;
+}
+
+.dialog > .panel > block > hr {
+    border-width: 1px 0 0 0;
+}
+
 .dialog > .panel > fieldset {
-    background: #ffffff;
+    background-color: #ffffff;
     border: 1px solid #999999;
     -webkit-border-radius: 10px;
     font-size: 16px;
@@ -191,10 +197,10 @@ pre {
     margin: -13px 5px -10px -10px;
     max-height: 30px;
     min-width: 30px;
-    vertical-align: middle;
     width: 30px;
 }
 
+.dialog > .panel > block > p,
 .dialog > .panel > fieldset > div > p {
     margin: 11px 0;
     text-align: center;

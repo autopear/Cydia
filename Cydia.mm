@@ -261,10 +261,10 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define ForSaurik 1 && !ForRelease
 #define RecycleWebViews 0
-#define AlwaysReload 0 && !ForRelease
+#define AlwaysReload 1 && !ForRelease
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
@@ -5633,6 +5633,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             goto fail;
 
         UIImage *icon([package icon]);
+
+        NSData *data(UIImagePNGRepresentation(icon));
+
+        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+        [client URLProtocol:self didLoadData:data];
+        [client URLProtocolDidFinishLoading:self];
+    } else if ([command isEqualToString:@"source-icon"]) {
+        if (path == nil)
+            goto fail;
+        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        NSString *source(Simplify(path));
+
+        UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sources/%@.png", App_, source]]);
+        if (icon == nil)
+            icon = [UIImage applicationImageNamed:@"unknown.png"];
 
         NSData *data(UIImagePNGRepresentation(icon));
 

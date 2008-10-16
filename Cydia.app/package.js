@@ -178,6 +178,9 @@ $(function () {
         $(".source").remove();
         $(".trusted").remove();
     } else {
+        var host = source.host;
+
+        $("#source-src").src("cydia://source-icon/" + encodeURIComponent(host));
         $("#source-name").html(source.name);
 
         if (source.trusted)

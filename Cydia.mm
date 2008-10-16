@@ -4462,7 +4462,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
 
         [sheet dismiss];
-    }
+    } else if ([context isEqualToString:@"trivial"])
+        [sheet dismiss];
+    else if ([context isEqualToString:@"urlerror"])
+        [sheet dismiss];
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -4538,9 +4541,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sheet addTextFieldWithValue:@"http://" label:@""];
 
     UITextInputTraits *traits = [[sheet textField] textInputTraits];
-    [traits setAutocapitalizationType:0];
+    [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
     [traits setKeyboardType:UIKeyboardTypeURL];
-    [traits setAutocorrectionType:1];
+    // XXX: UIReturnKeyDone
+    [traits setReturnKeyType:UIReturnKeyNext];
 
     [sheet popupAlertAnimated:YES];
 }
@@ -5044,14 +5049,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UITextField *username([sheet textFieldAtIndex:0]); {
         UITextInputTraits *traits([username textInputTraits]);
-        [traits setAutocapitalizationType:0];
-        [traits setAutocorrectionType:1];
+        [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+        [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
+        [traits setKeyboardType:UIKeyboardTypeASCIICapable];
+        [traits setReturnKeyType:UIReturnKeyNext];
     }
 
     UITextField *password([sheet textFieldAtIndex:1]); {
         UITextInputTraits *traits([password textInputTraits]);
-        [traits setAutocapitalizationType:0];
-        [traits setAutocorrectionType:1];
+        [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+        [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
+        [traits setKeyboardType:UIKeyboardTypeASCIICapable];
+        // XXX: UIReturnKeyDone
+        [traits setReturnKeyType:UIReturnKeyNext];
         [traits setSecureTextEntry:YES];
     }
 
@@ -6265,10 +6275,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [field_ setPaddingTop:5];
 
-        UITextInputTraits *traits = [field_ textInputTraits];
-        [traits setAutocapitalizationType:0];
-        [traits setAutocorrectionType:1];
-        [traits setReturnKeyType:6];
+        UITextInputTraits *traits([field_ textInputTraits]);
+        [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+        [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
+        [traits setReturnKeyType:UIReturnKeySearch];
 
         CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height}};
 

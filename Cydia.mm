@@ -5052,6 +5052,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UITextInputTraits *traits([password textInputTraits]);
         [traits setAutocapitalizationType:0];
         [traits setAutocorrectionType:1];
+        [traits setSecureTextEntry:YES];
     }
 
     [sheet popupAlertAnimated:YES];

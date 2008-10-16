@@ -1,3 +1,6 @@
+#define __STDC_LIMIT_MACROS
+#include <stdint.h>
+
 #include <objc/objc.h>
 
 #include <sys/time.h>
@@ -6,10 +9,22 @@
 #define _forever \
     for (;;)
 
+extern struct timeval _ltv;
+extern bool _itv;
+
 #define _trace() do { \
-    struct timeval _tv; \
-    gettimeofday(&_tv, NULL); \
-    fprintf(stderr, "%lu.%.6u:_trace()@%s:%u[%s]\n", _tv.tv_sec, _tv.tv_usec, __FILE__, __LINE__, __FUNCTION__); \
+    struct timeval _ctv; \
+    gettimeofday(&_ctv, NULL); \
+    if (!_itv) { \
+        _itv = true; \
+        _ltv = _ctv; \
+    } \
+    fprintf(stderr, "%lu.%.6u[%f]:_trace()@%s:%u[%s]\n", \
+        _ctv.tv_sec, _ctv.tv_usec, \
+        (_ctv.tv_sec - _ltv.tv_sec) + (_ctv.tv_usec - _ltv.tv_usec) / 1000000.0, \
+        __FILE__, __LINE__, __FUNCTION__\
+    ); \
+    _ltv = _ctv; \
 } while (false)
 
 #define _assert(test) do \

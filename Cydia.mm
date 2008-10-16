@@ -166,6 +166,10 @@ class _H {
 
 #define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
 
+void NSLogPoint(const char *fix, const CGPoint &point) {
+    NSLog(@"%s(%g,%g)", fix, point.x, point.y);
+}
+
 void NSLogRect(const char *fix, const CGRect &rect) {
     NSLog(@"%s(%g,%g)+(%g,%g)", fix, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
 }
@@ -257,7 +261,7 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define ForSaurik 1 && !ForRelease
 #define RecycleWebViews 0
 #define AlwaysReload 1 && !ForRelease
@@ -336,6 +340,34 @@ extern NSString * const kCAFilterNearest;
     [self setArray:values];
 
     delete [] swap;
+}
+
+@end
+/* }}} */
+
+/* Apple Bug Fixes {{{ */
+@implementation UIWebDocumentView (Cydia)
+
+- (void) _setScrollerOffset:(CGPoint)offset {
+    UIScroller *scroller([self _scroller]);
+
+    CGSize size([scroller contentSize]);
+    CGSize bounds([scroller bounds].size);
+
+    CGPoint max;
+    max.x = size.width - bounds.width;
+    max.y = size.height - bounds.height;
+
+    // wtf Apple?!
+    if (max.x < 0)
+        max.x = 0;
+    if (max.y < 0)
+        max.y = 0;
+
+    offset.x = offset.x < 0 ? 0 : offset.x > max.x ? max.x : offset.x;
+    offset.y = offset.y < 0 ? 0 : offset.y > max.y ? max.y : offset.y;
+
+    [scroller setOffset:offset];
 }
 
 @end
@@ -4667,9 +4699,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return @"Settings";
 }
 
+#if !AlwaysReload
 - (NSString *) _rightButtonTitle {
     return nil;
 }
+#endif
 
 @end
 /* }}} */
@@ -5110,8 +5144,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [webview_ setZoomsFocusedFormControl:YES];
             [webview_ setContentsPosition:7];
             [webview_ setEnabledGestures:0xa];
-            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x4];
-            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:0x7];
+            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeIsZoomRubberBandEnabled];
+            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeUpdatesScroller];
 
             [webview_ setSmoothsFonts:YES];
 
@@ -7320,7 +7354,7 @@ int main(int argc, char *argv[]) { _pooled
     setuid(0);
     setgid(0);
 
-#if 0 /* XXX: this costs 1.4s of startup performance */
+#if 1 /* XXX: this costs 1.4s of startup performance */
     if (unlink("/var/cache/apt/pkgcache.bin") == -1)
         _assert(errno == ENOENT);
     if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)

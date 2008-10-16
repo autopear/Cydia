@@ -116,6 +116,14 @@ bool _itv;
         exit(0); \
 } while (false)
 
+static uint64_t profile_;
+
+#define _timestamp ({ \
+    struct timeval tv; \
+    gettimeofday(&tv, NULL); \
+    tv.tv_sec * 1000000 + tv.tv_usec; \
+})
+
 /* Objective-C Handle<> {{{ */
 template <typename Type_>
 class _H {
@@ -252,7 +260,7 @@ extern NSString * const kCAFilterNearest;
 #define ForRelease 0
 #define ForSaurik 1 && !ForRelease
 #define RecycleWebViews 0
-#define AlwaysReload 0 && !ForRelease
+#define AlwaysReload 1 && !ForRelease
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
@@ -355,10 +363,7 @@ typedef enum {
 @implementation NSString (Cydia)
 
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
-    char data[length + 1];
-    memcpy(data, bytes, length);
-    data[length] = '\0';
-    return [NSString stringWithUTF8String:data];
+    return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
 }
 
 - (NSComparisonResult) compareByPath:(NSString *)other {
@@ -1111,35 +1116,6 @@ class Progress :
 @end
 /* }}} */
 /* Package Class {{{ */
-NSString *Scour(const char *field, const char *begin, const char *end) {
-    size_t i(0), l(strlen(field));
-
-    for (;;) {
-        const char *name = begin + i;
-        const char *colon = name + l;
-        const char *value = colon + 1;
-
-        if (
-            value < end &&
-            *colon == ':' &&
-            strncasecmp(name, field, l) == 0
-        ) {
-            while (value != end && value[0] == ' ')
-                ++value;
-            const char *line = std::find(value, end, '\n');
-            while (line != value && line[-1] == ' ')
-                --line;
-
-            return [NSString stringWithUTF8Bytes:value length:(line - value)];
-        } else {
-            begin = std::find(begin, end, '\n');
-            if (begin == end)
-                return nil;
-            ++begin;
-        }
-    }
-}
-
 @interface Package : NSObject {
     pkgCache::PkgIterator iterator_;
     _transient Database *database_;
@@ -1318,32 +1294,77 @@ NSString *Scour(const char *field, const char *begin, const char *end) {
             const char *begin, *end;
             parser->GetRec(begin, end);
 
-            name_ = Scour("name", begin, end);
+            NSString *website(nil);
+            NSString *sponsor(nil);
+            NSString *author(nil);
+            NSString *tag(nil);
+
+            struct {
+                const char *name_;
+                NSString **value_;
+            } names[] = {
+                {"name", &name_},
+                {"icon", &icon_},
+                {"depiction", &depiction_},
+                {"homepage", &homepage_},
+                {"website", &website},
+                {"sponsor", &sponsor},
+                {"author", &author},
+                {"tag", &tag},
+            };
+
+            while (begin != end)
+                if (*begin == '\n') {
+                    ++begin;
+                    continue;
+                } else if (isblank(*begin)) next: {
+                    begin = static_cast<char *>(memchr(begin + 1, '\n', end - begin - 1));
+                    if (begin == NULL)
+                        break;
+                } else if (const char *colon = static_cast<char *>(memchr(begin, ':', end - begin))) {
+                    const char *name(begin);
+                    size_t size(colon - begin);
+
+                    begin = static_cast<char *>(memchr(begin, '\n', end - begin));
+
+                    {
+                        const char *stop(begin == NULL ? end : begin);
+                        while (stop[-1] == '\r')
+                            --stop;
+                        while (++colon != stop && isblank(*colon));
+
+                        for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i)
+                            if (strncasecmp(names[i].name_, name, size) == 0) {
+                                NSString *value([NSString stringWithUTF8Bytes:colon length:(stop - colon)]);
+                                *names[i].value_ = value;
+                                break;
+                            }
+                    }
+
+                    if (begin == NULL)
+                        break;
+                    ++begin;
+                } else goto next;
+
             if (name_ != nil)
                 name_ = [name_ retain];
             tagline_ = [[NSString stringWithUTF8String:parser->ShortDesc().c_str()] retain];
-            icon_ = Scour("icon", begin, end);
             if (icon_ != nil)
                 icon_ = [icon_ retain];
-            depiction_ = Scour("depiction", begin, end);
             if (depiction_ != nil)
                 depiction_ = [depiction_ retain];
-            homepage_ = Scour("homepage", begin, end);
             if (homepage_ == nil)
-                homepage_ = Scour("website", begin, end);
+                homepage_ = website;
             if ([homepage_ isEqualToString:depiction_])
                 homepage_ = nil;
             if (homepage_ != nil)
                 homepage_ = [homepage_ retain];
-            NSString *sponsor = Scour("sponsor", begin, end);
             if (sponsor != nil)
                 sponsor_ = [[Address addressWithString:sponsor] retain];
-            NSString *author = Scour("author", begin, end);
             if (author != nil)
                 author_ = [[Address addressWithString:author] retain];
-            NSString *tags = Scour("tag", begin, end);
-            if (tags != nil)
-                tags_ = [[tags componentsSeparatedByString:@", "] retain];
+            if (tag != nil)
+                tags_ = [[tag componentsSeparatedByString:@", "] retain];
         }
 
         if (tags_ != nil)
@@ -2301,9 +2322,11 @@ static NSArray *Finishes_;
 
     [packages_ removeAllObjects];
     _trace();
+    profile_ = 0;
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
         if (Package *package = [Package packageWithIterator:iterator database:self])
             [packages_ addObject:package];
+    NSLog(@"profile_: %llu", profile_);
     _trace();
     [packages_ sortUsingSelector:@selector(compareByName:)];
     _trace();

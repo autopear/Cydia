@@ -2326,7 +2326,6 @@ static NSArray *Finishes_;
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
         if (Package *package = [Package packageWithIterator:iterator database:self])
             [packages_ addObject:package];
-    NSLog(@"profile_: %llu", profile_);
     _trace();
     [packages_ sortUsingSelector:@selector(compareByName:)];
     _trace();
@@ -3136,9 +3135,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     NSString *plist = [path stringByAppendingPathComponent:@"Info.plist"];
                     if (NSMutableDictionary *info = [[NSMutableDictionary alloc] initWithContentsOfFile:plist]) {
                         [info autorelease];
-                        [info setObject:path forKey:@"Path"];
-                        [info setObject:@"System" forKey:@"ApplicationType"];
-                        [system addInfoDictionary:info];
+                        if ([info objectForKey:@"CFBundleIdentifier"] != nil) {
+                            [info setObject:path forKey:@"Path"];
+                            [info setObject:@"System" forKey:@"ApplicationType"];
+                            [system addInfoDictionary:info];
+                        }
                     }
                 }
         } else goto error;
@@ -6908,7 +6909,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CGSize keysize = [UIKeyboard defaultSize];
     CGRect keyrect = {{0, [overlay_ bounds].size.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
-    [[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
+    //[[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
     [overlay_ addSubview:keyboard_];
 
     if (!bootstrap_)
@@ -7319,7 +7320,7 @@ int main(int argc, char *argv[]) { _pooled
     setuid(0);
     setgid(0);
 
-#if 1 /* XXX: this costs 1.4s of startup performance */
+#if 0 /* XXX: this costs 1.4s of startup performance */
     if (unlink("/var/cache/apt/pkgcache.bin") == -1)
         _assert(errno == ENOENT);
     if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)

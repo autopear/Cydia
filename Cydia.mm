@@ -261,10 +261,10 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define ForSaurik 1 && !ForRelease
 #define RecycleWebViews 0
-#define AlwaysReload 1 && !ForRelease
+#define AlwaysReload 0 && !ForRelease
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
@@ -2699,9 +2699,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context = [sheet context];
+    NSString *context([sheet context]);
 
-    if ([context isEqualToString:@"remove"])
+    if ([context isEqualToString:@"remove"]) {
         switch (button) {
             case 1:
                 [self cancel];
@@ -2714,10 +2714,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             default:
                 _assert(false);
         }
-    else if ([context isEqualToString:@"unable"])
-        [self cancel];
 
-    [sheet dismiss];
+        [sheet dismiss];
+    } else if ([context isEqualToString:@"unable"]) {
+        [self cancel];
+        [sheet dismiss];
+    } else
+        [super alertSheet:sheet buttonClicked:button];
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
@@ -3059,7 +3062,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context = [sheet context];
+    NSString *context([sheet context]);
+
     if ([context isEqualToString:@"conffile"]) {
         FILE *input = [database_ input];
 
@@ -3075,9 +3079,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             default:
                 _assert(false);
         }
-    }
 
-    [sheet dismiss];
+        [sheet dismiss];
+    }
 }
 
 - (void) closeButtonPushed {
@@ -3825,14 +3829,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    int count = [buttons_ count];
-    _assert(count != 0);
-    _assert(button <= count + 1);
+    NSString *context([sheet context]);
 
-    if (count != button - 1)
-        [self _clickButtonWithName:[buttons_ objectAtIndex:(button - 1)]];
+    if ([context isEqualToString:@"modify"]) {
+        int count = [buttons_ count];
+        _assert(count != 0);
+        _assert(button <= count + 1);
 
-    [sheet dismiss];
+        if (count != button - 1)
+            [self _clickButtonWithName:[buttons_ objectAtIndex:(button - 1)]];
+
+        [sheet dismiss];
+    } else
+        [super alertSheet:sheet buttonClicked:button];
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
@@ -3865,7 +3874,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             buttons:buttons
             defaultButtonIndex:2
             delegate:self
-            context:@"manage"
+            context:@"modify"
         ] autorelease]];
     }
 }
@@ -4420,8 +4429,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context = [sheet context];
-    if ([context isEqualToString:@"source"])
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"source"]) {
         switch (button) {
             case 1: {
                 NSString *href = [[sheet textField] text];
@@ -4451,7 +4461,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 _assert(false);
         }
 
-    [sheet dismiss];
+        [sheet dismiss];
+    }
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -4522,11 +4533,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         context:@"source"
     ] autorelease];
 
+    [sheet setNumberOfRows:1];
+
     [sheet addTextFieldWithValue:@"http://" label:@""];
 
     UITextInputTraits *traits = [[sheet textField] textInputTraits];
     [traits setAutocapitalizationType:0];
-    [traits setKeyboardType:3];
+    [traits setKeyboardType:UIKeyboardTypeURL];
     [traits setAutocorrectionType:1];
 
     [sheet popupAlertAnimated:YES];
@@ -4643,7 +4656,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation HomeView
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    [sheet dismiss];
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"about"])
+        [sheet dismiss];
+    else
+        [super alertSheet:sheet buttonClicked:button];
 }
 
 - (void) _leftButtonClicked {
@@ -4756,6 +4774,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation BrowserView
 
 - (void) dealloc {
+    if (challenge_ != nil)
+        [challenge_ release];
+
     WebView *webview = [webview_ webView];
     [webview setFrameLoadDelegate:nil];
     [webview setResourceLoadDelegate:nil];
@@ -4969,7 +4990,74 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [book_ pushPage:self];
 }
 
-- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"challenge"]) {
+        id<NSURLAuthenticationChallengeSender> sender([challenge_ sender]);
+
+        switch (button) {
+            case 1: {
+                NSString *username([[sheet textFieldAtIndex:0] text]);
+                NSString *password([[sheet textFieldAtIndex:1] text]);
+
+                NSURLCredential *credential([NSURLCredential credentialWithUser:username password:password persistence:NSURLCredentialPersistenceForSession]);
+
+                [sender useCredential:credential forAuthenticationChallenge:challenge_];
+            } break;
+
+            case 2:
+                [sender cancelAuthenticationChallenge:challenge_];
+            break;
+
+            default:
+                _assert(false);
+        }
+
+        [challenge_ release];
+        challenge_ = nil;
+
+        [sheet dismiss];
+    }
+}
+
+- (void) webView:(WebView *)sender resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
+    challenge_ = [challenge retain];
+
+    NSURLProtectionSpace *space([challenge protectionSpace]);
+    NSString *realm([space realm]);
+    if (realm == nil)
+        realm = @"";
+
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
+        initWithTitle:realm
+        buttons:[NSArray arrayWithObjects:@"Login", @"Cancel", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"challenge"
+    ] autorelease];
+
+    [sheet setNumberOfRows:1];
+
+    [sheet addTextFieldWithValue:@"" label:@"username"];
+    [sheet addTextFieldWithValue:@"" label:@"password"];
+
+    UITextField *username([sheet textFieldAtIndex:0]); {
+        UITextInputTraits *traits([username textInputTraits]);
+        [traits setAutocapitalizationType:0];
+        [traits setAutocorrectionType:1];
+    }
+
+    UITextField *password([sheet textFieldAtIndex:1]); {
+        UITextInputTraits *traits([password textInputTraits]);
+        [traits setAutocapitalizationType:0];
+        [traits setAutocorrectionType:1];
+    }
+
+    [sheet popupAlertAnimated:YES];
+}
+
+- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
     NSURL *url = [request URL];
     if ([self getSpecial:url])
         return nil;
@@ -6967,8 +7055,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context = [sheet context];
-    if ([context isEqualToString:@"fixhalf"])
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"fixhalf"]) {
         switch (button) {
             case 1:
                 @synchronized (self) {
@@ -6996,7 +7085,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             default:
                 _assert(false);
         }
-    else if ([context isEqualToString:@"role"]) {
+
+        [sheet dismiss];
+    } else if ([context isEqualToString:@"role"]) {
         switch (button) {
             case 1: Role_ = @"User"; break;
             case 2: Role_ = @"Hacker"; break;
@@ -7021,7 +7112,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [self updateData];
         else
             [self finish];
-    } else if ([context isEqualToString:@"upgrade"])
+
+        [sheet dismiss];
+    } else if ([context isEqualToString:@"upgrade"]) {
         switch (button) {
             case 1:
                 @synchronized (self) {
@@ -7047,7 +7140,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 _assert(false);
         }
 
-    [sheet dismiss];
+        [sheet dismiss];
+    }
 }
 
 - (void) reorganize { _pooled
@@ -7200,7 +7294,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [self setIdleTimerDisabled:YES];
 
         hud_ = [self addProgressHUD];
-        [hud_ setText:@"Reorganizing\n\nWill Automatically\nRestart When Done"];
+        [hud_ setText:@"Reorganizing\n\nWill Automatically\nClose When Done"];
 
         [self setStatusBarShowsProgress:YES];
 

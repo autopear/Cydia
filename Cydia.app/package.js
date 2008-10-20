@@ -23,6 +23,17 @@
     }
 };*/
 
+function space(selector, html, max) {
+    var node = $(selector);
+    node.html(html);
+    var width = node.width();
+    if (width > max) {
+        var spacing = (max - node.width()) / (html.length - 1) + "px";
+        console.log(width + " " + max + " " + spacing);
+        node.css("letter-spacing", spacing);
+    }
+}
+
 $(function () {
     var id = package.id;
     var idc = encodeURIComponent(id);
@@ -33,7 +44,9 @@ $(function () {
     $("#reflection").src("cydia://package-icon/" + idc);
 
     $("#name").html(name);
-    $("#latest").html(package.latest);
+    space("#latest", package.latest, 93);
+
+    $("#rating").src("http://cydia.saurik.com/test_.html");
 
     $("#settings").href("cydia://package-settings/" + idc);
 
@@ -130,15 +143,7 @@ $(function () {
         $("#files-href").href("cydia://files/" + idc);
     }
 
-    var nid = $("#id");
-    nid.html(id);
-    var width = nid.width();
-
-    var max = 238.0;
-    if (width > max) {
-        var spacing = (max - nid.width()) / (id.length - 1) + "px";
-        nid.css("letter-spacing", spacing);
-    }
+    space("#id", id, 238);
 
     var section = package.section;
     if (section == null)

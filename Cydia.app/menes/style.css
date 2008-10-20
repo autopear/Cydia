@@ -221,7 +221,7 @@ pre {
 }
 
 .dialog > .panel > fieldset > a {
-    background: 275px 11px no-repeat url(listArrow.png);
+    background: 275px 13px no-repeat url(listArrow.png);
     color: inherit;
     display: block;
 }

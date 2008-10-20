@@ -110,18 +110,27 @@
             margin: auto 0;
             position: absolute;
             left: 72px;
+            width: 237px;
         }
 
-        #content > div {
-            margin: 7px;
+        #lower {
+            margin: 12px 5px;
         }
 
         #name {
+            margin: 5px 5px;
             font-weight: bold;
         }
 
         #latest {
             color: #335588;
+            float: left;
+        }
+
+        #rating {
+            float: right;
+            margin-top: -7px;
+            width: 130px;
         }
 
         #description {
@@ -146,7 +155,17 @@
 
         <div id="content">
             <div id="name"></div>
-            <div id="latest"></div>
+
+            <div id="lower">
+                <div id="latest"></div>
+
+                <iframe
+                    id="rating"
+                    frameborder="0"
+                    height="0"
+                    target="_top"
+                ></iframe>
+            </div>
         </div>
     </div>
 </fieldset>

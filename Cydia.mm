@@ -4900,6 +4900,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return true;
 }
 
+- (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
+        initWithTitle:@"JavaScript Alert"
+        buttons:[NSArray arrayWithObjects:@"OK", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"alert"
+    ] autorelease];
+
+    [sheet setBodyText:message];
+    [sheet popupAlertAnimated:YES];
+}
+
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [window setValue:delegate_ forKey:@"cydia"];
 }
@@ -4998,7 +5011,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context([sheet context]);
 
-    if ([context isEqualToString:@"challenge"]) {
+    if ([context isEqualToString:@"alert"])
+        [sheet dismiss];
+    else if ([context isEqualToString:@"challenge"]) {
         id<NSURLAuthenticationChallengeSender> sender([challenge_ sender]);
 
         switch (button) {

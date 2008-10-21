@@ -46,7 +46,11 @@ $(function () {
     $("#name").html(name);
     space("#latest", package.latest, 93);
 
-    $("#rating").src("http://cydia.saurik.com/test_.html");
+    var rating = package.rating;
+    if (rating == null)
+        $(".rating").remove();
+    else
+        $("#rating").src(rating);
 
     $("#settings").href("cydia://package-settings/" + idc);
 

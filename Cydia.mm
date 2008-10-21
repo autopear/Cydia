@@ -52,13 +52,18 @@
 // XXX: remove
 #import <MessageUI/MailComposeController.h>
 
-#import <WebCore/WebScriptObject.h>
-//#include <WebCore/DOMHTML.h>
+#include <WebKit/DOMCSSPrimitiveValue.h>
+#include <WebKit/DOMCSSStyleDeclaration.h>
+#include <WebKit/DOMDocument.h>
+#include <WebKit/DOMHTMLBodyElement.h>
+#include <WebKit/DOMNodeList.h>
+#include <WebKit/DOMRGBColor.h>
 
 #include <WebKit/WebFrame.h>
 #include <WebKit/WebPolicyDelegate.h>
-#include <WebKit/WebView.h>
+#include <WebKit/WebScriptObject.h>
 
+#import <WebKit/WebView.h>
 #import <WebKit/WebView-WebPrivate.h>
 
 #include <sstream>
@@ -261,10 +266,10 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
-#define ForSaurik 1 && !ForRelease
+#define ForRelease 0
+#define ForSaurik (1 && !ForRelease)
 #define RecycleWebViews 0
-#define AlwaysReload 1 && !ForRelease
+#define AlwaysReload (1 && !ForRelease)
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
@@ -381,6 +386,19 @@ typedef enum {
     kUIControlEventMouseUpOutside = 1 << 7, // mouse up outside control target
     kUIControlAllEvents = (kUIControlEventMouseDown | kUIControlEventMouseMovedInside | kUIControlEventMouseMovedOutside | kUIControlEventMouseUpInside | kUIControlEventMouseUpOutside)
 } UIControlEventMasks;
+
+NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
+    size_t length([self length] - state->state);
+    if (length <= 0)
+        return 0;
+    else if (length > count)
+        length = count;
+    for (size_t i(0); i != length; ++i)
+        objects[i] = [self item:state->state++];
+    state->itemsPtr = objects;
+    state->mutationsPtr = (unsigned long *) self;
+    return length;
+}
 
 @interface NSString (UIKit)
 - (NSString *) stringByAddingPercentEscapes;
@@ -632,6 +650,7 @@ bool reload_;
 
 static NSDictionary *SectionMap_;
 static NSMutableDictionary *Metadata_;
+static NSMutableDictionary *Indices_;
 static _transient NSMutableDictionary *Settings_;
 static _transient NSString *Role_;
 static _transient NSMutableDictionary *Packages_;
@@ -1225,6 +1244,7 @@ class Progress :
 
 - (Source *) source;
 - (NSString *) role;
+- (NSString *) rating;
 
 - (BOOL) matches:(NSString *)text;
 
@@ -1287,7 +1307,7 @@ class Progress :
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"purposes", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
+    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"purposes", @"rating", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -1789,6 +1809,13 @@ class Progress :
 
 - (NSString *) role {
     return role_;
+}
+
+- (NSString *) rating {
+    if (NSString *pattern = [Indices_ objectForKey:@"Rating"])
+        return [pattern stringByReplacingOccurrencesOfString:@"%@" withString:[id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    else
+        return nil;
 }
 
 - (BOOL) matches:(NSString *)text {
@@ -3845,7 +3872,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    [[frame windowObject] evaluateWebScript:@"document.base.target = '_top'"];
     return [super webView:sender didFinishLoadForFrame:frame];
 }
 
@@ -4777,6 +4803,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Browser Implementation {{{ */
 @implementation BrowserView
+#include "internals.h"
 
 - (void) dealloc {
     if (challenge_ != nil)
@@ -4815,6 +4842,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [scroller_ setDelegate:nil];
 
+    [background_ release];
     [scroller_ release];
     [urls_ release];
     [indicator_ release];
@@ -4917,8 +4945,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window setValue:delegate_ forKey:@"cydia"];
 }
 
-- (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)dictionary request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
+- (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
     if (NSURL *url = [request URL]) {
+        NSLog(@"win:%@:%@", url, [action description]);
         if (![self getSpecial:url]) {
             NSString *scheme([[url scheme] lowercaseString]);
             if ([scheme isEqualToString:@"mailto"])
@@ -4949,6 +4978,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [listener use];
         return;
     }
+    else NSLog(@"nav:%@:%@", url, [action description]);
 
     const NSArray *capability(reinterpret_cast<const NSArray *>(GSSystemGetCapability(kGSDisplayIdentifiersCapability)));
 
@@ -5176,9 +5206,53 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [webview_ webView:sender didReceiveDocTypeForFrame:frame];
 }
 
+- (void) _clearBackground {
+    [background_ setBackgroundColor:[UIColor pinStripeColor]];
+    [background_ setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
+    [scroller_ setShowBackgroundShadow:NO];
+}
+
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    if ([frame parentFrame] == nil)
+    if ([frame parentFrame] == nil) {
         [self _finishLoading];
+
+        [self _clearBackground];
+
+        if (DOMDocument *document = [frame DOMDocument])
+            if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
+                for (DOMHTMLBodyElement *body in bodies) {
+                    DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
+
+                    bool colored(false);
+
+                    if (DOMCSSPrimitiveValue *color = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-color"])) {
+                        DOMRGBColor *rgb([color getRGBColorValue]);
+
+                        float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
+                        if (alpha != 0) {
+                            colored = true;
+
+                            [background_ setBackgroundColor:[UIColor
+                                colorWithRed:([[rgb red] getFloatValue:DOM_CSS_NUMBER] / 255)
+                                green:([[rgb green] getFloatValue:DOM_CSS_NUMBER] / 255)
+                                blue:([[rgb blue] getFloatValue:DOM_CSS_NUMBER] / 255)
+                                alpha:alpha
+                            ]];
+                        }
+                    }
+
+                    if (DOMCSSPrimitiveValue *image = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-image"])) {
+                        NSString *src([image getStringValue]);
+                        if ([src isEqualToString:@"none"])
+                            goto none;
+                        NSLog(@"img:%@", [image getStringValue]);
+                    } else none: if (colored)
+                        [background_ setImage:nil];
+
+                    break;
+                }
+    }
+
     return [webview_ webView:sender didFinishLoadForFrame:frame];
 }
 
@@ -5205,9 +5279,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         struct CGRect bounds = [self bounds];
 
-        UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:bounds] autorelease];
-        [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
-        [self addSubview:pinstripe];
+        background_ = [[UIImageView alloc] initWithFrame:bounds];
+        [self _clearBackground];
+        [self addSubview:background_];
 
         scroller_ = [[UIScroller alloc] initWithFrame:bounds];
         [self addSubview:scroller_];
@@ -5237,6 +5311,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
             webview_ = [[UIWebDocumentView alloc] initWithFrame:webrect];
             webview = [webview_ webView];
+            [webview_ setDrawsBackground:NO];
 
             [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
 
@@ -5295,8 +5370,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         urls_ = [[NSMutableArray alloc] initWithCapacity:16];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [background_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [pinstripe setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
@@ -7452,6 +7527,8 @@ id Dealloc_(id self, SEL selector) {
 }*/
 
 int main(int argc, char *argv[]) { _pooled
+    class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
+
     bool substrate(false);
 
     if (argc != 0) {
@@ -7528,6 +7605,9 @@ int main(int argc, char *argv[]) { _pooled
 
     /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
     AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/
+
+    if ((Indices_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/indices.plist"]) == NULL)
+        Indices_ = [[NSMutableDictionary alloc] init];
 
     if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)
         Metadata_ = [[NSMutableDictionary alloc] initWithCapacity:2];

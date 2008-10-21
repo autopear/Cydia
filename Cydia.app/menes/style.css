@@ -51,48 +51,61 @@
 /* }}} */
 
 * {
+    border: 0;
+    -webkit-border-radius: 0;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
+    font-family: inherit;
+    font-size: 100%;
+    font-style: inherit;
+    font-weight: inherit;
+    margin: 0;
+    outline: 0;
+    padding: 0;
+    vertical-align: baseline;
+}
+
+select {
+    border: 1px solid #999999;
 }
 
 body {
     font-family: Helvetica;
-    margin: 0;
-    padding: 0;
     -webkit-text-size-adjust: none;
     -webkit-user-select: none;
 }
 
-#page {
-    position: relative;
+body.pinstripe {
+    background: #c7ced5 url(pinstripes.png);
 }
 
-.dialog {
+dialog {
+    display: block;
     position: absolute;
     width: 100%;
 }
 
-hr {
-    margin: 0;
-}
-
-.dialog > .panel {
-    background: #c7ced5 url(pinstripes.png);
-    padding: 1px 0 1px 0;
-}
-
-p {
-    margin: 0px;
-    padding: 0px;
+dialog > panel {
+    display: block;
+    padding: 1px 0;
 }
 
 a {
+    color: inherit;
     text-decoration: none;
     text-underline-style: dotted;
 }
 
+a {
+    color: blue;
+}
+
 strong {
     font-weight: bold
+}
+
+pre, tt {
+    font-family: monospace;
 }
 
 pre {
@@ -100,14 +113,14 @@ pre {
 }
 
 /* #toolbar {{{ */
-.dialog > .toolbar {
+dialog > toolbar {
     background: url(toolbar.png) #6d84a2 repeat-x;
     border-bottom: 1px solid #2d3642;
     height: 45px;
     padding: 10px;
 }
 
-.dialog > .toolbar > h1 {
+dialog > toolbar > h1 {
     color: #ffffff;
     font-size: 20px;
     font-weight: bold;
@@ -119,8 +132,8 @@ pre {
 }
 /* }}} */
 /* (back|forward)-button {{{ */
-.dialog > .toolbar > a.back-button,
-.dialog > .toolbar > a.forward-button {
+dialog > toolbar > a.back-button,
+dialog > toolbar > a.forward-button {
     color: #ffffff;
     font-size: 12px;
     font-weight: bold;
@@ -133,20 +146,20 @@ pre {
     white-space: nowrap;
 }
 
-.dialog > .toolbar > a.back-button {
+dialog > toolbar > a.back-button {
     -webkit-border-image: url(backButton.png) 0 8 0 14;
     border-width: 0 8px 0 14px;
     float: left;
 }
 
-.dialog > .toolbar > a.forward-button {
+dialog > toolbar > a.forward-button {
     -webkit-border-image: url(toolButton.png) 0 5 0 5;
     border-width: 0 5px;
     float: right;
 }
 /* }}} */
 /* fieldset {{{ */
-.dialog > .panel > block {
+dialog > panel > block {
     background-color: #c7ced5;
     border-bottom: 1px solid #999999;
     border-top: 1px solid #999999;
@@ -156,20 +169,19 @@ pre {
     padding: 0 10px;
 }
 
-.dialog > .panel > block > hr {
+dialog > panel > block > hr {
     border-width: 1px 0 0 0;
 }
 
-.dialog > .panel > fieldset {
+dialog > panel > fieldset {
     background-color: #ffffff;
     border: 1px solid #999999;
     -webkit-border-radius: 10px;
     font-size: 16px;
     margin: 9px;
-    padding: 0;
 }
 
-.dialog > .panel > label {
+dialog > panel > label {
     display: block;
     margin: 13px 0 -4px 27px;
     line-height: 24px;
@@ -179,20 +191,21 @@ pre {
     text-shadow: rgba(255, 255, 255, 0.75) 1px 1px 0;
 }
 
-.dialog > .panel > fieldset > a,
-.dialog > .panel > fieldset > div {
+fieldset > a,
+fieldset > div,
+fieldset > textarea {
     border-top: 1px solid #999999;
     min-height: 19px;
     padding: 12px 17px 11px 17px;
 }
 
-.dialog > .panel > fieldset > a:first-child,
-.dialog > .panel > fieldset > div:first-child {
+fieldset > a:first-child,
+fieldset > div:first-child {
     border-top: none;
 }
 
-.dialog > .panel > fieldset > a img.icon,
-.dialog > .panel > fieldset > div img.icon {
+fieldset > a img.icon,
+fieldset > div img.icon {
     height: auto;
     margin: -13px 5px -10px -10px;
     max-height: 30px;
@@ -200,50 +213,94 @@ pre {
     width: 30px;
 }
 
-.dialog > .panel > block > p,
-.dialog > .panel > fieldset > div > p {
+panel > block > p,
+fieldset > div > p {
     margin: 11px 0;
     text-align: center;
 }
 
-.dialog > .panel > fieldset > div > ul {
+fieldset > div > ul {
     margin-left: -20px;
 }
 
-.dialog > .panel > fieldset > div > p:first-child,
-.dialog > .panel > fieldset > div > ul:first-child {
+fieldset > div > p:first-child,
+fieldset > div > ul:first-child {
     margin-top: 0;
 }
 
-.dialog > .panel > fieldset > div > p:last-child,
-.dialog > .panel > fieldset > div > ul:last-child {
+fieldset > div > p:last-child,
+fieldset > div > ul:last-child {
     margin-bottom: 0;
 }
 
-.dialog > .panel > fieldset > a {
+dialog > fieldset > a {
+    background: 295px 13px no-repeat url(listArrow.png);
+}
+
+dialog > panel > fieldset > a {
     background: 275px 13px no-repeat url(listArrow.png);
+}
+
+fieldset > a {
     color: inherit;
     display: block;
 }
 
-.dialog > .panel > fieldset > div > select {
-    font-size: 16px;
+dialog > fieldset > div > select {
+    background: none;
+    margin: -13px -17px -13px 86px;
+    border-left: 0;
+    border-right: 0;
+    height: 44px;
+    width: 217px;
+}
+
+dialog > panel > fieldset > div > select {
     margin: -5px -10px -5px 86px;
+    -webkit-border-radius: 5px;
     width: 190px;
 }
 
-.dialog > .panel > fieldset > div > input {
+fieldset > textarea,
+fieldset > div > input {
     background: none;
-    border: none;
+}
+
+fieldset > textarea,
+fieldset > div > input,
+fieldset > div > select,
+fieldset > a > label + div,
+fieldset > div > label + div {
     color: #193250;
+}
+
+fieldset > textarea,
+fieldset > div > input,
+fieldset > div > select {
     font-size: 16px;
+}
+
+fieldset > div > input {
+    border: none;
     height: 45px;
     margin: -13px -18px;
     padding: 13px 10px 0 111px;
+}
+
+fieldset > textarea {
+    padding: 10px;
+    width: 320px;
+}
+
+dialog > panel > fieldset > div > input {
     width: 302px;
 }
 
-.dialog > .panel > fieldset > div > input[type="submit"] {
+dialog > fieldset > div > input {
+    width: 320px;
+}
+
+fieldset > div > input[type="submit"] {
     border-width: 0 12px;
     color: #000000;
     display: block;
@@ -254,25 +311,29 @@ pre {
     -webkit-border-image: url(whiteButton.png) 0 12 0 12;
 }
 
-.dialog > .panel > fieldset > a > label,
-.dialog > .panel > fieldset > div > label {
+fieldset > a > label,
+fieldset > div > label {
     font-weight: bold;
     padding: 1px 0 0 0;
     position: absolute;
 }
 
-.dialog > .panel > fieldset > a > label + div {
+fieldset > a > label + div {
     margin-right: 16px;
 }
 
-.dialog > .panel > fieldset > a > label + div,
-.dialog > .panel > fieldset > div > label + div {
-    color: #335588;
+dialog > fieldset > a > label + div,
+dialog > fieldset > div > label + div {
+    margin-left: 94px;
+}
+
+dialog > panel > fieldset > a > label + div,
+dialog > panel > fieldset > div > label + div {
     float: right;
     text-align: right;
 }
 
-.dialog > .panel > img {
+dialog > panel > img {
     display: block;
     margin: 9px auto 4px auto;
     height: auto;

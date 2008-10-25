@@ -179,7 +179,10 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     NSLog(@"%s(%g,%g)+(%g,%g)", fix, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
 }
 
-static const NSStringCompareOptions CompareOptions_ = NSCaseInsensitiveSearch | NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSForcedOrderingSearch;
+/* NSForcedOrderingSearch doesn't work on the iPhone */
+static const NSStringCompareOptions BaseCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch;
+static const NSStringCompareOptions ForcedCompareOptions_ = BaseCompareOptions_;
+static const NSStringCompareOptions LaxCompareOptions_ = BaseCompareOptions_ | NSCaseInsensitiveSearch;
 
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
@@ -1074,7 +1077,7 @@ class Progress :
             return NSOrderedDescending;
     }
 
-    return [lhs compare:rhs options:CompareOptions_];
+    return [lhs compare:rhs options:LaxCompareOptions_];
 }
 
 - (NSDictionary *) record {
@@ -1890,7 +1893,7 @@ class Progress :
             return NSOrderedDescending;
     }
 
-    return [lhs compare:rhs options:CompareOptions_];
+    return [lhs compare:rhs options:LaxCompareOptions_];
 }
 
 - (NSComparisonResult) compareBySection:(Package *)package {
@@ -1902,9 +1905,8 @@ class Progress :
     else if (lhs != NULL && rhs == NULL)
         return NSOrderedDescending;
     else if (lhs != NULL && rhs != NULL) {
-        NSComparisonResult result = [lhs compare:rhs options:CompareOptions_];
-        if (result != NSOrderedSame)
-            return result;
+        NSComparisonResult result([lhs compare:rhs options:LaxCompareOptions_]);
+        return result != NSOrderedSame ? result : [lhs compare:rhs options:ForcedCompareOptions_];
     }
 
     return NSOrderedSame;
@@ -2024,7 +2026,7 @@ class Progress :
             return NSOrderedDescending;
     }
 
-    return [lhs compare:rhs options:CompareOptions_];
+    return [lhs compare:rhs options:LaxCompareOptions_];
 }
 
 - (Section *) initWithName:(NSString *)name {
@@ -4846,6 +4848,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [scroller_ release];
     [urls_ release];
     [indicator_ release];
+    if (confirm_ != nil)
+        [confirm_ release];
     if (title_ != nil)
         [title_ release];
     [super dealloc];
@@ -4939,6 +4943,29 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sheet setBodyText:message];
     [sheet popupAlertAnimated:YES];
+}
+
+- (BOOL) webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
+        initWithTitle:@"JavaScript Confirm"
+        buttons:[NSArray arrayWithObjects:@"OK", @"Cancel", nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"confirm"
+    ] autorelease];
+
+    [sheet setNumberOfRows:1];
+    [sheet setBodyText:message];
+    [sheet popupAlertAnimated:YES];
+
+    NSRunLoop *loop([NSRunLoop currentRunLoop]);
+    NSDate *future([NSDate distantFuture]);
+
+    while (confirm_ == nil && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
+
+    NSNumber *confirm([confirm_ autorelease]);
+    confirm_ = nil;
+    return [confirm boolValue];
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
@@ -5043,7 +5070,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([context isEqualToString:@"alert"])
         [sheet dismiss];
-    else if ([context isEqualToString:@"challenge"]) {
+    else if ([context isEqualToString:@"confirm"]) {
+        switch (button) {
+            case 1:
+                confirm_ = [NSNumber numberWithBool:YES];
+            break;
+
+            case 2:
+                confirm_ = [NSNumber numberWithBool:NO];
+            break;
+        }
+
+        [sheet dismiss];
+    } else if ([context isEqualToString:@"challenge"]) {
         id<NSURLAuthenticationChallengeSender> sender([challenge_ sender]);
 
         switch (button) {
@@ -5229,6 +5268,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                         DOMRGBColor *rgb([color getRGBColorValue]);
 
                         float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
+                        NSLog(@"alpha:%g", alpha);
+
                         if (alpha != 0) {
                             colored = true;
 
@@ -5311,6 +5352,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
             webview_ = [[UIWebDocumentView alloc] initWithFrame:webrect];
             webview = [webview_ webView];
+
+            // XXX: this is terribly (too?) expensive
             [webview_ setDrawsBackground:NO];
 
             [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
@@ -5324,9 +5367,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [webview_ setDetectsPhoneNumbers:NO];
             [webview_ setAutoresizes:YES];
 
-            [webview_ setViewportSize:CGSizeMake(980, -1) forDocumentTypes:0x10];
-            [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x2];
-            [webview_ setViewportSize:CGSizeMake(320, -1) forDocumentTypes:0x8];
+            [webview_ setMinimumScale:0.25f forDocumentTypes:0x10];
+            [webview_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x10];
+            [webview_ setViewportSize:CGSizeMake(980, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+
+            [webview_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x2];
+
+            [webview_ setMinimumScale:1.0f forDocumentTypes:0x8];
+            [webview_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x8];
+            [webview_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x8];
 
             [webview_ _setDocumentType:0x4];
 
@@ -5340,7 +5389,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             [webview _setUsesLoaderCache:YES];
             [webview setGroupName:@"Cydia"];
-            //[webview _setLayoutInterval:0.5];
+            [webview _setLayoutInterval:0];
         }
 
         [webview_ setDelegate:self];

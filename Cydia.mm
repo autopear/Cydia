@@ -66,6 +66,8 @@
 #import <WebKit/WebView.h>
 #import <WebKit/WebView-WebPrivate.h>
 
+#import <JavaScriptCore/JavaScriptCore.h>
+
 #include <sstream>
 #include <string>
 
@@ -1815,9 +1817,14 @@ class Progress :
 }
 
 - (NSString *) rating {
-    if (NSString *pattern = [Indices_ objectForKey:@"Rating"])
-        return [pattern stringByReplacingOccurrencesOfString:@"%@" withString:[id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    else
+    if (NSString *rating = [Indices_ objectForKey:@"Rating"]) {
+        rating = [NSString stringWithFormat:@"%@?package=%@", rating,
+            [id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        if (latest_ != nil)
+            rating = [NSString stringWithFormat:@"%@&version=%@", rating,
+                [latest_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        return rating;
+    } else
         return nil;
 }
 
@@ -3955,6 +3962,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (bool) _loading {
+    return false;
+}
+
 - (void) reloadData {
     [self setPackage:[database_ packageWithName:name_]];
     [self reloadButtons];
@@ -4756,6 +4767,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 #endif
 
+- (bool) _loading {
+    return false;
+}
+
 @end
 /* }}} */
 
@@ -4844,7 +4859,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [scroller_ setDelegate:nil];
 
-    [background_ release];
+    if (button_ != nil)
+        [button_ release];
+    if (style_ != nil)
+        [style_ release];
+    if (function_ != nil)
+        [function_ release];
+
     [scroller_ release];
     [urls_ release];
     [indicator_ release];
@@ -4968,12 +4989,57 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [confirm boolValue];
 }
 
+/* Web Scripting {{{ */
++ (NSString *) webScriptNameForSelector:(SEL)selector {
+    if (selector == @selector(getPackageById:))
+        return @"getPackageById";
+    else if (selector == @selector(setButton:withStyle:toFunction:))
+        return @"setButton";
+    else if (selector == @selector(supports:))
+        return @"supports";
+    else
+        return nil;
+}
+
++ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
+    return [self webScriptNameForSelector:selector] == nil;
+}
+
+- (BOOL) supports:(NSString *)feature {
+    return [feature isEqualToString:@"window.open"];
+}
+
+- (Package *) getPackageById:(NSString *)id {
+    return [[Database sharedInstance] packageWithName:id];
+}
+
+- (void) setButton:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
+    NSLog(@"b:%@", button);
+    NSLog(@"f:%@", [function class]);
+
+    if (button_ != nil)
+        [button_ autorelease];
+    button_ = button == nil ? nil : [button retain];
+
+    if (style_ != nil)
+        [style_ autorelease];
+    style_ = style == nil ? nil : [style retain];
+
+    if (function_ != nil)
+        [function_ autorelease];
+    function_ = function == nil ? nil : [function retain];
+}
+/* }}} */
+
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [window setValue:delegate_ forKey:@"cydia"];
+    [window setValue:self forKey:@"cydia"];
 }
 
 - (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
     if (NSURL *url = [request URL]) {
+        if (name != nil && [name isEqualToString:@"_open"])
+            [delegate_ openURL:url];
+
         NSLog(@"win:%@:%@", url, [action description]);
         if (![self getSpecial:url]) {
             NSString *scheme([[url scheme] lowercaseString]);
@@ -5196,12 +5262,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     reloading_ = false;
     loading_ = true;
-    [indicator_ startAnimation];
     [self reloadButtons];
 
     if (title_ != nil) {
         [title_ release];
         title_ = nil;
+    }
+
+    if (button_ != nil) {
+        [button_ release];
+        button_ = nil;
+    }
+
+    if (style_ != nil) {
+        [style_ release];
+        style_ = nil;
+    }
+
+    if (function_ != nil) {
+        [function_ release];
+        function_ = nil;
     }
 
     [book_ reloadTitleForPage:self];
@@ -5220,9 +5300,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _finishLoading {
     if (!reloading_) {
         loading_ = false;
-        [indicator_ stopAnimation];
         [self reloadButtons];
     }
+}
+
+- (bool) _loading {
+    return loading_;
+}
+
+- (void) reloadButtons {
+    if ([self _loading])
+        [indicator_ startAnimation];
+    else
+        [indicator_ stopAnimation];
+    [super reloadButtons];
 }
 
 - (BOOL) webView:(WebView *)sender shouldScrollToPoint:(struct CGPoint)point forFrame:(WebFrame *)frame {
@@ -5245,17 +5336,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [webview_ webView:sender didReceiveDocTypeForFrame:frame];
 }
 
-- (void) _clearBackground {
-    [background_ setBackgroundColor:[UIColor pinStripeColor]];
-    [background_ setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
-    [scroller_ setShowBackgroundShadow:NO];
-}
-
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
     if ([frame parentFrame] == nil) {
         [self _finishLoading];
-
-        [self _clearBackground];
 
         if (DOMDocument *document = [frame DOMDocument])
             if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
@@ -5273,7 +5356,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                         if (alpha != 0) {
                             colored = true;
 
-                            [background_ setBackgroundColor:[UIColor
+                            [scroller_ setBackgroundColor:[UIColor
                                 colorWithRed:([[rgb red] getFloatValue:DOM_CSS_NUMBER] / 255)
                                 green:([[rgb green] getFloatValue:DOM_CSS_NUMBER] / 255)
                                 blue:([[rgb blue] getFloatValue:DOM_CSS_NUMBER] / 255)
@@ -5282,14 +5365,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                         }
                     }
 
-                    if (DOMCSSPrimitiveValue *image = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-image"])) {
-                        NSString *src([image getStringValue]);
-                        if ([src isEqualToString:@"none"])
-                            goto none;
-                        NSLog(@"img:%@", [image getStringValue]);
-                    } else none: if (colored)
-                        [background_ setImage:nil];
-
+                    if (!colored)
+                        [scroller_ setBackgroundColor:[UIColor pinStripeColor]];
                     break;
                 }
     }
@@ -5320,12 +5397,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         struct CGRect bounds = [self bounds];
 
-        background_ = [[UIImageView alloc] initWithFrame:bounds];
-        [self _clearBackground];
-        [self addSubview:background_];
-
         scroller_ = [[UIScroller alloc] initWithFrame:bounds];
         [self addSubview:scroller_];
+
+        [scroller_ setShowBackgroundShadow:NO];
+        [scroller_ setFixedBackgroundPattern:YES];
+        [scroller_ setBackgroundColor:[UIColor pinStripeColor]];
 
         [scroller_ setScrollingEnabled:YES];
         [scroller_ setAdjustForContentSizeChange:YES];
@@ -5419,7 +5496,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         urls_ = [[NSMutableArray alloc] initWithCapacity:16];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [background_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
@@ -5429,16 +5505,36 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _rightButtonClicked {
-    reloading_ = true;
-    [self reloadURL];
+    if (function_ == nil) {
+        reloading_ = true;
+        [self reloadURL];
+    } else {
+        JSObjectRef function([function_ JSObject]);
+        JSGlobalContextRef context([[[webview_ webView] mainFrame] globalContext]);
+        JSObjectCallAsFunction(context, function, NULL, 0, NULL, NULL);
+    }
 }
 
 - (NSString *) _rightButtonTitle {
-    return @"Reload";
+    return button_ != nil ? button_ : @"Reload";
 }
 
 - (NSString *) rightButtonTitle {
-    return loading_ ? @"" : [self _rightButtonTitle];
+    return [self _loading] ? @"" : [self _rightButtonTitle];
+}
+
+- (UINavigationButtonStyle) rightButtonStyle {
+    if (style_ == nil) normal:
+        return UINavigationButtonStyleNormal;
+    else if ([style_ isEqualToString:@"Normal"])
+        return UINavigationButtonStyleNormal;
+    else if ([style_ isEqualToString:@"Back"])
+        return UINavigationButtonStyleBack;
+    else if ([style_ isEqualToString:@"Highlighted"])
+        return UINavigationButtonStyleHighlighted;
+    else if ([style_ isEqualToString:@"Destructive"])
+        return UINavigationButtonStyleDestructive;
+    else goto normal;
 }
 
 - (NSString *) title {
@@ -5742,6 +5838,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return request;
 }
 
+- (void) _returnPNGWithImage:(UIImage *)icon forRequest:(NSURLRequest *)request {
+    id<NSURLProtocolClient> client([self client]);
+    NSData *data(UIImagePNGRepresentation(icon));
+
+    NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+    [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+    [client URLProtocol:self didLoadData:data];
+    [client URLProtocolDidFinishLoading:self];
+}
+
 - (void) startLoading {
     id<NSURLProtocolClient> client([self client]);
     NSURLRequest *request([self request]);
@@ -5770,47 +5876,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         Package *package([database packageWithName:path]);
         if (package == nil)
             goto fail;
-
         UIImage *icon([package icon]);
-
-        NSData *data(UIImagePNGRepresentation(icon));
-
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
-        [client URLProtocol:self didLoadData:data];
-        [client URLProtocolDidFinishLoading:self];
+        [self _returnPNGWithImage:icon forRequest:request];
     } else if ([command isEqualToString:@"source-icon"]) {
         if (path == nil)
             goto fail;
         path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
         NSString *source(Simplify(path));
-
         UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sources/%@.png", App_, source]]);
         if (icon == nil)
             icon = [UIImage applicationImageNamed:@"unknown.png"];
-
-        NSData *data(UIImagePNGRepresentation(icon));
-
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
-        [client URLProtocol:self didLoadData:data];
-        [client URLProtocolDidFinishLoading:self];
+        [self _returnPNGWithImage:icon forRequest:request];
+    } else if ([command isEqualToString:@"uikit-image"]) {
+        if (path == nil)
+            goto fail;
+        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        UIImage *icon(_UIImageWithName(path));
+        [self _returnPNGWithImage:icon forRequest:request];
     } else if ([command isEqualToString:@"section-icon"]) {
         if (path == nil)
             goto fail;
         path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
         NSString *section(Simplify(path));
-
         UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]]);
         if (icon == nil)
             icon = [UIImage applicationImageNamed:@"unknown.png"];
-
-        NSData *data(UIImagePNGRepresentation(icon));
-
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
-        [client URLProtocol:self didLoadData:data];
-        [client URLProtocolDidFinishLoading:self];
+        [self _returnPNGWithImage:icon forRequest:request];
     } else fail: {
         [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]];
     }
@@ -7342,7 +7433,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #if 0
     [[[MailToView alloc] initWithView:underlay_ delegate:self url:url] autorelease];
 #else
-    [UIApp openURL:url];
+    [UIApp openURL:url];// asPanel:YES];
 #endif
 }
 
@@ -7472,22 +7563,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else
         [self finish];
 }
-
-/* Web Scripting {{{ */
-+ (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (selector == @selector(supports:))
-        return @"supports";
-    return nil;
-}
-
-+ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
-    return selector != @selector(supports:);
-}
-
-- (BOOL) supports:(NSString *)feature {
-    return [feature isEqualToString:@"window.open"];
-}
-/* }}} */
 
 - (void) showKeyboard:(BOOL)show {
     CGSize keysize = [UIKeyboard defaultSize];

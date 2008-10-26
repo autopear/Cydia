@@ -22,9 +22,14 @@
     IndirectDelegate *indirect_;
     NSURLAuthenticationChallenge *challenge_;
 
+    NSNumber *confirm_;
     NSString *title_;
     bool loading_;
     bool reloading_;
+
+    NSString *button_;
+    NSString *style_;
+    WebScriptObject *function_;
 
     bool pushed_;
 }

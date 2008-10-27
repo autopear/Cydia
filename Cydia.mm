@@ -780,6 +780,7 @@ bool isSectionVisible(NSString *section) {
 - (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 - (RVPage *) pageForPackage:(NSString *)name;
 - (void) openMailToURL:(NSURL *)url;
+- (void) clearFirstResponder;
 @end
 /* }}} */
 
@@ -1817,14 +1818,9 @@ class Progress :
 }
 
 - (NSString *) rating {
-    if (NSString *rating = [Indices_ objectForKey:@"Rating"]) {
-        rating = [NSString stringWithFormat:@"%@?package=%@", rating,
-            [id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-        if (latest_ != nil)
-            rating = [NSString stringWithFormat:@"%@&version=%@", rating,
-                [latest_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-        return rating;
-    } else
+    if (NSString *rating = [Indices_ objectForKey:@"Rating"])
+        return [rating stringByReplacingOccurrencesOfString:@"@P" withString:[id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    else
         return nil;
 }
 
@@ -4955,7 +4951,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:@"JavaScript Alert"
+        initWithTitle:nil
         buttons:[NSArray arrayWithObjects:@"OK", nil]
         defaultButtonIndex:0
         delegate:self
@@ -4968,7 +4964,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (BOOL) webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:@"JavaScript Confirm"
+        initWithTitle:nil
         buttons:[NSArray arrayWithObjects:@"OK", @"Cancel", nil]
         defaultButtonIndex:0
         delegate:self
@@ -4993,8 +4989,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (selector == @selector(getPackageById:))
         return @"getPackageById";
-    else if (selector == @selector(setButton:withStyle:toFunction:))
-        return @"setButton";
+    else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
+        return @"setButtonTitle";
     else if (selector == @selector(supports:))
         return @"supports";
     else
@@ -5013,10 +5009,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[Database sharedInstance] packageWithName:id];
 }
 
-- (void) setButton:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    NSLog(@"b:%@", button);
-    NSLog(@"f:%@", [function class]);
-
+- (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     if (button_ != nil)
         [button_ autorelease];
     button_ = button == nil ? nil : [button retain];
@@ -5509,6 +5502,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         reloading_ = true;
         [self reloadURL];
     } else {
+        [delegate_ clearFirstResponder];
         JSObjectRef function([function_ JSObject]);
         JSGlobalContextRef context([[[webview_ webView] mainFrame] globalContext]);
         JSObjectCallAsFunction(context, function, NULL, 0, NULL, NULL);
@@ -7435,6 +7429,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #else
     [UIApp openURL:url];// asPanel:YES];
 #endif
+}
+
+- (void) clearFirstResponder {
+    if (id responder = [window_ firstResponder])
+        [responder resignFirstResponder];
 }
 
 - (RVPage *) pageForPackage:(NSString *)name {

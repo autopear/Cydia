@@ -17,10 +17,10 @@
 @interface BrowserView : RVPage {
     UIScroller *scroller_;
     UIWebDocumentView *webview_;
-    NSMutableArray *urls_;
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
     NSURLAuthenticationChallenge *challenge_;
+    NSURLRequest *request_;
 
     NSNumber *confirm_;
     NSString *title_;

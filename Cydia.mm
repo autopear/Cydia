@@ -4816,7 +4816,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Browser Implementation {{{ */
 @implementation BrowserView
+
+#if ForSaurik
 #include "internals.h"
+#endif
 
 - (void) dealloc {
     if (challenge_ != nil)
@@ -4863,7 +4866,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [function_ release];
 
     [scroller_ release];
-    [urls_ release];
     [indicator_ release];
     if (confirm_ != nil)
         [confirm_ release];
@@ -4884,16 +4886,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self loadURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy];
 }
 
-- (NSURLRequest *) _addHeadersToRequest:(NSURLRequest *)request {
+- (NSMutableURLRequest *) _addHeadersToRequest:(NSURLRequest *)request {
     NSMutableURLRequest *copy = [request mutableCopy];
 
     if (Machine_ != NULL)
-        [copy addValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+        [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
     if (UniqueID_ != nil)
-        [copy addValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+        [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
 
     if (Role_ != nil)
-        [copy addValue:Role_ forHTTPHeaderField:@"X-Role"];
+        [copy setValue:Role_ forHTTPHeaderField:@"X-Role"];
 
     return copy;
 }
@@ -4904,11 +4906,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadURL {
-    if ([urls_ count] == 0)
+    NSLog(@"rlu:%@", request_);
+    if (request_ == nil)
         return;
-    NSURL *url = [[[urls_ lastObject] retain] autorelease];
-    [urls_ removeLastObject];
-    [self loadURL:url cachePolicy:NSURLRequestReloadIgnoringCacheData];
+
+    if ([request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
+        [webview_ loadRequest:request_];
+    else {
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
+            initWithTitle:@"Are you sure you want to submit this form again?"
+            buttons:[NSArray arrayWithObjects:@"Cancel", @"Submit", nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:@"submit"
+        ] autorelease];
+
+        [sheet setNumberOfRows:1];
+        [sheet popupAlertAnimated:YES];
+    }
 }
 
 - (WebView *) webView {
@@ -5028,6 +5043,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window setValue:self forKey:@"cydia"];
 }
 
+- (void) webView:(WebView *)sender unableToImplementPolicyWithError:(NSError *)error frame:(WebFrame *)frame {
+    NSLog(@"err:%@", error);
+}
+
 - (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
     if (NSURL *url = [request URL]) {
         if (name != nil && [name isEqualToString:@"_open"])
@@ -5058,13 +5077,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) webView:(WebView *)sender decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    if (request == nil) ignore: {
+        [listener ignore];
+        return;
+    }
+
     NSURL *url([request URL]);
 
     if (url == nil) use: {
+        if ([frame parentFrame] == nil) {
+            if (request_ != nil)
+                [request_ autorelease];
+            request_ = [request retain];
+            NSLog(@"dpn:%@", request_);
+        }
+
         [listener use];
         return;
     }
+#if ForSaurik
     else NSLog(@"nav:%@:%@", url, [action description]);
+#endif
 
     const NSArray *capability(reinterpret_cast<const NSArray *>(GSSystemGetCapability(kGSDisplayIdentifiersCapability)));
 
@@ -5074,9 +5107,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ) {
       open:
         [UIApp openURL:url];
-      ignore:
-        [listener ignore];
-        return;
+        goto ignore;
     }
 
     int store(_not(int));
@@ -5166,6 +5197,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         challenge_ = nil;
 
         [sheet dismiss];
+    } else if ([context isEqualToString:@"submit"]) {
+        switch (button) {
+            case 1:
+            break;
+
+            case 2:
+                if (request_ != nil)
+                    [webview_ loadRequest:request_];
+            break;
+
+            default:
+                _assert(false);
+        }
+
+        [sheet dismiss];
     }
 }
 
@@ -5226,7 +5272,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [browser setDelegate:delegate_];
 
     if (pushed) {
-        [browser loadRequest:[self _addHeadersToRequest:request]];
+        [browser loadRequest:request];
         [book_ pushPage:browser];
     }
 
@@ -5278,10 +5324,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     [book_ reloadTitleForPage:self];
-
-    WebView *webview = [webview_ webView];
-    NSString *href = [webview mainFrameURL];
-    [urls_ addObject:[NSURL URLWithString:href]];
 
     [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
 
@@ -5485,8 +5527,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [webview setUIDelegate:self];
         [webview setScriptDebugDelegate:self];
         [webview setPolicyDelegate:self];
-
-        urls_ = [[NSMutableArray alloc] initWithCapacity:16];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];

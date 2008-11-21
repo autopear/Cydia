@@ -61,10 +61,14 @@
 
 #include <WebKit/WebFrame.h>
 #include <WebKit/WebPolicyDelegate.h>
+#include <WebKit/WebPreferences.h>
 #include <WebKit/WebScriptObject.h>
 
 #import <WebKit/WebView.h>
 #import <WebKit/WebView-WebPrivate.h>
+
+#include <WebCore/Page.h>
+#include <WebCore/Settings.h>
 
 #import <JavaScriptCore/JavaScriptCore.h>
 
@@ -109,6 +113,8 @@ extern "C" {
 
 #import "BrowserView.h"
 #import "ResetView.h"
+
+#import "substrate.h"
 /* }}} */
 
 //#define _finline __attribute__((force_inline))
@@ -271,7 +277,7 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define ForSaurik (1 && !ForRelease)
 #define RecycleWebViews 0
 #define AlwaysReload (1 && !ForRelease)
@@ -2863,7 +2869,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return @"Cancel";
 }
 
-- (NSString *) _rightButtonTitle {
+- (id) _rightButtonTitle {
     return issues_ == nil ? @"Confirm" : nil;
 }
 
@@ -3911,7 +3917,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 #endif
 
-- (NSString *) _rightButtonTitle {
+- (id) _rightButtonTitle {
     int count = [buttons_ count];
     return count == 0 ? nil : count != 1 ? @"Modify" : [buttons_ objectAtIndex:0];
 }
@@ -4600,7 +4606,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[list_ table] isRowDeletionEnabled] ? @"Add" : nil;
 }
 
-- (NSString *) rightButtonTitle {
+- (id) rightButtonTitle {
     return [[list_ table] isRowDeletionEnabled] ? @"Done" : @"Edit";
 }
 
@@ -4671,7 +4677,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return @"Packages";
 }
 
-- (NSString *) rightButtonTitle {
+- (id) rightButtonTitle {
     return Role_ != nil && [Role_ isEqualToString:@"Developer"] ? nil : expert_ ? @"Expert" : @"Simple";
 }
 
@@ -4758,7 +4764,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 #if !AlwaysReload
-- (NSString *) _rightButtonTitle {
+- (id) _rightButtonTitle {
     return nil;
 }
 #endif
@@ -5004,6 +5010,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (selector == @selector(getPackageById:))
         return @"getPackageById";
+    else if (selector == @selector(setButtonImage:withStyle:toFunction:))
+        return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
         return @"setButtonTitle";
     else if (selector == @selector(supports:))
@@ -5022,6 +5030,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (Package *) getPackageById:(NSString *)id {
     return [[Database sharedInstance] packageWithName:id];
+}
+
+- (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
+    if (button_ != nil)
+        [button_ autorelease];
+    button_ = button == nil ? nil : [[UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:button]]] retain];
+
+    if (style_ != nil)
+        [style_ autorelease];
+    style_ = style == nil ? nil : [style retain];
+
+    if (function_ != nil)
+        [function_ autorelease];
+    function_ = function == nil ? nil : [function retain];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -5466,7 +5488,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             webview = [webview_ webView];
 
             // XXX: this is terribly (too?) expensive
-            [webview_ setDrawsBackground:NO];
+            //[webview_ setDrawsBackground:NO];
+            [webview setPreferencesIdentifier:@"Cydia"];
 
             [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
 
@@ -5542,18 +5565,36 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         reloading_ = true;
         [self reloadURL];
     } else {
+        WebView *webview([webview_ webView]);
+        WebFrame *frame([webview mainFrame]);
+
+        id _private(MSHookIvar<id>(webview, "_private"));
+        WebCore::Page *page(_private == nil ? NULL : MSHookIvar<WebCore::Page *>(_private, "page"));
+        WebCore::Settings *settings(page == NULL ? NULL : page->settings());
+
+        bool no;
+        if (settings == NULL)
+            no = 0;
+        else {
+            no = settings->JavaScriptCanOpenWindowsAutomatically();
+            settings->setJavaScriptCanOpenWindowsAutomatically(true);
+        }
+
         [delegate_ clearFirstResponder];
         JSObjectRef function([function_ JSObject]);
-        JSGlobalContextRef context([[[webview_ webView] mainFrame] globalContext]);
+        JSGlobalContextRef context([frame globalContext]);
         JSObjectCallAsFunction(context, function, NULL, 0, NULL, NULL);
+
+        if (settings != NULL)
+            settings->setJavaScriptCanOpenWindowsAutomatically(no);
     }
 }
 
-- (NSString *) _rightButtonTitle {
+- (id) _rightButtonTitle {
     return button_ != nil ? button_ : @"Reload";
 }
 
-- (NSString *) rightButtonTitle {
+- (id) rightButtonTitle {
     return [self _loading] ? @"" : [self _rightButtonTitle];
 }
 
@@ -6154,7 +6195,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return @"Sections";
 }
 
-- (NSString *) rightButtonTitle {
+- (id) rightButtonTitle {
     return [sections_ count] == 0 ? nil : editing_ ? @"Done" : @"Edit";
 }
 
@@ -6362,7 +6403,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [(CYBook *)book_ updating] ? nil : @"Refresh";
 }
 
-- (NSString *) rightButtonTitle {
+- (id) rightButtonTitle {
     return upgrades_ == 0 ? nil : [NSString stringWithFormat:@"Upgrade (%u)", upgrades_];
 }
 

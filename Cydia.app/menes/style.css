@@ -65,6 +65,13 @@
     vertical-align: baseline;
 }
 
+sup {
+    font-size: smaller;
+    margin-top: -6px;
+    position: relative;
+    top: -6px;
+}
+
 select {
     border: 1px solid #999999;
 }
@@ -110,6 +117,10 @@ pre, tt {
 
 pre {
     letter-spacing: -2px;
+}
+
+.default {
+    color: #aaaabb;
 }
 
 /* #toolbar {{{ */
@@ -181,6 +192,22 @@ dialog > panel > fieldset {
     margin: 9px;
 }
 
+dialog > panel > input[type="submit"] {
+    /*-webkit-border-image: url(whiteButton.png) 0 12 0 12;
+    -webkit-border-radius: 0;
+    border-width: 0px 12px;*/
+    border: none;
+    color: #000000;
+    display: block;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 9px;
+    height: 44px;
+    padding: 10px;
+    text-align: center;
+    width: 302px;
+}
+
 dialog > panel > label {
     display: block;
     margin: 13px 0 -4px 27px;
@@ -233,37 +260,39 @@ fieldset > div > ul:last-child {
     margin-bottom: 0;
 }
 
-dialog > fieldset > a {
-    background: 295px 13px no-repeat url(listArrow.png);
-}
-
-dialog > panel > fieldset > a {
-    background: 275px 13px no-repeat url(listArrow.png);
-}
-
 fieldset > a {
     color: inherit;
     display: block;
 }
 
-dialog > fieldset > div > select {
+fieldset > textarea,
+fieldset > div > input,
+fieldset > div > select {
     background: none;
-    margin: -13px -17px -13px 86px;
-    border-left: 0;
-    border-right: 0;
-    height: 44px;
-    width: 217px;
+    -webkit-box-shadow: none;
+    -webkit-appearance: none;
+}
+
+fieldset > a,
+fieldset > div > select {
+    background: no-repeat url(chevron.png);
+    background-position-y: 13px;
+}
+
+dialog > fieldset > a {
+    background-position-x: 295px;
+}
+
+dialog > panel > fieldset > a {
+    background-position-x: 275px;
+}
+
+dialog > fieldset > div > select {
+    background-position-x: 192px;
 }
 
 dialog > panel > fieldset > div > select {
-    margin: -5px -10px -5px 86px;
-    -webkit-border-radius: 5px;
-    width: 190px;
-}
-
-fieldset > textarea,
-fieldset > div > input {
-    background: none;
+    background-position-x: 172px;
 }
 
 fieldset > textarea,
@@ -280,35 +309,30 @@ fieldset > div > select {
     font-size: 16px;
 }
 
+fieldset > div > select,
 fieldset > div > input {
     border: none;
-    height: 45px;
-    margin: -13px -18px;
-    padding: 13px 10px 0 111px;
+    height: 44px;
+    margin: -13px -17px -13px 86px;
+}
+
+dialog > panel > fieldset > div > select,
+dialog > panel > fieldset > div > input {
+    width: 187px;
+}
+
+dialog > fieldset > div > select,
+dialog > fieldset > div > input {
+    width: 207px;
+}
+
+fieldset > div > input {
+    padding: 13px 7px;
 }
 
 fieldset > textarea {
     padding: 10px;
     width: 320px;
-}
-
-dialog > panel > fieldset > div > input {
-    width: 302px;
-}
-
-dialog > fieldset > div > input {
-    width: 320px;
-}
-
-fieldset > div > input[type="submit"] {
-    border-width: 0 12px;
-    color: #000000;
-    display: block;
-    font-size: 20px;
-    font-weight: bold;
-    padding: 10px;
-    text-align: center;
-    -webkit-border-image: url(whiteButton.png) 0 12 0 12;
 }
 
 fieldset > a > label,

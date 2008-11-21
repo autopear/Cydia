@@ -1,10 +1,12 @@
-var _assert = function (expr) {
+/* XXX: this message is ultra-lame */
+var _assert = function (expr, value) {
     if (!expr) {
-        var message = "_assert(" + expr + ")";
-        alert(message);
+        var message = "_assert(" + value + ")";
+        console.log(message);
         throw message;
     }
 }
+
 // Compatibility {{{
 if (typeof Array.prototype.push != "function")
     Array.prototype.push = function (value) {
@@ -16,26 +18,29 @@ var $ = function (arg, doc) {
     if (this.magic_ != $.prototype.magic_)
         return new $(arg);
 
+    if (arg == null)
+        arg = [];
+
     var type = $.type(arg);
 
     if (type == "function")
         $.ready(arg);
     else if (type == "string") {
-        if (doc == undefined)
+        if (typeof doc == 'undefined')
             doc = document;
         if (arg.charAt(0) == '#') {
-            var node = doc.getElementById(arg.substring(1));
-            return $(node == null ? [] : [node]);
-        } else if (arg.charAt(0) == '.') {
-            var nodes = doc.getElementsByClassName(arg.substring(1));
-            return $(nodes == null ? [] : nodes);
-        } else
+            /* XXX: this is somewhat incorrect-a-porter */
+            var element = doc.getElementById(arg.substring(1));
+            return $(element == null ? [] : [element]);
+        } else if (arg.charAt(0) == '.')
+            return $(doc.getElementsByClassName(arg.substring(1)));
+        else
             return $([doc]).descendants(arg);
-    } else {
-        _assert(doc == undefined);
-        this.set($.array(arg));
+    } else if (typeof arg.length != 'undefined') {
+        _assert(typeof doc == 'undefined', "non-query with document to $");
+        this.set(arg);
         return this;
-    }
+    } else _assert(false, "unknown argument to $: " + typeof arg);
 };
 
 $.xml = function (value) {
@@ -51,14 +56,13 @@ $.xml = function (value) {
 $.type = function (value) {
     var type = typeof value;
 
-    if (
-        type == "function" &&
-        value.toString != null &&
-        value.toString().substring(0, 8) == "[object "
-    )
-        return "object";
-    else
-        return type;
+    if ((type == "function" || type == "object") && value.toString != null) {
+        var string = value.toString();
+        if (string.substring(0, 8) == "[object ")
+            return string.substring(8, string.length - 1);
+    }
+
+    return type;
 };
 
 (function () {
@@ -95,6 +99,7 @@ $.map = function (values, _function, arg0, arg1, arg2) {
 $.array = function (values) {
     if (values.constructor == Array)
         return values;
+    _assert(typeof values.length != 'undefined', "$.array on underlying non-array");
     var array = [];
     for (var i = 0; i != values.length; ++i)
         array.push(values[i]);
@@ -110,16 +115,42 @@ $.document = function (node) {
     }
 };
 
+$.reclass = function (_class) {
+    return new RegExp('(\\s|^)' + _class + '(\\s|$)');
+};
+
 $.prototype = {
     magic_: 2041085062,
 
     add: function (nodes) {
-        Array.prototype.push.apply(this, nodes);
+        Array.prototype.push.apply(this, $.array(nodes));
+    },
+
+    at: function (name, value) {
+        if (typeof value == 'undefined')
+            return $.map(this, function (node) {
+                return node.getAttribute(name);
+            });
+        else if (value == null)
+            $.each(this, function (node) {
+                node.removeAttribute();
+            });
+        else
+            $.each(this, function (node) {
+                node.setAttribute(name, value);
+            });
     },
 
     set: function (nodes) {
         this.length = 0;
         this.add(nodes);
+    },
+
+    /* XXX: verify arg3 overflow */
+    each: function (_function, arg0, arg1, arg2) {
+        $.each(this, function (node) {
+            _function($([node]), arg0, arg1, arg2);
+        });
     },
 
     css: function (name, value) {
@@ -128,8 +159,39 @@ $.prototype = {
         });
     },
 
+    addClass: function (_class) {
+        $.each(this, function (node) {
+            if (!$([node]).hasClass(_class)[0])
+                node.className += " " + _class;
+        });
+    },
+
+    blur: function () {
+        $.each(this, function (node) {
+            node.blur();
+        });
+    },
+
+    focus: function () {
+        $.each(this, function (node) {
+            node.focus();
+        });
+    },
+
+    removeClass: function (_class) {
+        $.each(this, function (node) {
+            node.className = node.className.replace($.reclass(_class), ' ');
+        });
+    },
+
+    hasClass: function (_class) {
+        return $.map(this, function (node) {
+            return node.className.match($.reclass(_class));
+        });
+    },
+
     append: function (html) {
-        $.each(this, $.type(html) == "string" ? function (node) {
+        $.each(this, function (node) {
             var doc = $.document(node);
 
             // XXX: implement wrapper system
@@ -140,24 +202,15 @@ $.prototype = {
                 var child = div.childNodes[0];
                 node.appendChild(child);
             }
-        } : function (node) {
-            $.each(html, function (value) {
-                node.appendChild(value);
-            });
         });
-    },
-
-    clone: function (deep) {
-        return $($.map(this, function (node) {
-            return node.cloneNode(deep);
-        }));
     },
 
     descendants: function (expression) {
         var descendants = $([]);
 
         $.each(this, function (node) {
-            descendants.add(node.getElementsByTagName(expression));
+            var nodes = node.getElementsByTagName(expression);
+            descendants.add(nodes);
         });
 
         return descendants;
@@ -167,31 +220,6 @@ $.prototype = {
         $.each(this, function (node) {
             node.parentNode.removeChild(node);
         });
-    },
-
-    parent: function () {
-        return $($.map(this, function (node) {
-            return node.parentNode;
-        }));
-    },
-
-    xpath: function (expression) {
-        var value = $([]);
-
-        $.each(this, function (node) {
-            var doc = $.document(node);
-            var result = doc.evaluate(expression, node, null, XPathResult.ANY_TYPE, null);
-
-            if (result.resultType == XPathResult.UNORDERED_NODE_ITERATOR_TYPE)
-                for (;;) {
-                    var next = result.iterateNext();
-                    if (next == null)
-                        break;
-                    value.add([next]);
-                }
-        });
-
-        return value;
     }
 };
 
@@ -201,7 +229,7 @@ $.scroll = function (x, y) {
 
 // XXX: document.all?
 $.all = function (doc) {
-    if (doc == undefined)
+    if (typeof doc == 'undefined')
         doc = document;
     return $(doc.getElementsByTagName("*"));
 };
@@ -209,7 +237,7 @@ $.all = function (doc) {
 $.inject = function (a, b) {
     if ($.type(a) == "string") {
         $.prototype[a] = function (value) {
-            if (value == undefined)
+            if (typeof value == 'undefined')
                 return $.map(this, function (node) {
                     return b.get(node);
                 });
@@ -223,6 +251,15 @@ $.inject = function (a, b) {
 };
 
 $.inject({
+    _default: {
+        get: function (node) {
+            return node.style.defaultValue;
+        },
+        set: function (node, value) {
+            node.style.defaultValue = value;
+        }
+    },
+
     display: {
         get: function (node) {
             return node.style.display;
@@ -250,12 +287,18 @@ $.inject({
         }
     },
 
-    id: {
+    name: {
         get: function (node) {
-            return node.id;
+            return node.name;
         },
         set: function (node, value) {
-            node.id = value;
+            node.name = value;
+        }
+    },
+
+    parent: {
+        get: function (node) {
+            return node.parentNode;
         }
     },
 
@@ -268,16 +311,73 @@ $.inject({
         }
     },
 
+    type: {
+        get: function (node) {
+            return node.localName;
+        }
+    },
+
     value: {
         get: function (node) {
             return node.value;
         },
         set: function (node, value) {
-            node.value = value;
+            // XXX: do I really need this?
+            if (true || node.localName != "select")
+                node.value = value;
+            else {
+                var options = node.options;
+                for (var i = 0, e = options.length; i != e; ++i)
+                    if (options[i].value == value) {
+                        if (node.selectedIndex != i)
+                            node.selectedIndex = i;
+                        break;
+                    }
+            }
+        }
+    },
+
+    width: {
+        get: function (node) {
+            return node.offsetWidth;
         }
     }
 });
 
+// Query String Parsing {{{
+$.query = function () {
+    var args = {};
+
+    var search = location.search;
+    if (search != null) {
+        _assert(search[0] == "?", "query string without ?");
+
+        var values = search.substring(1).split("&");
+        for (var index in values) {
+            var value = values[index]
+            var equal = value.indexOf("=");
+            var name;
+
+            if (equal == -1) {
+                name = value;
+                value = null;
+            } else {
+                name = value.substring(0, equal);
+                value = value.substring(equal + 1);
+                value = decodeURIComponent(value);
+            }
+
+            name = decodeURIComponent(name);
+            if (typeof args[name] == "undefined")
+                args[name] = [];
+            if (value != null)
+                args[name].push(value);
+        }
+    }
+
+    return args;
+};
+// }}}
 // Event Registration {{{
 // XXX: unable to remove registration
 $.prototype.event = function (event, _function) {
@@ -297,8 +397,8 @@ $.each([
     "click", "load", "submit"
 ], function (event) {
     $.prototype[event] = function (_function) {
-        if (_function == undefined)
-            _assert(false);
+        if (typeof _function == 'undefined')
+            _assert(false, "undefined function to $.[event]");
         else
             this.event(event, _function);
     };

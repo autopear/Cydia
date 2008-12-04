@@ -1,0 +1,14 @@
+Package: cydia
+Essential: yes
+Priority: required
+Section: Packaging
+Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
+Architecture: iphoneos-arm
+Version: 1.0.2636-38
+Replaces: com.sosiphone.addcydia
+Depends: apt, darwintools, pcre, shell-cmds
+Conflicts: com.sosiphone.addcydia
+Description: graphical iPhone front-end for APT
+Name: Cydia Installer
+Author: Jay Freeman (saurik) <saurik@saurik.com>
+Depiction: http://cydia.saurik.com/info/cydia/

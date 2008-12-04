@@ -1,5 +1,26 @@
 #import "ResetView.h"
 
+
+#include <WebKit/DOMCSSPrimitiveValue.h>
+#include <WebKit/DOMCSSStyleDeclaration.h>
+#include <WebKit/DOMDocument.h>
+#include <WebKit/DOMHTMLBodyElement.h>
+#include <WebKit/DOMNodeList.h>
+#include <WebKit/DOMRGBColor.h>
+
+#include <WebKit/WebFrame.h>
+#include <WebKit/WebPolicyDelegate.h>
+#include <WebKit/WebPreferences.h>
+#include <WebKit/WebScriptObject.h>
+
+#import <WebKit/WebView.h>
+#import <WebKit/WebView-WebPrivate.h>
+
+#include <WebCore/Page.h>
+#include <WebCore/Settings.h>
+
+#import <JavaScriptCore/JavaScriptCore.h>
+
 @class NSMutableArray;
 @class NSString;
 @class NSURL;

@@ -9,7 +9,7 @@ all: Cydia
 clean:
 	rm -f Cydia
 
-Cydia: Cydia.mm ../uicaboodle.m/*.mm ../mobilesubstrate/*.h *.h #makefile
+Cydia: Cydia.mm ../uicaboodle.m/*.m ../uicaboodle.m/*.mm ../mobilesubstrate/*.h #makefile
 	$(target)g++ -march=armv6 -mcpu=arm1176jzf-s -I../uicaboodle.m -I../mobilesubstrate -fobjc-call-cxx-cdtors -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework UIKit -framework IOKit -framework CoreFoundation -framework Foundation -framework CoreGraphics -framework GraphicsServices -framework MessageUI -framework QuartzCore -framework JavaScriptCore -framework WebCore -framework WebKit -lobjc -lapt-pkg -lpcre -fobjc-exceptions -F"$${PKG_ROOT}"/System/Library/PrivateFrameworks -multiply_defined suppress
 
 sign: Cydia

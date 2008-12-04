@@ -439,9 +439,15 @@ $.xhr = function (url, method, headers, data, events) {
         events = {};
 
     xhr.onreadystatechange = function () {
-        if (xhr.readyState == 4)
-            if (events.complete != null)
-                events.complete(xhr.responseText);
+        if (xhr.readyState == 4) {
+            var status = xhr.status;
+            var text = xhr.responseText;
+            if (events.response != null)
+                events.response(status, text);
+            if (events.success != null)
+                if (status == 200)
+                    events.success(text);
+        }
     };
 
     xhr.send(data);

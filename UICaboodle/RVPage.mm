@@ -20,7 +20,7 @@
     return nil;
 }
 
-- (NSString *) rightButtonTitle {
+- (id) rightButtonTitle {
     return nil;
 }
 
@@ -41,6 +41,10 @@
 }
 
 - (UIView *) accessoryView {
+    return nil;
+}
+
+- (UIImage *) rightButtonImage {
     return nil;
 }
 

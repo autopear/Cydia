@@ -18,6 +18,47 @@
 
 #import "RVPage.h"
 
+@interface NSObject (UICaboodleRVBook)
+- (float) widthForButtonContents:(float)width;
+@end
+
+@implementation NSObject (UICaboodleRVBook)
+
+- (float) widthForButtonContents:(float)width {
+    return width;
+}
+
+@end
+
+@interface UIImage (UICaboodleRVBook)
+- (float) widthForButtonContents:(float)width;
+@end
+
+@implementation UIImage (UICaboodleRVBook)
+
+- (float) widthForButtonContents:(float)width {
+    return [self size].width + 8;
+}
+
+@end
+
+@interface RVNavigationBar : UINavigationBar {
+}
+
+- (id) createButtonWithContents:(id)contents width:(float)width barStyle:(int)barStyle buttonStyle:(int)style isRight:(BOOL)right;
+@end
+
+@implementation RVNavigationBar
+
+- (id) createButtonWithContents:(id)contents width:(float)width barStyle:(int)barStyle buttonStyle:(int)style isRight:(BOOL)right {
+    float adjust = [contents widthForButtonContents:width];
+    NSLog(@"cc:%@:%g:%g", contents, width, adjust);
+    width = adjust;
+    return [super createButtonWithContents:contents width:width barStyle:barStyle buttonStyle:style isRight:right];
+}
+
+@end
+
 @implementation RVBook
 
 - (void) dealloc {
@@ -59,7 +100,7 @@
         CGSize navsize = [UINavigationBar defaultSize];
         CGRect navrect = {{0, 0}, navsize};
 
-        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
+        navbar_ = [[RVNavigationBar alloc] initWithFrame:navrect];
         [self addSubview:navbar_];
 
         [navbar_ setBarStyle:0];

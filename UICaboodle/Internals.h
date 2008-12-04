@@ -4,6 +4,7 @@
 }
 
 - (BOOL) respondsToSelector:(SEL)selector {
-    fprintf(stderr, "[%s]R-%s\n", class_getName(self->isa), sel_getName(selector));
-    return [super respondsToSelector:selector];
+    BOOL responds = [super respondsToSelector:selector];
+    fprintf(stderr, "[%s]R%c%s\n", class_getName(self->isa), (responds ? '+' : '-'), sel_getName(selector));
+    return responds;
 }

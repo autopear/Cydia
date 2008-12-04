@@ -12,9 +12,11 @@
 
 - (NSString *) title;
 - (NSString *) backButtonTitle;
-- (NSString *) rightButtonTitle;
+- (id) rightButtonTitle;
 - (NSString *) leftButtonTitle;
 - (UIView *) accessoryView;
+
+- (UIImage *) rightButtonImage;
 
 - (UINavigationButtonStyle) leftButtonStyle;
 - (UINavigationButtonStyle) rightButtonStyle;

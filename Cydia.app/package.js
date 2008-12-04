@@ -49,8 +49,13 @@ $(function () {
     var rating = package.rating;
     if (rating == null)
         $(".rating").remove();
-    else
-        $("#rating").src(rating);
+    else {
+        $.xhr(rating, 'GET', {}, null, {
+            success: function (value) {
+                document.getElementById("rating").contentWindow.document.write(value);
+            }
+        });
+    }
 
     $("#settings").href("cydia://package-settings/" + idc);
 

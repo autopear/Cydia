@@ -7,13 +7,18 @@
 @class UINavigationBar;
 @class UITransitionView;
 
+@protocol RVNavigationBarDelegate
+@end
+
 @protocol RVDelegate
 - (void) setPageActive:(BOOL)active with:(id)object;
 - (void) resetViewAnimated:(BOOL)animated with:(id)object;
 - (void) reloadDataWith:(id)object;
 @end
 
-@interface RVBook : UIView {
+@interface RVBook : UIView <
+    RVNavigationBarDelegate
+> {
     NSMutableArray *pages_;
     UINavigationBar *navbar_;
     UITransitionView *transition_;

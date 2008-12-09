@@ -6,11 +6,15 @@
     <link rel="stylesheet" type="text/css" href="menes/style.css"/>
     <script type="text/javascript" src="menes/menes.js"></script>
     <script type="text/javascript" src="confirm.js"></script>
-</head><body>
-<dialog><panel>
+</head><body class="pinstripe">
+<dialog><panel id="issues">
 
-<label>Statistics</label>
-<fieldset>
+<fieldset class="issues">
+    <div><p><span style="color: red; font-weight: bold">Note:</span> The requested modifications cannot be applied due to required dependencies or conflicts that cannot be automatically found or fixed.</p></div>
+</fieldset>
+
+<label class="_issues">Statistics</label>
+<fieldset class="_issues">
     <div class="downloading">
         <label>Downloading</label>
         <div id="downloading"></div>

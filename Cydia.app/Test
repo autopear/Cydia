@@ -1,6 +1,8 @@
 #!/bin/bash
+killall Cydia_
 set -e
-Cydia=$(dirname "$0")
-rsync -SPaz saurik@carrier.saurik.com:menes/cydia/Cydia "${Cydia}"/Cydia_
-chmod +s "${Cydia}"/Cydia_
-#NSZombieEnabled=YES su -c "${Cydia}"/Cydia_ mobile
+rsync -SPaz --copy-links saurik@carrier.saurik.com:menes/cydia/cydia_iphoneos-arm.deb .
+dpkg -i cydia_iphoneos-arm.deb
+touch /tmp/cydia.log
+openURL "${1-cydia://}"
+exec tail /tmp/cydia.log -fn0

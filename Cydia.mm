@@ -35,6 +35,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+// XXX: wtf/FastMalloc.h... wtf?
+#define USE_SYSTEM_MALLOC 1
+
 /* #include Directives {{{ */
 #import "UICaboodle.h"
 
@@ -259,8 +262,9 @@ extern NSString * const kCAFilterNearest;
 
 #define ForRelease 0
 #define ForSaurik (1 && !ForRelease)
+#define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
-#define AlwaysReload (1 && !ForRelease)
+#define AlwaysReload (0 && !ForRelease)
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
@@ -2851,7 +2855,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) _rightButtonTitle {
+#if AlwaysReload || IgnoreInstall
+    return @"Reload";
+#else
     return issues_ == nil ? @"Confirm" : nil;
+#endif
 }
 
 - (void) _leftButtonClicked {
@@ -2860,6 +2868,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if !AlwaysReload
 - (void) _rightButtonClicked {
+#if IgnoreInstall
+    return [super _rightButtonClicked];
+#endif
     if (essential_ != nil)
         [essential_ popupAlertAnimated:YES];
     else {
@@ -6991,7 +7002,8 @@ int main(int argc, char *argv[]) { _pooled
         Indices_ = [[NSMutableDictionary alloc] init];*/
 
     Indices_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@P", @"Rating",
+        //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@", @"Rating",
+        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/repotag/@", @"RepoTag",
     nil];
 
     if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)

@@ -27,6 +27,8 @@ $(function () {
         $("#disk-key").html(negative ? "Disk Freeing" : "Disk Using");
         $("#disk-value").html($.xml(size));
     } else for (var i = 0; i != issues.length; ++i) {
+        document.title = "Cannot Comply";
+
         $("._issues").remove();
 
         var issue = issues[i];

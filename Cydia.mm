@@ -5728,10 +5728,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithBook:book]) != nil) {
         CGRect pageBounds = [book_ pageBounds];
 
-        /*UIImageView *pinstripe = [[[UIImageView alloc] initWithFrame:pageBounds] autorelease];
-        [pinstripe setImage:[UIImage applicationImageNamed:@"pinstripe.png"]];
-        [self addSubview:pinstripe];*/
-
         transition_ = [[UITransitionView alloc] initWithFrame:pageBounds];
         [self addSubview:transition_];
 

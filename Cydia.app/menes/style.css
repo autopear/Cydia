@@ -83,7 +83,7 @@ body {
 }
 
 body.pinstripe {
-    background: #c7ced5 url(pinstripes.png);
+    background: #c7ced5 url(cydia://uikit-image/UIPinstripe.png);
 }
 
 dialog {

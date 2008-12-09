@@ -95,6 +95,7 @@
 
 - (void) loadRequest:(NSURLRequest *)request {
     pushed_ = true;
+    error_ = false;
     [webview_ loadRequest:request];
 }
 
@@ -104,7 +105,7 @@
         return;
 
     if ([request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
-        [webview_ loadRequest:request_];
+        [self loadRequest:request_];
     else {
         UIActionSheet *sheet = [[[UIActionSheet alloc]
             initWithTitle:@"Are you sure you want to submit this form again?"
@@ -294,7 +295,7 @@
     NSURL *url([request URL]);
 
     if (url == nil) use: {
-        if ([frame parentFrame] == nil) {
+        if (!error_ && [frame parentFrame] == nil) {
             if (request_ != nil)
                 [request_ autorelease];
             request_ = [request retain];
@@ -592,20 +593,30 @@
                     bool colored(false);
 
                     if (DOMCSSPrimitiveValue *color = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-color"])) {
-                        DOMRGBColor *rgb([color getRGBColorValue]);
+                        if ([color primitiveType] == DOM_CSS_RGBCOLOR) {
+                            DOMRGBColor *rgb([color getRGBColorValue]);
 
-                        float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
-                        NSLog(@"alpha:%g", alpha);
+                            float red([[rgb red] getFloatValue:DOM_CSS_NUMBER]);
+                            float green([[rgb green] getFloatValue:DOM_CSS_NUMBER]);
+                            float blue([[rgb blue] getFloatValue:DOM_CSS_NUMBER]);
+                            float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
 
-                        if (alpha != 0) {
-                            colored = true;
+                            UIColor *uic(nil);
 
-                            [scroller_ setBackgroundColor:[UIColor
-                                colorWithRed:([[rgb red] getFloatValue:DOM_CSS_NUMBER] / 255)
-                                green:([[rgb green] getFloatValue:DOM_CSS_NUMBER] / 255)
-                                blue:([[rgb blue] getFloatValue:DOM_CSS_NUMBER] / 255)
-                                alpha:alpha
-                            ]];
+                            if (red == 0xc7 && green == 0xce && blue == 0xd5)
+                                uic = [UIColor pinStripeColor];
+                            else if (alpha != 0)
+                                uic = [UIColor
+                                    colorWithRed:(red / 255)
+                                    green:(green / 255)
+                                    blue:(blue / 255)
+                                    alpha:alpha
+                                ];
+
+                            if (uic != nil) {
+                                colored = true;
+                                [scroller_ setBackgroundColor:uic];
+                            }
                         }
                     }
 
@@ -627,6 +638,8 @@
         [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
         [[error localizedDescription] stringByAddingPercentEscapes]
     ]]];
+
+    error_ = true;
 }
 
 - (void) webView:(WebView *)sender addMessageToConsole:(NSDictionary *)dictionary {

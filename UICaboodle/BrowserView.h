@@ -41,6 +41,8 @@
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
     NSURLAuthenticationChallenge *challenge_;
+
+    bool error_;
     NSURLRequest *request_;
 
     NSNumber *confirm_;

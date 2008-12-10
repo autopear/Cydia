@@ -801,7 +801,17 @@
         NSString *application = package == nil ? @"Cydia" : [NSString
             stringWithFormat:@"Cydia/%@",
             [package installed]
-        ]; [webview setApplicationNameForUserAgent:application];
+        ];
+
+        if (Build_ != nil)
+            application = [NSString stringWithFormat:@"Mobile/%@ %@", Build_, application];
+
+        /* XXX: lookup application directory? */
+        /*if (NSDictionary *safari = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"])
+            if (NSString *version = [safari objectForKey:@"SafariProductVersion"])
+                application = [NSString stringWithFormat:@"Version/%@ %@", version, application];*/
+
+        [webview setApplicationNameForUserAgent:application];
 
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
 

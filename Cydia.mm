@@ -629,19 +629,11 @@ static UIFont *Font18Bold_;
 static UIFont *Font22Bold_;
 
 static const char *Machine_ = NULL;
-static const NSString *UniqueID_ = NULL;
-
-unsigned Major_;
-unsigned Minor_;
-unsigned BugFix_;
+static const NSString *UniqueID_ = nil;
+static const NSString *Build_ = nil;
 
 CFLocaleRef Locale_;
 CGColorSpaceRef space_;
-
-#define FW_LEAST(major, minor, bugfix) \
-    (major < Major_ || major == Major_ && \
-        (minor < Minor_ || minor == Minor_ && \
-            bugfix <= BugFix_))
 
 bool bootstrap_;
 bool reload_;
@@ -6994,6 +6986,9 @@ int main(int argc, char *argv[]) { _pooled
         Machine_ = machine;
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
+
+    if (NSDictionary *system = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"])
+        Build_ = [system objectForKey:@"ProductBuildVersion"];
 
     /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
     AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/

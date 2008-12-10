@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<html><head>
+    <title>Storage</title>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0"/>
+    <link rel="stylesheet" type="text/css" href="menes/style.css"/>
+    <script type="text/javascript" src="menes/menes.js"></script>
+    <script type="text/javascript" src="storage.js"></script>
+    <base target="_blank"/>
+
+    <style>
+        body {
+            display: table;
+            font-family: Helvetica;
+            height: 337px;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: none;
+            -webkit-user-select: none;
+        }
+
+        div.page {
+            display: table-cell;
+            text-align: center;
+            margin: 0 auto;
+            vertical-align: middle;
+            width: 320px;
+        }
+
+        a.giant-button {
+            color: #193250;
+            display: block;
+            margin: 8px 10px;
+            text-decoration: none;
+        }
+
+        a.giant-button > div.contents {
+            position: absolute;
+            text-align: left;
+            width: 300px;
+            -webkit-background-size: 75px auto;
+            z-index: 2;
+        }
+
+        a.giant-button > div.contents > piechart {
+            float: left;
+            margin: 10px;
+            vertical-align: middle;
+        }
+
+        a.giant-button > div.contents > label {
+            display: block;
+            float: left;
+            font-size: 25px;
+            margin: 10px 0 4px 4px;
+            text-align: center;
+            text-shadow: rgba(200, 200, 200, 0.75) 1px 1px 0;
+            width: 155px;
+        }
+
+        a.giant-button > div.contents > div.text {
+            display: block;
+            float: left;
+            font-size: 14px;
+            margin-left: 4px;
+            text-align: center;
+            width: 155px;
+        }
+
+        div.key {
+            display: inline-block;
+            width: 50%;
+        }
+
+        a.giant-button > div.contents > div.legend {
+            float: left;
+            font-size: 14px;
+            left: 15px;
+            position: absolute;
+            top: 120px;
+            width: 290px;
+        }
+
+        a.giant-button > div.background {
+            background-color: #000000;
+            opacity: 0.15;
+            -webkit-border-radius: 10px;
+        }
+
+        div.key {
+            margin-bottom: 4px;
+        }
+
+        piechart {
+            /*-webkit-transform: rotate(-5deg);*/
+            /*-webkit-transform: rotateY(15deg) rotateX(-45deg);*/
+        }
+
+        piechart > div {
+            height: 100px;
+            padding: 1px;
+            position: relative;
+            width: 103px;
+        }
+
+        piechart > div > div.lslice,
+        piechart > div > div.rslice {
+            background-color: #4d4d70;
+            height: 100px;
+            position: absolute;
+        }
+
+        piechart > div > div.lslice {
+            -webkit-border-bottom-left-radius: 50px;
+            -webkit-border-top-left-radius: 50px;
+            width: 50px;
+            z-index: 2;
+        }
+
+        piechart > div > div.rslice {
+            -webkit-border-bottom-right-radius: 50px;
+            -webkit-border-top-right-radius: 50px;
+            left: 49px;
+            width: 53px;
+            z-index: 0;
+        }
+
+        piechart > div > div.xslice {
+            -webkit-border-bottom-left-radius: 50px;
+            -webkit-border-top-left-radius: 50px;
+            height: 100px;
+            left: 2px;
+            position: absolute;
+            -webkit-transform-origin: 50px 50%;
+            width: 50px;
+        }
+
+        piechart > div > div.tslice {
+            position: absolute;
+            text-align: center;
+            top: 42px;
+            width: 100px;
+            z-index: 3;
+        }
+
+        piechart > div > div.tslice > div {
+            background-color: rgba(255, 255, 255, 0.7);
+            -webkit-border-radius: 7px;
+            display: inline;
+            color: black;
+            font-size: 15px;
+            font-weight: bold;
+            margin: 0 auto;
+            padding: 2px 4px;
+            text-align: center;
+        }
+
+        div.color {
+            background-color: black;
+            border: 1px solid #4d4d70;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        div.color > div {
+            border: 1px solid white;
+            display: inline-block;
+            height: 12px;
+            width: 12px;
+        }
+
+        div.name {
+            display: inline-block;
+            font-size: 14px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+    </style>
+</head><body class="pinstripe">
+<dialog>
+    <panel>
+
+<a class="giant-button">
+    <div class="contents">
+        <piechart id="system-chart"><div>
+            <div class="lslice"></div>
+            <div class="rslice"></div>
+            <div class="tslice"><div id="system-size"></div></div>
+            <div class="xslice" id="system-slice" style="
+                background-color: #7d7da0; -webkit-transform: rotate(10deg); z-index: 1;
+            "></div>
+        </div></piechart>
+
+        <label>System</label>
+        <div class="text">A small partition used to store iPhone OS. Cydia adds a few important programs and libraries.</div>
+
+        <div class="legend" id="system-legend"></div>
+    </div>
+
+    <div class="background" style="height: 149px"></div>
+</a>
+
+<a class="giant-button">
+    <div class="contents">
+        <piechart id="private-chart"><div>
+            <div class="lslice"></div>
+            <div class="rslice"></div>
+            <div class="tslice"><div id="private-size"></div></div>
+            <div class="xslice" id="private-slice" style="
+                background-color: #9090e0; -webkit-transform: rotate(150deg); z-index: 1;
+            "></div>
+            <div class="xslice" id="private-slice" style="
+                background-color: #7070e0; -webkit-transform: rotate(120deg); z-index: 1;
+            "></div>
+            <div class="xslice" id="private-slice" style="
+                background-color: #d0d0f0; -webkit-transform: rotate(90deg); z-index: 1;
+            "></div>
+            <div class="xslice" id="private-slice" style="
+                background-color: #7da0e0; -webkit-transform: rotate(60deg); z-index: 1;
+            "></div>
+            <div class="xslice" id="private-slice" style="
+                background-color: #7d7da0; -webkit-transform: rotate(30deg); z-index: 1;
+            "></div>
+        </div></piechart>
+
+        <label>Private</label>
+        <div class="text">Most content is stored on this partition: from applications (Cydia and Apple) to multimedia.</div>
+
+        <div class="legend" id="private-legend"></div>
+    </div>
+
+    <div class="background" style="height: 189px"></div>
+</a>
+
+    </panel>
+</dialog>
+</body></html>

@@ -79,6 +79,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#include <sys/param.h>
+#include <sys/mount.h>
 
 #include <notify.h>
 #include <dlfcn.h>
@@ -264,7 +266,7 @@ extern NSString * const kCAFilterNearest;
 #define ForSaurik (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
-#define AlwaysReload (0 && !ForRelease)
+#define AlwaysReload (1 && !ForRelease)
 
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
@@ -4753,6 +4755,30 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+/* Storage View {{{ */
+@interface StorageView : BrowserView {
+}
+
+@end
+
+@implementation StorageView
+
+- (NSString *) title {
+    return @"Storage";
+}
+
+#if !AlwaysReload
+- (id) _rightButtonTitle {
+    return nil;
+}
+#endif
+
+- (bool) _loading {
+    return false;
+}
+
+@end
+/* }}} */
 /* Manage View {{{ */
 @interface ManageView : BrowserView {
 }
@@ -6732,6 +6758,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([href isEqualToString:@"cydia://add-source"])
         return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([href isEqualToString:@"cydia://storage"])
+        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[StorageView class]];
     else if ([href isEqualToString:@"cydia://sources"])
         return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://packages"])

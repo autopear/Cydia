@@ -204,6 +204,10 @@
         return @"setButtonTitle";
     else if (selector == @selector(supports:))
         return @"supports";
+    else if (selector == @selector(du:))
+        return @"du";
+    else if (selector == @selector(statfs:))
+        return @"statfs";
     else
         return nil;
 }
@@ -218,6 +222,41 @@
 
 - (Package *) getPackageById:(NSString *)id {
     return [[Database sharedInstance] packageWithName:id];
+}
+
+- (NSArray *) statfs:(NSString *)path {
+    struct statfs stat;
+
+    if (path == nil || statfs([path UTF8String], &stat) == -1)
+        return nil;
+
+    return [NSArray arrayWithObjects:
+        [NSNumber numberWithUnsignedLong:stat.f_bsize],
+        [NSNumber numberWithUnsignedLong:stat.f_blocks],
+        [NSNumber numberWithUnsignedLong:stat.f_bfree],
+    nil];
+}
+
+- (NSNumber *) du:(NSString *)path {
+    NSNumber *value(nil);
+
+    /* XXX: omfg this is stupid */
+    if (FILE *du = popen([[@"du -s " stringByAppendingString:path] UTF8String], "r")) {
+        char line[1024];
+        while (fgets(line, sizeof(line), du) != NULL) {
+            size_t length(strlen(line));
+            while (length != 0 && line[length - 1] == '\n')
+                line[--length] = '\0';
+            if (char *tab = strchr(line, '\t')) {
+                *tab = '\0';
+                value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
+            }
+        }
+
+        pclose(du);
+    }
+
+    return value;
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {

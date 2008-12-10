@@ -240,8 +240,22 @@
 - (NSNumber *) du:(NSString *)path {
     NSNumber *value(nil);
 
-    /* XXX: omfg this is stupid */
-    if (FILE *du = popen([[@"du -s " stringByAppendingString:path] UTF8String], "r")) {
+    int fds[2];
+    _assert(pipe(fds) != -1);
+
+    pid_t pid(ExecFork());
+    if (pid == 0) {
+        _assert(dup2(fds[1], 1) != -1);
+        _assert(close(fds[0]) != -1);
+        _assert(close(fds[1]) != -1);
+        execlp("du", "du", "-s", [path UTF8String], NULL);
+        exit(1);
+        _assert(false);
+    }
+
+    _assert(close(fds[1]) != -1);
+
+    if (FILE *du = fdopen(fds[0], "r")) {
         char line[1024];
         while (fgets(line, sizeof(line), du) != NULL) {
             size_t length(strlen(line));
@@ -253,8 +267,15 @@
             }
         }
 
-        pclose(du);
-    }
+        fclose(du);
+    } else _assert(close(fds[0]));
+
+    int status;
+  wait:
+    if (waitpid(pid, &status, 0) == -1)
+        if (errno == EINTR)
+            goto wait;
+        else _assert(false);
 
     return value;
 }

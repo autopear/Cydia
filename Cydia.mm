@@ -4755,30 +4755,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Storage View {{{ */
-@interface StorageView : BrowserView {
-}
-
-@end
-
-@implementation StorageView
-
-- (NSString *) title {
-    return @"Storage";
-}
-
-#if !AlwaysReload
-- (id) _rightButtonTitle {
-    return nil;
-}
-#endif
-
-- (bool) _loading {
-    return false;
-}
-
-@end
-/* }}} */
 /* Manage View {{{ */
 @interface ManageView : BrowserView {
 }
@@ -6759,7 +6735,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([href isEqualToString:@"cydia://add-source"])
         return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://storage"])
-        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[StorageView class]];
+        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[BrowserView class]];
     else if ([href isEqualToString:@"cydia://sources"])
         return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
     else if ([href isEqualToString:@"cydia://packages"])

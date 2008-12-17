@@ -27,27 +27,23 @@
         }
 
         a.giant-button {
+            background-color: rgba(0, 0, 0, 0.15);
+            -webkit-border-radius: 10px;
             color: #193250;
             display: block;
             margin: 8px 10px;
+            position: relative;
             text-decoration: none;
-        }
-
-        a.giant-button > div.contents {
-            position: absolute;
-            text-align: left;
             width: 300px;
-            -webkit-background-size: 75px auto;
-            z-index: 2;
         }
 
-        a.giant-button > div.contents > piechart {
+        a.giant-button > piechart {
             float: left;
             margin: 10px;
             vertical-align: middle;
         }
 
-        a.giant-button > div.contents > label {
+        a.giant-button > label {
             display: block;
             float: left;
             font-size: 25px;
@@ -57,7 +53,7 @@
             width: 155px;
         }
 
-        a.giant-button > div.contents > div.text {
+        a.giant-button > div.text {
             display: block;
             float: left;
             font-size: 14px;
@@ -71,19 +67,13 @@
             width: 50%;
         }
 
-        a.giant-button > div.contents > div.legend {
+        a.giant-button > div.legend {
             float: left;
             font-size: 14px;
             left: 15px;
             position: absolute;
             top: 120px;
             width: 290px;
-        }
-
-        a.giant-button > div.background {
-            background-color: #000000;
-            opacity: 0.15;
-            -webkit-border-radius: 10px;
         }
 
         div.key {
@@ -207,48 +197,40 @@
 <dialog>
     <panel>
 
-<a class="giant-button">
-    <div class="contents">
-        <piechart><div>
-            <div id="system-left"></div>
-            <div id="system-right">
-                <div class="lslice"></div>
-                <div class="rslice"></div>
-                <div class="tslice"></div>
-                <div class="bslice"></div>
-            </div>
-            <div class="nslice"><div id="system-size"></div></div>
-        </div></piechart>
+<a class="giant-button" style="height: 149px">
+    <piechart><div>
+        <div id="system-left"></div>
+        <div id="system-right">
+            <div class="lslice"></div>
+            <div class="rslice"></div>
+            <div class="tslice"></div>
+            <div class="bslice"></div>
+        </div>
+        <div class="nslice"><div id="system-size"></div></div>
+    </div></piechart>
 
-        <label>System</label>
-        <div class="text">A small partition used to store iPhone OS. Cydia adds a few important programs and libraries.</div>
+    <label>System</label>
+    <div class="text">A small partition used to store iPhone OS. Cydia adds a few important programs and libraries.</div>
 
-        <div class="legend" id="system-legend"></div>
-    </div>
-
-    <div class="background" style="height: 149px"></div>
+    <div class="legend" id="system-legend"></div>
 </a>
 
-<a class="giant-button">
-    <div class="contents">
-        <piechart><div>
-            <div id="private-left"></div>
-            <div id="private-right">
-                <div class="lslice"></div>
-                <div class="rslice"></div>
-                <div class="tslice"></div>
-                <div class="bslice"></div>
-            </div>
-            <div class="nslice"><div id="private-size"></div></div>
-        </div></piechart>
+<a class="giant-button" style="height: 189px">
+    <piechart><div>
+        <div id="private-left"></div>
+        <div id="private-right">
+            <div class="lslice"></div>
+            <div class="rslice"></div>
+            <div class="tslice"></div>
+            <div class="bslice"></div>
+        </div>
+        <div class="nslice"><div id="private-size"></div></div>
+    </div></piechart>
 
-        <label>Private</label>
-        <div class="text">Most content is stored on this partition: from applications (Cydia and Apple) to multimedia.</div>
+    <label>Private</label>
+    <div class="text">Most content is stored on this partition: from applications (Cydia and Apple) to multimedia.</div>
 
-        <div class="legend" id="private-legend"></div>
-    </div>
-
-    <div class="background" style="height: 189px"></div>
+    <div class="legend" id="private-legend"></div>
 </a>
 
     </panel>

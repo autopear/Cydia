@@ -190,19 +190,46 @@ $.prototype = {
         });
     },
 
-    append: function (html) {
+    append: function (children) {
+        if ($.type(children) == "string")
+            $.each(this, function (node) {
+                var doc = $.document(node);
+
+                // XXX: implement wrapper system
+                var div = doc.createElement("div");
+                div.innerHTML = children;
+
+                while (div.childNodes.length != 0) {
+                    var child = div.childNodes[0];
+                    node.appendChild(child);
+                }
+            });
+        else
+            $.each(this, function (node) {
+                $.each(children, function (child) {
+                    node.appendChild(child);
+                });
+            });
+    },
+
+    xpath: function (expression) {
+        var value = $([]);
+
         $.each(this, function (node) {
             var doc = $.document(node);
-
-            // XXX: implement wrapper system
-            var div = doc.createElement("div");
-            div.innerHTML = html;
-
-            while (div.childNodes.length != 0) {
-                var child = div.childNodes[0];
-                node.appendChild(child);
-            }
+            var results = doc.evaluate(expression, node, null, XPathResult.ANY_TYPE, null);
+            var result;
+            while (result = results.iterateNext())
+                value.add([result]);
         });
+
+        return value;
+    },
+
+    clone: function (deep) {
+        return $($.map(this, function (node) {
+            return node.cloneNode(deep);
+        }));
     },
 
     descendants: function (expression) {

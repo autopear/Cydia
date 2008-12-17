@@ -1729,6 +1729,8 @@ class Progress :
         [warnings addObject:@"illegal package identifier"];
     else for (size_t i(0); i != length; ++i)
         if (
+            /* XXX: technically this is not allowed */
+            (name[i] < 'A' || name[i] > 'Z') &&
             (name[i] < 'a' || name[i] > 'z') &&
             (name[i] < '0' || name[i] > '9') &&
             (i == 0 || name[i] != '+' && name[i] != '-' && name[i] != '.')
@@ -1736,17 +1738,25 @@ class Progress :
 
     if (strcmp(name, "cydia") != 0) {
         bool cydia = false;
+        bool _private = false;
         bool stash = false;
+
+        bool repository = [[self section] isEqualToString:@"Repositories"];
 
         if (NSArray *files = [self files])
             for (NSString *file in files)
                 if (!cydia && [file isEqualToString:@"/Applications/Cydia.app"])
                     cydia = true;
+                else if (!_private && [file isEqualToString:@"/private"])
+                    _private = true;
                 else if (!stash && [file isEqualToString:@"/var/stash"])
                     stash = true;
 
-        if (cydia)
+        /* XXX: this is not sensitive enough. only some folders are valid. */
+        if (cydia && !repository)
             [warnings addObject:@"files installed into Cydia.app"];
+        if (_private)
+            [warnings addObject:@"files installed with /private/*"];
         if (stash)
             [warnings addObject:@"files installed to /var/stash"];
     }
@@ -6997,7 +7007,7 @@ int main(int argc, char *argv[]) { _pooled
         Indices_ = [[NSMutableDictionary alloc] init];*/
 
     Indices_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@", @"Rating",
+        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@", @"Rating",
         @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/repotag/@", @"RepoTag",
     nil];
 
@@ -7033,8 +7043,10 @@ int main(int argc, char *argv[]) { _pooled
     Documents_ = [[[NSMutableArray alloc] initWithCapacity:4] autorelease];
 #endif
 
-    if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
-        dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);
+    if (substrate && access("/Applications/WinterBoard.app/WinterBoard.dylib", F_OK) == 0)
+        dlopen("/Applications/WinterBoard.app/WinterBoard.dylib", RTLD_LAZY | RTLD_GLOBAL);
+    /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
+        dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 
     if (access("/User", F_OK) != 0)
         system("/usr/libexec/cydia/firmware.sh");

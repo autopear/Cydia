@@ -55,6 +55,8 @@
     -webkit-border-radius: 0;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
+    -ms-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
     font-family: inherit;
     font-size: 100%;
     font-style: inherit;
@@ -62,7 +64,12 @@
     margin: 0;
     outline: 0;
     padding: 0;
+    text-decoration: none;
     vertical-align: baseline;
+}
+
+a {
+    color: inherit;
 }
 
 sup {
@@ -98,13 +105,8 @@ dialog > panel {
 }
 
 a {
-    color: inherit;
-    text-decoration: none;
-    text-underline-style: dotted;
-}
-
-a {
     color: blue;
+    text-underline-style: dotted;
 }
 
 strong {
@@ -241,13 +243,18 @@ fieldset > div img.icon {
 }
 
 panel > block > p,
-fieldset > div > p {
+fieldset > div > p,
+fieldset > div > ul {
     margin: 11px 0;
-    text-align: center;
 }
 
 fieldset > div > ul {
-    margin-left: -20px;
+    margin-left: 13px;
+}
+
+panel > block > p,
+fieldset > div > p {
+    text-align: center;
 }
 
 fieldset > div > p:first-child,

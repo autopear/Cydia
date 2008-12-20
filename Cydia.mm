@@ -6729,31 +6729,39 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
-    NSString *href = [url absoluteString];
-
     if (tag != NULL)
         tag = 0;
 
-    if ([href isEqualToString:@"cydia://add-source"])
+    NSString *scheme([[url scheme] lowercaseString]);
+    if (![scheme isEqualToString:@"cydia"])
+        return nil;
+    NSString *path([url absoluteString]);
+    if ([path length] < 8)
+        return nil;
+    path = [path substringFromIndex:8];
+    if (![path hasPrefix:@"/"])
+        path = [@"/" stringByAppendingString:path];
+
+    if ([path isEqualToString:@"/add-source"])
         return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href isEqualToString:@"cydia://storage"])
+    else if ([path isEqualToString:@"/storage"])
         return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[BrowserView class]];
-    else if ([href isEqualToString:@"cydia://sources"])
+    else if ([path isEqualToString:@"/sources"])
         return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href isEqualToString:@"cydia://packages"])
+    else if ([path isEqualToString:@"/packages"])
         return [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([href hasPrefix:@"cydia://url/"])
-        return [self _pageForURL:[NSURL URLWithString:[href substringFromIndex:12]] withClass:[BrowserView class]];
-    else if ([href hasPrefix:@"cydia://launch/"])
-        [self launchApplicationWithIdentifier:[href substringFromIndex:15] suspended:NO];
-    else if ([href hasPrefix:@"cydia://package-settings/"])
-        return [[[SettingsView alloc] initWithBook:book_ database:database_ package:[href substringFromIndex:25]] autorelease];
-    else if ([href hasPrefix:@"cydia://package-signature/"])
-        return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[href substringFromIndex:26]] autorelease];
-    else if ([href hasPrefix:@"cydia://package/"])
-        return [self pageForPackage:[href substringFromIndex:16]];
-    else if ([href hasPrefix:@"cydia://files/"]) {
-        NSString *name = [href substringFromIndex:14];
+    else if ([path hasPrefix:@"/url/"])
+        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[BrowserView class]];
+    else if ([path hasPrefix:@"/launch/"])
+        [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
+    else if ([path hasPrefix:@"/package-settings/"])
+        return [[[SettingsView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:18]] autorelease];
+    else if ([path hasPrefix:@"/package-signature/"])
+        return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:19]] autorelease];
+    else if ([path hasPrefix:@"/package/"])
+        return [self pageForPackage:[path substringFromIndex:9]];
+    else if ([path hasPrefix:@"/files/"]) {
+        NSString *name = [path substringFromIndex:7];
 
         if (Package *package = [database_ packageWithName:name]) {
             FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];

@@ -6577,7 +6577,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context([sheet context]);
 
-    if ([context isEqualToString:@"fixhalf"]) {
+    if ([context isEqualToString:@"missing"])
+        [sheet dismiss];
+    else if ([context isEqualToString:@"fixhalf"]) {
         switch (button) {
             case 1:
                 @synchronized (self) {

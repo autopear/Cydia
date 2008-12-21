@@ -224,7 +224,7 @@ fieldset > a,
 fieldset > div,
 fieldset > textarea {
     border-top: 1px solid #999999;
-    min-height: 19px;
+    min-height: 40px;
     padding: 12px 17px 11px 17px;
 }
 

@@ -121,6 +121,10 @@ pre {
     letter-spacing: -2px;
 }
 
+em {
+    font-style: italic;
+}
+
 .default {
     color: #aaaabb;
 }
@@ -182,8 +186,9 @@ dialog > panel > block {
     padding: 0 10px;
 }
 
+dialog > panel > fieldset > div > hr,
 dialog > panel > block > hr {
-    border-width: 1px 0 0 0;
+    border-top: 1px dashed #999999;
 }
 
 dialog > panel > fieldset {

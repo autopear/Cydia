@@ -912,6 +912,7 @@ class Progress :
 - (pkgRecords *) records;
 - (pkgProblemResolver *) resolver;
 - (pkgAcquire &) fetcher;
+- (pkgSourceList &) list;
 - (NSArray *) packages;
 - (NSArray *) sources;
 - (void) reloadData;
@@ -971,24 +972,26 @@ class Progress :
 
 @implementation Source
 
+#define _clear(field) \
+    if (field != nil) \
+        [field release]; \
+    field = nil;
+
+- (void) _clear {
+    _clear(uri_)
+    _clear(distribution_)
+    _clear(type_)
+
+    _clear(description_)
+    _clear(label_)
+    _clear(origin_)
+    _clear(version_)
+    _clear(defaultIcon_)
+    _clear(record_)
+}
+
 - (void) dealloc {
-    [uri_ release];
-    [distribution_ release];
-    [type_ release];
-
-    if (description_ != nil)
-        [description_ release];
-    if (label_ != nil)
-        [label_ release];
-    if (origin_ != nil)
-        [origin_ release];
-    if (version_ != nil)
-        [version_ release];
-    if (defaultIcon_ != nil)
-        [defaultIcon_ release];
-    if (record_ != nil)
-        [record_ release];
-
+    [self _clear];
     [super dealloc];
 }
 
@@ -1004,44 +1007,50 @@ class Progress :
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
+- (void) setMetaIndex:(metaIndex *)index {
+    [self _clear];
+
+    trusted_ = index->IsTrusted();
+
+    uri_ = [[NSString stringWithUTF8String:index->GetURI().c_str()] retain];
+    distribution_ = [[NSString stringWithUTF8String:index->GetDist().c_str()] retain];
+    type_ = [[NSString stringWithUTF8String:index->GetType()] retain];
+
+    debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
+    if (dindex != NULL) {
+        std::ifstream release(dindex->MetaIndexFile("Release").c_str());
+        std::string line;
+        while (std::getline(release, line)) {
+            std::string::size_type colon(line.find(':'));
+            if (colon == std::string::npos)
+                continue;
+
+            std::string name(line.substr(0, colon));
+            std::string value(line.substr(colon + 1));
+            while (!value.empty() && value[0] == ' ')
+                value = value.substr(1);
+
+            if (name == "Default-Icon")
+                defaultIcon_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+            else if (name == "Description")
+                description_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+            else if (name == "Label")
+                label_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+            else if (name == "Origin")
+                origin_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+            else if (name == "Version")
+                version_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+        }
+    }
+
+    record_ = [Sources_ objectForKey:[self key]];
+    if (record_ != nil)
+        record_ = [record_ retain];
+}
+
 - (Source *) initWithMetaIndex:(metaIndex *)index {
     if ((self = [super init]) != nil) {
-        trusted_ = index->IsTrusted();
-
-        uri_ = [[NSString stringWithUTF8String:index->GetURI().c_str()] retain];
-        distribution_ = [[NSString stringWithUTF8String:index->GetDist().c_str()] retain];
-        type_ = [[NSString stringWithUTF8String:index->GetType()] retain];
-
-        debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
-        if (dindex != NULL) {
-            std::ifstream release(dindex->MetaIndexFile("Release").c_str());
-            std::string line;
-            while (std::getline(release, line)) {
-                std::string::size_type colon(line.find(':'));
-                if (colon == std::string::npos)
-                    continue;
-
-                std::string name(line.substr(0, colon));
-                std::string value(line.substr(colon + 1));
-                while (!value.empty() && value[0] == ' ')
-                    value = value.substr(1);
-
-                if (name == "Default-Icon")
-                    defaultIcon_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-                else if (name == "Description")
-                    description_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-                else if (name == "Label")
-                    label_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-                else if (name == "Origin")
-                    origin_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-                else if (name == "Version")
-                    version_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-            }
-        }
-
-        record_ = [Sources_ objectForKey:[self key]];
-        if (record_ != nil)
-            record_ = [record_ retain];
+        [self setMetaIndex:index];
     } return self;
 }
 
@@ -1193,6 +1202,8 @@ class Progress :
 
 - (NSString *) section;
 - (NSString *) simpleSection;
+
+- (NSString *) uri;
 
 - (Address *) maintainer;
 - (size_t) size;
@@ -1500,7 +1511,19 @@ class Progress :
         return Simplify(section);
     else
         return nil;
+}
 
+- (NSString *) uri {
+    return nil;
+#if 0
+    pkgIndexFile *index;
+    pkgCache::PkgFileIterator file(file_.File());
+    if (![database_ list].FindIndex(file, index))
+        return nil;
+    return [NSString stringWithUTF8String:iterator_->Path];
+    //return [NSString stringWithUTF8String:file.Site()];
+    //return [NSString stringWithUTF8String:index->ArchiveURI(file.FileName()).c_str()];
+#endif
 }
 
 - (Address *) maintainer {
@@ -2240,6 +2263,10 @@ static NSArray *Finishes_;
     return *fetcher_;
 }
 
+- (pkgSourceList &) list {
+    return *list_;
+}
+
 - (NSArray *) packages {
     return packages_;
 }
@@ -2466,7 +2493,9 @@ static NSArray *Finishes_;
         failed = true;
 
         [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
-            withObject:[NSArray arrayWithObjects:[NSString stringWithUTF8String:error.c_str()], nil]
+            withObject:[NSArray arrayWithObjects:
+                [NSString stringWithUTF8String:error.c_str()],
+            nil]
             waitUntilDone:YES
         ];
     }
@@ -3102,7 +3131,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context([sheet context]);
 
-    if ([context isEqualToString:@"conffile"]) {
+    if ([context isEqualToString:@"error"])
+        [sheet dismiss];
+    else if ([context isEqualToString:@"conffile"]) {
         FILE *input = [database_ input];
 
         switch (button) {
@@ -3996,17 +4027,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface PackageTable : RVPage {
     _transient Database *database_;
     NSString *title_;
-    SEL filter_;
-    id object_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
     UISectionList *list_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
+- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title;
 
 - (void) setDelegate:(id)delegate;
-- (void) setObject:(id)object;
 
 - (void) reloadData;
 - (void) resetCursor;
@@ -4023,8 +4051,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ setDataSource:nil];
 
     [title_ release];
-    if (object_ != nil)
-        [object_ release];
     [packages_ release];
     [sections_ release];
     [list_ release];
@@ -4074,12 +4100,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [book_ pushPage:view];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
+- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title {
     if ((self = [super initWithBook:book]) != nil) {
         database_ = database;
         title_ = [title retain];
-        filter_ = filter;
-        object_ = object == nil ? nil : [object retain];
 
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
@@ -4111,13 +4135,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     delegate_ = delegate;
 }
 
-- (void) setObject:(id)object {
-    if (object_ != nil)
-        [object_ release];
-    if (object == nil)
-        object_ = nil;
-    else
-        object_ = [object retain];
+- (bool) hasPackage:(Package *)package {
+    return true;
 }
 
 - (void) reloadData {
@@ -4128,7 +4147,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     for (size_t i(0); i != [packages count]; ++i) {
         Package *package([packages objectAtIndex:i]);
-        if ([package valid] && [[package performSelector:filter_ withObject:object_] boolValue])
+        if ([self hasPackage:package])
             [packages_ addObject:package];
     }
 
@@ -4167,6 +4186,48 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setShouldHideHeaderInShortLists:(BOOL)hide {
     [list_ setShouldHideHeaderInShortLists:hide];
+}
+
+@end
+/* }}} */
+/* Filtered Package Table {{{ */
+@interface FilteredPackageTable : PackageTable {
+    SEL filter_;
+    id object_;
+}
+
+- (void) setObject:(id)object;
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
+
+@end
+
+@implementation FilteredPackageTable
+
+- (void) dealloc {
+    if (object_ != nil)
+        [object_ release];
+    [super dealloc];
+}
+
+- (void) setObject:(id)object {
+    if (object_ != nil)
+        [object_ release];
+    if (object == nil)
+        object_ = nil;
+    else
+        object_ = [object retain];
+}
+
+- (bool) hasPackage:(Package *)package {
+    return [package valid] && [[package performSelector:filter_ withObject:object_] boolValue];
+}
+
+- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
+    if ((self = [super initWithBook:book database:database title:title]) != nil) {
+        filter_ = filter;
+        object_ = object == nil ? nil : [object retain];
+    } return self;
 }
 
 @end
@@ -4365,7 +4426,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     Source *source = [sources_ objectAtIndex:row];
 
-    PackageTable *packages = [[[PackageTable alloc]
+    PackageTable *packages = [[[FilteredPackageTable alloc]
         initWithBook:book_
         database:database_
         title:[source label]
@@ -4637,7 +4698,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Installed View {{{ */
 @interface InstalledView : RVPage {
     _transient Database *database_;
-    PackageTable *packages_;
+    FilteredPackageTable *packages_;
     BOOL expert_;
 }
 
@@ -4656,7 +4717,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithBook:book]) != nil) {
         database_ = database;
 
-        packages_ = [[PackageTable alloc]
+        packages_ = [[FilteredPackageTable alloc]
             initWithBook:book
             database:database
             title:nil
@@ -5183,8 +5244,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Install View {{{ */
-@interface InstallView : RVPage {
+/* Sections View {{{ */
+@interface SectionsView : RVPage {
     _transient Database *database_;
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
@@ -5200,7 +5261,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation InstallView
+@implementation SectionsView
 
 - (void) dealloc {
     [list_ setDataSource:nil];
@@ -5265,7 +5326,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
     }
 
-    PackageTable *table = [[[PackageTable alloc]
+    PackageTable *table = [[[FilteredPackageTable alloc]
         initWithBook:book_
         database:database_
         title:title
@@ -5617,7 +5678,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIView *accessory_;
     UISearchField *field_;
     UITransitionView *transition_;
-    PackageTable *table_;
+    FilteredPackageTable *table_;
     UIPreferencesTable *advanced_;
     UIView *dimmed_;
     bool flipped_;
@@ -5748,7 +5809,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGColor dimmed(space_, 0, 0, 0, 0.5);
         [dimmed_ setBackgroundColor:[UIColor colorWithCGColor:dimmed]];
 
-        table_ = [[PackageTable alloc]
+        table_ = [[FilteredPackageTable alloc]
             initWithBook:book
             database:database
             title:nil
@@ -6123,7 +6184,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIKeyboard *keyboard_;
     UIProgressHUD *hud_;
 
-    InstallView *install_;
+    SectionsView *sections_;
     ChangesView *changes_;
     ManageView *manage_;
     SearchView *search_;
@@ -6238,8 +6299,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self _saveConfig];
 
     /* XXX: this is just stupid */
-    if (tag_ != 2 && install_ != nil)
-        [install_ reloadData];
+    if (tag_ != 2 && sections_ != nil)
+        [sections_ reloadData];
     if (tag_ != 3 && changes_ != nil)
         [changes_ reloadData];
     if (tag_ != 5 && search_ != nil)
@@ -6401,12 +6462,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [book_ resetViewAnimated:YES];
         return;
     } else if (tag_ == 2 && tag != 2)
-        [install_ resetView];
+        [sections_ resetView];
 
     switch (tag) {
         case 1: [self _setHomePage]; break;
 
-        case 2: [self setPage:install_]; break;
+        case 2: [self setPage:sections_]; break;
         case 3: [self setPage:changes_]; break;
         case 4: [self setPage:manage_]; break;
         case 5: [self setPage:search_]; break;
@@ -6562,7 +6623,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [self reloadData];
 
-    install_ = [[InstallView alloc] initWithBook:book_ database:database_];
+    sections_ = [[SectionsView alloc] initWithBook:book_ database:database_];
     changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
     search_ = [[SearchView alloc] initWithBook:book_ database:database_];
 

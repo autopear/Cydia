@@ -345,7 +345,6 @@ fieldset > textarea {
 fieldset > a > label,
 fieldset > div > label {
     font-weight: bold;
-    padding: 1px 0 0 0;
     position: absolute;
 }
 

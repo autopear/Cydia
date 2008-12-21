@@ -114,7 +114,7 @@ $(function () {
     if (author == null)
         $(".author").remove();
     else {
-        $("#author").html(author.name);
+        space("#author", author.name, 160);
         if (author.address == null)
             $("#author-icon").remove();
         else
@@ -172,7 +172,7 @@ $(function () {
     if (maintainer == null)
         $(".maintainer").remove();
     else {
-        $("#maintainer").html(maintainer.name);
+        space("#maintainer", maintainer.name, 153);
         if (maintainer.address == null)
             $("#maintainer-icon").remove();
         else
@@ -183,7 +183,7 @@ $(function () {
     if (sponsor == null)
         $(".sponsor").remove();
     else {
-        $("#sponsor").html(sponsor.name);
+        space("#sponsor", sponsor.name, 152);
         $("#sponsor-href").href(sponsor.address);
     }
 

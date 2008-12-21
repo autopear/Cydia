@@ -262,7 +262,7 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define ForSaurik (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
@@ -1582,10 +1582,12 @@ class Progress :
 - (BOOL) upgradableAndEssential:(BOOL)essential {
     pkgCache::VerIterator current = iterator_.CurrentVer();
 
+    bool value;
     if (current.end())
-        return essential && [self essential];
+        value = essential && [self essential];
     else
-        return !version_.end() && version_ != current;
+        value = !version_.end() && version_ != current && (!essential || ![database_ cache][iterator_].Keep());
+    return value;
 }
 
 - (BOOL) essential {
@@ -1921,9 +1923,10 @@ class Progress :
         } bits;
     } value;
 
-    value.bits.upgradable = [self upgradableAndEssential:YES] ? 1 : 0;
+    bool upgradable([self upgradableAndEssential:YES]);
+    value.bits.upgradable = upgradable ? 1 : 0;
 
-    if ([self upgradableAndEssential:YES]) {
+    if (upgradable) {
         value.bits.timestamp = 0;
         value.bits.ignored = [self ignored] ? 0 : 1;
         value.bits.upgradable = 1;

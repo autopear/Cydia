@@ -71,7 +71,7 @@ $(function () {
         for (var i = 0; i != length; ++i) {
             var clone = child.clone(true);
             parent.append(clone);
-            clone.xpath("label").html($.xml(warnings[i]));
+            clone.xpath("div/label").html($.xml(warnings[i]));
         }
     }
 

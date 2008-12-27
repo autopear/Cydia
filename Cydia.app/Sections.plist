@@ -3,6 +3,12 @@
 <plist version="1.0">
 
 <dict>
+    <key>Themes_(Springboard)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(SpringBoard)</string>
+    </dict>
+
     <key>Themes_(SummerBoard)</key>
     <dict>
         <key>Rename</key>

@@ -194,7 +194,7 @@ dialog > panel > block > hr {
 dialog > panel > fieldset {
     background-color: #ffffff;
     border: 1px solid #999999;
-    -webkit-border-radius: 10px;
+    -webkit-border-radius: 9px;
     font-size: 16px;
     margin: 9px;
 }
@@ -217,7 +217,7 @@ dialog > panel > input[type="submit"] {
 
 dialog > panel > label {
     display: block;
-    margin: 13px 0 -4px 27px;
+    margin: 13px 0 -4px 24px;
     line-height: 24px;
     font-size: inherit;
     font-weight: bold;
@@ -229,8 +229,9 @@ fieldset > a,
 fieldset > div,
 fieldset > textarea {
     border-top: 1px solid #999999;
-    min-height: 40px;
-    padding: 12px 17px 11px 17px;
+    min-height: 42px;
+    /* XXX: small differences due to font bugs */
+    padding: 13px 14px 11px 14px;
 }
 
 fieldset > a:first-child,
@@ -241,7 +242,8 @@ fieldset > div:first-child {
 fieldset > a img.icon,
 fieldset > div img.icon {
     height: auto;
-    margin: -13px 5px -10px -10px;
+    /* XXX: small differences due to font bugs */
+    margin: -7px 6px -9px -8px;
     max-height: 30px;
     min-width: 30px;
     width: 30px;
@@ -288,7 +290,14 @@ fieldset > div > select {
 fieldset > a,
 fieldset > div > select {
     background: no-repeat url(chevron.png);
+}
+
+fieldset > a {
     background-position-y: 13px;
+}
+
+fieldset > div > select {
+    background-position-y: 11px;
 }
 
 dialog > fieldset > a {
@@ -304,14 +313,14 @@ dialog > fieldset > div > select {
 }
 
 dialog > panel > fieldset > div > select {
-    background-position-x: 172px;
+    background-position-x: 163px;
 }
 
 fieldset > textarea,
 fieldset > div > input,
 fieldset > div > select,
-fieldset > a > label + div,
-fieldset > div > label + div {
+fieldset > a > div > label + div,
+fieldset > div > div > label + div {
     color: #193250;
 }
 
@@ -321,11 +330,17 @@ fieldset > div > select {
     font-size: 16px;
 }
 
+fieldset > div > input {
+    padding-left: 7px;
+    padding-right: 14px;
+}
+
 fieldset > div > select,
 fieldset > div > input {
     border: none;
-    height: 44px;
-    margin: -13px -17px -13px 86px;
+    float: right;
+    height: 40px;
+    margin: -11px -13px -11px -14px;
 }
 
 dialog > panel > fieldset > div > select,
@@ -338,32 +353,46 @@ dialog > fieldset > div > input {
     width: 207px;
 }
 
-fieldset > div > input {
-    padding: 13px 7px;
-}
-
 fieldset > textarea {
     padding: 10px;
     width: 320px;
 }
 
+fieldset > div > div,
+fieldset > a > div {
+    display: inline-block;
+}
+
+fieldset > div > div {
+    width: 273px;
+}
+
+fieldset > a > div {
+    width: 250px;
+}
+
+fieldset > div > img.icon + div {
+    width: 244px;
+}
+
+fieldset > a > img.icon + div {
+    width: 221px;
+}
+
 fieldset > a > label,
-fieldset > div > label {
+fieldset > a > div > label,
+fieldset > div > label,
+fieldset > div > div > label {
     font-weight: bold;
-    position: absolute;
 }
 
-fieldset > a > label + div {
-    margin-right: 16px;
-}
-
-dialog > fieldset > a > label + div,
-dialog > fieldset > div > label + div {
+dialog > fieldset > a > div > label + div,
+dialog > fieldset > div > div > label + div {
     margin-left: 94px;
 }
 
-dialog > panel > fieldset > a > label + div,
-dialog > panel > fieldset > div > label + div {
+dialog > panel > fieldset > a > div > label + div,
+dialog > panel > fieldset > div > div > label + div {
     float: right;
     text-align: right;
 }

@@ -268,6 +268,11 @@ extern NSString * const kCAFilterNearest;
 #define RecycleWebViews 0
 #define AlwaysReload (1 && !ForRelease)
 
+#if ForRelease
+#undef _trace
+#define _trace(args...)
+#endif
+
 /* Radix Sort {{{ */
 @interface NSMutableArray (Radix)
 - (void) radixSortUsingSelector:(SEL)selector withObject:(id)object;
@@ -1609,7 +1614,7 @@ class Progress :
     if (current.end())
         value = essential && [self essential];
     else
-        value = !version_.end() && version_ != current && (!essential || ![database_ cache][iterator_].Keep());
+        value = !version_.end() && version_ != current;// && (!essential || ![database_ cache][iterator_].Keep());
     return value;
 }
 
@@ -1698,12 +1703,14 @@ class Progress :
     NSString *section = [self simpleSection];
 
     UIImage *icon(nil);
-    if (NSString *icon = icon_)
-        icon = [UIImage imageAtPath:[icon_ substringFromIndex:6]];
+    if (icon_ != nil)
+        if ([icon_ hasPrefix:@"file:///"])
+            icon = [UIImage imageAtPath:[icon_ substringFromIndex:7]];
     if (icon == nil) if (section != nil)
         icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
-    if (icon == nil) if (source_ != nil) if (NSString *icon = [source_ defaultIcon])
-        icon = [UIImage imageAtPath:[icon substringFromIndex:6]];
+    if (icon == nil) if (source_ != nil) if (NSString *dicon = [source_ defaultIcon])
+        if ([dicon hasPrefix:@"file:///"])
+            icon = [UIImage imageAtPath:[dicon substringFromIndex:7]];
     if (icon == nil)
         icon = [UIImage applicationImageNamed:@"unknown.png"];
     return icon;
@@ -4124,7 +4131,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [table setReusesTableCells:YES];
 
         [self addSubview:list_];
-        [self reloadData];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
@@ -4227,6 +4233,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithBook:book database:database title:title]) != nil) {
         filter_ = filter;
         object_ = object == nil ? nil : [object retain];
+
+        [self reloadData];
     } return self;
 }
 
@@ -5171,12 +5179,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _returnPNGWithImage:(UIImage *)icon forRequest:(NSURLRequest *)request {
     id<NSURLProtocolClient> client([self client]);
-    NSData *data(UIImagePNGRepresentation(icon));
+    if (icon == nil)
+        [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil]];
+    else {
+        NSData *data(UIImagePNGRepresentation(icon));
 
-    NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-    [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
-    [client URLProtocol:self didLoadData:data];
-    [client URLProtocolDidFinishLoading:self];
+        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+        [client URLProtocol:self didLoadData:data];
+        [client URLProtocolDidFinishLoading:self];
+    }
 }
 
 - (void) startLoading {
@@ -5587,7 +5599,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         if (
             [package installed] == nil && [package valid] && [package visible] ||
-            [package upgradableAndEssential:NO]
+            [package upgradableAndEssential:YES]
         )
             [packages_ addObject:package];
     }
@@ -7081,8 +7093,8 @@ int main(int argc, char *argv[]) { _pooled
         Indices_ = [[NSMutableDictionary alloc] init];*/
 
     Indices_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@", @"Rating",
-        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/repotag/@", @"RepoTag",
+        //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@", @"Rating",
+        //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/repotag/@", @"RepoTag",
     nil];
 
     if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)

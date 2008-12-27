@@ -43,10 +43,10 @@ $(function () {
             var type = entry[0];
             if (type == "PreDepends")
                 type = "Depends";
-            $("#i" + i).append("<div>" +
+            $("#i" + i).append("<div><div>" +
                 "<label>" + type + "</label>" +
                 "<div>" + entry[1] + " " + entry[3] + "</div>" +
-            "</div>");
+            "</div></div>");
         }
     }
 
@@ -63,10 +63,10 @@ $(function () {
         var length = list.length;
 
         if (length != 0) {
-            $("#modifications").append("<div class=\"clearfix\">" +
+            $("#modifications").append("<div class=\"clearfix\"><div>" +
                 "<label>" + keys[i] + "</label>" +
                 "<div id=\"c" + i + "\"></div>" +
-            "</div>");
+            "</div></div>");
 
             var value = "";
             for (var j = 0; j != length; ++j) {

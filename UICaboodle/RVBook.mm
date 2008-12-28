@@ -220,15 +220,19 @@
     [navitem setTitle:title];
 }
 
-- (NSString *) _leftButtonTitleForPage:(RVPage *)page {
-    return [page leftButtonTitle];
+- (void) _leftButtonTitle:(NSString *&)leftButtonTitle style:(UINavigationButtonStyle &)leftButtonStyle forPage:(RVPage *)page {
+    leftButtonTitle = [page leftButtonTitle];
+    leftButtonStyle = [page leftButtonStyle];
 }
 
 - (void) reloadButtonsForPage:(RVPage *)page {
     if ([pages_ count] == 0 || page != [pages_ lastObject])
         return;
-    NSString *leftButtonTitle([self _leftButtonTitleForPage:page]);
-    UINavigationButtonStyle leftButtonStyle = [page leftButtonStyle];
+
+    NSString *leftButtonTitle;
+    UINavigationButtonStyle leftButtonStyle;
+    [self _leftButtonTitle:leftButtonTitle style:leftButtonStyle forPage:page];
+
     UINavigationButtonStyle rightButtonStyle = [page rightButtonStyle];
     //[navbar_ showButtonsWithLeftTitle:leftButtonTitle rightTitle:[page rightButtonTitle] leftBack:(leftButtonTitle == nil)];
 
@@ -262,9 +266,12 @@
 
 @implementation RVPopUpBook
 
-- (NSString *) _leftButtonTitleForPage:(RVPage *)page {
-    NSString *title([super _leftButtonTitleForPage:page]);
-    return (cancel_ = title == nil && [pages_ count] == 1) ? @"Cancel" : title;
+- (void) _leftButtonTitle:(NSString *&)leftButtonTitle style:(UINavigationButtonStyle &)leftButtonStyle forPage:(RVPage *)page {
+    [super _leftButtonTitle:leftButtonTitle style:leftButtonStyle forPage:page];
+    if ((cancel_ = leftButtonTitle == nil && [pages_ count] == 1)) {
+        leftButtonTitle = @"Cancel";
+        leftButtonStyle = UINavigationButtonStyleNormal;
+    }
 }
 
 - (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {

@@ -376,7 +376,6 @@
             [delegate_ openURL:url];
         else if ([name isEqualToString:@"_popup"]) {
             RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
-            [book setDelegate:self];
 
             RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
             if (page == nil) {
@@ -384,6 +383,9 @@
                 [browser loadURL:url];
                 page = browser;
             }
+
+            [book setDelegate:delegate_];
+            [page setDelegate:delegate_];
 
             [book setPage:page];
             [book_ pushBook:book];

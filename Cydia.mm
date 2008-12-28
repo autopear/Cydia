@@ -229,7 +229,7 @@ extern NSString * const kCAFilterNearest;
 
 @implementation PopTransitionView
 
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
+- (void) transitionViewDidComplete:(UITransitionView *)view fromView:(UIView *)from toView:(UIView *)to {
     if (from != nil && to == nil)
         [self removeFromSuperview];
 }
@@ -1528,7 +1528,8 @@ class Progress :
     if (file_.end())
         return nil;
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    return [Address addressWithString:[NSString stringWithUTF8String:parser->Maintainer().c_str()]];
+    const std::string &maintainer(parser->Maintainer());
+    return maintainer.empty() ? nil : [Address addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
 }
 
 - (size_t) size {

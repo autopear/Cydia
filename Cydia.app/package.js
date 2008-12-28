@@ -152,7 +152,7 @@ $(function () {
         $("#files-href").href("cydia://files/" + idc);
     }
 
-    space("#id", id, 238);
+    space("#id", id, 220);
 
     var section = package.section;
     if (section == null)

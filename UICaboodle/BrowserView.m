@@ -49,6 +49,123 @@
 - (void) _setLayoutInterval:(float)interval;
 @end
 
+/* Web Scripting {{{ */
+@interface CydiaObject : NSObject {
+    id indirect_;
+}
+
+- (id) initWithDelegate:(IndirectDelegate *)indirect;
+@end
+
+@implementation CydiaObject
+
+- (void) dealloc {
+    [indirect_ release];
+    [super dealloc];
+}
+
+- (id) initWithDelegate:(IndirectDelegate *)indirect {
+    if ((self = [super init]) != nil) {
+        indirect_ = [indirect retain];
+    } return self;
+}
+
++ (NSString *) webScriptNameForSelector:(SEL)selector {
+    if (selector == @selector(getPackageById:))
+        return @"getPackageById";
+    else if (selector == @selector(setButtonImage:withStyle:toFunction:))
+        return @"setButtonImage";
+    else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
+        return @"setButtonTitle";
+    else if (selector == @selector(supports:))
+        return @"supports";
+    else if (selector == @selector(du:))
+        return @"du";
+    else if (selector == @selector(statfs:))
+        return @"statfs";
+    else
+        return nil;
+}
+
++ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
+    return [self webScriptNameForSelector:selector] == nil;
+}
+
+- (BOOL) supports:(NSString *)feature {
+    return [feature isEqualToString:@"window.open"];
+}
+
+- (Package *) getPackageById:(NSString *)id {
+    return [[Database sharedInstance] packageWithName:id];
+}
+
+- (NSArray *) statfs:(NSString *)path {
+    struct statfs stat;
+
+    if (path == nil || statfs([path UTF8String], &stat) == -1)
+        return nil;
+
+    return [NSArray arrayWithObjects:
+        [NSNumber numberWithUnsignedLong:stat.f_bsize],
+        [NSNumber numberWithUnsignedLong:stat.f_blocks],
+        [NSNumber numberWithUnsignedLong:stat.f_bfree],
+    nil];
+}
+
+- (NSNumber *) du:(NSString *)path {
+    NSNumber *value(nil);
+
+    int fds[2];
+    _assert(pipe(fds) != -1);
+
+    pid_t pid(ExecFork());
+    if (pid == 0) {
+        _assert(dup2(fds[1], 1) != -1);
+        _assert(close(fds[0]) != -1);
+        _assert(close(fds[1]) != -1);
+        execlp("du", "du", "-s", [path UTF8String], NULL);
+        exit(1);
+        _assert(false);
+    }
+
+    _assert(close(fds[1]) != -1);
+
+    if (FILE *du = fdopen(fds[0], "r")) {
+        char line[1024];
+        while (fgets(line, sizeof(line), du) != NULL) {
+            size_t length(strlen(line));
+            while (length != 0 && line[length - 1] == '\n')
+                line[--length] = '\0';
+            if (char *tab = strchr(line, '\t')) {
+                *tab = '\0';
+                value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
+            }
+        }
+
+        fclose(du);
+    } else _assert(close(fds[0]));
+
+    int status;
+  wait:
+    if (waitpid(pid, &status, 0) == -1)
+        if (errno == EINTR)
+            goto wait;
+        else _assert(false);
+
+    return value;
+}
+
+- (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
+    [indirect_ setButtonImage:button withStyle:style toFunction:function];
+}
+
+- (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
+    [indirect_ setButtonTitle:button withStyle:style toFunction:function];
+}
+
+@end
+/* }}} */
+
 @implementation BrowserView
 
 #if ForSaurik
@@ -89,6 +206,8 @@
 
     [indirect_ setDelegate:nil];
     [indirect_ release];
+
+    [cydia_ release];
 
     [scroller_ setDelegate:nil];
 
@@ -235,92 +354,6 @@
     return [confirm boolValue];
 }
 
-/* Web Scripting {{{ */
-+ (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (selector == @selector(getPackageById:))
-        return @"getPackageById";
-    else if (selector == @selector(setButtonImage:withStyle:toFunction:))
-        return @"setButtonImage";
-    else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
-        return @"setButtonTitle";
-    else if (selector == @selector(supports:))
-        return @"supports";
-    else if (selector == @selector(du:))
-        return @"du";
-    else if (selector == @selector(statfs:))
-        return @"statfs";
-    else
-        return nil;
-}
-
-+ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
-    return [self webScriptNameForSelector:selector] == nil;
-}
-
-- (BOOL) supports:(NSString *)feature {
-    return [feature isEqualToString:@"window.open"];
-}
-
-- (Package *) getPackageById:(NSString *)id {
-    return [[Database sharedInstance] packageWithName:id];
-}
-
-- (NSArray *) statfs:(NSString *)path {
-    struct statfs stat;
-
-    if (path == nil || statfs([path UTF8String], &stat) == -1)
-        return nil;
-
-    return [NSArray arrayWithObjects:
-        [NSNumber numberWithUnsignedLong:stat.f_bsize],
-        [NSNumber numberWithUnsignedLong:stat.f_blocks],
-        [NSNumber numberWithUnsignedLong:stat.f_bfree],
-    nil];
-}
-
-- (NSNumber *) du:(NSString *)path {
-    NSNumber *value(nil);
-
-    int fds[2];
-    _assert(pipe(fds) != -1);
-
-    pid_t pid(ExecFork());
-    if (pid == 0) {
-        _assert(dup2(fds[1], 1) != -1);
-        _assert(close(fds[0]) != -1);
-        _assert(close(fds[1]) != -1);
-        execlp("du", "du", "-s", [path UTF8String], NULL);
-        exit(1);
-        _assert(false);
-    }
-
-    _assert(close(fds[1]) != -1);
-
-    if (FILE *du = fdopen(fds[0], "r")) {
-        char line[1024];
-        while (fgets(line, sizeof(line), du) != NULL) {
-            size_t length(strlen(line));
-            while (length != 0 && line[length - 1] == '\n')
-                line[--length] = '\0';
-            if (char *tab = strchr(line, '\t')) {
-                *tab = '\0';
-                value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
-            }
-        }
-
-        fclose(du);
-    } else _assert(close(fds[0]));
-
-    int status;
-  wait:
-    if (waitpid(pid, &status, 0) == -1)
-        if (errno == EINTR)
-            goto wait;
-        else _assert(false);
-
-    return value;
-}
-
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     if (button_ != nil)
         [button_ autorelease];
@@ -348,14 +381,13 @@
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 }
-/* }}} */
 
 - (void) webViewClose:(WebView *)sender {
     [book_ close];
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [window setValue:indirect_ forKey:@"cydia"];
+    [window setValue:cydia_ forKey:@"cydia"];
 }
 
 - (void) webView:(WebView *)sender unableToImplementPolicyWithError:(NSError *)error frame:(WebFrame *)frame {
@@ -877,6 +909,7 @@
         [webview setApplicationNameForUserAgent:application];
 
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
+        cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         [webview setFrameLoadDelegate:self];
         [webview setResourceLoadDelegate:indirect_];

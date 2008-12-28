@@ -34,12 +34,14 @@
 
 @class Database;
 @class IndirectDelegate;
+@class CydiaObject;
 
 @interface BrowserView : RVPage {
     UIScroller *scroller_;
     UIWebDocumentView *webview_;
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
+    CydiaObject *cydia_;
     NSURLAuthenticationChallenge *challenge_;
 
     bool error_;

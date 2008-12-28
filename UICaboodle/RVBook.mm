@@ -52,7 +52,6 @@
 
 - (id) createButtonWithContents:(id)contents width:(float)width barStyle:(int)barStyle buttonStyle:(int)style isRight:(BOOL)right {
     float adjust = [contents widthForButtonContents:width];
-    NSLog(@"cc:%@:%g:%g", contents, width, adjust);
     width = adjust;
     return [super createButtonWithContents:contents width:width barStyle:barStyle buttonStyle:style isRight:right];
 }
@@ -63,10 +62,14 @@
 
 - (void) dealloc {
     [navbar_ setDelegate:nil];
+    if (toolbar_ != nil)
+        [toolbar_ setDelegate:nil];
 
     [pages_ release];
     [navbar_ release];
     [transition_ release];
+    if (toolbar_ != nil)
+        [toolbar_ release];
     [super dealloc];
 }
 
@@ -157,6 +160,10 @@
     [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
 }
 
+- (void) pushBook:(RVBook *)book {
+    [delegate_ popUpBook:book];
+}
+
 - (void) popPages:(unsigned)pages {
     if (pages == 0)
         return;
@@ -213,10 +220,14 @@
     [navitem setTitle:title];
 }
 
+- (NSString *) _leftButtonTitleForPage:(RVPage *)page {
+    return [page leftButtonTitle];
+}
+
 - (void) reloadButtonsForPage:(RVPage *)page {
     if ([pages_ count] == 0 || page != [pages_ lastObject])
         return;
-    NSString *leftButtonTitle([page leftButtonTitle]);
+    NSString *leftButtonTitle([self _leftButtonTitleForPage:page]);
     UINavigationButtonStyle leftButtonStyle = [page leftButtonStyle];
     UINavigationButtonStyle rightButtonStyle = [page rightButtonStyle];
     //[navbar_ showButtonsWithLeftTitle:leftButtonTitle rightTitle:[page rightButtonTitle] leftBack:(leftButtonTitle == nil)];
@@ -242,6 +253,29 @@
 
 - (CGRect) pageBounds {
     return [transition_ bounds];
+}
+
+- (void) close {
+}
+
+@end
+
+@implementation RVPopUpBook
+
+- (NSString *) _leftButtonTitleForPage:(RVPage *)page {
+    NSString *title([super _leftButtonTitleForPage:page]);
+    return (cancel_ = title == nil && [pages_ count] == 1) ? @"Cancel" : title;
+}
+
+- (void) navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
+    if (button == 1 && cancel_)
+        [self close];
+    else
+        [super navigationBar:navbar buttonClicked:button];
+}
+
+- (void) close {
+    [self popFromSuperviewAnimated:YES];
 }
 
 @end

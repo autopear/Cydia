@@ -236,11 +236,6 @@ extern NSString * const kCAFilterNearest;
 
 @end
 
-@interface UIView (PopUpView)
-- (void) popFromSuperviewAnimated:(BOOL)animated;
-- (void) popSubview:(UIView *)view;
-@end
-
 @implementation UIView (PopUpView)
 
 - (void) popFromSuperviewAnimated:(BOOL)animated {
@@ -622,9 +617,7 @@ static NSString *Home_;
 static BOOL Sounds_Keyboard_;
 
 static BOOL Advanced_;
-#if !ForSaurik
 static BOOL Loaded_;
-#endif
 static BOOL Ignored_;
 
 static UIFont *Font12_;
@@ -4862,43 +4855,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Indirect Delegate {{{ */
-@interface IndirectDelegate : NSProxy {
-    _transient volatile id delegate_;
-}
-
-- (void) setDelegate:(id)delegate;
-- (id) initWithDelegate:(id)delegate;
-@end
-
-@implementation IndirectDelegate
-
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
-- (id) initWithDelegate:(id)delegate {
-    delegate_ = delegate;
-    return self;
-}
-
-- (NSMethodSignature*) methodSignatureForSelector:(SEL)sel {
-    if (delegate_ != nil)
-        if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
-            return sig;
-    // XXX: I fucking hate Apple so very very bad
-    return [NSMethodSignature signatureWithObjCTypes:"v@:"];
-}
-
-- (void) forwardInvocation:(NSInvocation *)inv {
-    SEL sel = [inv selector];
-    if (delegate_ != nil && [delegate_ respondsToSelector:sel])
-        [inv invokeWithTarget:delegate_];
-}
-
-@end
-/* }}} */
-
 #include <BrowserView.m>
 
 /* Cydia Book {{{ */
@@ -6282,17 +6238,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [self updateData];
 
-#if !ForSaurik
+    // XXX: what is this line of code for?
     if ([packages count] == 0);
-    else if (Loaded_)
-#endif
+    else if (Loaded_) loaded:
         [self _loaded];
-#if !ForSaurik
     else {
         Loaded_ = YES;
+
+        if (NSDate *update = [Metadata_ objectForKey:@"LastUpdate"]) {
+            NSTimeInterval interval([update timeIntervalSinceNow]);
+            if (interval <= 0 && interval > -600)
+                goto loaded;
+        }
+
         [book_ update];
     }
-#endif
 
     /*[hud show:NO];
     [hud removeFromSuperview];*/
@@ -6369,17 +6329,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         _error->Discard();
 }
 
+- (void) popUpBook:(RVBook *)book {
+    [underlay_ popSubview:book];
+}
+
+- (CGRect) popUpBounds {
+    return [underlay_ bounds];
+}
+
 - (void) perform {
     [database_ prepare];
 
-    confirm_ = [[RVBook alloc] initWithFrame:[underlay_ bounds]];
+    confirm_ = [[RVBook alloc] initWithFrame:[self popUpBounds]];
     [confirm_ setDelegate:self];
 
     ConfirmationView *page([[[ConfirmationView alloc] initWithBook:confirm_ database:database_] autorelease]);
     [page setDelegate:self];
 
     [confirm_ setPage:page];
-    [underlay_ popSubview:confirm_];
+    [self popUpBook:confirm_];
 }
 
 - (void) installPackage:(Package *)package {

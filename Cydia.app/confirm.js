@@ -34,7 +34,7 @@ $(function () {
         var issue = issues[i];
 
         $("#issues").append(
-            "<label style=\"color: #704d4d\">" + issue[0] + "</label>" +
+            "<label style=\"color: #704d4d\">" + $.xml(issue[0]) + "</label>" +
             "<fieldset style=\"background-color: #dddddd\" class=\"clearfix\" id=\"i" + i + "\"></fieldset>"
         );
 
@@ -44,8 +44,8 @@ $(function () {
             if (type == "PreDepends")
                 type = "Depends";
             $("#i" + i).append("<div><div>" +
-                "<label>" + type + "</label>" +
-                "<div>" + entry[1] + " " + entry[3] + "</div>" +
+                "<label>" + $.xml(type) + "</label>" +
+                "<labe>" + $.xml(entry[1] + " " + entry[3]) + "</label>" +
             "</div></div>");
         }
     }
@@ -64,8 +64,8 @@ $(function () {
 
         if (length != 0) {
             $("#modifications").append("<div class=\"clearfix\"><div>" +
-                "<label>" + keys[i] + "</label>" +
-                "<div id=\"c" + i + "\"></div>" +
+                "<label>" + $.xml(keys[i]) + "</label>" +
+                "<label id=\"c" + i + "\"></label>" +
             "</div></div>");
 
             var value = "";

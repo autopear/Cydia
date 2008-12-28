@@ -1,5 +1,46 @@
 #include <BrowserView.h>
 
+/* Indirect Delegate {{{ */
+@interface IndirectDelegate : NSProxy {
+    _transient volatile id delegate_;
+}
+
+- (void) setDelegate:(id)delegate;
+- (id) initWithDelegate:(id)delegate;
+@end
+
+@implementation IndirectDelegate
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (id) initWithDelegate:(id)delegate {
+    delegate_ = delegate;
+    return self;
+}
+
+- (BOOL) respondsToSelector:(SEL)sel {
+    return delegate_ == nil ? FALSE : [delegate_ respondsToSelector:sel];
+}
+
+- (NSMethodSignature *) methodSignatureForSelector:(SEL)sel {
+    if (delegate_ != nil)
+        if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
+            return sig;
+    // XXX: I fucking hate Apple so very very bad
+    return [NSMethodSignature signatureWithObjCTypes:"v@:"];
+}
+
+- (void) forwardInvocation:(NSInvocation *)inv {
+    SEL sel = [inv selector];
+    if (delegate_ != nil && [delegate_ respondsToSelector:sel])
+        [inv invokeWithTarget:delegate_];
+}
+
+@end
+/* }}} */
+
 @interface WebView (Cydia)
 - (void) setScriptDebugDelegate:(id)delegate;
 - (void) _setFormDelegate:(id)delegate;
@@ -309,8 +350,12 @@
 }
 /* }}} */
 
+- (void) webViewClose:(WebView *)sender {
+    [book_ close];
+}
+
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [window setValue:self forKey:@"cydia"];
+    [window setValue:indirect_ forKey:@"cydia"];
 }
 
 - (void) webView:(WebView *)sender unableToImplementPolicyWithError:(NSError *)error frame:(WebFrame *)frame {
@@ -319,16 +364,30 @@
 
 - (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
     if (NSURL *url = [request URL]) {
-        if (name != nil && [name isEqualToString:@"_open"])
+        if (name == nil) unknown: {
+            NSLog(@"win:%@:%@", url, [action description]);
+            if (![self getSpecial:url]) {
+                NSString *scheme([[url scheme] lowercaseString]);
+                if ([scheme isEqualToString:@"mailto"])
+                    [delegate_ openMailToURL:url];
+                else goto use;
+            }
+        } else if ([name isEqualToString:@"_open"])
             [delegate_ openURL:url];
+        else if ([name isEqualToString:@"_popup"]) {
+            RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
+            [book setDelegate:self];
 
-        NSLog(@"win:%@:%@", url, [action description]);
-        if (![self getSpecial:url]) {
-            NSString *scheme([[url scheme] lowercaseString]);
-            if ([scheme isEqualToString:@"mailto"])
-                [delegate_ openMailToURL:url];
-            else goto use;
-        }
+            RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
+            if (page == nil) {
+                BrowserView *browser([[[BrowserView alloc] initWithBook:book] autorelease]);
+                [browser loadURL:url];
+                page = browser;
+            }
+
+            [book setPage:page];
+            [book_ pushBook:book];
+        } else goto unknown;
 
         [listener ignore];
     } else use:
@@ -359,7 +418,9 @@
             if (request_ != nil)
                 [request_ autorelease];
             request_ = [request retain];
+#if ForSaurik
             NSLog(@"dpn:%@", request_);
+#endif
         }
 
         [listener use];

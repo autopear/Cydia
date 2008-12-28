@@ -89,6 +89,10 @@ body {
     -webkit-user-select: none;
 }
 
+body.white {
+    background-color: #ffffff;
+}
+
 body.pinstripe {
     background: #c7ced5 url(cydia://uikit-image/UIPinstripe.png);
 }
@@ -101,7 +105,6 @@ dialog {
 
 dialog > panel {
     display: block;
-    padding: 1px 0;
 }
 
 a {
@@ -176,7 +179,7 @@ dialog > toolbar > a.forward-button {
 }
 /* }}} */
 /* fieldset {{{ */
-dialog > panel > block {
+panel > block {
     background-color: #c7ced5;
     border-bottom: 1px solid #999999;
     border-top: 1px solid #999999;
@@ -186,12 +189,12 @@ dialog > panel > block {
     padding: 0 10px;
 }
 
-dialog > panel > fieldset > div > hr,
-dialog > panel > block > hr {
+panel > fieldset > div > hr,
+panel > block > hr {
     border-top: 1px dashed #999999;
 }
 
-dialog > panel > fieldset {
+panel > fieldset {
     background-color: #ffffff;
     border: 1px solid #999999;
     -webkit-border-radius: 9px;
@@ -199,7 +202,7 @@ dialog > panel > fieldset {
     margin: 9px;
 }
 
-dialog > panel > input[type="submit"] {
+panel > input[type="submit"] {
     /*-webkit-border-image: url(whiteButton.png) 0 12 0 12;
     -webkit-border-radius: 0;
     border-width: 0px 12px;*/
@@ -215,7 +218,19 @@ dialog > panel > input[type="submit"] {
     width: 302px;
 }
 
-dialog > panel > label {
+list > label {
+    background: #a7b3bc url(cydia://uikit-image/UISectionListHeaderBackground.png);
+    background-repeat: repeat-x no-repeat-y;
+    margin-bottom: 1px;
+    padding: 4px 15px 1px 15px;
+    display: block;
+    color: white;
+    font-size: inherit;
+    font-weight: bold;
+    text-shadow: rgba(0, 0, 0, 0.5) 0px 1px 0;
+}
+
+panel > label {
     display: block;
     margin: 13px 0 -4px 24px;
     line-height: 24px;
@@ -225,22 +240,55 @@ dialog > panel > label {
     text-shadow: rgba(255, 255, 255, 0.75) 1px 1px 0;
 }
 
+panel > fieldset > a:not(:last-child),
+panel > fieldset > div:not(:last-child),
+panel > fieldset > textarea:not(:last-child) {
+    border-bottom: 1px solid #999999;
+}
+
+list > fieldset > a,
+list > fieldset > div,
+list > fieldset > textarea {
+    border-bottom: 1px solid #e0e0e0;
+}
+
 fieldset > a,
 fieldset > div,
 fieldset > textarea {
-    border-top: 1px solid #999999;
     min-height: 42px;
     /* XXX: small differences due to font bugs */
     padding: 13px 14px 11px 14px;
 }
 
-fieldset > a:first-child,
-fieldset > div:first-child {
-    border-top: none;
+panel > fieldset > a.thumb:first-child > div:first-of-type {
+    -webkit-border-top-left-radius: 9px;
 }
 
-fieldset > a img.icon,
-fieldset > div img.icon {
+panel > fieldset > a.thumb:last-child > div:first-of-type {
+    -webkit-border-bottom-left-radius: 9px;
+}
+
+list > fieldset > a.thumb > div:first-of-type {
+    border: 1px solid #e0e0e0;
+}
+
+panel > fieldset > a.thumb > div:first-of-type {
+    border: 1px solid #999999;
+}
+
+fieldset > a.thumb > div:first-of-type {
+    background-repeat: no-repeat;
+    background-position: center center;
+    display: inline-block;
+    height: 64px;
+    /* XXX: small differences due to font bugs */
+    /* XXX: 1px difference due to border stupidity */
+    margin: -14px 7px -12px -15px;
+    width: 64px;
+}
+
+fieldset > a > img.icon,
+fieldset > div > img.icon {
     height: auto;
     /* XXX: small differences due to font bugs */
     margin: -7px 6px -9px -8px;
@@ -296,31 +344,35 @@ fieldset > a {
     background-position-y: 13px;
 }
 
+fieldset > a.thumb {
+    background-position-y: 24px; 
+}
+
 fieldset > div > select {
     background-position-y: 11px;
 }
 
-dialog > fieldset > a {
+list > fieldset > a {
     background-position-x: 295px;
 }
 
-dialog > panel > fieldset > a {
+panel > fieldset > a {
     background-position-x: 275px;
 }
 
-dialog > fieldset > div > select {
+list > fieldset > div > select {
     background-position-x: 192px;
 }
 
-dialog > panel > fieldset > div > select {
+panel > fieldset > div > select {
     background-position-x: 163px;
 }
 
 fieldset > textarea,
 fieldset > div > input,
 fieldset > div > select,
-fieldset > a > div > label + div,
-fieldset > div > div > label + div {
+fieldset > a > div > label:nth-of-type(2),
+fieldset > div > div > label:nth-of-type(2) {
     color: #193250;
 }
 
@@ -343,13 +395,13 @@ fieldset > div > input {
     margin: -11px -13px -11px -14px;
 }
 
-dialog > panel > fieldset > div > select,
-dialog > panel > fieldset > div > input {
+panel > fieldset > div > select,
+panel > fieldset > div > input {
     width: 187px;
 }
 
-dialog > fieldset > div > select,
-dialog > fieldset > div > input {
+list > fieldset > div > select,
+list > fieldset > div > input {
     width: 207px;
 }
 
@@ -379,28 +431,63 @@ fieldset > a > img.icon + div {
     width: 221px;
 }
 
-fieldset > a > label,
-fieldset > a > div > label,
-fieldset > div > label,
-fieldset > div > div > label {
+fieldset > a.thumb > div:nth-of-type(2) > label:only-of-type {
+    position: relative;
+    top: 10px;
+}
+
+fieldset > a.thumb > div:nth-of-type(2) > label:nth-of-type(2) {
+    display: block;
+    margin-top: 2px;
+}
+
+fieldset > a.thumb > div:nth-of-type(2) {
+    vertical-align: top;
+    width: 193px;
+}
+
+fieldset > a > label:first-of-type,
+fieldset > a > div > label:first-of-type,
+fieldset > div > label:first-of-type,
+fieldset > div > div > label:first-of-type {
     font-weight: bold;
 }
 
-dialog > fieldset > a > div > label + div,
-dialog > fieldset > div > div > label + div {
+list > fieldset > a:not(.thumb) > div > label:nth-of-type(2),
+list > fieldset > div > div > label:nth-of-type(2) {
     margin-left: 94px;
 }
 
-dialog > panel > fieldset > a > div > label + div,
-dialog > panel > fieldset > div > div > label + div {
+panel > fieldset > a:not(.thumb) > div > label:nth-of-type(2),
+panel > fieldset > div > div > label:nth-of-type(2) {
     float: right;
     text-align: right;
 }
 
-dialog > panel > img {
+panel > img {
     display: block;
     margin: 9px auto 4px auto;
     height: auto;
     width: 300px;
+}
+
+fieldset > a.thumb:first-child > back {
+    -webkit-border-top-right-radius: 9px;
+}
+
+fieldset > a.thumb:last-child > back {
+    -webkit-border-bottom-right-radius: 9px;
+}
+
+fieldset > a.thumb > back {
+    background-repeat: no-repeat;
+    border: 1px solid #999999;
+    display: block;
+    height: 64px;
+    left: 62px;
+    position: absolute;
+    opacity: 0.2;
+    top: -1px;
+    width: 237px;
 }
 /* }}} */

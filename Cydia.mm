@@ -257,7 +257,7 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define ForSaurik (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
@@ -6976,6 +6976,7 @@ id Dealloc_(id self, SEL selector) {
 }*/
 
 int main(int argc, char *argv[]) { _pooled
+    _trace();
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
 
     bool substrate(false);
@@ -7062,11 +7063,15 @@ int main(int argc, char *argv[]) { _pooled
         Indices_ = [[NSMutableDictionary alloc] init];*/
 
     Indices_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/server/rating/@", @"Rating",
+        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/rating/@", @"Rating",
         //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/repotag/@", @"RepoTag",
     nil];
 
-    if ((Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]) == NULL)
+    _trace();
+    Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"];
+    _trace();
+
+    if (Metadata_ == NULL)
         Metadata_ = [[NSMutableDictionary alloc] initWithCapacity:2];
     else {
         Settings_ = [Metadata_ objectForKey:@"Settings"];
@@ -7103,8 +7108,11 @@ int main(int argc, char *argv[]) { _pooled
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 
-    if (access("/User", F_OK) != 0)
+    if (access("/User", F_OK) != 0) {
+        _trace();
         system("/usr/libexec/cydia/firmware.sh");
+        _trace();
+    }
 
     _assert([[NSFileManager defaultManager]
         createDirectoryAtPath:@"/var/cache/apt/archives/partial"
@@ -7129,6 +7137,7 @@ int main(int argc, char *argv[]) { _pooled
     UIApplicationUseLegacyEvents(YES);
     UIKeyboardDisableAutomaticAppearance();
 
+    _trace();
     int value = UIApplicationMain(argc, argv, @"Cydia", @"Cydia");
 
     CGColorSpaceRelease(space_);

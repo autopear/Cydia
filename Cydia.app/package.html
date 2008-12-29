@@ -159,6 +159,7 @@
                 <div id="latest"></div>
 
                 <iframe
+                    onload="rating_()"
                     class="rating"
                     id="rating"
                     frameborder="0"
@@ -226,7 +227,7 @@
     width="320"
     height="0"
     target="_top"
-    onLoad_="loaded()"
+    onload_="loaded()"
 ></iframe></div>
 
 <!--hr id="lower-bar" class="depiction"/-->
@@ -244,7 +245,7 @@
 <fieldset class="installed">
     <div>
         <img class="icon" src="version.png"/><div>
-        <label>&nbsp;</label>
+        <label>Version</label>
         <label id="installed"></label>
     </div></div>
 

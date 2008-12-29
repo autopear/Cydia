@@ -466,14 +466,19 @@ $.xhr = function (url, method, headers, data, events) {
         events = {};
 
     xhr.onreadystatechange = function () {
+        console.log(xhr.readyState);
         if (xhr.readyState == 4) {
             var status = xhr.status;
             var text = xhr.responseText;
             if (events.response != null)
                 events.response(status, text);
-            if (events.success != null)
-                if (status == 200)
+            if (status == 200) {
+                if (events.success != null)
                     events.success(text);
+            } else {
+                if (events.failure != null)
+                    events.failure(status);
+            }
         }
     };
 

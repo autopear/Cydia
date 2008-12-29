@@ -34,6 +34,35 @@ function space(selector, html, max) {
     }
 }
 
+var rated = 0;
+
+var rating = function () {
+    var rating = package.rating;
+    if (rating == null)
+        $(".rating").remove();
+    else {
+        rating = 'fail.html';
+        $.xhr('_' + rating, 'GET', {}, null, {
+            success: function (value) {
+                document.getElementById("rating").contentWindow.document.write(value);
+            },
+
+            failure: function (status) {
+                $(".rating").remove();
+            }
+        });
+    }
+};
+
+var rating_ = function() {
+    if (rated == 0)
+        rated = 1;
+    else if (rated == 1) {
+        rating();
+        rated = -1;
+    }
+};
+
 $(function () {
     var id = package.id;
     var idc = encodeURIComponent(id);
@@ -46,16 +75,7 @@ $(function () {
     $("#name").html(name);
     space("#latest", package.latest, 93);
 
-    var rating = package.rating;
-    if (rating == null)
-        $(".rating").remove();
-    else {
-        $.xhr(rating, 'GET', {}, null, {
-            success: function (value) {
-                document.getElementById("rating").contentWindow.document.write(value);
-            }
-        });
-    }
+    rating_();
 
     $("#settings").href("cydia://package-settings/" + idc);
 

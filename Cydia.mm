@@ -1840,7 +1840,7 @@ class Progress :
 
 - (NSString *) rating {
     if (NSString *rating = [Indices_ objectForKey:@"Rating"])
-        return [rating stringByReplacingOccurrencesOfString:@"@P" withString:[id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        return [rating stringByReplacingOccurrencesOfString:@"@" withString:[id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     else
         return nil;
 }

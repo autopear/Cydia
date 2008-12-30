@@ -287,15 +287,6 @@ $.inject({
         }
     },
 
-    display: {
-        get: function (node) {
-            return node.style.display;
-        },
-        set: function (node, value) {
-            node.style.display = value;
-        }
-    },
-
     html: {
         get: function (node) {
             return node.innerHTML;
@@ -466,7 +457,6 @@ $.xhr = function (url, method, headers, data, events) {
         events = {};
 
     xhr.onreadystatechange = function () {
-        console.log(xhr.readyState);
         if (xhr.readyState == 4) {
             var status = xhr.status;
             var text = xhr.responseText;

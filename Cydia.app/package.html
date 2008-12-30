@@ -14,13 +14,11 @@
             if (count++ != 0)
                 return;
             $("#depiction-load").remove();
-            $.each($("#depiction-src"), function (node) {
-                node.style.display = "block";
-            });
+            $("#depiction-src").css("display" "block");
         }
 
         var remove = function() {
-            $(".description").display("block");
+            $(".description").css("display", "block");
             $(".depiction").remove();
         }
     </script>
@@ -74,15 +72,18 @@
 
         #boundry {
             float: left;
-            width: 60px;
+            width: 64px;
         }
 
         #icon {
-            height: 59px;
-            max-width: 60px;
-            width: auto;
+            background-position: center center;
+            background-repeat: no-repeat;
+            -webkit-border-radius: 9px;
+            height: 64px;
+            width: 64px;
         }
 
+        /* XXX: this style is out of date */
         #reflection {
             height: 59px;
             max-width: 60px;
@@ -92,7 +93,7 @@
             width: auto;
         }
 
-        #id {
+        #id, #author, #maintainer, #sponsor {
             white-space: nowrap;
         }
 
@@ -103,23 +104,26 @@
 
         #header > div {
             padding: 0;
-            margin-left: 2px;
         }
 
         #content {
-            margin: auto 0;
+            padding: 5px;
             position: absolute;
-            left: 72px;
-            width: 237px;
+            left: 77px;
+            width: 232px;
         }
 
         #lower {
-            margin: 10px 5px;
+            margin: 0px 5px;
         }
 
         #name {
-            margin: 7px 5px;
+            margin-bottom: 10px;
             font-weight: bold;
+            font-size: 17px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         #latest {
@@ -127,19 +131,55 @@
             float: left;
         }
 
-        #rating {
-            float: right;
-            margin-top: -7px;
-            width: 130px;
+        a[href].rating {
+            background: 105px 7px no-repeat url(menes/chevron.png);
         }
 
-        #description {
-            background-color: #c7ced5;
-            border-bottom: 1px solid #999999;
-            border-top: 1px solid #999999;
-            font-size: 16px;
-            margin: 9px 10px;
-            padding: 10px;
+        .rating {
+            /*border: 1px solid #999999;*/
+            -webkit-border-radius: 6px;
+            padding: 7px 7px;
+            margin: -7px 0px;
+            float: right;
+            width: 124px;
+        }
+
+        .rating .back,
+        .rating .fore,
+        .rating .star {
+            background: url(star.png);
+            height: 16px;
+        }
+
+        .rating .back,
+        .rating .fore {
+            width: 80px;
+        }
+
+        .rating .star {
+            display: inline-block;
+            width: 16px;
+        }
+
+        .rating .back {
+            opacity: 0.2;
+        }
+
+        .rating .fore {
+            /*border-right: 1px solid #999999;*/
+            position: absolute;
+        }
+    
+        .rating .text {
+            display: inline-block;
+            color: #4d4d70;
+            margin: 0 6px;
+            vertical-align: top;
+        }
+
+        #rating-none,
+        #rating-done {
+            display: none;
         }
     </style>
 </head><body class="pinstripe">
@@ -148,26 +188,22 @@
 <fieldset id="header">
     <div class="clearfix">
         <div id="boundry">
-            <img id="icon"/>
+            <div id="icon"></div>
             <!--img id="reflection"/-->
         </div>
 
         <div id="content">
             <div id="name"></div>
+            <div id="latest"></div>
 
-            <div id="lower">
-                <div id="latest"></div>
-
-                <iframe
-                    onload="rating_()"
-                    class="rating"
-                    id="rating"
-                    frameborder="0"
-                    height="0"
-                    target="_top"
-                    src="loading.html"
-                ></iframe>
-            </div>
+            <a class="rating" id="rating-href">
+                <div id="rating-none">
+                    <div class="star"></div><div class="text">Not Rated</div>
+                </div><div id="rating-done">
+                    <div class="fore" id="rating-value"></div>
+                    <div class="back"></div>
+                </div>
+            </a>
         </div>
     </div>
 </fieldset>
@@ -232,7 +268,7 @@
 
 <!--hr id="lower-bar" class="depiction"/-->
 
-<div id="description" class="description"></div>
+<block class="description"><p id="description"></p></block>
 
 <fieldset class="description homepage">
     <a class="homepage" id="homepage-href">

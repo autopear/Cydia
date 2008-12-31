@@ -293,9 +293,9 @@
 }
 
 - (void) pushPage:(RVPage *)page {
-    [self setBackButtonTitle:title_];
     [page setDelegate:delegate_];
     [book_ pushPage:page];
+    [self setBackButtonTitle:title_];
 }
 
 - (BOOL) getSpecial:(NSURL *)url {
@@ -786,6 +786,8 @@
 
 - (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
     if ([frame parentFrame] != nil)
+        return;
+    if (reloading_)
         return;
     [self _finishLoading];
 

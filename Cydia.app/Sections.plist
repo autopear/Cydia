@@ -33,6 +33,12 @@
         <string>Carrier_Bundles</string>
     </dict>
 
+    <key>Messageing</key>
+    <dict>
+        <key>Rename</key>
+        <string>Messaging</string>
+    </dict>
+
     <key>Network</key>
     <dict>
         <key>Rename</key>

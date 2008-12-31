@@ -257,7 +257,7 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define ForSaurik (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0

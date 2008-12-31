@@ -63,33 +63,37 @@ $(function () {
     $("#name").html(name);
     space("#latest", package.latest, 96);
 
-    $.xhr(api + 'package/' + idc, 'GET', {}, null, {
+    $.xhr(cache(api + 'package/' + idc), 'GET', {}, null, {
         success: function (value) {
             value = eval(value);
 
-            $("#rating-load").remove();
+            if (typeof value.rating == "undefined")
+                $(".rating").remove();
+            else {
+                $("#rating-load").remove();
+                $("#rating-href").href(value.reviews);
 
-            var href = $("#rating-href");
-            href.href(value.reviews);
+                var none = $("#rating-none");
+                var done = $("#rating-done");
 
-            var none = $("#rating-none");
-            var done = $("#rating-done");
+                if (value.rating == null) {
+                    done.remove();
+                    none.css("display", "block");
+                } else {
+                    none.remove();
+                    done.css("display", "block");
 
-            if (value.rating == null) {
-                done.remove();
-                none.css("display", "block");
-            } else {
-                none.remove();
-                done.css("display", "block");
-
-                $("#rating-value").css('width', 16 * value.rating);
+                    $("#rating-value").css('width', 16 * value.rating);
+                }
             }
 
             if (typeof value.icon != "undefined" && value.icon != null) {
                 var icon = $("#icon");
                 var thumb = $("#thumb");
+
                 icon[0].className = 'flip-180';
                 thumb[0].className = 'flip-360';
+
                 thumb.css("background-image", 'url("' + value.icon + '")');
 
                 setTimeout(function () {

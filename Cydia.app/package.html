@@ -14,7 +14,7 @@
             if (count++ != 0)
                 return;
             $("#depiction-load").remove();
-            $("#depiction-src").css("display" "block");
+            $("#depiction-src").css("display", "block");
         }
 
         var remove = function() {
@@ -24,6 +24,32 @@
     </script>
 
     <style>
+        .flip-180 {
+            -webkit-backface-visibility: hidden;
+            -webkit-transform: rotateY(180deg);
+            -webkit-transition-duration: 2s;
+            -webkit-transition-property: transform;
+        }
+
+        .flip-360 {
+            -webkit-backface-visibility: hidden;
+            -webkit-transform: rotateY(360deg);
+            -webkit-transition-duration: 2s;
+            -webkit-transition-property: transform;
+        }
+
+        .fade-out { 
+            opacity: 0;
+            -webkit-transition-property: opacity;
+            -webkit-transition-duration: 2s;
+        }
+
+        .fade-in { 
+            opacity: 1;
+            -webkit-transition-property: opacity;
+            -webkit-transition-duration: 2s;
+        }
+
         #remove {
             margin-top: 7px;
             text-align: center;
@@ -70,17 +96,23 @@
             color: red;
         }
 
-        #boundry {
+        #boundary {
             float: left;
+            height: 64;
             width: 64px;
         }
 
+        #thumb,
         #icon {
             background-position: center center;
             background-repeat: no-repeat;
-            -webkit-border-radius: 9px;
             height: 64px;
+            position: absolute;
             width: 64px;
+        }
+
+        #thumb {
+            -webkit-border-radius: 9px;
         }
 
         /* XXX: this style is out of date */
@@ -118,7 +150,7 @@
         }
 
         #name {
-            margin-bottom: 10px;
+            margin-bottom: 13px;
             font-weight: bold;
             font-size: 17px;
             overflow: hidden;
@@ -186,9 +218,10 @@
 <dialog><panel>
 
 <fieldset id="header">
-    <div class="clearfix">
-        <div id="boundry">
-            <div id="icon"></div>
+    <div>
+        <div id="boundary">
+            <div class="flip-0" id="icon"></div>
+            <div class="flip-180" id="thumb"></div>
             <!--img id="reflection"/-->
         </div>
 

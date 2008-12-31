@@ -33,13 +33,29 @@ function space(selector, html, max) {
     }
 }
 
+function cache(url) {
+    return url.replace('://', '://ne.edgecastcdn.net/8003A4/');
+}
+
+var swap_, swap = function (on, off, time) {
+    setTimeout(swap_(on, off, time), time);
+};
+
+swap_ = function (on, off, time) {
+    return function () {
+        on.className = 'fade-out';
+        off.className = 'fade-in';
+        swap(off, on, time);
+    };
+};
+
 $(function () {
     var id = package.id;
     var idc = encodeURIComponent(id);
     var name = package.name;
     var regarding = encodeURIComponent("Cydia/APT: " + name);
     var icon = 'cydia://package-icon/' + idc;
-    var icon = 'http://cydia.saurik.com/thumb/net.ispazio.deeptheme.png';
+    var api = 'http://cydia.saurik.com/api/';
 
     $("#icon").css("background-image", 'url("' + icon + '")');
     $("#reflection").src("cydia://package-icon/" + idc);
@@ -47,36 +63,46 @@ $(function () {
     $("#name").html(name);
     space("#latest", package.latest, 96);
 
-    var rating = package.rating;
-    if (rating == null)
-        $(".rating").remove();
-    else {
-        $.xhr(rating, 'GET', {}, null, {
-            success: function (value) {
-                value = eval(value);
+    $.xhr(api + 'package/' + idc, 'GET', {}, null, {
+        success: function (value) {
+            value = eval(value);
 
-                $("#rating-load").remove();
-                $("#rating-href").href(value.reviews);
+            $("#rating-load").remove();
 
-                var none = $("#rating-none");
-                var done = $("#rating-done");
+            var href = $("#rating-href");
+            href.href(value.reviews);
 
-                if (value.rating == null) {
-                    done.remove();
-                    none.css("display", "block");
-                } else {
-                    none.remove();
-                    done.css("display", "block");
+            var none = $("#rating-none");
+            var done = $("#rating-done");
 
-                    $("#rating-value").css('width', 16 * value.rating);
-                }
-            },
+            if (value.rating == null) {
+                done.remove();
+                none.css("display", "block");
+            } else {
+                none.remove();
+                done.css("display", "block");
 
-            failure: function (status) {
-                $(".rating").remove();
+                $("#rating-value").css('width', 16 * value.rating);
             }
-        });
-    }
+
+            if (typeof value.icon != "undefined" && value.icon != null) {
+                var icon = $("#icon");
+                var thumb = $("#thumb");
+                icon[0].className = 'flip-180';
+                thumb[0].className = 'flip-360';
+                thumb.css("background-image", 'url("' + value.icon + '")');
+
+                setTimeout(function () {
+                    icon.css("display", "none");
+                    thumb[0].className = 'flip-0';
+                }, 2000);
+            }
+        },
+
+        failure: function (status) {
+            $(".rating").remove();
+        }
+    });
 
     $("#settings").href("cydia://package-settings/" + idc);
 

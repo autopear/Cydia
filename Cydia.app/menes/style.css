@@ -178,7 +178,7 @@ dialog > toolbar > a.forward-button {
     float: right;
 }
 /* }}} */
-/* fieldset {{{ */
+
 panel > block {
     background-color: #c7ced5;
     border-bottom: 1px solid #999999;
@@ -335,38 +335,36 @@ fieldset > div > select {
     -webkit-appearance: none;
 }
 
-fieldset > a,
+/* Chevrons {{{ */
+
+fieldset > a[href],
 fieldset > div > select {
-    background: no-repeat url(chevron.png);
+    background-repeat: no-repeat;
+    background-image: url(chevron.png);
+    background-position-y: center;
 }
 
-fieldset > a {
-    background-position-y: 13px;
-}
+/* Horizontal */
 
-fieldset > a.thumb {
-    background-position-y: 24px; 
-}
-
-fieldset > div > select {
-    background-position-y: 11px;
-}
-
-list > fieldset > a {
+list > fieldset > a[href] {
     background-position-x: 295px;
 }
 
-panel > fieldset > a {
+panel > fieldset > a[href] {
     background-position-x: 275px;
 }
 
+list > fieldset > a:not([href]) > select,
 list > fieldset > div > select {
     background-position-x: 192px;
 }
 
+panel > fieldset > a:not([href]) > select,
 panel > fieldset > div > select {
     background-position-x: 163px;
 }
+
+/* }}} */
 
 fieldset > textarea,
 fieldset > div > input,
@@ -419,7 +417,7 @@ fieldset > div > div {
     width: 273px;
 }
 
-fieldset > a > div {
+fieldset > a:not(.thumb) > div {
     width: 250px;
 }
 
@@ -490,4 +488,3 @@ fieldset > a.thumb > back {
     top: -1px;
     width: 237px;
 }
-/* }}} */

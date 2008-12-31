@@ -638,7 +638,6 @@ bool reload_;
 
 static NSDictionary *SectionMap_;
 static NSMutableDictionary *Metadata_;
-static NSMutableDictionary *Indices_;
 static _transient NSMutableDictionary *Settings_;
 static _transient NSString *Role_;
 static _transient NSMutableDictionary *Packages_;
@@ -1244,7 +1243,6 @@ class Progress :
 
 - (Source *) source;
 - (NSString *) role;
-- (NSString *) rating;
 
 - (BOOL) matches:(NSString *)text;
 
@@ -1307,7 +1305,7 @@ class Progress :
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"purposes", @"rating", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
+    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"purposes", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -1836,13 +1834,6 @@ class Progress :
 
 - (NSString *) role {
     return role_;
-}
-
-- (NSString *) rating {
-    if (NSString *rating = [Indices_ objectForKey:@"Rating"])
-        return [rating stringByReplacingOccurrencesOfString:@"@" withString:[id_ stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    else
-        return nil;
 }
 
 - (BOOL) matches:(NSString *)text {
@@ -4095,9 +4086,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return;
 
     Package *package = [packages_ objectAtIndex:row];
+    package = [database_ packageWithName:[package id]];
     PackageView *view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
-    [view setDelegate:delegate_];
     [view setPackage:package];
+    [view setDelegate:delegate_];
     [book_ pushPage:view];
 }
 
@@ -7058,14 +7050,6 @@ int main(int argc, char *argv[]) { _pooled
 
     /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
     AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/
-
-    /*if ((Indices_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/indices.plist"]) == NULL)
-        Indices_ = [[NSMutableDictionary alloc] init];*/
-
-    Indices_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        @"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/rating/@", @"Rating",
-        //@"http://"/*"cache.saurik.com/"*/"cydia.saurik.com/repotag/@", @"RepoTag",
-    nil];
 
     _trace();
     Metadata_ = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"];

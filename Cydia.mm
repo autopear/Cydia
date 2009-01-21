@@ -902,8 +902,8 @@ class Progress :
 
   protected:
     virtual void Update() {
-        [delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
-        [delegate_ setProgressPercent:(Percent / 100)];
+        /*[delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
+        [delegate_ setProgressPercent:(Percent / 100)];*/
     }
 
   public:
@@ -917,7 +917,7 @@ class Progress :
     }
 
     virtual void Done() {
-        [delegate_ setProgressPercent:1];
+        //[delegate_ setProgressPercent:1];
     }
 };
 /* }}} */
@@ -3123,6 +3123,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [status_ setCentersHorizontally:YES];
         //[status_ setFont:font];
+        _trace();
 
         output_ = [[UITextView alloc] initWithFrame:CGRectMake(
             10,
@@ -3130,6 +3131,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             bounds.size.width - 20,
             bounds.size.height - navsize.height - 62 - navrect.size.height
         )];
+        _trace();
 
         //[output_ setTextFont:@"Courier New"];
         [output_ setTextSize:12];
@@ -6523,6 +6525,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return;
     }
 
+    _trace();
     overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];
 
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
@@ -6857,6 +6860,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
+    _trace();
     Font12_ = [[UIFont systemFontOfSize:12] retain];
     Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
     Font14_ = [[UIFont systemFontOfSize:14] retain];

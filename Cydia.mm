@@ -172,6 +172,56 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     NSLog(@"%s(%g,%g)+(%g,%g)", fix, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
 }
 
+@interface NSObject (Cydia)
+- (void) yieldToSelector:(SEL)selector withObject:(id)object;
+@end
+
+@implementation NSObject (Cydia)
+
+- (void) doNothing {
+}
+
+- (void) _yieldToContext:(NSArray *)context { _pooled
+    SEL selector(reinterpret_cast<SEL>([[context objectAtIndex:0] pointerValue]));
+    id object([[context objectAtIndex:1] nonretainedObjectValue]);
+    volatile bool &stopped(*reinterpret_cast<bool *>([[context objectAtIndex:2] pointerValue]));
+
+    [self performSelector:selector withObject:object];
+
+    stopped = true;
+
+    [self
+        performSelectorOnMainThread:@selector(doNothing)
+        withObject:nil
+        waitUntilDone:NO
+    ];
+}
+
+- (void) yieldToSelector:(SEL)selector withObject:(id)object {
+    volatile bool stopped(false);
+
+    NSArray *context([NSArray arrayWithObjects:
+        [NSValue valueWithPointer:selector],
+        [NSValue valueWithNonretainedObject:object],
+        [NSValue valueWithPointer:const_cast<bool *>(&stopped)],
+    nil]);
+
+    NSThread *thread([[[NSThread alloc]
+        initWithTarget:self
+        selector:@selector(_yieldToContext:)
+        object:context
+    ] autorelease]);
+
+    [thread start];
+
+    NSRunLoop *loop([NSRunLoop currentRunLoop]);
+    NSDate *future([NSDate distantFuture]);
+
+    while (!stopped && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
+}
+
+@end
+
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions BaseCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch;
 static const NSStringCompareOptions ForcedCompareOptions_ = BaseCompareOptions_;
@@ -759,6 +809,7 @@ bool isSectionVisible(NSString *section) {
 - (void) syncData;
 - (void) askForSettings;
 - (UIProgressHUD *) addProgressHUD;
+- (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 - (RVPage *) pageForPackage:(NSString *)name;
 - (void) openMailToURL:(NSURL *)url;
@@ -1604,7 +1655,7 @@ class Progress :
 
     bool value;
     if (current.end())
-        value = essential && [self essential];
+        value = essential && [self essential] && [self visible];
     else
         value = !version_.end() && version_ != current;// && (!essential || ![database_ cache][iterator_].Keep());
     return value;
@@ -2331,7 +2382,7 @@ static NSArray *Finishes_;
     return issues;
 }
 
-- (void) reloadData {
+- (void) reloadData { _pooled
     _error->Discard();
 
     delete list_;
@@ -2410,6 +2461,9 @@ static NSArray *Finishes_;
     _trace();
     [packages_ sortUsingSelector:@selector(compareByName:)];
     _trace();
+
+    _config->Set("Acquire::http::Timeout", 15);
+    _config->Set("Acquire::http::MaxParallel", 4);
 }
 
 - (void) configure {
@@ -2970,8 +3024,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     SHA1SumValue springlist_;
     SHA1SumValue notifyconf_;
     SHA1SumValue sandplate_;
-    size_t received_;
-    NSTimeInterval last_;
 }
 
 - (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
@@ -3281,9 +3333,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [output_ setText:@""];
     [progress_ setProgress:0];
 
-    received_ = 0;
-    last_ = 0;//[NSDate timeIntervalSinceReferenceDate];
-
     [close_ removeFromSuperview];
     [overlay_ addSubview:progress_];
     [overlay_ addSubview:status_];
@@ -3377,7 +3426,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) startProgress {
-    last_ = [NSDate timeIntervalSinceReferenceDate];
 }
 
 - (void) addProgressOutput:(NSString *)output {
@@ -3389,15 +3437,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) isCancelling:(size_t)received {
-    if (last_ != 0) {
-        NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-        if (received_ != received) {
-            received_ = received;
-            last_ = now;
-        } else if (now - last_ > 30)
-            return true;
-    }
-
     return false;
 }
 
@@ -4463,9 +4502,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         trivial_gz_ == nil
     ) {
         [delegate_ setStatusBarShowsProgress:NO];
+        [delegate_ removeProgressHUD:hud_];
 
-        [hud_ show:NO];
-        [hud_ removeFromSuperview];
         [hud_ autorelease];
         hud_ = nil;
 
@@ -4563,7 +4601,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
                 trivial_ = false;
 
-                hud_ = [delegate_ addProgressHUD];
+                hud_ = [[delegate_ addProgressHUD] retain];
                 [hud_ setText:@"Verifying URL"];
             } break;
 
@@ -4862,8 +4900,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIProgressBar *progress_;
     UINavigationButton *cancel_;
     bool updating_;
-    size_t received_;
-    NSTimeInterval last_;
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database;
@@ -4913,8 +4949,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [prompt_ setText:@"Updating Database"];
     [progress_ setProgress:0];
 
-    received_ = 0;
-    last_ = [NSDate timeIntervalSinceReferenceDate];
     updating_ = true;
     [overlay_ addSubview:cancel_];
 
@@ -5078,12 +5112,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) isCancelling:(size_t)received {
-    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-    if (received_ != received) {
-        received_ = received;
-        last_ = now;
-    } else if (now - last_ > 15)
-        return true;
     return !updating_;
 }
 
@@ -6193,12 +6221,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _reloadData {
-    /*UIProgressHUD *hud = [[UIProgressHUD alloc] initWithWindow:window_];
-    [hud setText:@"Reloading Data"];
-    [overlay_ addSubview:hud];
-    [hud show:YES];*/
+    UIView *block();
 
-    [database_ reloadData];
+    UIProgressHUD *hud([self addProgressHUD]);
+    [hud setText:@"Reloading Data"];
+
+    [database_ yieldToSelector:@selector(reloadData) withObject:nil];
+    _trace();
+
+    [self removeProgressHUD:hud];
 
     size_t changes(0);
 
@@ -6246,9 +6277,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [book_ update];
     }
-
-    /*[hud show:NO];
-    [hud removeFromSuperview];*/
 }
 
 - (void) _saveConfig {
@@ -6476,9 +6504,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) finish {
     if (hud_ != nil) {
         [self setStatusBarShowsProgress:NO];
+        [self removeProgressHUD:hud_];
 
-        [hud_ show:NO];
-        [hud_ removeFromSuperview];
         [hud_ autorelease];
         hud_ = nil;
 
@@ -6724,10 +6751,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UIProgressHUD *) addProgressHUD {
-    UIProgressHUD *hud = [[UIProgressHUD alloc] initWithWindow:window_];
+    UIProgressHUD *hud([[[UIProgressHUD alloc] initWithWindow:window_] autorelease]);
+    [window_ setUserInteractionEnabled:NO];
     [hud show:YES];
-    [underlay_ addSubview:hud];
+    [progress_ addSubview:hud];
     return hud;
+}
+
+- (void) removeProgressHUD:(UIProgressHUD *)hud {
+    [hud show:NO];
+    [hud removeFromSuperview];
+    [window_ setUserInteractionEnabled:YES];
 }
 
 - (void) openMailToURL:(NSURL *)url {
@@ -6867,7 +6901,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ) {
         [self setIdleTimerDisabled:YES];
 
-        hud_ = [self addProgressHUD];
+        hud_ = [[self addProgressHUD] retain];
         [hud_ setText:@"Reorganizing\n\nWill Automatically\nClose When Done"];
 
         [self setStatusBarShowsProgress:YES];

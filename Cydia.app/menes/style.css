@@ -252,31 +252,67 @@ list > fieldset > textarea {
     border-bottom: 1px solid #e0e0e0;
 }
 
-fieldset > a,
+fieldset > a:not([type="ad"]),
 fieldset > div,
 fieldset > textarea {
-    min-height: 42px;
     /* XXX: small differences due to font bugs */
     padding: 13px 14px 11px 14px;
 }
 
-panel > fieldset > a.thumb:first-child > div:first-of-type {
+fieldset > a[type="ad"] {
+    /* XXX: small differences due to font bugs */
+    padding: 4px 4px 2px 5px;
+}
+
+panel > fieldset > a[type="ad"]:first-child > div:first-of-type,
+panel > fieldset > a[type="thumb"]:first-child > div:first-of-type {
     -webkit-border-top-left-radius: 9px;
 }
 
-panel > fieldset > a.thumb:last-child > div:first-of-type {
+panel > fieldset > a[type="ad"]:last-child > div:first-of-type,
+panel > fieldset > a[type="thumb"]:last-child > div:first-of-type {
     -webkit-border-bottom-left-radius: 9px;
 }
 
-list > fieldset > a.thumb > div:first-of-type {
-    border: 1px solid #e0e0e0;
-}
-
-panel > fieldset > a.thumb > div:first-of-type {
+fieldset > a[type="ad"] > div:first-of-type {
     border: 1px solid #999999;
 }
 
-fieldset > a.thumb > div:first-of-type {
+list > fieldset > a[type="thumb"] > div:first-of-type {
+    border: 1px solid #e0e0e0;
+}
+
+panel > fieldset > a[type="thumb"] > div:first-of-type {
+    border: 1px solid #999999;
+}
+
+div[tile] {
+    float: right;
+    height: 30px;
+    width: 30px;
+}
+
+div[tile="app"]   { background-image: url(http://cache.saurik.com/cydia/tile/app.png);   }
+div[tile="call"]  { background-image: url(http://cache.saurik.com/cydia/tile/call.png);  }
+div[tile="map"]   { background-image: url(http://cache.saurik.com/cydia/tile/map.png);   }
+div[tile="media"] { background-image: url(http://cache.saurik.com/cydia/tile/media.png); }
+div[tile="music"] { background-image: url(http://cache.saurik.com/cydia/tile/video.png); }
+div[tile="site"]  { background-image: url(http://cache.saurik.com/cydia/tile/site.png);  }
+
+fieldset > a[type="ad"] > div:first-of-type {
+    background-repeat: no-repeat;
+    background-position: center center;
+    border-right: none;
+    display: inline-block;
+    height: 40px;
+    line-height: 38px;
+    /* XXX: small differences due to font bugs */
+    /* XXX: 1px difference due to border stupidity */
+    margin: -5px 5px -3px -6px;
+    width: 40px;
+}
+
+fieldset > a[type="thumb"] > div:first-of-type {
     background-repeat: no-repeat;
     background-position: center center;
     display: inline-block;
@@ -337,7 +373,7 @@ fieldset > div > select {
 
 /* Chevrons {{{ */
 
-fieldset > a[href],
+fieldset > a[href]:not([type="ad"]),
 fieldset > div > select {
     background-repeat: no-repeat;
     background-image: url(chevron.png);
@@ -417,7 +453,11 @@ fieldset > div > div {
     width: 273px;
 }
 
-fieldset > a:not(.thumb) > div {
+fieldset > a[type="ad"] > div:nth-of-type(2) {
+    width: 218px;
+}
+
+fieldset > a:not([type]) > div {
     width: 250px;
 }
 
@@ -429,17 +469,17 @@ fieldset > a > img.icon + div {
     width: 221px;
 }
 
-fieldset > a.thumb > div:nth-of-type(2) > label:only-of-type {
+fieldset > a[type="thumb"] > div:nth-of-type(2) > label:only-of-type {
     position: relative;
     top: 10px;
 }
 
-fieldset > a.thumb > div:nth-of-type(2) > label:nth-of-type(2) {
+fieldset > a[type="thumb"] > div:nth-of-type(2) > label:nth-of-type(2) {
     display: block;
     margin-top: 2px;
 }
 
-fieldset > a.thumb > div:nth-of-type(2) {
+fieldset > a[type="thumb"] > div:nth-of-type(2) {
     vertical-align: top;
     width: 193px;
 }
@@ -451,12 +491,12 @@ fieldset > div > div > label:first-of-type {
     font-weight: bold;
 }
 
-list > fieldset > a:not(.thumb) > div > label:nth-of-type(2),
+list > fieldset > a:not([type]) > div > label:nth-of-type(2),
 list > fieldset > div > div > label:nth-of-type(2) {
     margin-left: 94px;
 }
 
-panel > fieldset > a:not(.thumb) > div > label:nth-of-type(2),
+panel > fieldset > a:not([type]) > div > label:nth-of-type(2),
 panel > fieldset > div > div > label:nth-of-type(2) {
     float: right;
     text-align: right;
@@ -469,15 +509,61 @@ panel > img {
     width: 300px;
 }
 
-fieldset > a.thumb:first-child > back {
+fieldset > a[type="ad"] {
+}
+
+fieldset > a[type="ad"] > div:nth-of-type(2) {
+    position: relative;
+    vertical-align: top;
+}
+
+fieldset > a[type="ad"] > div > label:nth-of-type(1) {
+    color: #2d2d50;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 15px;
+}
+
+fieldset > a[type="ad"] > div > label:nth-of-type(2) {
+    position: absolute;
+    top: 17px;
+    left: 156px;
+    font-size: 9.5px;
+    font-weight: normal;
+}
+
+fieldset.half > a {
+    background: none;
+    background-position-x: 120px;
+}
+
+fieldset.half > a > img.icon + div {
+    width: 65px;
+}
+
+fieldset.right {
+    float: right;
+    margin-left: 10px;
+}
+
+block + fieldset.right,
+fieldset + fieldset.right {
+    margin-top: 0;
+}
+
+fieldset.half {
+    width: 146px;
+}
+
+fieldset > a[type="thumb"]:first-child > back {
     -webkit-border-top-right-radius: 9px;
 }
 
-fieldset > a.thumb:last-child > back {
+fieldset > a[type="thumb"]:last-child > back {
     -webkit-border-bottom-right-radius: 9px;
 }
 
-fieldset > a.thumb > back {
+fieldset > a[type="thumb"] > back {
     background-repeat: no-repeat;
     border: 1px solid #999999;
     display: block;

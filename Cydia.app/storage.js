@@ -57,6 +57,8 @@ var setup = function (name, root, folders) {
         for (var i = 0; i != folders.length; ++i) {
             var folder = folders[i];
             var usage = cydia.du(folder[1]);
+            if (usage == null)
+                usage = 0;
             var color = colors[i + 2];
             var percent = usage / kb;
             list(legend, color, folder[0], percent);

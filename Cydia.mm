@@ -1574,13 +1574,11 @@ class Progress :
 
         _profile(Package$initWithIterator$Tags)
             if (tags_ != nil)
-                for (int i(0), e([tags_ count]); i != e; ++i) {
-                    NSString *tag = [tags_ objectAtIndex:i];
+                for (NSString *tag in tags_)
                     if ([tag hasPrefix:@"role::"]) {
                         role_ = [[tag substringFromIndex:6] retain];
                         break;
                     }
-                }
         _end
 
         NSString *solid(latest == nil ? installed : latest);
@@ -1705,7 +1703,7 @@ class Progress :
         return nil;
 
     NSCharacterSet *whitespace = [NSCharacterSet whitespaceCharacterSet];
-    for (size_t i(1); i != [lines count]; ++i) {
+    for (size_t i(1), e([lines count]); i != e; ++i) {
         NSString *trim = [[lines objectAtIndex:i] stringByTrimmingCharactersInSet:whitespace];
         [trimmed addObject:trim];
     }
@@ -2991,8 +2989,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         pkgCacheFile &cache([database_ cache]);
         NSArray *packages = [database_ packages];
-        for (size_t i(0), e = [packages count]; i != e; ++i) {
-            Package *package = [packages objectAtIndex:i];
+        for (Package *package in packages) {
             pkgCache::PkgIterator iterator = [package iterator];
             pkgDepCache::StateCache &state(cache[iterator]);
 
@@ -4319,33 +4316,40 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sections_ removeAllObjects];
 
     _profile(PackageTable$reloadData$Filter)
-        for (size_t i(0); i != [packages count]; ++i) {
-            Package *package([packages objectAtIndex:i]);
+        for (Package *package in packages)
             if ([self hasPackage:package])
                 [packages_ addObject:package];
-        }
     _end
 
     Section *section = nil;
 
     _profile(PackageTable$reloadData$Section)
-        for (size_t offset(0); offset != [packages_ count]; ++offset) {
-            Package *package = [packages_ objectAtIndex:offset];
-            unichar index = [package index];
+        for (size_t offset(0), end([packages_ count]); offset != end; ++offset) {
+            Package *package;
+            unichar index;
+
+            _profile(PackageTable$reloadData$Section$Package)
+                package = [packages_ objectAtIndex:offset];
+                index = [package index];
+            _end
 
             if (section == nil || [section index] != index) {
                 _profile(PackageTable$reloadData$Section$Allocate)
                     section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
                 _end
 
-                [sections_ addObject:section];
+                _profile(PackageTable$reloadData$Section$Add)
+                    [sections_ addObject:section];
+                _end
             }
 
             [section addToCount];
         }
     _end
 
-    [list_ reloadData];
+    _profile(PackageTable$reloadData$List)
+        [list_ reloadData];
+    _end
 }
 
 - (NSString *) title {
@@ -5519,8 +5523,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableDictionary *sections = [NSMutableDictionary dictionaryWithCapacity:32];
 
     _trace();
-    for (size_t i(0); i != [packages count]; ++i) {
-        Package *package([packages objectAtIndex:i]);
+    for (Package *package in packages) {
         NSString *name([package section]);
 
         if (name != nil) {
@@ -5544,8 +5547,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
 
     Section *section = nil;
-    for (size_t offset = 0, count = [filtered count]; offset != count; ++offset) {
-        Package *package = [filtered objectAtIndex:offset];
+    for (Package *package in filtered) {
         NSString *name = [package section];
 
         if (section == nil || name != nil && ![[section name] isEqualToString:name]) {
@@ -5720,15 +5722,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sections_ removeAllObjects];
 
     _trace();
-    for (size_t i(0); i != [packages count]; ++i) {
-        Package *package([packages objectAtIndex:i]);
-
+    for (Package *package in packages)
         if (
             [package installed] == nil && [package valid] && [package visible] ||
             [package upgradableAndEssential:YES]
         )
             [packages_ addObject:package];
-    }
 
     _trace();
     [packages_ radixSortUsingSelector:@selector(compareForChanges) withObject:nil];
@@ -6464,8 +6463,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSArray *keys = [Sources_ allKeys];
 
-    for (int i(0), e([keys count]); i != e; ++i) {
-        NSString *key = [keys objectAtIndex:i];
+    for (NSString *key in keys) {
         NSDictionary *source = [Sources_ objectForKey:key];
 
         fprintf(file, "%s %s %s\n",
@@ -6802,8 +6800,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         switch (button) {
             case 1:
                 @synchronized (self) {
-                    for (int i = 0, e = [broken_ count]; i != e; ++i) {
-                        Package *broken = [broken_ objectAtIndex:i];
+                    for (Package *broken in broken_) {
                         [broken remove];
 
                         NSString *id = [broken id];
@@ -6859,10 +6856,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         switch (button) {
             case 1:
                 @synchronized (self) {
-                    for (int i = 0, e = [essential_ count]; i != e; ++i) {
-                        Package *essential = [essential_ objectAtIndex:i];
+                    for (Package *essential in essential_)
                         [essential install];
-                    }
 
                     [self resolve];
                     [self perform];
@@ -7113,8 +7108,7 @@ void AddPreferences(NSString *plist) { _pooled
 
     bool cydia(false);
 
-    for (size_t i(0); i != [items count]; ++i) {
-        NSMutableDictionary *item([items objectAtIndex:i]);
+    for (NSMutableDictionary *item in items) {
         NSString *label = [item objectForKey:@"label"];
         if (label != nil && [label isEqualToString:@"Cydia"]) {
             cydia = true;

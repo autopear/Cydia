@@ -129,6 +129,7 @@ class ProfileTime {
   private:
     const char *name_;
     uint64_t total_;
+    uint64_t count_;
 
   public:
     ProfileTime(const char *name) :
@@ -140,12 +141,14 @@ class ProfileTime {
 
     void AddTime(uint64_t time) {
         total_ += time;
+        ++count_;
     }
 
     void Print() {
         if (total_ != 0)
-            std::cerr << std::setw(7) << total_ << " : " << name_ << std::endl;
+            std::cerr << std::setw(5) << count_ << ", " << std::setw(7) << total_ << " : " << name_ << std::endl;
         total_ = 0;
+        count_ = 0;
     }
 };
 
@@ -4375,6 +4378,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Filtered Package Table {{{ */
 @interface FilteredPackageTable : PackageTable {
     SEL filter_;
+    IMP imp_;
     id object_;
 }
 
@@ -4402,13 +4406,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) hasPackage:(Package *)package {
-    return [package valid] && (*reinterpret_cast<bool (*)(id, SEL, id)>(&objc_msgSend))(package, filter_, object_);
+    _profile(FilteredPackageTable$hasPackage)
+        return [package valid] && (*reinterpret_cast<bool (*)(id, SEL, id)>(imp_))(package, filter_, object_);
+    _end
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
     if ((self = [super initWithBook:book database:database title:title]) != nil) {
         filter_ = filter;
         object_ = object == nil ? nil : [object retain];
+
+        /* XXX: this is an unsafe optimization of doomy hell */
+        Method method = class_getInstanceMethod([Package class], filter);
+        imp_ = method_getImplementation(method);
+        _assert(imp_ != NULL);
 
         [self reloadData];
     } return self;

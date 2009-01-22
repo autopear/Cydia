@@ -55,6 +55,7 @@
 // XXX: remove
 #import <MessageUI/MailComposeController.h>
 
+#include <iomanip>
 #include <sstream>
 #include <string>
 
@@ -114,13 +115,67 @@ bool _itv;
         exit(0); \
 } while (false)
 
-static uint64_t profile_;
-
 #define _timestamp ({ \
     struct timeval tv; \
     gettimeofday(&tv, NULL); \
     tv.tv_sec * 1000000 + tv.tv_usec; \
 })
+
+typedef std::vector<class ProfileTime *> TimeList;
+TimeList times_;
+
+class ProfileTime {
+  private:
+    const char *name_;
+    uint64_t total_;
+
+  public:
+    ProfileTime(const char *name) :
+        name_(name),
+        total_(0)
+    {
+        times_.push_back(this);
+    }
+
+    void AddTime(uint64_t time) {
+        total_ += time;
+    }
+
+    void Print() {
+        if (total_ != 0)
+            std::cerr << std::setw(7) << total_ << " : " << name_ << std::endl;
+        total_ = 0;
+    }
+};
+
+class ProfileTimer {
+  private:
+    ProfileTime &time_;
+    uint64_t start_;
+
+  public:
+    ProfileTimer(ProfileTime &time) :
+        time_(time),
+        start_(_timestamp)
+    {
+    }
+
+    ~ProfileTimer() {
+        time_.AddTime(_timestamp - start_);
+    }
+};
+
+void PrintTimes() {
+    for (TimeList::const_iterator i(times_.begin()); i != times_.end(); ++i)
+        (*i)->Print();
+    std::cerr << "========" << std::endl;
+}
+
+#define _profile(name) { \
+    static ProfileTime name(#name); \
+    ProfileTimer _ ## name(name);
+
+#define _end }
 
 /* Objective-C Handle<> {{{ */
 template <typename Type_>
@@ -198,6 +253,9 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 }
 
 - (void) yieldToSelector:(SEL)selector withObject:(id)object {
+    [self performSelector:selector withObject:object];
+    return;
+
     volatile bool stopped(false);
 
     NSArray *context([NSArray arrayWithObjects:
@@ -223,6 +281,7 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 @end
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
+static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const NSStringCompareOptions BaseCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch;
 static const NSStringCompareOptions ForcedCompareOptions_ = BaseCompareOptions_;
 static const NSStringCompareOptions LaxCompareOptions_ = BaseCompareOptions_ | NSCaseInsensitiveSearch;
@@ -307,8 +366,9 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define ForSaurik (1 && !ForRelease)
+#define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
 #define AlwaysReload (1 && !ForRelease)
@@ -316,6 +376,10 @@ extern NSString * const kCAFilterNearest;
 #if ForRelease
 #undef _trace
 #define _trace(args...)
+#undef _profile
+#define _profile(name)
+#undef _end
+#define _end
 #endif
 
 /* Radix Sort {{{ */
@@ -453,11 +517,16 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 @end
 
 @interface NSString (Cydia)
++ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
 - (NSComparisonResult) compareByPath:(NSString *)other;
 @end
 
 @implementation NSString (Cydia)
+
++ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
+    return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
+}
 
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
     return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
@@ -1256,7 +1325,7 @@ class Progress :
 - (Address *) maintainer;
 - (size_t) size;
 - (NSString *) description;
-- (NSString *) index;
+- (unichar) index;
 
 - (NSMutableDictionary *) metadata;
 - (NSDate *) seen;
@@ -1368,157 +1437,196 @@ class Progress :
 }
 
 - (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
-    if ((self = [super init]) != nil) {
+    if ((self = [super init]) != nil) { _profile(Package$initWithIterator)
         iterator_ = iterator;
         database_ = database;
 
-        version_ = [database_ policy]->GetCandidateVer(iterator_);
+        _profile(Package$initWithIterator$Control)
+        _end
+
+        _profile(Package$initWithIterator$Version)
+            version_ = [database_ policy]->GetCandidateVer(iterator_);
+        _end
+
         NSString *latest = version_.end() ? nil : [NSString stringWithUTF8String:version_.VerStr()];
-        latest_ = latest == nil ? nil : [StripVersion(latest) retain];
 
-        pkgCache::VerIterator current = iterator_.CurrentVer();
-        NSString *installed = current.end() ? nil : [NSString stringWithUTF8String:current.VerStr()];
-        installed_ = [StripVersion(installed) retain];
+        _profile(Package$initWithIterator$Latest)
+            latest_ = latest == nil ? nil : [StripVersion(latest) retain];
+        _end
 
-        if (!version_.end())
-            file_ = version_.FileList();
-        else {
-            pkgCache &cache([database_ cache]);
-            file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
-        }
+        pkgCache::VerIterator current;
+        NSString *installed;
 
-        id_ = [[NSString stringWithUTF8String:iterator_.Name()] retain];
+        _profile(Package$initWithIterator$Current)
+            current = iterator_.CurrentVer();
+            installed = current.end() ? nil : [NSString stringWithUTF8String:current.VerStr()];
+        _end
 
-        if (!file_.end()) {
-            pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
+        _profile(Package$initWithIterator$Installed)
+            installed_ = [StripVersion(installed) retain];
+        _end
 
-            const char *begin, *end;
-            parser->GetRec(begin, end);
-
-            NSString *website(nil);
-            NSString *sponsor(nil);
-            NSString *author(nil);
-            NSString *tag(nil);
-
-            struct {
-                const char *name_;
-                NSString **value_;
-            } names[] = {
-                {"name", &name_},
-                {"icon", &icon_},
-                {"depiction", &depiction_},
-                {"homepage", &homepage_},
-                {"website", &website},
-                {"sponsor", &sponsor},
-                {"author", &author},
-                {"tag", &tag},
-            };
-
-            while (begin != end)
-                if (*begin == '\n') {
-                    ++begin;
-                    continue;
-                } else if (isblank(*begin)) next: {
-                    begin = static_cast<char *>(memchr(begin + 1, '\n', end - begin - 1));
-                    if (begin == NULL)
-                        break;
-                } else if (const char *colon = static_cast<char *>(memchr(begin, ':', end - begin))) {
-                    const char *name(begin);
-                    size_t size(colon - begin);
-
-                    begin = static_cast<char *>(memchr(begin, '\n', end - begin));
-
-                    {
-                        const char *stop(begin == NULL ? end : begin);
-                        while (stop[-1] == '\r')
-                            --stop;
-                        while (++colon != stop && isblank(*colon));
-
-                        for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i)
-                            if (strncasecmp(names[i].name_, name, size) == 0) {
-                                NSString *value([NSString stringWithUTF8Bytes:colon length:(stop - colon)]);
-                                *names[i].value_ = value;
-                                break;
-                            }
-                    }
-
-                    if (begin == NULL)
-                        break;
-                    ++begin;
-                } else goto next;
-
-            if (name_ != nil)
-                name_ = [name_ retain];
-            tagline_ = [[NSString stringWithUTF8String:parser->ShortDesc().c_str()] retain];
-            if (icon_ != nil)
-                icon_ = [icon_ retain];
-            if (depiction_ != nil)
-                depiction_ = [depiction_ retain];
-            if (homepage_ == nil)
-                homepage_ = website;
-            if ([homepage_ isEqualToString:depiction_])
-                homepage_ = nil;
-            if (homepage_ != nil)
-                homepage_ = [homepage_ retain];
-            if (sponsor != nil)
-                sponsor_ = [[Address addressWithString:sponsor] retain];
-            if (author != nil)
-                author_ = [[Address addressWithString:author] retain];
-            if (tag != nil)
-                tags_ = [[tag componentsSeparatedByString:@", "] retain];
-        }
-
-        if (tags_ != nil)
-            for (int i(0), e([tags_ count]); i != e; ++i) {
-                NSString *tag = [tags_ objectAtIndex:i];
-                if ([tag hasPrefix:@"role::"]) {
-                    role_ = [[tag substringFromIndex:6] retain];
-                    break;
-                }
+        _profile(Package$initWithIterator$File)
+            if (!version_.end())
+                file_ = version_.FileList();
+            else {
+                pkgCache &cache([database_ cache]);
+                file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
             }
+        _end
+
+        _profile(Package$initWithIterator$Name)
+            id_ = [[NSString stringWithUTF8String:iterator_.Name()] retain];
+        _end
+
+        if (!file_.end())
+            _profile(Package$initWithIterator$Parse)
+                pkgRecords::Parser *parser;
+
+                _profile(Package$initWithIterator$Parse$Lookup)
+                    parser = &[database_ records]->Lookup(file_);
+                _end
+
+                const char *begin, *end;
+                parser->GetRec(begin, end);
+
+                NSString *website(nil);
+                NSString *sponsor(nil);
+                NSString *author(nil);
+                NSString *tag(nil);
+
+                struct {
+                    const char *name_;
+                    NSString **value_;
+                } names[] = {
+                    {"name", &name_},
+                    {"icon", &icon_},
+                    {"depiction", &depiction_},
+                    {"homepage", &homepage_},
+                    {"website", &website},
+                    {"sponsor", &sponsor},
+                    {"author", &author},
+                    {"tag", &tag},
+                };
+
+                while (begin != end)
+                    if (*begin == '\n') {
+                        ++begin;
+                        continue;
+                    } else if (isblank(*begin)) next: {
+                        begin = static_cast<char *>(memchr(begin + 1, '\n', end - begin - 1));
+                        if (begin == NULL)
+                            break;
+                    } else if (const char *colon = static_cast<char *>(memchr(begin, ':', end - begin))) {
+                        const char *name(begin);
+                        size_t size(colon - begin);
+
+                        begin = static_cast<char *>(memchr(begin, '\n', end - begin));
+
+                        {
+                            const char *stop(begin == NULL ? end : begin);
+                            while (stop[-1] == '\r')
+                                --stop;
+                            while (++colon != stop && isblank(*colon));
+
+                            for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i)
+                                if (strncasecmp(names[i].name_, name, size) == 0) {
+                                    NSString *value;
+
+                                    _profile(Package$initWithIterator$Parse$Value)
+                                        value = [NSString stringWithUTF8Bytes:colon length:(stop - colon)];
+                                    _end
+
+                                    *names[i].value_ = value;
+                                    break;
+                                }
+                        }
+
+                        if (begin == NULL)
+                            break;
+                        ++begin;
+                    } else goto next;
+
+                _profile(Package$initWithIterator$Parse$Retain)
+                    if (name_ != nil)
+                        name_ = [name_ retain];
+                    _profile(Package$initWithIterator$Parse$Tagline)
+                        tagline_ = [[NSString stringWithUTF8String:parser->ShortDesc().c_str()] retain];
+                    _end
+                    if (icon_ != nil)
+                        icon_ = [icon_ retain];
+                    if (depiction_ != nil)
+                        depiction_ = [depiction_ retain];
+                    if (homepage_ == nil)
+                        homepage_ = website;
+                    if ([homepage_ isEqualToString:depiction_])
+                        homepage_ = nil;
+                    if (homepage_ != nil)
+                        homepage_ = [homepage_ retain];
+                    if (sponsor != nil)
+                        sponsor_ = [[Address addressWithString:sponsor] retain];
+                    if (author != nil)
+                        author_ = [[Address addressWithString:author] retain];
+                    if (tag != nil)
+                        tags_ = [[tag componentsSeparatedByString:@", "] retain];
+                _end
+            _end
+
+        _profile(Package$initWithIterator$Tags)
+            if (tags_ != nil)
+                for (int i(0), e([tags_ count]); i != e; ++i) {
+                    NSString *tag = [tags_ objectAtIndex:i];
+                    if ([tag hasPrefix:@"role::"]) {
+                        role_ = [[tag substringFromIndex:6] retain];
+                        break;
+                    }
+                }
+        _end
 
         NSString *solid(latest == nil ? installed : latest);
         bool changed(false);
 
         NSString *key([id_ lowercaseString]);
 
-        NSMutableDictionary *metadata = [Packages_ objectForKey:key];
-        if (metadata == nil) {
-            metadata = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                now_, @"FirstSeen",
-            nil] mutableCopy];
+        _profile(Package$initWithIterator$Metadata)
+            NSMutableDictionary *metadata = [Packages_ objectForKey:key];
+            if (metadata == nil) {
+                metadata = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+                    now_, @"FirstSeen",
+                nil] mutableCopy];
 
-            if (solid != nil)
-                [metadata setObject:solid forKey:@"LastVersion"];
-            changed = true;
-        } else {
-            NSDate *first([metadata objectForKey:@"FirstSeen"]);
-            NSDate *last([metadata objectForKey:@"LastSeen"]);
-            NSString *version([metadata objectForKey:@"LastVersion"]);
-
-            if (first == nil) {
-                first = last == nil ? now_ : last;
-                [metadata setObject:first forKey:@"FirstSeen"];
+                if (solid != nil)
+                    [metadata setObject:solid forKey:@"LastVersion"];
                 changed = true;
-            }
+            } else {
+                NSDate *first([metadata objectForKey:@"FirstSeen"]);
+                NSDate *last([metadata objectForKey:@"LastSeen"]);
+                NSString *version([metadata objectForKey:@"LastVersion"]);
 
-            if (solid != nil)
-                if (version == nil) {
-                    [metadata setObject:solid forKey:@"LastVersion"];
-                    changed = true;
-                } else if (![version isEqualToString:solid]) {
-                    [metadata setObject:solid forKey:@"LastVersion"];
-                    last = now_;
-                    [metadata setObject:last forKey:@"LastSeen"];
+                if (first == nil) {
+                    first = last == nil ? now_ : last;
+                    [metadata setObject:first forKey:@"FirstSeen"];
                     changed = true;
                 }
-        }
 
-        if (changed) {
-            [Packages_ setObject:metadata forKey:key];
-            Changed_ = true;
-        }
-    } return self;
+                if (solid != nil)
+                    if (version == nil) {
+                        [metadata setObject:solid forKey:@"LastVersion"];
+                        changed = true;
+                    } else if (![version isEqualToString:solid]) {
+                        [metadata setObject:solid forKey:@"LastVersion"];
+                        last = now_;
+                        [metadata setObject:last forKey:@"LastSeen"];
+                        changed = true;
+                    }
+            }
+
+            if (changed) {
+                [Packages_ setObject:metadata forKey:key];
+                Changed_ = true;
+            }
+        _end
+    _end } return self;
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
@@ -1605,9 +1713,16 @@ class Progress :
     return [trimmed componentsJoinedByString:@"\n"];
 }
 
-- (NSString *) index {
-    NSString *index = [[[self name] substringToIndex:1] uppercaseString];
-    return [index length] != 0 && isalpha([index characterAtIndex:0]) ? index : @"123";
+- (unichar) index {
+    _profile(Package$index)
+        NSString *name([self name]);
+        if ([name length] == 0)
+            return '#';
+        unichar character([name characterAtIndex:0]);
+        if (!isalpha(character))
+            return '#';
+        return character;
+    _end
 }
 
 - (NSMutableDictionary *) metadata {
@@ -1893,15 +2008,15 @@ class Progress :
 
     NSRange range;
 
-    range = [[self id] rangeOfString:text options:NSCaseInsensitiveSearch];
+    range = [[self id] rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
         return YES;
 
-    range = [[self name] rangeOfString:text options:NSCaseInsensitiveSearch];
+    range = [[self name] rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
         return YES;
 
-    range = [[self tagline] rangeOfString:text options:NSCaseInsensitiveSearch];
+    range = [[self tagline] rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
         return YES;
 
@@ -2025,9 +2140,19 @@ class Progress :
 }
 
 - (NSNumber *) isUnfilteredAndSearchedForBy:(NSString *)search {
-    return [NSNumber numberWithBool:(
-        [self unfiltered] && [self matches:search]
-    )];
+    _profile(Package$isUnfilteredAndSearchedForBy)
+        bool value(true);
+
+        _profile(Package$isUnfilteredAndSearchedForBy$Unfiltered)
+            value &= [self unfiltered];
+        _end
+
+        _profile(Package$isUnfilteredAndSearchedForBy$Match)
+            value &= [self matches:search];
+        _end
+
+        return [NSNumber numberWithBool:value];
+    _end
 }
 
 - (NSNumber *) isInstalledAndVisible:(NSNumber *)number {
@@ -2058,6 +2183,7 @@ class Progress :
 /* Section Class {{{ */
 @interface Section : NSObject {
     NSString *name_;
+    unichar index_;
     size_t row_;
     size_t count_;
 }
@@ -2065,7 +2191,9 @@ class Progress :
 - (NSComparisonResult) compareByName:(Section *)section;
 - (Section *) initWithName:(NSString *)name;
 - (Section *) initWithName:(NSString *)name row:(size_t)row;
+- (Section *) initWithIndex:(unichar)index row:(size_t)row;
 - (NSString *) name;
+- (unichar) index;
 - (size_t) row;
 - (size_t) count;
 - (void) addToCount;
@@ -2103,12 +2231,25 @@ class Progress :
 - (Section *) initWithName:(NSString *)name row:(size_t)row {
     if ((self = [super init]) != nil) {
         name_ = [name retain];
+        index_ = '\0';
+        row_ = row;
+    } return self;
+}
+
+- (Section *) initWithIndex:(unichar)index row:(size_t)row {
+    if ((self = [super init]) != nil) {
+        name_ = [[NSString stringWithCharacters:&index length:1] retain];
+        index_ = index;
         row_ = row;
     } return self;
 }
 
 - (NSString *) name {
     return name_;
+}
+
+- (unichar) index {
+    return index_;
 }
 
 - (size_t) row {
@@ -2454,7 +2595,6 @@ static NSArray *Finishes_;
 
     [packages_ removeAllObjects];
     _trace();
-    profile_ = 0;
     for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
         if (Package *package = [Package packageWithIterator:iterator database:self])
             [packages_ addObject:package];
@@ -4178,25 +4318,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [packages_ removeAllObjects];
     [sections_ removeAllObjects];
 
-    for (size_t i(0); i != [packages count]; ++i) {
-        Package *package([packages objectAtIndex:i]);
-        if ([self hasPackage:package])
-            [packages_ addObject:package];
-    }
+    _profile(PackageTable$reloadData$Filter)
+        for (size_t i(0); i != [packages count]; ++i) {
+            Package *package([packages objectAtIndex:i]);
+            if ([self hasPackage:package])
+                [packages_ addObject:package];
+        }
+    _end
 
     Section *section = nil;
 
-    for (size_t offset(0); offset != [packages_ count]; ++offset) {
-        Package *package = [packages_ objectAtIndex:offset];
-        NSString *name = [package index];
+    _profile(PackageTable$reloadData$Section)
+        for (size_t offset(0); offset != [packages_ count]; ++offset) {
+            Package *package = [packages_ objectAtIndex:offset];
+            unichar index = [package index];
 
-        if (section == nil || ![[section name] isEqualToString:name]) {
-            section = [[[Section alloc] initWithName:name row:offset] autorelease];
-            [sections_ addObject:section];
+            if (section == nil || [section index] != index) {
+                _profile(PackageTable$reloadData$Section$Allocate)
+                    section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
+                _end
+
+                [sections_ addObject:section];
+            }
+
+            [section addToCount];
         }
-
-        [section addToCount];
-    }
+    _end
 
     [list_ reloadData];
 }
@@ -5894,7 +6041,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (flipped_)
         [self flipPage];
     [table_ setObject:[field_ text]];
-    [table_ reloadData];
+    _profile(SearchView$reloadData)
+        [table_ reloadData];
+    _end
+    PrintTimes();
     [table_ resetCursor];
 }
 
@@ -6635,6 +6785,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withClass:[ManageView class]
     ] retain];
 
+    PrintTimes();
+
     if (bootstrap_)
         [self bootstrap];
     else
@@ -7047,7 +7199,7 @@ int main(int argc, char *argv[]) { _pooled
     setuid(0);
     setgid(0);
 
-#if 1 /* XXX: this costs 1.4s of startup performance */
+#if 0 /* XXX: this costs 1.4s of startup performance */
     if (unlink("/var/cache/apt/pkgcache.bin") == -1)
         _assert(errno == ENOENT);
     if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)

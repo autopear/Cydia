@@ -41,6 +41,7 @@
 /* #include Directives {{{ */
 #import "UICaboodle.h"
 
+#include <objc/message.h>
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
@@ -1379,10 +1380,10 @@ class Progress :
 - (void) install;
 - (void) remove;
 
-- (NSNumber *) isUnfilteredAndSearchedForBy:(NSString *)search;
-- (NSNumber *) isInstalledAndVisible:(NSNumber *)number;
-- (NSNumber *) isVisiblyUninstalledInSection:(NSString *)section;
-- (NSNumber *) isVisibleInSource:(Source *)source;
+- (bool) isUnfilteredAndSearchedForBy:(NSString *)search;
+- (bool) isInstalledAndVisible:(NSNumber *)number;
+- (bool) isVisiblyUninstalledInSection:(NSString *)section;
+- (bool) isVisibleInSource:(Source *)source;
 
 @end
 
@@ -2137,7 +2138,7 @@ class Progress :
     [database_ cache]->MarkDelete(iterator_, true);
 }
 
-- (NSNumber *) isUnfilteredAndSearchedForBy:(NSString *)search {
+- (bool) isUnfilteredAndSearchedForBy:(NSString *)search {
     _profile(Package$isUnfilteredAndSearchedForBy)
         bool value(true);
 
@@ -2149,31 +2150,28 @@ class Progress :
             value &= [self matches:search];
         _end
 
-        return [NSNumber numberWithBool:value];
+        return value;
     _end
 }
 
-- (NSNumber *) isInstalledAndVisible:(NSNumber *)number {
-    return [NSNumber numberWithBool:(
-        (![number boolValue] || [self visible]) && [self installed] != nil
-    )];
+- (bool) isInstalledAndVisible:(NSNumber *)number {
+    return (![number boolValue] || [self visible]) && [self installed] != nil;
 }
 
-- (NSNumber *) isVisiblyUninstalledInSection:(NSString *)name {
+- (bool) isVisiblyUninstalledInSection:(NSString *)name {
     NSString *section = [self section];
 
-    return [NSNumber numberWithBool:(
+    return
         [self visible] &&
         [self installed] == nil && (
             name == nil ||
             section == nil && [name length] == 0 ||
             [name isEqualToString:section]
-        )
-    )];
+        );
 }
 
-- (NSNumber *) isVisibleInSource:(Source *)source {
-    return [NSNumber numberWithBool:([self source] == source && [self visible])];
+- (bool) isVisibleInSource:(Source *)source {
+    return [self source] == source && [self visible];
 }
 
 @end
@@ -4404,7 +4402,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) hasPackage:(Package *)package {
-    return [package valid] && [[package performSelector:filter_ withObject:object_] boolValue];
+    return [package valid] && (*reinterpret_cast<bool (*)(id, SEL, id)>(&objc_msgSend))(package, filter_, object_);
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {

@@ -303,7 +303,19 @@
     [book_ pushPage:page];
 }
 
+- (void) _pushPage {
+    if (pushed_)
+        return;
+    [self autorelease];
+    pushed_ = true;
+    [book_ pushPage:self];
+}
+
 - (BOOL) getSpecial:(NSURL *)url {
+#if ForSaurik
+    NSLog(@"getSpecial:%@", url);
+#endif
+
     NSString *href([url absoluteString]);
     NSString *scheme([[url scheme] lowercaseString]);
 
@@ -471,6 +483,8 @@
         }
 
         [listener use];
+        /* XXX: maybe only the main frame? */
+        [self _pushPage];
         return;
     }
 #if ForSaurik
@@ -524,13 +538,6 @@
 
 - (void) webView:(WebView *)sender setStatusText:(NSString *)text {
     //lprintf("Status:%s\n", [text UTF8String]);
-}
-
-- (void) _pushPage {
-    if (pushed_)
-        return;
-    pushed_ = true;
-    [book_ pushPage:self];
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
@@ -636,10 +643,6 @@
 }
 
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
-    NSURL *url = [request URL];
-    if ([self getSpecial:url])
-        return nil;
-    [self _pushPage];
     return [self _addHeadersToRequest:request];
 }
 
@@ -649,8 +652,16 @@
 #endif
 
     BrowserView *browser = [[[BrowserView alloc] initWithBook:book_] autorelease];
-    [self pushPage:browser];
-    [browser loadRequest:request];
+
+    if (request == nil) {
+        [self setBackButtonTitle:title_];
+        [browser setDelegate:delegate_];
+        [browser retain];
+    } else {
+        [self pushPage:browser];
+        [browser loadRequest:request];
+    }
+
     return [browser webView];
 }
 

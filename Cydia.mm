@@ -232,7 +232,8 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 }
 
 @interface NSObject (Cydia)
-- (void) yieldToSelector:(SEL)selector withObject:(id)object;
+- (id) yieldToSelector:(SEL)selector withObject:(id)object;
+- (id) yieldToSelector:(SEL)selector;
 @end
 
 @implementation NSObject (Cydia)
@@ -240,12 +241,17 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 - (void) doNothing {
 }
 
-- (void) _yieldToContext:(NSArray *)context { _pooled
+- (void) _yieldToContext:(NSMutableArray *)context { _pooled
     SEL selector(reinterpret_cast<SEL>([[context objectAtIndex:0] pointerValue]));
     id object([[context objectAtIndex:1] nonretainedObjectValue]);
     volatile bool &stopped(*reinterpret_cast<bool *>([[context objectAtIndex:2] pointerValue]));
 
-    [self performSelector:selector withObject:object];
+    /* XXX: deal with exceptions */
+    id value([self performSelector:selector withObject:object]);
+
+    [context removeAllObjects];
+    if (value != nil)
+        [context addObject:value];
 
     stopped = true;
 
@@ -256,13 +262,13 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     ];
 }
 
-- (void) yieldToSelector:(SEL)selector withObject:(id)object {
-    [self performSelector:selector withObject:object];
-    return;
+- (id) yieldToSelector:(SEL)selector withObject:(id)object {
+    /*[self performSelector:selector withObject:object];
+    return;*/
 
     volatile bool stopped(false);
 
-    NSArray *context([NSArray arrayWithObjects:
+    NSMutableArray *context([NSMutableArray arrayWithObjects:
         [NSValue valueWithPointer:selector],
         [NSValue valueWithNonretainedObject:object],
         [NSValue valueWithPointer:const_cast<bool *>(&stopped)],
@@ -280,6 +286,12 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     NSDate *future([NSDate distantFuture]);
 
     while (!stopped && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
+
+    return [context count] == 0 ? nil : [context objectAtIndex:0];
+}
+
+- (id) yieldToSelector:(SEL)selector {
+    return [self yieldToSelector:selector withObject:nil];
 }
 
 @end
@@ -384,6 +396,7 @@ extern NSString * const kCAFilterNearest;
 #define _profile(name)
 #undef _end
 #define _end
+#define PrintTimes() do {} while (false)
 #endif
 
 /* Radix Sort {{{ */
@@ -524,6 +537,8 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
 - (NSComparisonResult) compareByPath:(NSString *)other;
+- (NSString *) stringByCachingURLWithCurrentCDN;
+- (NSString *) stringByAddingPercentEscapesIncludingReserved;
 @end
 
 @implementation NSString (Cydia)
@@ -564,6 +579,26 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
     NSComparisonResult result = [lpath compare:rpath];
     return result == NSOrderedSame ? value : result;
+}
+
+- (NSString *) stringByCachingURLWithCurrentCDN {
+    return [self
+        stringByReplacingOccurrencesOfString:@"://"
+        withString:@"://ne.edgecastcdn.net/8003A4/"
+        options:0
+        /* XXX: this is somewhat inaccurate */
+        range:NSMakeRange(0, 10)
+    ];
+}
+
+- (NSString *) stringByAddingPercentEscapesIncludingReserved {
+    return [(id)CFURLCreateStringByAddingPercentEscapes(
+        kCFAllocatorDefault, 
+        (CFStringRef) self,
+        NULL,
+        CFSTR(";/?:@&=+$,"),
+        kCFStringEncodingUTF8
+    ) autorelease];
 }
 
 @end
@@ -4649,6 +4684,31 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ syncData];
 }
 
+- (void) complete {
+    [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+        @"deb", @"Type",
+        href_, @"URI",
+        @"./", @"Distribution",
+    nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href_]];
+
+    [delegate_ syncData];
+}
+
+- (NSString *) getWarning {
+    NSString *href([href_ stringByAddingPercentEscapesIncludingReserved]);
+    href = [@"http://cydia.saurik.com/api/repotag/" stringByAppendingString:href];
+    href = [href stringByCachingURLWithCurrentCDN];
+
+    NSURL *url([NSURL URLWithString:href]);
+
+    NSStringEncoding encoding;
+    NSError *error(nil);
+
+    if (NSString *warning = [NSString stringWithContentsOfURL:url usedEncoding:&encoding error:&error])
+        return [warning length] == 0 ? nil : warning;
+    return nil;
+}
+
 - (void) _endConnection:(NSURLConnection *)connection {
     NSURLConnection **field = NULL;
     if (connection == trivial_bz2_)
@@ -4670,13 +4730,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         hud_ = nil;
 
         if (trivial_) {
-            [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                @"deb", @"Type",
-                href_, @"URI",
-                @"./", @"Distribution",
-            nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href_]];
+            if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
+                UIActionSheet *sheet = [[[UIActionSheet alloc]
+                    initWithTitle:@"Repository Warning"
+                    buttons:[NSArray arrayWithObjects:@"Add Source", @"Cancel", nil]
+                    defaultButtonIndex:0
+                    delegate:self
+                    context:@"warning"
+                ] autorelease];
 
-            [delegate_ syncData];
+                [sheet setNumberOfRows:1];
+
+                [sheet setBodyText:warning];
+                [sheet popupAlertAnimated:YES];
+            } else
+                [self complete];
         } else if (error_ != nil) {
             UIActionSheet *sheet = [[[UIActionSheet alloc]
                 initWithTitle:@"Verification Error"
@@ -4779,6 +4847,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [sheet dismiss];
     else if ([context isEqualToString:@"urlerror"])
         [sheet dismiss];
+    else if ([context isEqualToString:@"warning"]) {
+        switch (button) {
+            case 1:
+                [self complete];
+            break;
+
+            case 2:
+            break;
+
+            default:
+                _assert(false);
+        }
+
+        [sheet dismiss];
+    }
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -7202,7 +7285,7 @@ int main(int argc, char *argv[]) { _pooled
     setuid(0);
     setgid(0);
 
-#if 0 /* XXX: this costs 1.4s of startup performance */
+#if 1 /* XXX: this costs 1.4s of startup performance */
     if (unlink("/var/cache/apt/pkgcache.bin") == -1)
         _assert(errno == ENOENT);
     if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)

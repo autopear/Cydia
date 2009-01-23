@@ -336,6 +336,7 @@
 }
 
 - (void) webViewShow:(WebView *)sender {
+    /* XXX: this is where I cry myself to sleep */
 }
 
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {

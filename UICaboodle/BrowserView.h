@@ -68,6 +68,7 @@
 - (void) reloadURL;
 
 - (WebView *) webView;
+- (UIWebDocumentView *) documentView;
 
 - (id) initWithBook:(RVBook *)book;
 

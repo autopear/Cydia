@@ -168,11 +168,13 @@
 
 @implementation BrowserView
 
-#if ForSaurik
+#if ShowInternals
 #include "Internals.h"
 #endif
 
 - (void) dealloc {
+    NSLog(@"deallocating WebView");
+
     if (challenge_ != nil)
         [challenge_ release];
 
@@ -260,7 +262,6 @@
 }
 
 - (void) reloadURL {
-    NSLog(@"rlu:%@", request_);
     if (request_ == nil)
         return;
 
@@ -284,6 +285,10 @@
     return [webview_ webView];
 }
 
+- (UIWebDocumentView *) documentView {
+    return webview_;
+}
+
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
     [scroller_ setContentSize:frame.size];
 }
@@ -294,8 +299,8 @@
 
 - (void) pushPage:(RVPage *)page {
     [page setDelegate:delegate_];
-    [book_ pushPage:page];
     [self setBackButtonTitle:title_];
+    [book_ pushPage:page];
 }
 
 - (BOOL) getSpecial:(NSURL *)url {
@@ -316,6 +321,9 @@
     if (page != nil)
         [self pushPage:page];
     return true;
+}
+
+- (void) webViewShow:(WebView *)sender {
 }
 
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
@@ -395,9 +403,10 @@
 }
 
 - (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
+    NSLog(@"nwa:%@", name);
+
     if (NSURL *url = [request URL]) {
         if (name == nil) unknown: {
-            NSLog(@"win:%@:%@", url, [action description]);
             if (![self getSpecial:url]) {
                 NSString *scheme([[url scheme] lowercaseString]);
                 if ([scheme isEqualToString:@"mailto"])
@@ -411,6 +420,10 @@
 
             RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
             if (page == nil) {
+                /* XXX: call createWebViewWithRequest instead */
+
+                [self setBackButtonTitle:title_];
+
                 BrowserView *browser([[[BrowserView alloc] initWithBook:book] autorelease]);
                 [browser loadURL:url];
                 page = browser;
@@ -630,26 +643,19 @@
     return [self _addHeadersToRequest:request];
 }
 
-- (WebView *) _createWebViewWithRequest:(NSURLRequest *)request pushed:(BOOL)pushed {
-    [self setBackButtonTitle:title_];
+- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
+#if ForSaurik
+    NSLog(@"cwv:%@ (%@)", request, title_);
+#endif
 
     BrowserView *browser = [[[BrowserView alloc] initWithBook:book_] autorelease];
-    [browser setDelegate:delegate_];
-
-    if (pushed) {
-        [browser loadRequest:request];
-        [book_ pushPage:browser];
-    }
-
+    [self pushPage:browser];
+    [browser loadRequest:request];
     return [browser webView];
 }
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
-    return [self _createWebViewWithRequest:request pushed:(request != nil)];
-}
-
-- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
-    return [self _createWebViewWithRequest:request pushed:YES];
+    return [self webView:sender createWebViewWithRequest:request windowFeatures:nil];
 }
 
 - (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {

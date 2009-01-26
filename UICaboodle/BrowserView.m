@@ -73,6 +73,8 @@
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (selector == @selector(getPackageById:))
         return @"getPackageById";
+    else if (selector == @selector(setAutoPopup:))
+        return @"setAutoPopup";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -155,6 +157,10 @@
     return value;
 }
 
+- (void) setAutoPopup:(BOOL)popup {
+    [indirect_ setAutoPopup:popup];
+}
+
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     [indirect_ setButtonImage:button withStyle:style toFunction:function];
 }
@@ -173,7 +179,9 @@
 #endif
 
 - (void) dealloc {
-    NSLog(@"deallocating WebView");
+#if ForSaurik
+    NSLog(@"[BrowserView dealloc]");
+#endif
 
     if (challenge_ != nil)
         [challenge_ release];
@@ -339,7 +347,14 @@
     /* XXX: this is where I cry myself to sleep */
 }
 
+- (bool) _allowJavaScriptPanel {
+    return true;
+}
+
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    if ([self _allowJavaScriptPanel])
+        return;
+
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
         buttons:[NSArray arrayWithObjects:@"OK", nil]
@@ -353,6 +368,9 @@
 }
 
 - (BOOL) webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    if (![self _allowJavaScriptPanel])
+        return NO;
+
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
         buttons:[NSArray arrayWithObjects:@"OK", @"Cancel", nil]
@@ -373,6 +391,10 @@
     NSNumber *confirm([confirm_ autorelease]);
     confirm_ = nil;
     return [confirm boolValue];
+}
+
+- (void) setAutoPopup:(BOOL)popup {
+    popup_ = popup;
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -416,7 +438,9 @@
 }
 
 - (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
+#if ForSaurik
     NSLog(@"nwa:%@", name);
+#endif
 
     if (NSURL *url = [request URL]) {
         if (name == nil) unknown: {
@@ -433,7 +457,7 @@
 
             RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
             if (page == nil) {
-                /* XXX: call createWebViewWithRequest instead */
+                /* XXX: call createWebViewWithRequest instead? */
 
                 [self setBackButtonTitle:title_];
 
@@ -505,7 +529,10 @@
 
     int store(_not(int));
     if (NSURL *itms = [url itmsURL:&store]) {
+#if ForSaurik
         NSLog(@"itms#%@#%u#%@", url, store, itms);
+#endif
+
         if (
             store == 1 && [capability containsObject:@"com.apple.MobileStore"] ||
             store == 2 && [capability containsObject:@"com.apple.AppStore"]
@@ -648,13 +675,29 @@
 }
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
+//- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request userGesture:(BOOL)gesture {
 #if ForSaurik
-    NSLog(@"cwv:%@ (%@)", request, title_);
+    NSLog(@"cwv:%@ (%@): %@", request, title_, features == nil ? @"{}" : [features description]);
+    //NSLog(@"cwv:%@ (%@): %@", request, title_, gesture ? @"Yes" : @"No");
 #endif
 
-    BrowserView *browser = [[[BrowserView alloc] initWithBook:book_] autorelease];
+    NSNumber *value([features objectForKey:@"width"]);
+    float width(value == nil ? [BrowserView defaultWidth] : [value floatValue]);
 
-    if (request == nil) {
+    RVBook *book(!popup_ ? book_ : [[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
+
+    /* XXX: deal with cydia:// pages */
+    BrowserView *browser([[[BrowserView alloc] initWithBook:book forWidth:width] autorelease]);
+
+    if (features == nil && popup_) {
+        [book setDelegate:delegate_];
+        [browser setDelegate:delegate_];
+
+        [browser loadRequest:request];
+
+        [book setPage:browser];
+        [book_ pushBook:book];
+    } else if (request == nil) {
         [self setBackButtonTitle:title_];
         [browser setDelegate:delegate_];
         [browser retain];
@@ -668,6 +711,7 @@
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
     return [self webView:sender createWebViewWithRequest:request windowFeatures:nil];
+    //return [self webView:sender createWebViewWithRequest:request userGesture:YES];
 }
 
 - (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
@@ -823,9 +867,11 @@
 #endif
 }
 
-- (id) initWithBook:(RVBook *)book {
+- (id) initWithBook:(RVBook *)book forWidth:(float)width {
     if ((self = [super initWithBook:book]) != nil) {
         loading_ = false;
+        width_ = width;
+        popup_ = false;
 
         struct CGRect bounds = [self bounds];
 
@@ -878,12 +924,13 @@
             [webview_ setAutoresizes:YES];
 
             [webview_ setMinimumScale:0.25f forDocumentTypes:0x10];
+            [webview_ setMaximumScale:5.00f forDocumentTypes:0x10];
             [webview_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x10];
-            [webview_ setViewportSize:CGSizeMake(980, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+            //[webview_ setViewportSize:CGSizeMake(980, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 
             [webview_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x2];
 
-            [webview_ setMinimumScale:1.0f forDocumentTypes:0x8];
+            [webview_ setMinimumScale:1.00f forDocumentTypes:0x8];
             [webview_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x8];
             [webview_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x8];
 
@@ -896,11 +943,14 @@
             [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeUpdatesScroller];
 
             [webview_ setSmoothsFonts:YES];
-
+            [webview_ setAllowsImageSheet:YES];
             [webview _setUsesLoaderCache:YES];
-            [webview setGroupName:@"Cydia"];
+
+            [webview setGroupName:@"CydiaGroup"];
             [webview _setLayoutInterval:0];
         }
+
+        [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 
         [webview_ setDelegate:self];
         [webview_ setGestureDelegate:self];
@@ -918,8 +968,12 @@
             [package installed]
         ];
 
+        if (Product_ != nil)
+            application = [NSString stringWithFormat:@"%@ Version/%@", application, Product_];
         if (Build_ != nil)
-            application = [NSString stringWithFormat:@"Mobile/%@ %@", Build_, application];
+            application = [NSString stringWithFormat:@"%@ Mobile/%@", application, Build_];
+        if (Safari_ != nil)
+            application = [NSString stringWithFormat:@"%@ Safari/%@", application, Safari_];
 
         /* XXX: lookup application directory? */
         /*if (NSDictionary *safari = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"])
@@ -940,6 +994,10 @@
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
+}
+
+- (id) initWithBook:(RVBook *)book {
+    return [self initWithBook:book forWidth:[[self class] defaultWidth]];
 }
 
 - (void) didFinishGesturesInView:(UIView *)view forEvent:(id)event {
@@ -1018,6 +1076,10 @@
 
 - (void) setPushed:(bool)pushed {
     pushed_ = pushed;
+}
+
++ (float) defaultWidth {
+    return 980;
 }
 
 @end

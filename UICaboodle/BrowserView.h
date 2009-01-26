@@ -57,6 +57,9 @@
     WebScriptObject *function_;
 
     bool pushed_;
+
+    float width_;
+    bool popup_;
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button;
@@ -71,8 +74,11 @@
 - (UIWebDocumentView *) documentView;
 
 - (id) initWithBook:(RVBook *)book;
+- (id) initWithBook:(RVBook *)book forWidth:(float)width;
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+
++ (float) defaultWidth;
 
 @end

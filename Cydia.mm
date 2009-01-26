@@ -263,8 +263,7 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 }
 
 - (id) yieldToSelector:(SEL)selector withObject:(id)object {
-    /*[self performSelector:selector withObject:object];
-    return;*/
+    /*return [self performSelector:selector withObject:object];*/
 
     volatile bool stopped(false);
 
@@ -382,9 +381,9 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define ForSaurik (1 && !ForRelease)
-#define ShowInternals (0 && !ForRelease)
+#define ShowInternals (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
 #define AlwaysReload (1 && !ForRelease)
@@ -393,9 +392,9 @@ extern NSString * const kCAFilterNearest;
 #undef _trace
 #define _trace(args...)
 #undef _profile
-#define _profile(name)
+#define _profile(name) {
 #undef _end
-#define _end
+#define _end }
 #define PrintTimes() do {} while (false)
 #endif
 
@@ -787,6 +786,8 @@ static UIFont *Font22Bold_;
 static const char *Machine_ = NULL;
 static const NSString *UniqueID_ = nil;
 static const NSString *Build_ = nil;
+static const NSString *Product_ = nil;
+static const NSString *Safari_ = nil;
 
 CFLocaleRef Locale_;
 CGColorSpaceRef space_;
@@ -4145,6 +4146,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super webView:sender didClearWindowObject:window forFrame:frame];
 }
 
+- (bool) _allowJavaScriptPanel {
+    return false;
+}
+
 #if !AlwaysReload
 - (void) _rightButtonClicked {
     /*[super _rightButtonClicked];
@@ -4695,7 +4700,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) getWarning {
-    NSString *href([href_ stringByAddingPercentEscapesIncludingReserved]);
+    NSString *href(href_);
+    NSRange colon([href rangeOfString:@"://"]);
+    if (colon.location != NSNotFound)
+        href = [href substringFromIndex:(colon.location + 3)];
+    href = [href stringByAddingPercentEscapes];
     href = [@"http://cydia.saurik.com/api/repotag/" stringByAppendingString:href];
     href = [href stringByCachingURLWithCurrentCDN];
 
@@ -4723,17 +4732,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         trivial_bz2_ == nil &&
         trivial_gz_ == nil
     ) {
-        [delegate_ setStatusBarShowsProgress:NO];
-        [delegate_ removeProgressHUD:hud_];
-
-        [hud_ autorelease];
-        hud_ = nil;
+        bool defer(false);
 
         if (trivial_) {
             if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
+                defer = true;
+
                 UIActionSheet *sheet = [[[UIActionSheet alloc]
-                    initWithTitle:@"Repository Warning"
-                    buttons:[NSArray arrayWithObjects:@"Add Source", @"Cancel", nil]
+                    initWithTitle:@"Source Warning"
+                    buttons:[NSArray arrayWithObjects:@"Add Anyway", @"Cancel", nil]
                     defaultButtonIndex:0
                     delegate:self
                     context:@"warning"
@@ -4769,8 +4776,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [sheet popupAlertAnimated:YES];
         }
 
-        [href_ release];
-        href_ = nil;
+        [delegate_ setStatusBarShowsProgress:NO];
+        [delegate_ removeProgressHUD:hud_];
+
+        [hud_ autorelease];
+        hud_ = nil;
+
+        if (!defer) {
+            [href_ release];
+            href_ = nil;
+        }
 
         if (error_ != nil) {
             [error_ release];
@@ -4859,6 +4874,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             default:
                 _assert(false);
         }
+
+        [href_ release];
+        href_ = nil;
 
         [sheet dismiss];
     }
@@ -6466,8 +6484,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _reloadData {
     UIView *block();
 
+    static bool loaded(false);
     UIProgressHUD *hud([self addProgressHUD]);
-    [hud setText:@"Reloading Data"];
+    [hud setText:(loaded ? @"Reloading Data" : @"Loading Data")];
+    loaded = true;
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
     _trace();
@@ -7323,6 +7343,10 @@ int main(int argc, char *argv[]) { _pooled
 
     if (NSDictionary *system = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"])
         Build_ = [system objectForKey:@"ProductBuildVersion"];
+    if (NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"]) {
+        Product_ = [info objectForKey:@"SafariProductVersion"];
+        Safari_ = [info objectForKey:@"CFBundleVersion"];
+    }
 
     /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
     AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/

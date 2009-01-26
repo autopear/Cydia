@@ -2273,7 +2273,7 @@ class Progress :
 
 - (Section *) initWithIndex:(unichar)index row:(size_t)row {
     if ((self = [super init]) != nil) {
-        name_ = [[NSString stringWithCharacters:&index length:1] retain];
+        name_ = [(index == '#' ? @"123" : [NSString stringWithCharacters:&index length:1]) retain];
         index_ = index;
         row_ = row;
     } return self;

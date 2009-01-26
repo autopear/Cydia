@@ -352,7 +352,7 @@
 }
 
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    if ([self _allowJavaScriptPanel])
+    if (![self _allowJavaScriptPanel])
         return;
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]

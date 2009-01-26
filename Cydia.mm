@@ -1759,7 +1759,7 @@ class Progress :
         unichar character([name characterAtIndex:0]);
         if (!isalpha(character))
             return '#';
-        return character;
+        return toupper(character);
     _end
 }
 

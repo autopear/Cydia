@@ -63,7 +63,7 @@ $(function () {
     $("#name").html(name);
     space("#latest", package.latest, 96);
 
-    $.xhr(cache(api + 'package/' + idc), 'GET', {}, null, {
+    $.xhr((api + 'package_/' + idc), 'GET', {}, null, {
         success: function (value) {
             value = eval(value);
 

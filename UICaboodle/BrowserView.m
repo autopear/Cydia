@@ -79,6 +79,8 @@
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
         return @"setButtonTitle";
+    else if (selector == @selector(setViewportWidth:))
+        return @"setViewportWidth";
     else if (selector == @selector(supports:))
         return @"supports";
     else if (selector == @selector(du:))
@@ -169,6 +171,10 @@
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
 }
 
+- (void) setViewportWidth:(float)width {
+    [indirect_ setViewportWidth:width];
+}
+
 @end
 /* }}} */
 
@@ -202,6 +208,8 @@
 
     [webview_ setDelegate:nil];
     [webview_ setGestureDelegate:nil];
+    [webview_ setFormEditingDelegate:nil];
+    [webview_ setInteractionDelegate:nil];
 
     //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
@@ -297,8 +305,29 @@
     return webview_;
 }
 
+- (void) _fixScroller {
+    float extra;
+    if (!editing_)
+        extra = 0;
+    else {
+        UIFormAssistant *assistant([UIFormAssistant sharedFormAssistant]);
+        CGRect peripheral([assistant peripheralFrame]);
+        NSLog(@"per:%f", peripheral.size.height);
+        extra = peripheral.size.height;
+    }
+
+    CGRect subrect([scroller_ frame]);
+    subrect.size.height -= extra;
+    [scroller_ setScrollerIndicatorSubrect:subrect];
+
+    CGSize size(size_);
+    size.height += extra;
+    [scroller_ setContentSize:size];
+}
+
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
-    [scroller_ setContentSize:frame.size];
+    size_ = frame.size;
+    [self _fixScroller];
 }
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
@@ -425,6 +454,19 @@
     if (function_ != nil)
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
+}
+
+- (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {
+    editing_ = true;
+}
+
+- (void) webView:(WebView *)sender didBeginEditingFormElement:(id)element {
+    [self _fixScroller];
+}
+
+- (void) webViewDidEndEditingFormElements:(WebView *)sender {
+    editing_ = false;
+    [self _fixScroller];
 }
 
 - (void) webViewClose:(WebView *)sender {
@@ -870,10 +912,14 @@
 #endif
 }
 
+- (void) setViewportWidth:(float)width {
+    width_ = width;
+    [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+}
+
 - (id) initWithBook:(RVBook *)book forWidth:(float)width {
     if ((self = [super initWithBook:book]) != nil) {
         loading_ = false;
-        width_ = width;
         popup_ = false;
 
         struct CGRect bounds = [self bounds];
@@ -953,10 +999,13 @@
             [webview _setLayoutInterval:0];
         }
 
-        [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+        [self setViewportWidth:width];
 
         [webview_ setDelegate:self];
         [webview_ setGestureDelegate:self];
+        [webview_ setFormEditingDelegate:self];
+        [webview_ setInteractionDelegate:self];
+
         [scroller_ addSubview:webview_];
 
         //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];

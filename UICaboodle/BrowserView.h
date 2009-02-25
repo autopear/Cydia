@@ -60,6 +60,9 @@
 
     float width_;
     bool popup_;
+
+    CGSize size_;
+    bool editing_;
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button;
@@ -80,6 +83,7 @@
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
 
 + (float) defaultWidth;
+- (void) setViewportWidth:(float)width;
 
 - (id) _rightButtonTitle;
 

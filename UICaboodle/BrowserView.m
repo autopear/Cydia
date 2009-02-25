@@ -355,6 +355,8 @@
     if (![self _allowJavaScriptPanel])
         return;
 
+    [self retain];
+
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
         buttons:[NSArray arrayWithObjects:@"OK", nil]
@@ -375,7 +377,7 @@
         initWithTitle:nil
         buttons:[NSArray arrayWithObjects:@"OK", @"Cancel", nil]
         defaultButtonIndex:0
-        delegate:self
+        delegate:indirect_
         context:@"confirm"
     ] autorelease];
 
@@ -571,9 +573,10 @@
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context([sheet context]);
 
-    if ([context isEqualToString:@"alert"])
+    if ([context isEqualToString:@"alert"]) {
+        [self autorelease];
         [sheet dismiss];
-    else if ([context isEqualToString:@"confirm"]) {
+    } else if ([context isEqualToString:@"confirm"]) {
         switch (button) {
             case 1:
                 confirm_ = [NSNumber numberWithBool:YES];
@@ -689,7 +692,7 @@
     /* XXX: deal with cydia:// pages */
     BrowserView *browser([[[BrowserView alloc] initWithBook:book forWidth:width] autorelease]);
 
-    if (features == nil && popup_) {
+    if (features != nil && popup_) {
         [book setDelegate:delegate_];
         [browser setDelegate:delegate_];
 

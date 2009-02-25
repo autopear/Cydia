@@ -81,4 +81,6 @@
 
 + (float) defaultWidth;
 
+- (id) _rightButtonTitle;
+
 @end

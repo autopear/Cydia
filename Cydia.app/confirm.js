@@ -43,9 +43,9 @@ $(function () {
             var type = entry[0];
             if (type == "PreDepends")
                 type = "Depends";
-            $("#i" + i).append("<div><div>" +
+            $("#i" + i).append("<div class=\"clearfix\"><div>" +
                 "<label>" + $.xml(type) + "</label>" +
-                "<labe>" + $.xml(entry[1] + " " + entry[3]) + "</label>" +
+                "<label>" + $.xml(entry[1] + " " + entry[3]) + "</label>" +
             "</div></div>");
         }
     }

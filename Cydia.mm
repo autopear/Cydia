@@ -381,7 +381,7 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define ForSaurik (1 && !ForRelease)
 #define ShowInternals (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
@@ -3110,11 +3110,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return @"Cancel";
 }
 
+- (id) rightButtonTitle {
+    return issues_ != nil ? nil : [super rightButtonTitle];
+}
+
 - (id) _rightButtonTitle {
 #if AlwaysReload || IgnoreInstall
-    return @"Reload";
+    return [super _rightButtonTitle];
 #else
-    return issues_ == nil ? @"Confirm" : nil;
+    return @"Confirm";
 #endif
 }
 
@@ -5093,7 +5097,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease];
 
     [sheet setBodyText:
-        @"Copyright (C) 2008\n"
+        @"Copyright (C) 2008-2009\n"
         "Jay Freeman (saurik)\n"
         "saurik@saurik.com\n"
         "http://www.saurik.com/\n"

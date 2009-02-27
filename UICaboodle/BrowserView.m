@@ -552,8 +552,6 @@
         }
 
         [listener use];
-        /* XXX: maybe only the main frame? */
-        [self _pushPage];
         return;
     }
 #if ForSaurik
@@ -836,6 +834,7 @@
 }
 
 - (void) webView:(WebView *)sender didCommitLoadForFrame:(WebFrame *)frame {
+    [self _pushPage];
     return [webview_ webView:sender didCommitLoadForFrame:frame];
 }
 

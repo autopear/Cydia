@@ -84,6 +84,7 @@ select {
 }
 
 body {
+    width: 320px;
     font-family: Helvetica;
     -webkit-text-size-adjust: none;
     -webkit-user-select: none;
@@ -221,7 +222,7 @@ panel > input[type="submit"] {
 list > label {
     background: #a7b3bc url(cydia://uikit-image/UISectionListHeaderBackground.png);
     background-repeat: repeat-x no-repeat-y;
-    margin-bottom: 1px;
+    margin-bottom: 0px;
     padding: 4px 15px 1px 15px;
     display: block;
     color: white;
@@ -240,10 +241,17 @@ panel > label {
     text-shadow: rgba(255, 255, 255, 0.75) 1px 1px 0;
 }
 
-panel > fieldset > a:not(:last-child),
-panel > fieldset > div:not(:last-child),
-panel > fieldset > textarea:not(:last-child) {
+panel > fieldset > a,
+panel > fieldset > div,
+panel > fieldset > textarea {
     border-bottom: 1px solid #999999;
+}
+
+panel > fieldset > a.left:nth-last-child(2),
+panel > fieldset > a:last-child,
+panel > fieldset > div:last-child,
+panel > fieldset > textarea:last-child {
+    border-bottom: 0;
 }
 
 list > fieldset > a,
@@ -256,8 +264,18 @@ fieldset > a:not([type="ad"]),
 fieldset > div,
 fieldset > textarea {
     /* XXX: small differences due to font bugs */
-    padding: 13px 14px 11px 14px;
+    padding: 12px 14px 10px 14px;
 }
+
+fieldset > a:not([type="ad"]):first-child,
+fieldset > div:first-child {
+    padding-top: 13px;
+}
+
+/*fieldset > a:not([type="ad"]):last-child,
+fieldset > div:last-child {
+    padding-bottom: 10px;
+}*/
 
 fieldset > a[type="ad"] {
     /* XXX: small differences due to font bugs */
@@ -265,11 +283,15 @@ fieldset > a[type="ad"] {
 }
 
 panel > fieldset > a[type="ad"]:first-child > div:first-of-type,
+panel > fieldset > a[type="comment"]:first-child > div:first-of-type,
+panel > fieldset > a[type="profile"]:first-child > div:first-of-type,
 panel > fieldset > a[type="thumb"]:first-child > div:first-of-type {
     -webkit-border-top-left-radius: 9px;
 }
 
 panel > fieldset > a[type="ad"]:last-child > div:first-of-type,
+panel > fieldset > a[type="comment"]:last-child > div:first-of-type,
+panel > fieldset > a[type="profile"]:last-child > div:first-of-type,
 panel > fieldset > a[type="thumb"]:last-child > div:first-of-type {
     -webkit-border-bottom-left-radius: 9px;
 }
@@ -278,10 +300,18 @@ fieldset > a[type="ad"] > div:first-of-type {
     border: 1px solid #999999;
 }
 
+list > fieldset > a[type="comment"] > div:first-of-type,
+list > fieldset > a[type="profile"] > div:first-of-type,
 list > fieldset > a[type="thumb"] > div:first-of-type {
     border: 1px solid #e0e0e0;
 }
 
+panel > fieldset > a[type="comment"] > div:first-of-type {
+    border: 1px solid #999999;
+    border-bottom-style: dashed;
+}
+
+panel > fieldset > a[type="profile"] > div:first-of-type,
 panel > fieldset > a[type="thumb"] > div:first-of-type {
     border: 1px solid #999999;
 }
@@ -312,15 +342,35 @@ fieldset > a[type="ad"] > div:first-of-type {
     width: 40px;
 }
 
+panel > fieldset > a[type="comment"] {
+    border-bottom-style: dashed;
+}
+
+fieldset > a[type="comment"] > div:first-of-type {
+    -webkit-background-size: 44px;
+    height: 44px;
+    width: 44px;
+}
+
+fieldset > a[type="profile"] > div:first-of-type {
+    height: 50px;
+    width: 50px;
+}
+
+fieldset > a[type="thumb"] > div:first-of-type  {
+    height: 64px;
+    width: 64px;
+}
+
+fieldset > a[type="comment"] > div:first-of-type,
+fieldset > a[type="profile"] > div:first-of-type,
 fieldset > a[type="thumb"] > div:first-of-type {
     background-repeat: no-repeat;
     background-position: center center;
     display: inline-block;
-    height: 64px;
     /* XXX: small differences due to font bugs */
     /* XXX: 1px difference due to border stupidity */
-    margin: -14px 7px -12px -15px;
-    width: 64px;
+    margin: -14px 7px -11px -15px;
 }
 
 fieldset > a > img.icon,
@@ -335,10 +385,12 @@ fieldset > div > img.icon {
 
 panel > block > p,
 fieldset > div > p,
+panel > block > ul,
 fieldset > div > ul {
     margin: 11px 0;
 }
 
+panel > block > ul,
 fieldset > div > ul {
     margin-left: 13px;
 }
@@ -390,9 +442,13 @@ panel > fieldset > a[href] {
     background-position-x: 275px;
 }
 
+panel > fieldset > a[href].half {
+    background-position-x: 125px;
+}
+
 list > fieldset > a:not([href]) > select,
 list > fieldset > div > select {
-    background-position-x: 192px;
+    background-position-x: 183px;
 }
 
 panel > fieldset > a:not([href]) > select,
@@ -469,9 +525,25 @@ fieldset > a > img.icon + div {
     width: 221px;
 }
 
+fieldset > a[type="profile"] > div:nth-of-type(2) > label:nth-of-type(1).unknown {
+    color: #aaaabb;
+}
+
+fieldset > a[type="profile"] > div:nth-of-type(2) > label:only-of-type {
+    left: 4px;
+    position: relative;
+    top: 3px;
+}
+
 fieldset > a[type="thumb"] > div:nth-of-type(2) > label:only-of-type {
     position: relative;
     top: 10px;
+}
+
+fieldset > a[type="profile"] > div:nth-of-type(2) > label:nth-of-type(2) {
+    display: block;
+    font-size: 13px;
+    margin-top: 2px;
 }
 
 fieldset > a[type="thumb"] > div:nth-of-type(2) > label:nth-of-type(2) {
@@ -479,9 +551,21 @@ fieldset > a[type="thumb"] > div:nth-of-type(2) > label:nth-of-type(2) {
     margin-top: 2px;
 }
 
+fieldset > a[type="profile"] > div:nth-of-type(2) {
+    width: 207px;
+}
+
+fieldset > a[type="thumb"] > div:nth-of-type(2) {
+    width: 193px;
+}
+
+fieldset > a[type="profile"] > div:nth-of-type(2) {
+    margin: -6px 0 -5px 0;
+}
+
+fieldset > a[type="profile"] > div:nth-of-type(2),
 fieldset > a[type="thumb"] > div:nth-of-type(2) {
     vertical-align: top;
-    width: 193px;
 }
 
 fieldset > a > label:first-of-type,
@@ -491,6 +575,7 @@ fieldset > div > div > label:first-of-type {
     font-weight: bold;
 }
 
+/* XXX: this doesn't handle icon offsets */
 list > fieldset > a:not([type]) > div > label:nth-of-type(2),
 list > fieldset > div > div > label:nth-of-type(2) {
     margin-left: 94px;
@@ -532,6 +617,15 @@ fieldset > a[type="ad"] > div > label:nth-of-type(2) {
     font-weight: normal;
 }
 
+panel > fieldset > a.right {
+    border-left: 1px solid #999999;
+}
+
+panel > fieldset > a.half {
+    display: inline-block;
+    width: 150px;
+}
+
 fieldset.half > a {
     background: none;
     background-position-x: 120px;
@@ -555,6 +649,15 @@ fieldset.half {
     width: 146px;
 }
 
+panel > fieldset.dashed > a,
+panel > fieldset.dashed > div,
+panel > fieldset.dashed > textarea,
+list > fieldset.dashed > a,
+list > fieldset.dashed > div,
+list > fieldset.dashed > textarea {
+    border-style: dashed;
+}
+
 fieldset > a[type="thumb"]:first-child > back {
     -webkit-border-top-right-radius: 9px;
 }
@@ -574,3 +677,102 @@ fieldset > a[type="thumb"] > back {
     top: -1px;
     width: 237px;
 }
+
+.mm {
+    border: 1px solid #999999;
+    -webkit-border-radius: 9px;
+}
+
+a.mm {
+    display: block;
+    margin: 9px;
+}
+
+div.mm img {
+    height: auto;
+    width: 300px;
+}
+
+fieldset > a.small {
+    font-size: 12px;
+    padding-top: 9px;
+}
+
+fieldset > a.small label {
+    display: inline-block;
+    position: relative;
+    top: 1px;
+}
+
+fieldset > a.small > img.icon {
+    max-height: 22px;
+    min-width: 22px;
+    width: 22px;
+}
+
+fieldset > a.small.half > img.icon + div {
+    width: 79px;
+}
+
+panel.centered > label {
+    margin-left: 0px;
+    margin-right: 0px;
+    text-align: center;
+}
+
+panel > iframe {
+    margin: -8px 0;
+}
+
+/* Rating Stars {{{ */
+.ratings {
+    margin: -2px 0;
+    text-align: center;
+}
+
+.rated {
+    display: inline-block;
+}
+
+.rated.left {
+    margin-right: 9px;
+}
+
+.rated label {
+    font-weight: bold;
+    margin-right: 3px;
+    position: relative;
+    top: -3px;
+}
+
+.rating {
+    display: inline-block;
+    width: 80px;
+}
+
+.rating .back,
+.rating .fore,
+.rating .star {
+    background: url(http://cache.saurik.com/crystal/16x16/actions/knewstuff.png);
+    height: 16px;
+}
+
+.rating .back,
+.rating .fore {
+    width: 80px;
+}
+
+.rating .star {
+    display: inline-block;
+    width: 16px;
+}
+
+.rating .back {
+    opacity: 0.2;
+}
+
+.rating .fore {
+    /*border-right: 1px solid #999999;*/
+    position: absolute;
+}
+/* }}} */

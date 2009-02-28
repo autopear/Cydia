@@ -371,7 +371,7 @@
         [book_ pushPage:page];
 }
 
-- (BOOL) getSpecial:(NSURL *)url {
+- (BOOL) getSpecial:(NSURL *)url swap:(BOOL)swap {
 #if ForSaurik
     NSLog(@"getSpecial:%@", url);
 #endif
@@ -391,7 +391,10 @@
         return false;
 
     if (page != nil)
-        [self swapPage:page];
+        if (swap)
+            [self swapPage:page];
+        else
+            [self pushPage:page];
     return true;
 }
 
@@ -511,7 +514,7 @@
 
     if (NSURL *url = [request URL]) {
         if (name == nil) unknown: {
-            if (![self getSpecial:url]) {
+            if (![self getSpecial:url swap:NO]) {
                 NSString *scheme([[url scheme] lowercaseString]);
                 if ([scheme isEqualToString:@"mailto"])
                     [delegate_ openMailToURL:url];
@@ -625,7 +628,7 @@
         goto ignore;
     }
 
-    if ([self getSpecial:url])
+    if ([self getSpecial:url swap:YES])
         goto ignore;
     else if ([WebView _canHandleRequest:request])
         goto use;

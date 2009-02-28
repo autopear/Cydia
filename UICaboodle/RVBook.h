@@ -42,6 +42,8 @@
 
 - (void) setPage:(RVPage *)page;
 
+- (void) swapPage:(RVPage *)page;
+- (void) pushPage:(RVPage *)page animated:(BOOL)animated;
 - (void) pushPage:(RVPage *)page;
 - (void) popPages:(unsigned)pages;
 

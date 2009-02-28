@@ -306,13 +306,20 @@
 }
 
 - (void) _fixScroller {
+    CGRect bounds([webview_ documentBounds]);
+#if ForSaurik
+    NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
+#endif
+
     float extra;
     if (!editing_)
         extra = 0;
     else {
         UIFormAssistant *assistant([UIFormAssistant sharedFormAssistant]);
         CGRect peripheral([assistant peripheralFrame]);
+#if ForSaurik
         NSLog(@"per:%f", peripheral.size.height);
+#endif
         extra = peripheral.size.height;
     }
 
@@ -320,13 +327,21 @@
     subrect.size.height -= extra;
     [scroller_ setScrollerIndicatorSubrect:subrect];
 
+    NSSize visible(NSMakeSize(subrect.size.width, subrect.size.height));
+    [webview_ setValue:[NSValue valueWithSize:visible] forGestureAttribute:UIGestureAttributeVisibleSize];
+
     CGSize size(size_);
     size.height += extra;
     [scroller_ setContentSize:size];
+
+    [scroller_ releaseRubberBandIfNecessary];
 }
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
     size_ = frame.size;
+#if ForSaurik
+    NSLog(@"dsf:(%f,%f+%f,%f)", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
+#endif
     [self _fixScroller];
 }
 
@@ -346,6 +361,14 @@
     [self autorelease];
     pushed_ = true;
     [book_ pushPage:self];
+}
+
+- (void) swapPage:(RVPage *)page {
+    [page setDelegate:delegate_];
+    if (pushed_)
+        [book_ swapPage:page];
+    else
+        [book_ pushPage:page];
 }
 
 - (BOOL) getSpecial:(NSURL *)url {
@@ -368,7 +391,7 @@
         return false;
 
     if (page != nil)
-        [self pushPage:page];
+        [self swapPage:page];
     return true;
 }
 
@@ -522,13 +545,15 @@
         [listener use];
 }
 
-- (void) webView:(WebView *)webView decidePolicyForMIMEType:(NSString *)type request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+- (void) webView:(WebView *)sender decidePolicyForMIMEType:(NSString *)type request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
     if ([WebView canShowMIMEType:type])
         [listener use];
     else {
         // XXX: handle more mime types!
         [listener ignore];
-        if (frame == [webView mainFrame])
+
+        WebView *webview([webview_ webView]);
+        if (frame == [webview mainFrame])
             [UIApp openURL:[request URL]];
     }
 }
@@ -552,6 +577,10 @@
         }
 
         [listener use];
+
+        WebView *webview([webview_ webView]);
+        if (frame == [webview mainFrame])
+            [self _pushPage];
         return;
     }
 #if ForSaurik
@@ -725,7 +754,7 @@
 #endif
 
     NSNumber *value([features objectForKey:@"width"]);
-    float width(value == nil ? [BrowserView defaultWidth] : [value floatValue]);
+    float width(value == nil ? 0 : [value floatValue]);
 
     RVBook *book(!popup_ ? book_ : [[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
 
@@ -769,6 +798,8 @@
     if ([frame parentFrame] != nil)
         return;
 
+    [webview_ resignFirstResponder];
+
     reloading_ = false;
     loading_ = true;
     [self reloadButtons];
@@ -796,6 +827,7 @@
     [book_ reloadTitleForPage:self];
 
     [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+    [scroller_ setZoomScale:1 duration:0];
 
     CGRect webrect = [scroller_ bounds];
     webrect.size.height = 0;
@@ -912,7 +944,7 @@
 }
 
 - (void) setViewportWidth:(float)width {
-    width_ = width;
+    width_ = width ? width != 0 : [[self class] defaultWidth];
     [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 }
 
@@ -1048,7 +1080,7 @@
 }
 
 - (id) initWithBook:(RVBook *)book {
-    return [self initWithBook:book forWidth:[[self class] defaultWidth]];
+    return [self initWithBook:book forWidth:0];
 }
 
 - (void) didFinishGesturesInView:(UIView *)view forEvent:(id)event {

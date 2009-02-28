@@ -135,10 +135,22 @@
     [navbar_ enableAnimation];
 }
 
-- (void) pushPage:(RVPage *)page {
-    if ([pages_ count] != 0)
-        [[pages_ lastObject] setPageActive:NO];
+- (void) swapPage:(RVPage *)page {
+    if ([pages_ count] == 0)
+        return [self pushPage:page];
 
+    [[pages_ lastObject] setPageActive:NO];
+
+    [navbar_ disableAnimation];
+    resetting_ = true;
+    [navbar_ popNavigationItem];
+    resetting_ = false;
+
+    [self pushPage:page animated:NO];
+    [navbar_ enableAnimation];
+}
+
+- (void) pushPage:(RVPage *)page animated:(BOOL)animated {
     NSString *title = [self getTitleForPage:page];
 
     NSString *backButtonTitle = [page backButtonTitle];
@@ -149,7 +161,6 @@
     [navitem setBackButtonTitle:backButtonTitle];
     [navbar_ pushNavigationItem:navitem];
 
-    BOOL animated = [pages_ count] == 0 ? NO : YES;
     [page setFrame:[transition_ bounds]];
     [transition_ transition:(animated ? 1 : 0) toView:page];
     [page setPageActive:YES];
@@ -158,6 +169,12 @@
     [self reloadButtonsForPage:page];
 
     [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+}
+
+- (void) pushPage:(RVPage *)page {
+    if ([pages_ count] != 0)
+        [[pages_ lastObject] setPageActive:NO];
+    [self pushPage:page animated:([pages_ count] == 0 ? NO : YES)];
 }
 
 - (void) pushBook:(RVBook *)book {

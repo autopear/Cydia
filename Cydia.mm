@@ -1033,6 +1033,8 @@ class Progress :
 
 /* Database Interface {{{ */
 @interface Database : NSObject {
+    unsigned era_;
+
     pkgCacheFile cache_;
     pkgDepCache::Policy *policy_;
     pkgRecords *records_;
@@ -1055,6 +1057,7 @@ class Progress :
 }
 
 + (Database *) sharedInstance;
+- (unsigned) era;
 
 - (void) _readCydia:(NSNumber *)fd;
 - (void) _readStatus:(NSNumber *)fd;
@@ -1325,6 +1328,8 @@ class Progress :
 /* }}} */
 /* Package Class {{{ */
 @interface Package : NSObject {
+    unsigned era_;
+
     pkgCache::PkgIterator iterator_;
     _transient Database *database_;
     pkgCache::VerIterator version_;
@@ -1334,6 +1339,7 @@ class Progress :
     bool cached_;
 
     NSString *section_;
+    bool essential_;
 
     NSString *latest_;
     NSString *installed_;
@@ -1431,7 +1437,6 @@ class Progress :
 - (void) dealloc {
     if (source_ != nil)
         [source_ release];
-
     if (section_ != nil)
         [section_ release];
 
@@ -1477,7 +1482,11 @@ class Progress :
 }
 
 - (Package *) initWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
-    if ((self = [super init]) != nil) { _profile(Package$initWithIterator)
+    if ((self = [super init]) != nil) {
+    _profile(Package$initWithIterator)
+    @synchronized (database) {
+        era_ = [database era];
+
         iterator_ = iterator;
         database_ = database;
 
@@ -1664,7 +1673,25 @@ class Progress :
                 Changed_ = true;
             }
         _end
-    _end } return self;
+
+        const char *section(iterator_.Section());
+        if (section == NULL)
+            section_ = nil;
+        else {
+            NSString *name([[NSString stringWithUTF8String:section] stringByReplacingCharacter:' ' withCharacter:'_']);
+
+          lookup:
+            if (NSDictionary *value = [SectionMap_ objectForKey:name])
+                if (NSString *rename = [value objectForKey:@"Rename"]) {
+                    name = rename;
+                    goto lookup;
+                }
+
+            section_ = [[name stringByReplacingCharacter:'_' withCharacter:' '] retain];
+        }
+
+        essential_ = (iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES;
+    } _end } return self;
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator database:(Database *)database {
@@ -1679,23 +1706,6 @@ class Progress :
 }
 
 - (NSString *) section {
-    if (section_ != nil)
-        return section_;
-
-    const char *section = iterator_.Section();
-    if (section == NULL)
-        return nil;
-
-    NSString *name = [[NSString stringWithUTF8String:section] stringByReplacingCharacter:' ' withCharacter:'_'];
-
-  lookup:
-    if (NSDictionary *value = [SectionMap_ objectForKey:name])
-        if (NSString *rename = [value objectForKey:@"Rename"]) {
-            name = rename;
-            goto lookup;
-        }
-
-    section_ = [[name stringByReplacingCharacter:'_' withCharacter:' '] retain];
     return section_;
 }
 
@@ -1815,7 +1825,7 @@ class Progress :
 }
 
 - (BOOL) essential {
-    return (iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES;
+    return essential_;
 }
 
 - (BOOL) broken {
@@ -2029,8 +2039,17 @@ class Progress :
 
 - (Source *) source {
     if (!cached_) {
-        source_ = file_.end() ? nil : [[database_ getSource:file_.File()] retain];
-        cached_ = true;
+        @synchronized (database_) {
+            if ([database_ era] != era_ || file_.end())
+                source_ = nil;
+            else {
+                source_ = [database_ getSource:file_.File()];
+                if (source_ != nil)
+                    [source_ retain];
+            }
+
+            cached_ = true;
+        }
     }
 
     return source_;
@@ -2315,6 +2334,10 @@ static NSArray *Finishes_;
     return instance;
 }
 
+- (unsigned) era {
+    return era_;
+}
+
 - (void) dealloc {
     _assert(false);
     [super dealloc];
@@ -2559,6 +2582,10 @@ static NSArray *Finishes_;
 }
 
 - (void) reloadData { _pooled
+    @synchronized (self) {
+        ++era_;
+    }
+
     _error->Discard();
 
     delete list_;

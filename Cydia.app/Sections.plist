@@ -15,6 +15,12 @@
         <string>Themes_(SpringBoard)</string>
     </dict>
 
+    <key>Themes_(LockScreen)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(Lockscreen)</string>
+    </dict>
+
     <key>Intelliborn</key>
     <dict>
         <key>Rename</key>
@@ -31,6 +37,12 @@
     <dict>
         <key>Rename</key>
         <string>Carrier_Bundles</string>
+    </dict>
+
+    <key>Keyboard_Extension</key>
+    <dict>
+        <key>Rename</key>
+        <string>Keyboard_Extensions</string>
     </dict>
 
     <key>Messageing</key>

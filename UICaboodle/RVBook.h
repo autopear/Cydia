@@ -24,6 +24,10 @@
 - (CGRect) popUpBounds;
 @end
 
+@protocol RVBookHook
+- (void) didCloseBook:(RVBook *)book;
+@end
+
 @interface RVBook : UIView <
     RVNavigationBarDelegate
 > {
@@ -32,6 +36,7 @@
     UITransitionView *transition_;
     BOOL resetting_;
     _transient id delegate_;
+    _transient id hook_;
     UIToolbar *toolbar_;
 }
 
@@ -39,6 +44,7 @@
 
 - (id) initWithFrame:(CGRect)frame;
 - (void) setDelegate:(id)delegate;
+- (void) setHook:(id)hook;
 
 - (void) setPage:(RVPage *)page;
 

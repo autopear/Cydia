@@ -4232,10 +4232,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 #if !AlwaysReload
-- (void) _rightButtonClicked {
-    /*[super _rightButtonClicked];
-    return;*/
-
+- (void) __rightButtonClicked {
     int count = [buttons_ count];
     _assert(count != 0);
 
@@ -4254,6 +4251,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             context:@"modify"
         ] autorelease]];
     }
+}
+
+- (void) _rightButtonClicked {
+    if (commercial_)
+        [super _rightButtonClicked];
+    else
+        [self __rightButtonClicked];
 }
 #endif
 

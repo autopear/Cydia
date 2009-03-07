@@ -36,7 +36,9 @@
 @class IndirectDelegate;
 @class CydiaObject;
 
-@interface BrowserView : RVPage {
+@interface BrowserView : RVPage <
+    RVBookHook
+> {
     UIScroller *scroller_;
     UIWebDocumentView *webview_;
     UIProgressIndicator *indicator_;
@@ -55,6 +57,7 @@
     NSString *button_;
     NSString *style_;
     WebScriptObject *function_;
+    WebScriptObject *closer_;
 
     bool pushed_;
 
@@ -72,6 +75,7 @@
 
 - (void) loadRequest:(NSURLRequest *)request;
 - (void) reloadURL;
+- (bool) isLoading;
 
 - (WebView *) webView;
 - (UIWebDocumentView *) documentView;

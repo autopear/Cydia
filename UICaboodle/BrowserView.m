@@ -79,6 +79,8 @@
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
         return @"setButtonTitle";
+    else if (selector == @selector(setPopupHook:))
+        return @"setPopupHook";
     else if (selector == @selector(setViewportWidth:))
         return @"setViewportWidth";
     else if (selector == @selector(supports:))
@@ -171,6 +173,10 @@
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
 }
 
+- (void) setPopupHook:(id)function {
+    [indirect_ setPopupHook:function];
+}
+
 - (void) setViewportWidth:(float)width {
     [indirect_ setViewportWidth:width];
 }
@@ -185,7 +191,7 @@
 #endif
 
 - (void) dealloc {
-#if ForSaurik
+#if LogBrowser
     NSLog(@"[BrowserView dealloc]");
 #endif
 
@@ -235,6 +241,8 @@
         [style_ release];
     if (function_ != nil)
         [function_ release];
+    if (closer_ != nil)
+        [closer_ release];
 
     [scroller_ release];
     [indicator_ release];
@@ -307,7 +315,7 @@
 
 - (void) _fixScroller {
     CGRect bounds([webview_ documentBounds]);
-#if ForSaurik
+#if LogBrowser
     NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
 #endif
 
@@ -317,7 +325,7 @@
     else {
         UIFormAssistant *assistant([UIFormAssistant sharedFormAssistant]);
         CGRect peripheral([assistant peripheralFrame]);
-#if ForSaurik
+#if LogBrowser
         NSLog(@"per:%f", peripheral.size.height);
 #endif
         extra = peripheral.size.height;
@@ -339,7 +347,7 @@
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
     size_ = frame.size;
-#if ForSaurik
+#if LogBrowser
     NSLog(@"dsf:(%f,%f+%f,%f)", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
 #endif
     [self _fixScroller];
@@ -372,7 +380,7 @@
 }
 
 - (BOOL) getSpecial:(NSURL *)url swap:(BOOL)swap {
-#if ForSaurik
+#if LogBrowser
     NSLog(@"getSpecial:%@", url);
 #endif
 
@@ -454,6 +462,12 @@
     popup_ = popup;
 }
 
+- (void) setPopupHook:(id)function {
+    if (closer_ != nil)
+        [closer_ autorelease];
+    closer_ = function == nil ? nil : [function retain];
+}
+
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     if (button_ != nil)
         [button_ autorelease];
@@ -466,6 +480,8 @@
     if (function_ != nil)
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
+
+    [self reloadButtons];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -480,6 +496,8 @@
     if (function_ != nil)
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
+
+    [self reloadButtons];
 }
 
 - (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {
@@ -508,7 +526,7 @@
 }
 
 - (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
-#if ForSaurik
+#if LogBrowser
     NSLog(@"nwa:%@", name);
 #endif
 
@@ -524,6 +542,7 @@
             [delegate_ openURL:url];
         else if ([name isEqualToString:@"_popup"]) {
             RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
+            [book setHook:indirect_];
 
             RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
             if (page == nil) {
@@ -574,7 +593,7 @@
             if (request_ != nil)
                 [request_ autorelease];
             request_ = [request retain];
-#if ForSaurik
+#if LogBrowser
             NSLog(@"dpn:%@", request_);
 #endif
         }
@@ -586,7 +605,7 @@
             [self _pushPage];
         return;
     }
-#if ForSaurik
+#if LogBrowser
     else NSLog(@"nav:%@:%@", url, [action description]);
 #endif
 
@@ -603,7 +622,7 @@
 
     int store(_not(int));
     if (NSURL *itms = [url itmsURL:&store]) {
-#if ForSaurik
+#if LogBrowser
         NSLog(@"itms#%@#%u#%@", url, store, itms);
 #endif
 
@@ -751,7 +770,7 @@
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
 //- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request userGesture:(BOOL)gesture {
-#if ForSaurik
+#if LogBrowser
     NSLog(@"cwv:%@ (%@): %@", request, title_, features == nil ? @"{}" : [features description]);
     //NSLog(@"cwv:%@ (%@): %@", request, title_, gesture ? @"Yes" : @"No");
 #endif
@@ -766,6 +785,7 @@
 
     if (features != nil && popup_) {
         [book setDelegate:delegate_];
+        [book setHook:indirect_];
         [browser setDelegate:delegate_];
 
         [browser loadRequest:request];
@@ -827,6 +847,11 @@
         function_ = nil;
     }
 
+    if (closer_ != nil) {
+        [closer_ release];
+        closer_ = nil;
+    }
+
     [book_ reloadTitleForPage:self];
 
     [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
@@ -844,12 +869,12 @@
     }
 }
 
-- (bool) _loading {
+- (bool) isLoading {
     return loading_;
 }
 
 - (void) reloadButtons {
-    if ([self _loading])
+    if ([self isLoading])
         [indicator_ startAnimation];
     else
         [indicator_ stopAnimation];
@@ -941,7 +966,7 @@
 }
 
 - (void) webView:(WebView *)sender addMessageToConsole:(NSDictionary *)dictionary {
-#if ForSaurik
+#if LogBrowser || ForSaurik
     lprintf("Console:%s\n", [[dictionary description] UTF8String]);
 #endif
 }
@@ -1090,42 +1115,54 @@
     [webview_ redrawScaledDocument];
 }
 
-- (void) _rightButtonClicked {
-    if (function_ == nil) {
-        reloading_ = true;
-        [self reloadURL];
-    } else {
-        WebView *webview([webview_ webView]);
-        WebFrame *frame([webview mainFrame]);
+- (void) callFunction:(WebScriptObject *)function {
+    WebView *webview([webview_ webView]);
+    WebFrame *frame([webview mainFrame]);
 
-        id _private(MSHookIvar<id>(webview, "_private"));
-        WebCore::Page *page(_private == nil ? NULL : MSHookIvar<WebCore::Page *>(_private, "page"));
-        WebCore::Settings *settings(page == NULL ? NULL : page->settings());
+    id _private(MSHookIvar<id>(webview, "_private"));
+    WebCore::Page *page(_private == nil ? NULL : MSHookIvar<WebCore::Page *>(_private, "page"));
+    WebCore::Settings *settings(page == NULL ? NULL : page->settings());
 
-        bool no;
-        if (settings == NULL)
-            no = 0;
-        else {
-            no = settings->JavaScriptCanOpenWindowsAutomatically();
-            settings->setJavaScriptCanOpenWindowsAutomatically(true);
-        }
-
-        [delegate_ clearFirstResponder];
-        JSObjectRef function([function_ JSObject]);
-        JSGlobalContextRef context([frame globalContext]);
-        JSObjectCallAsFunction(context, function, NULL, 0, NULL, NULL);
-
-        if (settings != NULL)
-            settings->setJavaScriptCanOpenWindowsAutomatically(no);
+    bool no;
+    if (settings == NULL)
+        no = 0;
+    else {
+        no = settings->JavaScriptCanOpenWindowsAutomatically();
+        settings->setJavaScriptCanOpenWindowsAutomatically(true);
     }
+
+    [delegate_ clearFirstResponder];
+    JSObjectRef object([function JSObject]);
+    JSGlobalContextRef context([frame globalContext]);
+    JSObjectCallAsFunction(context, object, NULL, 0, NULL, NULL);
+
+    if (settings != NULL)
+            settings->setJavaScriptCanOpenWindowsAutomatically(no);
+}
+
+- (void) didCloseBook:(RVBook *)book {
+    if (closer_ != nil)
+        [self callFunction:closer_];
+}
+
+- (void) __rightButtonClicked {
+    reloading_ = true;
+    [self reloadURL];
+}
+
+- (void) _rightButtonClicked {
+    if (function_ == nil)
+        [self __rightButtonClicked];
+    else
+        [self callFunction:function_];
 }
 
 - (id) _rightButtonTitle {
-    return button_ != nil ? button_ : @"Reload";
+    return @"Reload";
 }
 
 - (id) rightButtonTitle {
-    return [self _loading] ? @"" : [self _rightButtonTitle];
+    return [self isLoading] ? @"" : button_ != nil ? button_ : [self _rightButtonTitle];
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {

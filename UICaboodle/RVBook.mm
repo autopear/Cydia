@@ -121,6 +121,10 @@
     delegate_ = delegate;
 }
 
+- (void) setHook:(id)hook {
+    hook_ = hook;
+}
+
 - (void) setPage:(RVPage *)page {
     if ([pages_ count] != 0)
         [[pages_ lastObject] setPageActive:NO];
@@ -277,6 +281,8 @@
 }
 
 - (void) close {
+    if (hook_ != nil)
+        [hook_ didCloseBook:self];
 }
 
 @end
@@ -300,6 +306,7 @@
 
 - (void) close {
     [self popFromSuperviewAnimated:YES];
+    [super close];
 }
 
 @end

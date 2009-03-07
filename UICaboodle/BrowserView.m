@@ -71,7 +71,9 @@
 }
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (selector == @selector(getPackageById:))
+    if (selector == @selector(close))
+        return @"close";
+    else if (selector == @selector(getPackageById:))
         return @"getPackageById";
     else if (selector == @selector(setAutoPopup:))
         return @"setAutoPopup";
@@ -159,6 +161,10 @@
         else _assert(false);
 
     return value;
+}
+
+- (void) close {
+    [indirect_ close];
 }
 
 - (void) setAutoPopup:(BOOL)popup {
@@ -514,6 +520,10 @@
 }
 
 - (void) webViewClose:(WebView *)sender {
+    [book_ close];
+}
+
+- (void) close {
     [book_ close];
 }
 

@@ -4,7 +4,7 @@ Priority: required
 Section: Packaging
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 1.0.2769-43
+Version: 1.0.2787-43
 Replaces: com.sosiphone.addcydia
 Depends: apt, darwintools, pcre, shell-cmds
 Conflicts: com.sosiphone.addcydia

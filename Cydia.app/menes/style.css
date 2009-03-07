@@ -181,9 +181,17 @@ dialog > toolbar > a.forward-button {
 /* }}} */
 
 panel > block {
-    background-color: #c7ced5;
+    /*background-color: #ccd1d5;*/
+    /*background-color: white;*/
+    /*background-color: #c7ced5;*/
+    background-color: transparent;
+    //background-color: #ffffff;
     border-bottom: 1px solid #999999;
     border-top: 1px solid #999999;
+    border-left: 1px dotted #999999;
+    border-right: 1px dotted #999999;
+    -webkit-border-radius: 9px;
+    //border: 1px solid #999999;
     display: block;
     font-size: 16px;
     margin: 9px 10px;
@@ -267,11 +275,6 @@ fieldset > textarea {
     padding: 12px 14px 10px 14px;
 }
 
-fieldset > a:not([type="ad"]):first-child,
-fieldset > div:first-child {
-    padding-top: 13px;
-}
-
 /*fieldset > a:not([type="ad"]):last-child,
 fieldset > div:last-child {
     padding-bottom: 10px;
@@ -312,7 +315,7 @@ panel > fieldset > a[type="comment"] > div:first-of-type {
 }
 
 panel > fieldset > a[type="profile"] > div:first-of-type,
-panel > fieldset > a[type="thumb"] > div:first-of-type {
+panel > fieldset:not(.header) > a[type="thumb"] > div:first-of-type {
     border: 1px solid #999999;
 }
 
@@ -352,7 +355,13 @@ fieldset > a[type="comment"] > div:first-of-type {
     width: 44px;
 }
 
+fieldset > a[type="header"] > div:first-of-type {
+    height: 64px;
+    width: 64px;
+}
+
 fieldset > a[type="profile"] > div:first-of-type {
+    -webkit-background-size: 50px;
     height: 50px;
     width: 50px;
 }
@@ -363,6 +372,7 @@ fieldset > a[type="thumb"] > div:first-of-type  {
 }
 
 fieldset > a[type="comment"] > div:first-of-type,
+fieldset > a[type="header"] > div:first-of-type,
 fieldset > a[type="profile"] > div:first-of-type,
 fieldset > a[type="thumb"] > div:first-of-type {
     background-repeat: no-repeat;
@@ -370,7 +380,7 @@ fieldset > a[type="thumb"] > div:first-of-type {
     display: inline-block;
     /* XXX: small differences due to font bugs */
     /* XXX: 1px difference due to border stupidity */
-    margin: -14px 7px -11px -15px;
+    margin: -13px 7px -11px -15px;
 }
 
 fieldset > a > img.icon,
@@ -517,11 +527,12 @@ fieldset > a:not([type]) > div {
     width: 250px;
 }
 
+fieldset > a:not([href]) > img.icon + div,
 fieldset > div > img.icon + div {
     width: 244px;
 }
 
-fieldset > a > img.icon + div {
+fieldset > a[href] > img.icon + div {
     width: 221px;
 }
 
@@ -560,7 +571,7 @@ fieldset > a[type="thumb"] > div:nth-of-type(2) {
 }
 
 fieldset > a[type="profile"] > div:nth-of-type(2) {
-    margin: -6px 0 -5px 0;
+    margin: -5px 0;
 }
 
 fieldset > a[type="profile"] > div:nth-of-type(2),
@@ -721,7 +732,11 @@ panel.centered > label {
 }
 
 panel > iframe {
-    margin: -8px 0;
+    margin: -9px 0;
+}
+
+panel > iframe + iframe {
+    margin-top: 0;
 }
 
 /* Rating Stars {{{ */
@@ -776,3 +791,14 @@ panel > iframe {
     position: absolute;
 }
 /* }}} */
+
+panel > fieldset.header {
+    background-color: transparent;
+    border: none;
+    margin: -5px 0 -11px 0;
+}
+
+panel > fieldset.header > a > div > label {
+    color: #4d4d70;
+    text-shadow: rgba(255, 255, 255, 0.75) 1px 1px 0;
+}

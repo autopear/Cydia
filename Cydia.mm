@@ -383,10 +383,12 @@ extern NSString * const kCAFilterNearest;
 
 #define ForRelease 1
 #define ForSaurik (1 && !ForRelease)
+#define LogBrowser (0 && !ForRelease)
+#define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (1 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
-#define AlwaysReload (1 && !ForRelease)
+#define AlwaysReload (0 && !ForRelease)
 
 #if ForRelease
 #undef _trace
@@ -768,6 +770,11 @@ static CGColor Black_;
 static CGColor Off_;
 static CGColor White_;
 static CGColor Gray_;
+static CGColor Green_;
+static CGColor Purple_;
+static CGColor Purplish_;
+
+static UIColor *CommercialColor_;
 
 static NSString *App_;
 static NSString *Home_;
@@ -1416,6 +1423,7 @@ class Progress :
 - (BOOL) hasTag:(NSString *)tag;
 - (NSString *) primaryPurpose;
 - (NSArray *) purposes;
+- (bool) isCommercial;
 
 - (NSComparisonResult) compareByName:(Package *)package;
 - (NSComparisonResult) compareBySection:(Package *)package;
@@ -1467,6 +1475,17 @@ class Progress :
         [relationships_ release];
 
     [super dealloc];
+}
+
++ (NSString *) webScriptNameForSelector:(SEL)selector {
+    if (selector == @selector(hasTag:))
+        return @"hasTag";
+    else
+        return nil;
+}
+
++ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
+    return [self webScriptNameForSelector:selector] == nil;
 }
 
 + (NSArray *) _attributeKeys {
@@ -2115,6 +2134,10 @@ class Progress :
         if ([tag hasPrefix:@"purpose::"])
             [purposes addObject:[tag substringFromIndex:9]];
     return [purposes count] == 0 ? nil : purposes;
+}
+
+- (bool) isCommercial {
+    return [self hasTag:@"cydia::commercial"];
 }
 
 - (NSComparisonResult) compareByName:(Package *)package {
@@ -3704,12 +3727,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Package Cell {{{ */
-@interface PackageCell : UISimpleTableCell {
+@interface PackageCell : UITableCell {
     UIImage *icon_;
     NSString *name_;
     NSString *description_;
+    bool commercial_;
     NSString *source_;
     UIImage *badge_;
+    bool cached_;
 #ifdef USE_BADGES
     UITextLabel *status_;
 #endif
@@ -3779,6 +3804,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     name_ = [[package name] retain];
     description_ = [[package tagline] retain];
+    commercial_ = [package isCommercial];
 
     NSString *label = nil;
     bool trusted = false;
@@ -3819,6 +3845,29 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [status_ setText:nil];
     }
 #endif
+
+    cached_ = false;
+}
+
+- (void) drawRect:(CGRect)rect {
+    if (!cached_) {
+        //[self setBackgroundColor:(commercial_ ? CommercialColor_ : [UIColor whiteColor])];
+        cached_ = true;
+    }
+
+    [super drawRect:rect];
+}
+
+- (void) drawBackgroundInRect:(CGRect)rect withFade:(float)fade {
+    if (fade == 0 && commercial_) {
+        CGContextRef context(UIGraphicsGetCurrentContext());
+        [[self backgroundColor] set];
+        CGRect back(rect);
+        back.size.height -= 1;
+        CGContextFillRect(context, back);
+    }
+
+    [super drawBackgroundInRect:rect withFade:fade];
 }
 
 - (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
@@ -3848,12 +3897,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UISetColor(White_);
 
     if (!selected)
-        UISetColor(Black_);
+        UISetColor(commercial_ ? Purple_ : Black_);
     [name_ drawAtPoint:CGPointMake(48, 8) forWidth:240 withFont:Font18Bold_ ellipsis:2];
     [source_ drawAtPoint:CGPointMake(58, 29) forWidth:225 withFont:Font12_ ellipsis:2];
 
     if (!selected)
-        UISetColor(Gray_);
+        UISetColor(commercial_ ? Purplish_ : Gray_);
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
 
     [super drawContentInRect:rect selected:selected];
@@ -4121,6 +4170,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     Package *package_;
     NSString *name_;
+    bool commercial_;
     NSMutableArray *buttons_;
 }
 
@@ -4178,7 +4228,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) _allowJavaScriptPanel {
-    return false;
+    return commercial_;
 }
 
 #if !AlwaysReload
@@ -4239,6 +4289,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (package != nil) {
         package_ = [package retain];
         name_ = [[package id] retain];
+        commercial_ = [package isCommercial];
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"package" ofType:@"html"]]];
 
@@ -4254,8 +4305,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (bool) _loading {
-    return false;
+- (bool) isLoading {
+    return commercial_ ? [super isLoading] : false;
 }
 
 - (void) reloadData {
@@ -5173,7 +5224,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 #endif
 
-- (bool) _loading {
+- (bool) isLoading {
     return false;
 }
 
@@ -6558,7 +6609,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     // XXX: what is this line of code for?
     if ([packages count] == 0);
-    else if (Loaded_ || ForSaurik) loaded:
+    else if (Loaded_ || ManualRefresh) loaded:
         [self _loaded];
     else {
         Loaded_ = YES;
@@ -7444,6 +7495,17 @@ int main(int argc, char *argv[]) { _pooled
     Off_.Set(space_, 0.9, 0.9, 0.9, 1.0);
     White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
     Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);
+    Green_.Set(space_, 0.0, 0.5, 0.0, 1.0);
+    Purple_.Set(space_, 0.0, 0.0, 0.7, 1.0);
+    Purplish_.Set(space_, 0.4, 0.4, 0.8, 1.0);
+    /*Purple_.Set(space_, 1.0, 0.3, 0.0, 1.0);
+    Purplish_.Set(space_, 1.0, 0.6, 0.4, 1.0); ORANGE */
+    /*Purple_.Set(space_, 1.0, 0.5, 0.0, 1.0);
+    Purplish_.Set(space_, 1.0, 0.7, 0.2, 1.0); ORANGISH */
+    /*Purple_.Set(space_, 0.5, 0.0, 0.7, 1.0);
+    Purplish_.Set(space_, 0.7, 0.4, 0.8, 1.0); PURPLE */
+
+    CommercialColor_ = [UIColor colorWithRed:0.93f green:1.00f blue:0.88f alpha:1.00f];
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 

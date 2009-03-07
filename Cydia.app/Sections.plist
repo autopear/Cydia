@@ -39,12 +39,6 @@
         <string>Carrier_Bundles</string>
     </dict>
 
-    <key>Keyboard_Extension</key>
-    <dict>
-        <key>Rename</key>
-        <string>Keyboard_Extensions</string>
-    </dict>
-
     <key>Messageing</key>
     <dict>
         <key>Rename</key>

@@ -63,7 +63,7 @@ $(function () {
     $("#name").html(name);
     space("#latest", package.latest, 96);
 
-    $.xhr((api + 'package_/' + idc), 'GET', {}, null, {
+    $.xhr(cache(api + 'package/' + idc), 'GET', {}, null, {
         success: function (value) {
             value = eval(value);
 
@@ -145,19 +145,11 @@ $(function () {
         }
     }*/
 
-    var purposes = package.purposes;
-    var commercial = false;
-    var _console = false;
-    if (purposes != null)
-        for (var i = 0, e = purposes.length; i != e; ++i) {
-            var purpose = purposes[i];
-            if (purpose == "commercial")
-                commercial = true;
-            else if (purpose == "console")
-                _console = true;
-        }
+    var commercial = package.hasTag('cydia::commercial');
     if (!commercial)
         $(".commercial").remove();
+
+    var _console = package.hasTag('purpose::console');
     if (!_console)
         $(".console").remove();
 
@@ -173,6 +165,14 @@ $(function () {
     }
 
     //$("#notice-src").src("http://saurik.cachefly.net/notice/" + idc + ".html");
+
+    /*var store = commercial;
+    if (!store)
+        $(".activation").remove();
+    else {
+        var activation = api + 'activation/' + idc;
+        $("#activation-src").src(activation);
+    }*/
 
     var depiction = package.depiction;
     if (depiction == null)

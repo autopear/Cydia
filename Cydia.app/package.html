@@ -61,18 +61,6 @@
             top: -5px;
         }
 
-        #depiction {
-            margin: -8px 0;
-            overflow: hidden;
-            width: 320px;
-        }
-
-        #notice {
-            margin: -8px 0 -9px 0;
-            overflow: hidden;
-            width: 320px;
-        }
-
         #remove > a {
             color: #335588;
             text-decoration: none;
@@ -260,13 +248,23 @@
     </div></div>
 </fieldset>
 
-<div id="notice" class="notice"><iframe
+<!--iframe
+    class="notice"
     id="notice-src"
     frameborder="0"
     width="320"
     height="0"
     target="_top"
-></iframe></div>
+></iframe-->
+
+<!--iframe
+    class="activation"
+    id="activation-src"
+    frameborder="0"
+    width="320"
+    height="0"
+    target="_top"
+></iframe-->
 
 <!--div id="remove" class="depiction">
     <a href="javascript:remove()">Remove Custom Depiction</a>
@@ -274,14 +272,15 @@
 
 <hr id="upper-bar" class="depiction"/-->
 
-<div id="depiction" class="depiction"><iframe
+<iframe
+    class="depiction"
     id="depiction-src"
     frameborder="0"
     width="320"
     height="0"
     target="_top"
     onload_="loaded()"
-></iframe></div>
+></iframe>
 
 <!--hr id="lower-bar" class="depiction"/-->
 

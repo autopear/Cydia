@@ -53,12 +53,15 @@ $(function () {
     var id = package.id;
     var idc = encodeURIComponent(id);
     var name = package.name;
-    var regarding = encodeURIComponent("Cydia/APT: " + name);
     var icon = 'cydia://package-icon/' + idc;
     var api = 'http://cydia.saurik.com/api/';
 
+    var regarding = function (type) {
+        return encodeURIComponent("Cydia/APT(" + type + "): " + name);
+    };
+
     $("#icon").css("background-image", 'url("' + icon + '")');
-    $("#reflection").src("cydia://package-icon/" + idc);
+    //$("#reflection").src("cydia://package-icon/" + idc);
 
     $("#name").html(name);
     space("#latest", package.latest, 96);
@@ -110,6 +113,14 @@ $(function () {
 
     $("#settings").href("cydia://package-settings/" + idc);
 
+    var mode = package.mode;
+    if (mode == null)
+        $(".mode").remove();
+    else {
+        $("#mode").html(mode);
+        $("#mode-src").src("Modes/" + mode + ".png");
+    }
+
     var warnings = package.warnings;
     var length = warnings == null ? 0 : warnings.length;
     if (length == 0)
@@ -160,8 +171,13 @@ $(function () {
         space("#author", author.name, 160);
         if (author.address == null)
             $("#author-icon").remove();
-        else
-            $("#author-href").href("mailto:" + author.address + "?subject=" + regarding);
+        else {
+            var support = package.support;
+            if (support == null)
+                $("#author-href").href("mailto:" + author.address + "?subject=" + regarding("A"));
+            else
+                $("#author-href").href(support);
+        }
     }
 
     //$("#notice-src").src("http://saurik.cachefly.net/notice/" + idc + ".html");
@@ -227,7 +243,7 @@ $(function () {
         if (maintainer.address == null)
             $("#maintainer-icon").remove();
         else
-            $("#maintainer-href").href("mailto:" + maintainer.address + "?subject=" + regarding);
+            $("#maintainer-href").href("mailto:" + maintainer.address + "?subject=" + regarding("M"));
     }
 
     var sponsor = package.sponsor;

@@ -270,9 +270,15 @@
 }
 
 - (void) reloadData {
-    for (int i(0), e([pages_ count]); i != e; ++i) {
-        RVPage *page([pages_ objectAtIndex:(e - i - 1)]);
+    size_t count([pages_ count]);
+    for (size_t i(0); i != count; ++i) {
+        RVPage *page([pages_ objectAtIndex:(count - i - 1)]);
         [page reloadData];
+    }
+
+    if (count != 0) {
+        RVPage *page([pages_ lastObject]);
+        [self reloadButtonsForPage:page];
     }
 }
 

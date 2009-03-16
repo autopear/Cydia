@@ -659,6 +659,8 @@ class Pcre {
 - (NSString *) name;
 - (NSString *) address;
 
+- (void) setAddress:(NSString *)address;
+
 + (Address *) addressWithString:(NSString *)string;
 - (Address *) initWithString:(NSString *)string;
 @end
@@ -678,6 +680,15 @@ class Pcre {
 
 - (NSString *) address {
     return address_;
+}
+
+- (void) setAddress:(NSString *)address {
+    if (address_ != nil)
+        [address_ autorelease];
+    if (address == nil)
+        address_ = nil;
+    else
+        address_ = [address retain];
 }
 
 + (Address *) addressWithString:(NSString *)string {
@@ -764,6 +775,8 @@ static const float KeyboardTime_ = 0.3f;
 #define SandboxTemplate_ "/usr/share/sandbox/SandboxTemplate.sb"
 #define NotifyConfig_ "/etc/notify.conf"
 
+static bool Queuing_;
+
 static CGColor Blue_;
 static CGColor Blueish_;
 static CGColor Black_;
@@ -774,7 +787,8 @@ static CGColor Green_;
 static CGColor Purple_;
 static CGColor Purplish_;
 
-static UIColor *CommercialColor_;
+static UIColor *InstallingColor_;
+static UIColor *RemovingColor_;
 
 static NSString *App_;
 static NSString *Home_;
@@ -917,6 +931,7 @@ bool isSectionVisible(NSString *section) {
 @end
 
 @protocol CydiaDelegate
+- (void) clearPackage:(Package *)package;
 - (void) installPackage:(Package *)package;
 - (void) removePackage:(Package *)package;
 - (void) slideUp:(UIActionSheet *)alert;
@@ -1102,6 +1117,7 @@ class Progress :
     NSString *description_;
     NSString *label_;
     NSString *origin_;
+    NSString *support_;
 
     NSString *uri_;
     NSString *distribution_;
@@ -1117,6 +1133,8 @@ class Progress :
 - (Source *) initWithMetaIndex:(metaIndex *)index;
 
 - (NSComparisonResult) compareByNameAndType:(Source *)source;
+
+- (NSString *) supportForPackage:(NSString *)package;
 
 - (NSDictionary *) record;
 - (BOOL) trusted;
@@ -1152,6 +1170,7 @@ class Progress :
     _clear(description_)
     _clear(label_)
     _clear(origin_)
+    _clear(support_)
     _clear(version_)
     _clear(defaultIcon_)
     _clear(record_)
@@ -1205,6 +1224,8 @@ class Progress :
                 label_ = [[NSString stringWithUTF8String:value.c_str()] retain];
             else if (name == "Origin")
                 origin_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+            else if (name == "Support")
+                support_ = [[NSString stringWithUTF8String:value.c_str()] retain];
             else if (name == "Version")
                 version_ = [[NSString stringWithUTF8String:value.c_str()] retain];
         }
@@ -1242,6 +1263,10 @@ class Progress :
     }
 
     return [lhs compare:rhs options:LaxCompareOptions_];
+}
+
+- (NSString *) supportForPackage:(NSString *)package {
+    return support_ == nil ? nil : [support_ stringByReplacingOccurrencesOfString:@"*" withString:package];
 }
 
 - (NSDictionary *) record {
@@ -1359,6 +1384,7 @@ class Progress :
     NSString *homepage_;
     Address *sponsor_;
     Address *author_;
+    NSString *support_;
     NSArray *tags_;
     NSString *role_;
 
@@ -1408,6 +1434,8 @@ class Progress :
 - (NSString *) homepage;
 - (NSString *) depiction;
 - (Address *) author;
+
+- (NSString *) support;
 
 - (NSArray *) files;
 - (NSArray *) relationships;
@@ -1466,6 +1494,8 @@ class Progress :
         [sponsor_ release];
     if (author_ != nil)
         [author_ release];
+    if (support_ != nil)
+        [support_ release];
     if (tags_ != nil)
         [tags_ release];
     if (role_ != nil)
@@ -1489,7 +1519,7 @@ class Progress :
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"name", @"purposes", @"section", @"size", @"source", @"sponsor", @"tagline", @"warnings", nil];
+    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"maintainer", @"mode", @"name", @"purposes", @"section", @"size", @"source", @"sponsor", @"support", @"tagline", @"warnings", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -1572,6 +1602,7 @@ class Progress :
                     {"depiction", &depiction_},
                     {"homepage", &homepage_},
                     {"website", &website},
+                    {"support", &support_},
                     {"sponsor", &sponsor},
                     {"author", &author},
                     {"tag", &tag},
@@ -1888,14 +1919,16 @@ class Progress :
             else
                 return @"Remove";
         case pkgDepCache::ModeKeep:
-            if ((state.iFlags & pkgDepCache::AutoKept) != 0)
-                return nil;
+            if ((state.iFlags & pkgDepCache::ReInstall) != 0)
+                return @"Reinstall";
+            /*else if ((state.iFlags & pkgDepCache::AutoKept) != 0)
+                return nil;*/
             else
                 return nil;
         case pkgDepCache::ModeInstall:
-            if ((state.iFlags & pkgDepCache::ReInstall) != 0)
+            /*if ((state.iFlags & pkgDepCache::ReInstall) != 0)
                 return @"Reinstall";
-            else switch (state.Status) {
+            else*/ switch (state.Status) {
                 case -1:
                     return @"Downgrade";
                 case 0:
@@ -1955,6 +1988,10 @@ class Progress :
 
 - (Address *) author {
     return author_;
+}
+
+- (NSString *) support {
+    return support_ != nil ? support_ : [[self source] supportForPackage:id_];
 }
 
 - (NSArray *) files {
@@ -2198,6 +2235,12 @@ class Progress :
     }
 
     return _not(uint32_t) - value.key;
+}
+
+- (void) clear {
+    pkgProblemResolver *resolver = [database_ resolver];
+    resolver->Clear(iterator_);
+    resolver->Protect(iterator_);
 }
 
 - (void) install {
@@ -2996,6 +3039,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @protocol ConfirmationViewDelegate
 - (void) cancel;
 - (void) confirm;
+- (void) queue;
 @end
 
 @interface ConfirmationView : BrowserView {
@@ -3735,6 +3779,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *source_;
     UIImage *badge_;
     bool cached_;
+    Package *package_;
 #ifdef USE_BADGES
     UITextLabel *status_;
 #endif
@@ -3774,6 +3819,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [badge_ release];
         badge_ = nil;
     }
+
+    [package_ release];
+    package_ = nil;
 }
 
 - (void) dealloc {
@@ -3805,6 +3853,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     name_ = [[package name] retain];
     description_ = [[package tagline] retain];
     commercial_ = [package isCommercial];
+
+    package_ = [package retain];
 
     NSString *label = nil;
     bool trusted = false;
@@ -3851,7 +3901,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) drawRect:(CGRect)rect {
     if (!cached_) {
-        //[self setBackgroundColor:(commercial_ ? CommercialColor_ : [UIColor whiteColor])];
+        UIColor *color;
+
+        if (NSString *mode = [package_ mode]) {
+            bool remove([mode isEqualToString:@"Remove"] || [mode isEqualToString:@"Purge"]);
+            color = remove ? RemovingColor_ : InstallingColor_;
+        } else
+            color = [UIColor whiteColor];
+
+        [self setBackgroundColor:color];
         cached_ = true;
     }
 
@@ -3859,7 +3917,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawBackgroundInRect:(CGRect)rect withFade:(float)fade {
-    if (fade == 0 && commercial_) {
+    if (fade == 0) {
         CGContextRef context(UIGraphicsGetCurrentContext());
         [[self backgroundColor] set];
         CGRect back(rect);
@@ -3906,6 +3964,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
 
     [super drawContentInRect:rect selected:selected];
+}
+
+- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
+    cached_ = false;
+    [super setSelected:selected withFade:fade];
 }
 
 + (int) heightForPackage:(Package *)package {
@@ -4191,7 +4254,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
-    if ([name isEqualToString:@"Install"])
+    if ([name isEqualToString:@"Clear"])
+        [delegate_ clearPackage:package_];
+    else if ([name isEqualToString:@"Install"])
         [delegate_ installPackage:package_];
     else if ([name isEqualToString:@"Reinstall"])
         [delegate_ installPackage:package_];
@@ -4246,7 +4311,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [delegate_ slideUp:[[[UIActionSheet alloc]
             initWithTitle:nil
             buttons:buttons
-            defaultButtonIndex:2
+            defaultButtonIndex:([buttons count] - 1)
             delegate:self
             context:@"modify"
         ] autorelease]];
@@ -4297,6 +4362,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"package" ofType:@"html"]]];
 
+        if ([package_ mode] != nil)
+            [buttons_ addObject:@"Clear"];
         if ([package_ source] == nil);
         else if ([package_ upgradableAndEssential:NO])
             [buttons_ addObject:@"Upgrade"];
@@ -5224,7 +5291,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if !AlwaysReload
 - (id) _rightButtonTitle {
-    return nil;
+    return Queuing_ ? @"Queue" : nil;
+}
+
+- (UINavigationButtonStyle) rightButtonStyle {
+    return Queuing_ ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
+}
+
+- (void) _rightButtonClicked {
+    [delegate_ queue];
 }
 #endif
 
@@ -5950,10 +6025,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             if (section == nil || last != seen && (seen == nil || [seen compare:last] != NSOrderedSame)) {
                 last = seen;
 
-                NSString *name(seen == nil ? [@"n/a ?" retain] : (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen));
+                NSString *name;
+                if (seen == nil)
+                    name = @"unknown?";
+                else {
+                    name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
+                    [name autorelease];
+                }
+
+                name = [@"New at " stringByAppendingString:name];
                 section = [[[Section alloc] initWithName:name row:offset] autorelease];
                 [sections_ addObject:section];
-                [name release];
             }
 
             [section addToCount];
@@ -6600,7 +6682,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
         [buttonbar_ setBadgeValue:badge forButton:3];
         if ([buttonbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-            [buttonbar_ setBadgeAnimated:YES forButton:3];
+            [buttonbar_ setBadgeAnimated:([essential_ count] != 0) forButton:3];
         [self setApplicationBadge:badge];
     } else {
         [buttonbar_ setBadgeValue:nil forButton:3];
@@ -6608,6 +6690,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [buttonbar_ setBadgeAnimated:NO forButton:3];
         [self removeApplicationBadge];
     }
+
+    Queuing_ = false;
+    [buttonbar_ setBadgeValue:nil forButton:4];
 
     [self updateData];
 
@@ -6719,6 +6804,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self popUpBook:confirm_];
 }
 
+- (void) queue {
+    @synchronized (self) {
+        [self perform];
+    }
+}
+
+- (void) clearPackage:(Package *)package {
+    @synchronized (self) {
+        [package clear];
+        [self resolve];
+        [self perform];
+    }
+}
+
 - (void) installPackage:(Package *)package {
     @synchronized (self) {
         [package install];
@@ -6743,8 +6842,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) cancel {
+    [self slideUp:[[[UIActionSheet alloc]
+        initWithTitle:nil
+        buttons:[NSArray arrayWithObjects:@"Continue Queuing", @"Cancel and Clear", nil]
+        defaultButtonIndex:1
+        delegate:self
+        context:@"cancel"
+    ] autorelease]];
+}
+
+- (void) complete {
     @synchronized (self) {
         [self _reloadData];
+
         if (confirm_ != nil) {
             [confirm_ release];
             confirm_ = nil;
@@ -6786,7 +6896,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [confirm_ popFromSuperviewAnimated:NO];
     }
 
-    [self cancel];
+    [self complete];
 }
 
 - (void) setPage:(RVPage *)page {
@@ -6994,7 +7104,39 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([context isEqualToString:@"missing"])
         [sheet dismiss];
-    else if ([context isEqualToString:@"fixhalf"]) {
+    else if ([context isEqualToString:@"cancel"]) {
+        bool clear;
+
+        switch (button) {
+            case 1:
+                clear = false;
+            break;
+
+            case 2:
+                clear = true;
+            break;
+
+            default:
+                _assert(false);
+        }
+
+        [sheet dismiss];
+
+        @synchronized (self) {
+            if (clear)
+                [self _reloadData];
+            else {
+                Queuing_ = true;
+                [buttonbar_ setBadgeValue:@"Q'd" forButton:4];
+                [book_ reloadData];
+            }
+
+            if (confirm_ != nil) {
+                [confirm_ release];
+                confirm_ = nil;
+            }
+        }
+    } else if ([context isEqualToString:@"fixhalf"]) {
         switch (button) {
             case 1:
                 @synchronized (self) {
@@ -7509,7 +7651,9 @@ int main(int argc, char *argv[]) { _pooled
     /*Purple_.Set(space_, 0.5, 0.0, 0.7, 1.0);
     Purplish_.Set(space_, 0.7, 0.4, 0.8, 1.0); PURPLE */
 
-    CommercialColor_ = [UIColor colorWithRed:0.93f green:1.00f blue:0.88f alpha:1.00f];
+//.93
+    InstallingColor_ = [UIColor colorWithRed:0.88f green:1.00f blue:0.88f alpha:1.00f];
+    RemovingColor_ = [UIColor colorWithRed:1.00f green:0.88f blue:0.88f alpha:1.00f];
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 

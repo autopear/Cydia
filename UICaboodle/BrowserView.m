@@ -70,6 +70,22 @@
     } return self;
 }
 
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:@"device", nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (NSString *) device {
+    return [[UIDevice currentDevice] uniqueIdentifier];
+}
+
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (selector == @selector(close))
         return @"close";

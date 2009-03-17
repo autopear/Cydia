@@ -567,25 +567,30 @@
         } else if ([name isEqualToString:@"_open"])
             [delegate_ openURL:url];
         else if ([name isEqualToString:@"_popup"]) {
-            RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
-            [book setHook:indirect_];
+            NSString *scheme([[url scheme] lowercaseString]);
+            if ([scheme isEqualToString:@"mailto"])
+                [delegate_ openMailToURL:url];
+            else {
+                RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
+                [book setHook:indirect_];
 
-            RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
-            if (page == nil) {
-                /* XXX: call createWebViewWithRequest instead? */
+                RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
+                if (page == nil) {
+                    /* XXX: call createWebViewWithRequest instead? */
 
-                [self setBackButtonTitle:title_];
+                    [self setBackButtonTitle:title_];
 
-                BrowserView *browser([[[BrowserView alloc] initWithBook:book] autorelease]);
-                [browser loadURL:url];
-                page = browser;
+                    BrowserView *browser([[[BrowserView alloc] initWithBook:book] autorelease]);
+                    [browser loadURL:url];
+                    page = browser;
+                }
+
+                [book setDelegate:delegate_];
+                [page setDelegate:delegate_];
+
+                [book setPage:page];
+                [book_ pushBook:book];
             }
-
-            [book setDelegate:delegate_];
-            [page setDelegate:delegate_];
-
-            [book setPage:page];
-            [book_ pushBook:book];
         } else goto unknown;
 
         [listener ignore];

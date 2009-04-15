@@ -2567,7 +2567,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
         name_ = [name retain];
         index_ = '\0';
         row_ = row;
-        localized_ = LocalizeSection(name_);
+        localized_ = [LocalizeSection(name_) retain];
     } return self;
 }
 
@@ -4494,11 +4494,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-/*- (void) release {
+- (void) release {
     if ([self retainCount] == 1)
         [delegate_ setPackageView:self];
     [super release];
-}*/
+}
 
 /* XXX: this is not safe at all... localization of /fail/ */
 - (void) _clickButtonWithName:(NSString *)name {
@@ -7320,7 +7320,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setPackageView:(PackageView *)view {
     if (package_ == nil)
         package_ = [view retain];
-    NSLog(@"packageView: %@", package_);
 }
 
 - (PackageView *) packageView {

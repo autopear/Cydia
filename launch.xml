@@ -3,5 +3,7 @@
 <dict>
 	<key>com.apple.springboard.launchapplications</key>
 	<true/>
+        <key>com.apple.springboard.opensensitiveurl</key>
+        <true/>
 </dict>
 </plist>

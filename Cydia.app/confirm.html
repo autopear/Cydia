@@ -1,28 +1,29 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <html><head>
-    <title>Confirm</title>
+    <title localize="CONFIRM"></title>
     <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <link rel="stylesheet" type="text/css" href="menes/style.css"/>
     <script type="text/javascript" src="menes/menes.js"></script>
     <script type="text/javascript" src="confirm.js"></script>
+    <script type="text/javascript" src="localize.js"></script>
     <base target="_blank"/>
 </head><body class="pinstripe">
 <dialog><panel id="issues">
 
 <fieldset class="issues">
-    <div><p><span style="color: red; font-weight: bold">Note:</span> The requested modifications cannot be applied due to required dependencies or conflicts that cannot be automatically found or fixed.</p></div>
+    <div><p><span style="color: red; font-weight: bold" localize="NOTE"></span>: <span localize="CANNOT_COMPLY_EX"></span></p></div>
 </fieldset>
 
-<label class="_issues">Statistics</label>
+<label class="_issues" localize="STATISTICS"></label>
 <fieldset class="_issues">
     <div class="downloading"><div>
-        <label>Downloading</label>
+        <label localize="DOWNLOADING"></label>
         <label id="downloading"></label>
     </div></div>
 
     <div class="resuming"><div>
-        <label>Resuming At</label>
+        <label localize="RESUMING_AT"></label>
         <label id="resuming"></label>
     </div></div>
 
@@ -32,7 +33,7 @@
     </div></div>
 </fieldset>
 
-<label>Modifications</label>
+<label localize="MODIFICATIONS"></label>
 <fieldset id="modifications">
 </fieldset>
 

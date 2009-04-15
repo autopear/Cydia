@@ -49,7 +49,10 @@ swap_ = function (on, off, time) {
     };
 };
 
-$(function () {
+var special_ = function () {
+    if (package == null)
+        return;
+
     var id = package.id;
     var idc = encodeURIComponent(id);
     var name = package.name;
@@ -71,19 +74,17 @@ $(function () {
             value = eval(value);
 
             if (typeof value.rating == "undefined")
-                $(".rating").remove();
+                $(".rating").addClass("deleted");
             else {
-                $("#rating-load").remove();
+                $("#rating-load").addClass("deleted");
                 $("#rating-href").href(value.reviews);
 
                 var none = $("#rating-none");
                 var done = $("#rating-done");
 
                 if (value.rating == null) {
-                    done.remove();
                     none.css("display", "block");
                 } else {
-                    none.remove();
                     done.css("display", "block");
 
                     $("#rating-value").css('width', 16 * value.rating);
@@ -100,14 +101,14 @@ $(function () {
                 thumb.css("background-image", 'url("' + value.icon + '")');
 
                 setTimeout(function () {
-                    icon.css("display", "none");
+                    icon.addClass("deleted");
                     thumb[0].className = 'flip-0';
                 }, 2000);
             }
         },
 
         failure: function (status) {
-            $(".rating").remove();
+            $(".rating").addClass("deleted");
         }
     });
 
@@ -115,33 +116,34 @@ $(function () {
 
     var mode = package.mode;
     if (mode == null)
-        $(".mode").remove();
+        $(".mode").addClass("deleted");
     else {
-        $("#mode").html(mode);
+        $("#mode").html(cydia.localize(mode));
         $("#mode-src").src("Modes/" + mode + ".png");
     }
 
     var warnings = package.warnings;
     var length = warnings == null ? 0 : warnings.length;
     if (length == 0)
-        $(".warnings").remove();
+        $(".warnings").addClass("deleted");
     else {
         var parent = $("#warnings");
         var child = $("#warning");
-        child.remove();
 
         for (var i = 0; i != length; ++i) {
             var clone = child.clone(true);
+            clone.addClass("inserted");
             parent.append(clone);
             clone.xpath("./div/label").html($.xml(warnings[i]));
         }
+
+        child.addClass("deleted");
     }
 
     var applications = package.applications;
     var length = applications == null ? 0 : applications.length;
 
     var child = $("#application");
-    child.remove();
 
     /*if (length != 0) {
         var parent = $("#actions");
@@ -156,21 +158,23 @@ $(function () {
         }
     }*/
 
+    child.addClass("deleted");
+
     var commercial = package.hasTag('cydia::commercial');
     if (!commercial)
-        $(".commercial").remove();
+        $(".commercial").addClass("deleted");
 
     var _console = package.hasTag('purpose::console');
     if (!_console)
-        $(".console").remove();
+        $(".console").addClass("deleted");
 
     var author = package.author;
     if (author == null)
-        $(".author").remove();
+        $(".author").addClass("deleted");
     else {
         space("#author", author.name, 160);
         if (author.address == null)
-            $("#author-icon").remove();
+            $("#author-icon").addClass("deleted");
         else {
             var support = package.support;
             if (support == null)
@@ -184,7 +188,7 @@ $(function () {
 
     /*var store = commercial;
     if (!store)
-        $(".activation").remove();
+        $(".activation").addClass("deleted");
     else {
         var activation = api + 'activation/' + idc;
         $("#activation-src").src(activation);
@@ -192,9 +196,9 @@ $(function () {
 
     var depiction = package.depiction;
     if (depiction == null)
-        $(".depiction").remove();
+        $(".depiction").addClass("deleted");
     else {
-        $(".description").css("display", "none");
+        $(".description").addClass("deleted");
         $("#depiction-src").src(depiction);
     }
 
@@ -207,13 +211,13 @@ $(function () {
 
     var homepage = package.homepage;
     if (homepage == null)
-        $(".homepage").remove();
+        $(".homepage").addClass("deleted");
     else
         $("#homepage-href").href(homepage);
 
     var installed = package.installed;
     if (installed == null)
-        $(".installed").remove();
+        $(".installed").addClass("deleted");
     else {
         $("#installed").html(installed);
         $("#files-href").href("cydia://files/" + idc);
@@ -223,7 +227,7 @@ $(function () {
 
     var section = package.section;
     if (section == null)
-        $(".section").remove();
+        $(".section").addClass("deleted");
     else {
         $("#section-src").src("cydia://section-icon/" + encodeURIComponent(section));
         $("#section").html(section);
@@ -231,24 +235,24 @@ $(function () {
 
     var size = package.size;
     if (size == 0)
-        $(".size").remove();
+        $(".size").addClass("deleted");
     else
         $("#size").html(size / 1024 + " kB");
 
     var maintainer = package.maintainer;
     if (maintainer == null)
-        $(".maintainer").remove();
+        $(".maintainer").addClass("deleted");
     else {
         space("#maintainer", maintainer.name, 153);
         if (maintainer.address == null)
-            $("#maintainer-icon").remove();
+            $("#maintainer-icon").addClass("deleted");
         else
             $("#maintainer-href").href("mailto:" + maintainer.address + "?subject=" + regarding("M"));
     }
 
     var sponsor = package.sponsor;
     if (sponsor == null)
-        $(".sponsor").remove();
+        $(".sponsor").addClass("deleted");
     else {
         space("#sponsor", sponsor.name, 152);
         $("#sponsor-href").href(sponsor.address);
@@ -256,8 +260,8 @@ $(function () {
 
     var source = package.source;
     if (source == null) {
-        $(".source").remove();
-        $(".trusted").remove();
+        $(".source").addClass("deleted");
+        $(".trusted").addClass("deleted");
     } else {
         var host = source.host;
 
@@ -267,12 +271,42 @@ $(function () {
         if (source.trusted)
             $("#trusted").href("cydia://package-signature/" + idc);
         else
-            $(".trusted").remove();
+            $(".trusted").addClass("deleted");
 
         var description = source.description;
         if (description == null)
-            $(".source-description").remove();
+            $(".source-description").addClass("deleted");
         else
             $("#source-description").html(description);
     }
-});
+};
+
+$(special_);
+
+var special = function () {
+    $(".deleted").removeClass("deleted");
+    $(".inserted").remove();
+
+    $("#icon")[0].className = 'flip-0';
+    $("#thumb")[0].className = 'flip-180';
+
+    /* XXX: this could be better */
+    $("#rating-none").css("display", "none");
+    $("#rating-done").css("display", "none");
+
+    var depiction = $("#depiction-src");
+
+    depiction[0].outerHTML = '<iframe' +
+        ' class="depiction"' +
+        ' id="depiction-src"' +
+        ' frameborder="0"' +
+        ' width="320"' +
+        ' height="0"' +
+        ' target="_top"' +
+        ' onload_="loaded()"' +
+    '></iframe>';
+
+    special_();
+};
+
+cydia.setSpecial(special);

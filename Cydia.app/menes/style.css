@@ -252,14 +252,18 @@ panel > label {
 panel > fieldset > a,
 panel > fieldset > div,
 panel > fieldset > textarea {
-    border-bottom: 1px solid #999999;
+    border-top: 1px solid #999999;
 }
 
-panel > fieldset > a.left:nth-last-child(2),
-panel > fieldset > a:last-child,
-panel > fieldset > div:last-child,
-panel > fieldset > textarea:last-child {
-    border-bottom: 0;
+.deleted {
+    display: none;
+}
+
+panel > fieldset > a.right:nth-child(2),
+panel > fieldset > a:first-child,
+panel > fieldset > div:first-child,
+panel > fieldset > textarea:first-child {
+    border-top: 0;
 }
 
 list > fieldset > a,

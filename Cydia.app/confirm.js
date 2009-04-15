@@ -24,10 +24,10 @@ $(function () {
             size = size.substr(1);
         }
 
-        $("#disk-key").html(negative ? "Disk Freeing" : "Disk Using");
+        $("#disk-key").html(cydia.localize(negative ? "DISK_FREEING" : "DISK_USING"));
         $("#disk-value").html($.xml(size));
     } else for (var i = 0; i != issues.length; ++i) {
-        document.title = "Cannot Comply";
+        document.title = cydia.localize("CANNOT_COMPLY");
 
         $("._issues").remove();
 
@@ -51,11 +51,11 @@ $(function () {
     }
 
     var keys = [
-        "Install",
-        "Reinstall",
-        "Upgrade",
-        "Downgrade",
-        "Remove"
+        "INSTALL",
+        "REINSTALL",
+        "UPGRADE",
+        "DOWNGRADE",
+        "REMOVE"
     ];
 
     for (var i = 0; i != 5; ++i) {
@@ -64,7 +64,7 @@ $(function () {
 
         if (length != 0) {
             $("#modifications").append("<div class=\"clearfix\"><div>" +
-                "<label>" + $.xml(keys[i]) + "</label>" +
+                "<label>" + cydia.localize($.xml(keys[i])) + "</label>" +
                 "<label id=\"c" + i + "\"></label>" +
             "</div></div>");
 

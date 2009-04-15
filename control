@@ -1,14 +1,15 @@
 Package: cydia
-Essential: yes
 Priority: required
 Section: Packaging
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 1.0.2793-44
+Version: 1.0.2821-1
 Replaces: com.sosiphone.addcydia
-Depends: apt, darwintools, pcre, shell-cmds
+Depends: apr, darwintools, pcre, shell-cmds, system-cmds
+Pre-Depends: dpkg (>= 1.14.25-8)
 Conflicts: com.sosiphone.addcydia
 Description: graphical iPhone front-end for APT
 Name: Cydia Installer
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Depiction: http://cydia.saurik.com/info/cydia/
+Tag: cydia::essential

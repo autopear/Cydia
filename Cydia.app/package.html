@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <html><head>
-    <title>Details</title>
+    <title localize="DETAILS"></title>
     <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <link rel="stylesheet" type="text/css" href="menes/style.css"/>
     <script type="text/javascript" src="menes/menes.js"></script>
     <script type="text/javascript" src="package.js"></script>
+    <script type="text/javascript" src="localize.js"></script>
     <base target="_blank"/>
 
-    <script type="text/javascript">
+    <!--script type="text/javascript">
         var count = -1;
         var loaded = function() {
             if (count++ != 0)
@@ -21,12 +22,15 @@
             $(".description").css("display", "block");
             $(".depiction").remove();
         }
-    </script>
+    </script-->
 
     <style>
         .flip-180 {
             -webkit-backface-visibility: hidden;
             -webkit-transform: rotateY(180deg);
+        }
+
+        #icon.flip-180 {
             -webkit-transition-duration: 2s;
             -webkit-transition-property: transform;
         }
@@ -204,7 +208,7 @@
 
             <a class="rating" id="rating-href">
                 <div id="rating-none">
-                    <div class="star"></div><div class="text">Not Rated</div>
+                    <div class="star"></div><div class="text" localize="NOT_RATED"></div>
                 </div><div id="rating-done">
                     <div class="fore" id="rating-value"></div>
                     <div class="back"></div>
@@ -217,7 +221,7 @@
 <fieldset class="mode">
     <a>
         <img class="icon" id="mode-src"/><div>
-        <label>Package Queue</label>
+        <label localize="PACKAGE_QUEUE"></label>
         <label id="mode"></label>
     </div></a>
 </fieldset>
@@ -225,12 +229,12 @@
 <fieldset id="actions">
     <a id="settings">
         <img class="icon" src="settings.png"/><div>
-        <label>Change Package Settings</label>
+        <label localize="CHANGE_PACKAGE_SETTINGS"></label>
     </div></a>
 
     <a id="author-href" class="author" target="_popup">
         <img id="author-icon" class="icon" src="email.png"/><div>
-        <label>Author</label>
+        <label localize="AUTHOR"></label>
         <label id="author"></label>
     </div></a>
 
@@ -241,7 +245,7 @@
 
     <a class="console" href="http://cydia.saurik.com/purpose/console/">
         <img class="icon" src="console.png"/><div>
-        <label>This is a console package!</label>
+        <label localize="CONSOLE_PACKAGE"></label>
     </div></a>
 
     <a id="application">
@@ -298,69 +302,69 @@
 <fieldset class="description homepage">
     <a class="homepage" id="homepage-href">
         <img class="icon" src="web.png"/><div>
-        <label>More Information</label>
+        <label localize="MORE_INFORMATION"></label>
     </div></a>
 </fieldset>
 
-<label class="installed">Installed Package</label>
+<label class="installed" localize="INSTALLED_DETAILS"></label>
 <fieldset class="installed">
     <div>
         <img class="icon" src="version.png"/><div>
-        <label>Version</label>
+        <label localize="VERSION"></label>
         <label id="installed"></label>
     </div></div>
 
     <a id="files-href">
         <img class="icon" src="filesystem.png"/><div>
-        <label>Filesystem Content</label>
+        <label localize="FILESYSTEM_CONTENT"></label>
     </div></a>
 </fieldset>
 
-<label>Package Details</label>
+<label localize="PACKAGE_DETAILS"></label>
 <fieldset>
     <div>
         <img class="icon" src="id.png"/><div>
-        <label>ID</label>
+        <label localize="ID"></label>
         <label id="id"></label>
     </div></div>
 
     <div class="section">
         <img id="section-src" class="icon"/><div>
-        <label>Section</label>
+        <label localize="SECTION"></label>
         <label id="section"></label>
     </div></div>
 
     <div class="size">
         <img class="icon" src="expanded.png"/><div>
-        <label>Expanded Size</label>
+        <label localize="EXPANDED_SIZE"></label>
         <label id="size"></label>
     </div></div>
 
     <a id="maintainer-href" class="maintainer" target="_popup">
         <img id="maintainer-icon" class="icon" src="email.png"/><div>
-        <label>Contact</label>
+        <label localize="MAINTAINER"></label>
         <label id="maintainer"></label>
     </div></a>
 
     <a id="sponsor-href" class="sponsor">
         <img class="icon" src="web.png"/><div>
-        <label>Sponsor</label>
+        <label localize="SPONSOR"></label>
         <label id="sponsor"></label>
     </div></a>
 
     <!--a class="trusted" id="trusted">
         <img class="icon" src="trusted.png"><div>
-        <label>View Repository Signature</label>
+        <label localize="REPOSITORY_SIGNATURE"></label>
     </div></a-->
 
     <div class="trusted">
         <img class="icon" src="trusted.png"><div>
         <label>&nbsp;</label>
-        <label>This package has been signed.</label>
+        <label localize="SIGNED_PACKAGE"></label>
     </div></div>
 </fieldset>
 
-<label class="source">Source Information</label>
+<label class="source" localize="SOURCE_DETAILS"></label>
 <fieldset class="source">
     <div>
         <img class="icon" id="source-src"/><div>

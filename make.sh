@@ -1,2 +1,2 @@
 #!/bin/bash
-/apl/tel/exec.sh :apt:pcre make package
+/apl/tel/exec.sh :apr:apt:pcre make package

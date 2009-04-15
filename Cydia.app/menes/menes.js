@@ -287,6 +287,15 @@ $.inject({
         }
     },
 
+    height: {
+        get: function (node) {
+            return node.height;
+        },
+        set: function (node, value) {
+            node.height = value;
+        }
+    },
+
     html: {
         get: function (node) {
             return node.innerHTML;

@@ -51,13 +51,16 @@
 
     NSNumber *confirm_;
     NSString *title_;
-    bool loading_;
+    NSMutableSet *loading_;
     bool reloading_;
 
     NSString *button_;
     NSString *style_;
+
     WebScriptObject *function_;
     WebScriptObject *closer_;
+    WebScriptObject *special_;
+    WebScriptObject *finish_;
 
     bool pushed_;
 
@@ -77,17 +80,27 @@
 - (void) reloadURL;
 - (bool) isLoading;
 
+- (void) fixScroller;
+
 - (WebView *) webView;
 - (UIWebDocumentView *) documentView;
 
 - (id) initWithBook:(RVBook *)book;
 - (id) initWithBook:(RVBook *)book forWidth:(float)width;
 
+- (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script;
+- (void) callFunction:(WebScriptObject *)function;
+
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
 
 + (float) defaultWidth;
 - (void) setViewportWidth:(float)width;
+
+- (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
+- (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
+- (void) setFinishHook:(id)function;
+- (void) setPopupHook:(id)function;
 
 - (id) _rightButtonTitle;
 

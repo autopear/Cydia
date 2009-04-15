@@ -298,7 +298,7 @@
 - (void) _leftButtonTitle:(NSString *&)leftButtonTitle style:(UINavigationButtonStyle &)leftButtonStyle forPage:(RVPage *)page {
     [super _leftButtonTitle:leftButtonTitle style:leftButtonStyle forPage:page];
     if ((cancel_ = leftButtonTitle == nil && [pages_ count] == 1)) {
-        leftButtonTitle = @"Cancel";
+        leftButtonTitle = [[NSBundle mainBundle] localizedStringForKey:@"CANCEL" value:nil table:nil];
         leftButtonStyle = UINavigationButtonStyleNormal;
     }
 }

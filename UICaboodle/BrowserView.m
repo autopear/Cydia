@@ -1,7 +1,9 @@
 #include <BrowserView.h>
 
+#include <WebCore/WebCoreThread.h>
+
 /* Indirect Delegate {{{ */
-@interface IndirectDelegate : NSProxy {
+@interface IndirectDelegate : NSObject {
     _transient volatile id delegate_;
 }
 
@@ -20,11 +22,71 @@
     return self;
 }
 
+- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didClearWindowObject:window forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didCommitLoadForFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didCommitLoadForFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didFailLoadWithError:error forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didFailProvisionalLoadWithError:error forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didFinishLoadForFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didReceiveTitle:title forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender didStartProvisionalLoadForFrame:frame];
+}
+
+- (void) webView:(WebView *)sender resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender resource:identifier didReceiveAuthenticationChallenge:challenge fromDataSource:source];
+}
+
+- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
+    if (delegate_ != nil)
+        return [delegate_ webView:sender resource:identifier willSendRequest:request redirectResponse:redirectResponse fromDataSource:source];
+    return nil;
+}
+
+- (IMP) methodForSelector:(SEL)sel {
+    if (IMP method = [super methodForSelector:sel])
+        return method;
+    fprintf(stderr, "methodForSelector:[%s] == NULL\n", sel_getName(sel));
+    return NULL;
+}
+
 - (BOOL) respondsToSelector:(SEL)sel {
-    return delegate_ == nil ? FALSE : [delegate_ respondsToSelector:sel];
+    if ([super respondsToSelector:sel])
+        return YES;
+    // XXX: WebThreadCreateNSInvocation returns nil
+    //fprintf(stderr, "[%s]R?%s\n", class_getName(self->isa), sel_getName(sel));
+    return delegate_ == nil ? NO : [delegate_ respondsToSelector:sel];
 }
 
 - (NSMethodSignature *) methodSignatureForSelector:(SEL)sel {
+    if (NSMethodSignature *method = [super methodSignatureForSelector:sel])
+        return method;
+    //fprintf(stderr, "[%s]S?%s\n", class_getName(self->isa), sel_getName(sel));
     if (delegate_ != nil)
         if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
             return sig;
@@ -47,6 +109,29 @@
 - (void) _setUIKitDelegate:(id)delegate;
 - (void) setWebMailDelegate:(id)delegate;
 - (void) _setLayoutInterval:(float)interval;
+@end
+
+@interface WebScriptObject (Cydia)
+
+- (unsigned) count;
+- (id) objectAtIndex:(unsigned)index;
+
+@end
+
+@implementation WebScriptObject (Cydia)
+
+- (unsigned) count {
+    id length([self valueForKey:@"length"]);
+    if ([length respondsToSelector:@selector(intValue)])
+        return [length intValue];
+    else
+        return 0;
+}
+
+- (id) objectAtIndex:(unsigned)index {
+    return [self webScriptValueAtIndex:index];
+}
+
 @end
 
 /* Web Scripting {{{ */
@@ -97,12 +182,20 @@
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
         return @"setButtonTitle";
+    else if (selector == @selector(setFinishHook:))
+        return @"setFinishHook";
     else if (selector == @selector(setPopupHook:))
         return @"setPopupHook";
+    else if (selector == @selector(setSpecial:))
+        return @"setSpecial";
     else if (selector == @selector(setViewportWidth:))
         return @"setViewportWidth";
     else if (selector == @selector(supports:))
         return @"supports";
+    else if (selector == @selector(stringWithFormat:arguments:))
+        return @"format";
+    else if (selector == @selector(localizedStringForKey:value:table:))
+        return @"localize";
     else if (selector == @selector(du:))
         return @"du";
     else if (selector == @selector(statfs:))
@@ -195,12 +288,35 @@
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
 }
 
+- (void) setSpecial:(id)function {
+    [indirect_ setSpecial:function];
+}
+
+- (void) setFinishHook:(id)function {
+    [indirect_ setFinishHook:function];
+}
+
 - (void) setPopupHook:(id)function {
     [indirect_ setPopupHook:function];
 }
 
 - (void) setViewportWidth:(float)width {
     [indirect_ setViewportWidth:width];
+}
+
+- (NSString *) stringWithFormat:(NSString *)format arguments:(WebScriptObject *)arguments {
+    NSLog(@"SWF:\"%@\" A:%@", format, arguments);
+    unsigned count([arguments count]);
+    id values[count];
+    for (unsigned i(0); i != count; ++i)
+        values[i] = [arguments objectAtIndex:i];
+    return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
+}
+
+- (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {
+    if (reinterpret_cast<id>(table) == [WebUndefined undefined])
+        table = nil;
+    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:table];
 }
 
 @end
@@ -220,6 +336,8 @@
     if (challenge_ != nil)
         [challenge_ release];
 
+    WebThreadLock();
+
     WebView *webview = [webview_ webView];
     [webview setFrameLoadDelegate:nil];
     [webview setResourceLoadDelegate:nil];
@@ -229,15 +347,20 @@
 
     [webview setDownloadDelegate:nil];
 
+    /* XXX: these are set by UIWebDocumentView
     [webview _setFormDelegate:nil];
     [webview _setUIKitDelegate:nil];
-    [webview setWebMailDelegate:nil];
-    [webview setEditingDelegate:nil];
+    [webview setEditingDelegate:nil];*/
+
+    /* XXX: no one sets this, ever
+    [webview setWebMailDelegate:nil];*/
 
     [webview_ setDelegate:nil];
     [webview_ setGestureDelegate:nil];
     [webview_ setFormEditingDelegate:nil];
     [webview_ setInteractionDelegate:nil];
+
+    [indirect_ setDelegate:nil];
 
     //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
@@ -250,8 +373,9 @@
     [webview_ release];
 #endif
 
-    [indirect_ setDelegate:nil];
     [indirect_ release];
+
+    WebThreadUnlock();
 
     [cydia_ release];
 
@@ -263,8 +387,12 @@
         [style_ release];
     if (function_ != nil)
         [function_ release];
+    if (finish_ != nil)
+        [finish_ release];
     if (closer_ != nil)
         [closer_ release];
+    if (special_ != nil)
+        [special_ release];
 
     [scroller_ release];
     [indicator_ release];
@@ -304,7 +432,10 @@
 - (void) loadRequest:(NSURLRequest *)request {
     pushed_ = true;
     error_ = false;
+
+    WebThreadLock();
     [webview_ loadRequest:request];
+    WebThreadUnlock();
 }
 
 - (void) reloadURL {
@@ -315,8 +446,8 @@
         [self loadRequest:request_];
     else {
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:@"Are you sure you want to submit this form again?"
-            buttons:[NSArray arrayWithObjects:@"Cancel", @"Submit", nil]
+            initWithTitle:CYLocalize("RESUBMIT_FORM")
+            buttons:[NSArray arrayWithObjects:CYLocalize("CANCEL"), CYLocalize("SUBMIT"), nil]
             defaultButtonIndex:0
             delegate:self
             context:@"submit"
@@ -335,12 +466,8 @@
     return webview_;
 }
 
-- (void) _fixScroller {
-    CGRect bounds([webview_ documentBounds]);
-#if LogBrowser
-    NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
-#endif
-
+/* XXX: WebThreadLock? */
+- (void) _fixScroller:(CGRect)bounds {
     float extra;
     if (!editing_)
         extra = 0;
@@ -367,12 +494,20 @@
     [scroller_ releaseRubberBandIfNecessary];
 }
 
+- (void) fixScroller {
+    CGRect bounds([webview_ documentBounds]);
+#if LogBrowser
+    NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
+#endif
+    [self _fixScroller:bounds];
+}
+
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
     size_ = frame.size;
 #if LogBrowser
     NSLog(@"dsf:(%f,%f+%f,%f)", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
 #endif
-    [self _fixScroller];
+    [self _fixScroller:frame];
 }
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
@@ -388,7 +523,7 @@
 - (void) _pushPage {
     if (pushed_)
         return;
-    [self autorelease];
+    // WTR: [self autorelease];
     pushed_ = true;
     [book_ pushPage:self];
 }
@@ -440,11 +575,11 @@
     if (![self _allowJavaScriptPanel])
         return;
 
-    [self retain];
+    // WTR: [self retain];
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:@"OK", nil]
+        buttons:[NSArray arrayWithObjects:CYLocalize("OK"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"alert"
@@ -460,7 +595,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:@"OK", @"Cancel", nil]
+        buttons:[NSArray arrayWithObjects:CYLocalize("OK"), CYLocalize("Cancel"), nil]
         defaultButtonIndex:0
         delegate:indirect_
         context:@"confirm"
@@ -484,10 +619,10 @@
     popup_ = popup;
 }
 
-- (void) setPopupHook:(id)function {
-    if (closer_ != nil)
-        [closer_ autorelease];
-    closer_ = function == nil ? nil : [function retain];
+- (void) setSpecial:(id)function {
+    if (special_ != nil)
+        [special_ autorelease];
+    special_ = function == nil ? nil : [function retain];
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -522,17 +657,29 @@
     [self reloadButtons];
 }
 
+- (void) setFinishHook:(id)function {
+    if (finish_ != nil)
+        [finish_ autorelease];
+    finish_ = function == nil ? nil : [function retain];
+}
+
+- (void) setPopupHook:(id)function {
+    if (closer_ != nil)
+        [closer_ autorelease];
+    closer_ = function == nil ? nil : [function retain];
+}
+
 - (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {
     editing_ = true;
 }
 
 - (void) webView:(WebView *)sender didBeginEditingFormElement:(id)element {
-    [self _fixScroller];
+    [self fixScroller];
 }
 
 - (void) webViewDidEndEditingFormElements:(WebView *)sender {
     editing_ = false;
-    [self _fixScroller];
+    [self fixScroller];
 }
 
 - (void) webViewClose:(WebView *)sender {
@@ -640,12 +787,18 @@
     else NSLog(@"nav:%@:%@", url, [action description]);
 #endif
 
-    const NSArray *capability(reinterpret_cast<const NSArray *>(GSSystemGetCapability(kGSDisplayIdentifiersCapability)));
+    const NSArray *capability;
 
-    if (
+#if 0 // XXX:3:GSSystemCopyCapability
+    capability = reinterpret_cast<const NSArray *>(GSSystemGetCapability(kGSDisplayIdentifiersCapability));
+#else
+    capability = nil;
+#endif
+
+    if (capability != nil && (
         [capability containsObject:@"com.apple.Maps"] && [url mapsURL] ||
         [capability containsObject:@"com.apple.youtube"] && [url youTubeURL]
-    ) {
+    )) {
       open:
         [UIApp openURL:url];
         goto ignore;
@@ -657,10 +810,10 @@
         NSLog(@"itms#%@#%u#%@", url, store, itms);
 #endif
 
-        if (
+        if (capability != nil && (
             store == 1 && [capability containsObject:@"com.apple.MobileStore"] ||
             store == 2 && [capability containsObject:@"com.apple.AppStore"]
-        ) {
+        )) {
             url = itms;
             goto open;
         }
@@ -741,8 +894,11 @@
             break;
 
             case 2:
-                if (request_ != nil)
+                if (request_ != nil) {
+                    WebThreadLock();
                     [webview_ loadRequest:request_];
+                    WebThreadUnlock();
+                }
             break;
 
             default:
@@ -763,7 +919,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:realm
-        buttons:[NSArray arrayWithObjects:@"Login", @"Cancel", nil]
+        buttons:[NSArray arrayWithObjects:CYLocalize("LOGIN"), CYLocalize("CANCEL"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"challenge"
@@ -771,8 +927,8 @@
 
     [sheet setNumberOfRows:1];
 
-    [sheet addTextFieldWithValue:@"" label:@"username"];
-    [sheet addTextFieldWithValue:@"" label:@"password"];
+    [sheet addTextFieldWithValue:@"" label:CYLocalize("USERNAME")];
+    [sheet addTextFieldWithValue:@"" label:CYLocalize("PASSWORD")];
 
     UITextField *username([sheet textFieldAtIndex:0]); {
         UITextInputTraits *traits([username textInputTraits]);
@@ -849,59 +1005,75 @@
 }
 
 - (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    if ([frame parentFrame] != nil)
-        return;
+    [loading_ addObject:frame];
 
-    [webview_ resignFirstResponder];
+    if ([frame parentFrame] == nil) {
+        [webview_ resignFirstResponder];
 
-    reloading_ = false;
-    loading_ = true;
+        reloading_ = false;
+
+        if (title_ != nil) {
+            [title_ release];
+            title_ = nil;
+        }
+
+        if (button_ != nil) {
+            [button_ release];
+            button_ = nil;
+        }
+
+        if (style_ != nil) {
+            [style_ release];
+            style_ = nil;
+        }
+
+        if (function_ != nil) {
+            [function_ release];
+            function_ = nil;
+        }
+
+        if (finish_ != nil) {
+            [finish_ release];
+            finish_ = nil;
+        }
+
+        if (closer_ != nil) {
+            [closer_ release];
+            closer_ = nil;
+        }
+
+        if (special_ != nil) {
+            [special_ release];
+            special_ = nil;
+        }
+
+        [book_ reloadTitleForPage:self];
+
+        [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+
+        if ([scroller_ respondsToSelector:@selector(setZoomScale:duration:)])
+            [scroller_ setZoomScale:1 duration:0];
+        else
+            [scroller_ setZoomScale:1 animated:NO];
+
+        CGRect webrect = [scroller_ bounds];
+        webrect.size.height = 0;
+        [webview_ setFrame:webrect];
+    }
+
     [self reloadButtons];
-
-    if (title_ != nil) {
-        [title_ release];
-        title_ = nil;
-    }
-
-    if (button_ != nil) {
-        [button_ release];
-        button_ = nil;
-    }
-
-    if (style_ != nil) {
-        [style_ release];
-        style_ = nil;
-    }
-
-    if (function_ != nil) {
-        [function_ release];
-        function_ = nil;
-    }
-
-    if (closer_ != nil) {
-        [closer_ release];
-        closer_ = nil;
-    }
-
-    [book_ reloadTitleForPage:self];
-
-    [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
-    [scroller_ setZoomScale:1 duration:0];
-
-    CGRect webrect = [scroller_ bounds];
-    webrect.size.height = 0;
-    [webview_ setFrame:webrect];
 }
 
 - (void) _finishLoading {
-    if (!reloading_) {
-        loading_ = false;
-        [self reloadButtons];
-    }
+    if (reloading_ || [loading_ count] != 0)
+        return;
+    if (finish_ != nil)
+        [self callFunction:finish_];
+    [self reloadButtons];
 }
 
 - (bool) isLoading {
-    return loading_;
+    return [loading_ count] != 0;
 }
 
 - (void) reloadButtons {
@@ -934,9 +1106,11 @@
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    if ([frame parentFrame] == nil) {
-        [self _finishLoading];
+    [loading_ removeObject:frame];
 
+    [self _finishLoading];
+
+    if ([frame parentFrame] == nil) {
         if (DOMDocument *document = [frame DOMDocument])
             if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
                 for (DOMHTMLBodyElement *body in bodies) {
@@ -981,19 +1155,29 @@
     return [webview_ webView:sender didFinishLoadForFrame:frame];
 }
 
-- (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    if ([frame parentFrame] != nil)
-        return;
+- (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    [loading_ removeObject:frame];
     if (reloading_)
         return;
+
     [self _finishLoading];
 
-    [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
-        [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
-        [[error localizedDescription] stringByAddingPercentEscapes]
-    ]]];
+    if ([frame parentFrame] == nil) {
+        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
+            [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
+            [[error localizedDescription] stringByAddingPercentEscapes]
+        ]]];
 
-    error_ = true;
+        error_ = true;
+    }
+}
+
+- (void) webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    [self _didFailWithError:error forFrame:frame];
+}
+
+- (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    [self _didFailWithError:error forFrame:frame];
 }
 
 - (void) webView:(WebView *)sender addMessageToConsole:(NSDictionary *)dictionary {
@@ -1002,14 +1186,44 @@
 #endif
 }
 
+/* XXX: fix this stupid include file
+- (void) webView:(WebView *)sender frame:(WebFrame *)frame exceededDatabaseQuotaForSecurityOrigin:(WebSecurityOrigin *)origin database:(NSString *)database {
+    [origin setQuota:0x500000];
+}*/
+
+- (void) _setTileDrawingEnabled:(BOOL)enabled {
+    //[webview_ setTileDrawingEnabled:enabled];
+}
+
 - (void) setViewportWidth:(float)width {
     width_ = width ? width != 0 : [[self class] defaultWidth];
     [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 }
 
+- (void) willStartGesturesInView:(UIView *)view forEvent:(GSEventRef)event {
+    [self _setTileDrawingEnabled:NO];
+}
+
+- (void) didFinishGesturesInView:(UIView *)view forEvent:(GSEventRef)event {
+    [self _setTileDrawingEnabled:YES];
+    [webview_ redrawScaledDocument];
+}
+
+- (void) scrollerWillStartDragging:(UIScroller *)scroller {
+    [self _setTileDrawingEnabled:NO];
+}
+
+- (void) scrollerDidEndDragging:(UIScroller *)scroller willSmoothScroll:(BOOL)smooth {
+    [self _setTileDrawingEnabled:YES];
+}
+
+- (void) scrollerDidEndDragging:(UIScroller *)scroller {
+    [self _setTileDrawingEnabled:YES];
+}
+
 - (id) initWithBook:(RVBook *)book forWidth:(float)width {
     if ((self = [super initWithBook:book]) != nil) {
-        loading_ = false;
+        loading_ = [[NSMutableSet alloc] initWithCapacity:3];
         popup_ = false;
 
         struct CGRect bounds = [self bounds];
@@ -1017,21 +1231,30 @@
         scroller_ = [[UIScroller alloc] initWithFrame:bounds];
         [self addSubview:scroller_];
 
-        [scroller_ setShowBackgroundShadow:NO];
         [scroller_ setFixedBackgroundPattern:YES];
         [scroller_ setBackgroundColor:[UIColor pinStripeColor]];
 
         [scroller_ setScrollingEnabled:YES];
-        [scroller_ setAdjustForContentSizeChange:YES];
         [scroller_ setClipsSubviews:YES];
         [scroller_ setAllowsRubberBanding:YES];
-        [scroller_ setScrollDecelerationFactor:0.99];
+
         [scroller_ setDelegate:self];
+        [scroller_ setBounces:YES];
+        [scroller_ setScrollHysteresis:8];
+        [scroller_ setThumbDetectionEnabled:NO];
+        [scroller_ setDirectionalScrolling:YES];
+        [scroller_ setScrollDecelerationFactor:0.99]; /* 0.989324 */
+        [scroller_ setEventMode:YES];
+        [scroller_ setShowBackgroundShadow:NO]; /* YES */
+        [scroller_ setAllowsRubberBanding:YES]; /* Vertical */
+        [scroller_ setAdjustForContentSizeChange:YES]; /* NO */
 
         CGRect webrect = [scroller_ bounds];
         webrect.size.height = 0;
 
         WebView *webview;
+
+        WebThreadLock();
 
 #if RecycleWebViews
         webview_ = [Documents_ lastObject];
@@ -1059,7 +1282,11 @@
             [webview_ setDrawsGrid:NO];
             [webview_ setLogsTilingChanges:NO];
             [webview_ setTileMinificationFilter:kCAFilterNearest];
-            [webview_ setDetectsPhoneNumbers:NO];
+            if ([webview_ respondsToSelector:@selector(setDataDetectorTypes:)])
+                /* XXX: abstractify */
+                [webview_ setDataDetectorTypes:0x80000000];
+            else
+                [webview_ setDetectsPhoneNumbers:NO];
             [webview_ setAutoresizes:YES];
 
             [webview_ setMinimumScale:0.25f forDocumentTypes:0x10];
@@ -1075,7 +1302,8 @@
 
             [webview_ _setDocumentType:0x4];
 
-            [webview_ setZoomsFocusedFormControl:YES];
+            if ([webview_ respondsToSelector:@selector(UIWebDocumentView:)])
+                [webview_ setZoomsFocusedFormControl:YES];
             [webview_ setContentsPosition:7];
             [webview_ setEnabledGestures:0xa];
             [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeIsZoomRubberBandEnabled];
@@ -1086,7 +1314,8 @@
             [webview _setUsesLoaderCache:YES];
 
             [webview setGroupName:@"CydiaGroup"];
-            [webview _setLayoutInterval:0];
+            if ([webview respondsToSelector:@selector(_setLayoutInterval:)])
+                [webview _setLayoutInterval:0];
         }
 
         [self setViewportWidth:width];
@@ -1099,10 +1328,6 @@
         [scroller_ addSubview:webview_];
 
         //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-
-        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 12, indsize.width, indsize.height)];
-        [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
 
         Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
         NSString *application = package == nil ? @"Cydia" : [NSString
@@ -1117,24 +1342,29 @@
         if (Safari_ != nil)
             application = [NSString stringWithFormat:@"%@ Safari/%@", application, Safari_];
 
-        /* XXX: lookup application directory? */
-        /*if (NSDictionary *safari = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"])
-            if (NSString *version = [safari objectForKey:@"SafariProductVersion"])
-                application = [NSString stringWithFormat:@"Version/%@ %@", version, application];*/
-
         [webview setApplicationNameForUserAgent:application];
 
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
-        [webview setFrameLoadDelegate:self];
+        [webview setFrameLoadDelegate:indirect_];
         [webview setResourceLoadDelegate:indirect_];
-        [webview setUIDelegate:self];
-        [webview setScriptDebugDelegate:self];
-        [webview setPolicyDelegate:self];
+        [webview setUIDelegate:indirect_];
+        [webview setScriptDebugDelegate:indirect_];
+        [webview setPolicyDelegate:indirect_];
+
+        WebThreadUnlock();
+
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 12, indsize.width, indsize.height)];
+        [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+
+        /*UIWebView *test([[[UIWebView alloc] initWithFrame:[self bounds]] autorelease]);
+        [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];
+        [self addSubview:test];*/
     } return self;
 }
 
@@ -1142,11 +1372,17 @@
     return [self initWithBook:book forWidth:0];
 }
 
-- (void) didFinishGesturesInView:(UIView *)view forEvent:(id)event {
-    [webview_ redrawScaledDocument];
+- (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script {
+    WebThreadLock();
+    WebView *webview([webview_ webView]);
+    NSString *string([webview stringByEvaluatingJavaScriptFromString:script]);
+    WebThreadUnlock();
+    return string;
 }
 
 - (void) callFunction:(WebScriptObject *)function {
+    WebThreadLock();
+
     WebView *webview([webview_ webView]);
     WebFrame *frame([webview mainFrame]);
 
@@ -1168,7 +1404,9 @@
     JSObjectCallAsFunction(context, object, NULL, 0, NULL, NULL);
 
     if (settings != NULL)
-            settings->setJavaScriptCanOpenWindowsAutomatically(no);
+        settings->setJavaScriptCanOpenWindowsAutomatically(no);
+
+    WebThreadUnlock();
 }
 
 - (void) didCloseBook:(RVBook *)book {
@@ -1182,14 +1420,16 @@
 }
 
 - (void) _rightButtonClicked {
-    if (function_ == nil)
-        [self __rightButtonClicked];
-    else
+#if !AlwaysReload
+    if (function_ != nil)
         [self callFunction:function_];
+    else
+#endif
+        [self __rightButtonClicked];
 }
 
 - (id) _rightButtonTitle {
-    return @"Reload";
+    return CYLocalize("RELOAD");
 }
 
 - (id) rightButtonTitle {
@@ -1211,11 +1451,11 @@
 }
 
 - (NSString *) title {
-    return title_ == nil ? @"Loading" : title_;
+    return title_ == nil ? CYLocalize("LOADING") : title_;
 }
 
 - (NSString *) backButtonTitle {
-    return @"Browser";
+    return CYLocalize("BROWSER");
 }
 
 - (void) setPageActive:(BOOL)active {

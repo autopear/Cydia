@@ -67,6 +67,7 @@
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/clean.h>
 #include <apt-pkg/configuration.h>
+#include <apt-pkg/debindexfile.h>
 #include <apt-pkg/debmetaindex.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/init.h>
@@ -1274,7 +1275,7 @@ class Progress :
 - (void) updateWithStatus:(Status &)status;
 
 - (void) setDelegate:(id)delegate;
-- (Source *) getSource:(const pkgCache::PkgFileIterator &)file;
+- (Source *) getSource:(pkgCache::PkgFileIterator)file;
 @end
 /* }}} */
 
@@ -1528,9 +1529,9 @@ class Progress :
 @interface Package : NSObject {
     unsigned era_;
 
+    pkgCache::VerIterator version_;
     pkgCache::PkgIterator iterator_;
     _transient Database *database_;
-    pkgCache::VerIterator version_;
     pkgCache::VerFileIterator file_;
 
     Source *source_;
@@ -1564,7 +1565,7 @@ class Progress :
     NSMutableDictionary *metadata_;
 }
 
-- (Package *) initWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
+- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
 
 - (pkgCache::PkgIterator) iterator;
@@ -1680,11 +1681,13 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     if (section$_ != nil)
         [section$_ release];
 
-    [latest_ release];
+    if (latest_ != nil)
+        [latest_ release];
     if (installed_ != nil)
         [installed_ release];
 
-    [id_ release];
+    if (id_ != nil)
+        [id_ release];
     if (sponsor$_ != nil)
         [sponsor$_ release];
     if (author$_ != nil)
@@ -1725,41 +1728,33 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
-- (Package *) initWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
+- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
-    _profile(Package$initWithIterator)
+    _profile(Package$initWithVersion)
     @synchronized (database) {
         era_ = [database era];
 
-        iterator_ = iterator;
+        version_ = version;
+        iterator_ = version.ParentPkg();
         database_ = database;
 
-        _profile(Package$initWithIterator$Control)
-        _end
-
-        _profile(Package$initWithIterator$Version)
-            version_ = [database_ policy]->GetCandidateVer(iterator_);
-        _end
-
-        NSString *latest = version_.end() ? nil : [NSString stringWithUTF8String:version_.VerStr()];
-
-        _profile(Package$initWithIterator$Latest)
-            latest_ = latest == nil ? nil : [StripVersion(latest) retain];
+        _profile(Package$initWithVersion$Latest)
+            latest_ = [StripVersion([NSString stringWithUTF8String:version_.VerStr()]) retain];
         _end
 
         pkgCache::VerIterator current;
         NSString *installed;
 
-        _profile(Package$initWithIterator$Current)
+        _profile(Package$initWithVersion$Current)
             current = iterator_.CurrentVer();
             installed = current.end() ? nil : [NSString stringWithUTF8String:current.VerStr()];
         _end
 
-        _profile(Package$initWithIterator$Installed)
+        _profile(Package$initWithVersion$Installed)
             installed_ = [StripVersion(installed) retain];
         _end
 
-        _profile(Package$initWithIterator$File)
+        _profile(Package$initWithVersion$File)
             if (!version_.end())
                 file_ = version_.FileList();
             else {
@@ -1768,15 +1763,20 @@ uint32_t PackageChangesRadix(Package *self, void *) {
             }
         _end
 
-        _profile(Package$initWithIterator$Name)
+        _profile(Package$initWithVersion$Name)
             id_ = [[NSString stringWithUTF8String:iterator_.Name()] retain];
         _end
 
         if (!file_.end())
-            _profile(Package$initWithIterator$Parse)
+            source_ = [database_ getSource:file_.File()];
+            if (source_ != nil)
+                [source_ retain];
+            cached_ = true;
+
+            _profile(Package$initWithVersion$Parse)
                 pkgRecords::Parser *parser;
 
-                _profile(Package$initWithIterator$Parse$Lookup)
+                _profile(Package$initWithVersion$Parse$Lookup)
                     parser = &[database_ records]->Lookup(file_);
                 _end
 
@@ -1825,7 +1825,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                                 if (strncasecmp(names[i].name_, name, size) == 0) {
                                     CYString &value(*names[i].value_);
 
-                                    _profile(Package$initWithIterator$Parse$Value)
+                                    _profile(Package$initWithVersion$Parse$Value)
                                         value.set(pool, colon, stop - colon);
                                     _end
 
@@ -1838,11 +1838,11 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                         ++begin;
                     } else goto next;
 
-                _profile(Package$initWithIterator$Parse$Tagline)
+                _profile(Package$initWithVersion$Parse$Tagline)
                     tagline_.set(pool, parser->ShortDesc());
                 _end
 
-                _profile(Package$initWithIterator$Parse$Retain)
+                _profile(Package$initWithVersion$Parse$Retain)
                     if (!homepage_.empty())
                         homepage_ = website;
                     if (homepage_ == depiction_)
@@ -1852,7 +1852,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                 _end
             _end
 
-        _profile(Package$initWithIterator$Tags)
+        _profile(Package$initWithVersion$Tags)
             if (tags_ != nil)
                 for (NSString *tag in tags_)
                     if ([tag hasPrefix:@"role::"]) {
@@ -1861,20 +1861,17 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                     }
         _end
 
-        NSString *solid(latest == nil ? installed : latest);
         bool changed(false);
-
         NSString *key([id_ lowercaseString]);
 
-        _profile(Package$initWithIterator$Metadata)
+        _profile(Package$initWithVersion$Metadata)
             metadata_ = [Packages_ objectForKey:key];
             if (metadata_ == nil) {
                 metadata_ = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
                     now_, @"FirstSeen",
                 nil] mutableCopy];
 
-                if (solid != nil)
-                    [metadata_ setObject:solid forKey:@"LastVersion"];
+                [metadata_ setObject:latest_ forKey:@"LastVersion"];
                 changed = true;
             } else {
                 NSDate *first([metadata_ objectForKey:@"FirstSeen"]);
@@ -1887,16 +1884,15 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                     changed = true;
                 }
 
-                if (solid != nil)
-                    if (version == nil) {
-                        [metadata_ setObject:solid forKey:@"LastVersion"];
-                        changed = true;
-                    } else if (![version isEqualToString:solid]) {
-                        [metadata_ setObject:solid forKey:@"LastVersion"];
-                        last = now_;
-                        [metadata_ setObject:last forKey:@"LastSeen"];
-                        changed = true;
-                    }
+                if (version == nil) {
+                    [metadata_ setObject:latest_ forKey:@"LastVersion"];
+                    changed = true;
+                } else if (![version isEqualToString:latest_]) {
+                    [metadata_ setObject:latest_ forKey:@"LastVersion"];
+                    last = now_;
+                    [metadata_ setObject:last forKey:@"LastSeen"];
+                    changed = true;
+                }
             }
 
             metadata_ = [metadata_ retain];
@@ -1907,7 +1903,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
             }
         _end
 
-        _profile(Package$initWithIterator$Section)
+        _profile(Package$initWithVersion$Section)
             section_.set(pool, iterator_.Section());
         _end
 
@@ -1916,8 +1912,11 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
+    pkgCache::VerIterator version([database policy]->GetCandidateVer(iterator));
+    if (version.end())
+        return nil;
     return [[[Package alloc]
-        initWithIterator:iterator
+        initWithVersion:version
         withZone:zone
         inPool:pool
         database:database
@@ -2391,7 +2390,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     NSString *lhs = [self name];
     NSString *rhs = [package name];
 
-    /*if ([lhs length] != 0 && [rhs length] != 0) {
+    if ([lhs length] != 0 && [rhs length] != 0) {
         unichar lhc = [lhs characterAtIndex:0];
         unichar rhc = [rhs characterAtIndex:0];
 
@@ -2401,9 +2400,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
             return NSOrderedDescending;
     }
 
-    return [lhs compare:rhs options:LaxCompareOptions_];*/
-
-    return [lhs compare:rhs];
+    return [lhs compare:rhs options:LaxCompareOptions_];
 }
 
 - (uint32_t) compareBySection:(NSArray *)sections {
@@ -2907,6 +2904,10 @@ static NSArray *Finishes_;
     apr_pool_clear(pool_);
     NSRecycleZone(zone_);
 
+    int chk(creat("/tmp/cydia.chk", 0644));
+    if (chk != -1)
+        close(chk);
+
     _trace();
     if (!cache_.Open(progress_, true)) {
         std::string error;
@@ -2928,6 +2929,8 @@ static NSArray *Finishes_;
     }
     _trace();
 
+    unlink("/tmp/cydia.chk");
+
     now_ = [[NSDate date] retain];
 
     policy_ = new pkgDepCache::Policy();
@@ -2948,15 +2951,25 @@ static NSArray *Finishes_;
         _assert(pkgMinimizeUpgrade(cache_));
     }
 
-    [sources_ removeAllObjects];
-    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-        std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
-        for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
-            [sources_
-                setObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]
-                forKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(*index)]
-            ];
+    _trace();
+    {
+        std::string lists(_config->FindDir("Dir::State::lists"));
+
+        [sources_ removeAllObjects];
+        for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+            std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
+            for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
+                if (debPackagesIndex *packages = dynamic_cast<debPackagesIndex *>(*index))
+                    [sources_
+                        setObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]
+                        forKey:[NSString stringWithFormat:@"%s%s",
+                            lists.c_str(),
+                            URItoFileName(packages->IndexURI("Packages")).c_str()
+                        ]
+                    ];
+        }
     }
+    _trace();
 
     [packages_ removeAllObjects];
     _trace();
@@ -3128,10 +3141,11 @@ static NSArray *Finishes_;
     progress_.setDelegate(delegate);
 }
 
-- (Source *) getSource:(const pkgCache::PkgFileIterator &)file {
-    pkgIndexFile *index(NULL);
-    list_->FindIndex(file, index);
-    return [sources_ objectForKey:[NSNumber numberWithLong:reinterpret_cast<uintptr_t>(index)]];
+- (Source *) getSource:(pkgCache::PkgFileIterator)file {
+    if (const char *name = file.FileName())
+        if (Source *source = [sources_ objectForKey:[NSString stringWithUTF8String:name]])
+            return source;
+    return nil;
 }
 
 @end
@@ -4112,7 +4126,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         from = [NSString stringWithFormat:CYLocalize("PARENTHETICAL"), from, section];
     }
 
-    from = [NSString stringWithFormat:CYLocalize("FROM"), label];
+    from = [NSString stringWithFormat:CYLocalize("FROM"), from];
     source_ = [from retain];
 
     if (NSString *purpose = [package primaryPurpose])
@@ -6218,7 +6232,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
-    NSLog(@"titleForSection:%u", section);
     return [[sections_ objectAtIndex:section] name];
 }
 
@@ -7881,16 +7894,27 @@ void $UIWebDocumentView$_setUIKitDelegate$(UIWebDocumentView *self, SEL sel, id 
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
+    /* Library Hacks {{{ */
+    class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
+
+    $WebDefaultUIKitDelegate = objc_getClass("WebDefaultUIKitDelegate");
+    Method UIWebDocumentView$_setUIKitDelegate$(class_getInstanceMethod([WebView class], @selector(_setUIKitDelegate:)));
+    if (UIWebDocumentView$_setUIKitDelegate$ != NULL) {
+        _UIWebDocumentView$_setUIKitDelegate$ = reinterpret_cast<void (*)(UIWebDocumentView *, SEL, id)>(method_getImplementation(UIWebDocumentView$_setUIKitDelegate$));
+        method_setImplementation(UIWebDocumentView$_setUIKitDelegate$, reinterpret_cast<IMP>(&$UIWebDocumentView$_setUIKitDelegate$));
+    }
+    /* }}} */
+    /* Set Locale {{{ */
     Locale_ = CFLocaleCopyCurrent();
 
     CFStringRef locale(CFLocaleGetIdentifier(Locale_));
     setenv("LANG", [(NSString *) locale UTF8String], true);
+    /* }}} */
 
     // XXX: apr_app_initialize?
     apr_initialize();
 
-    class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
-
+    /* Parse Arguments {{{ */
     bool substrate(false);
 
     if (argc != 0) {
@@ -7914,9 +7938,7 @@ int main(int argc, char *argv[]) { _pooled
             else
                 fprintf(stderr, "unknown argument: %s\n", args[argi]);
     }
-
-    App_ = [[NSBundle mainBundle] bundlePath];
-    Home_ = NSHomeDirectory();
+    /* }}} */
 
     {
         NSString *plist = [Home_ stringByAppendingString:@"/Library/Preferences/com.apple.preferences.sounds.plist"];
@@ -7925,22 +7947,11 @@ int main(int argc, char *argv[]) { _pooled
                 Sounds_Keyboard_ = [keyboard boolValue];
     }
 
+    App_ = [[NSBundle mainBundle] bundlePath];
+    Home_ = NSHomeDirectory();
+
     setuid(0);
     setgid(0);
-
-#if 1 /* XXX: this costs 1.4s of startup performance */
-    if (unlink("/var/cache/apt/pkgcache.bin") == -1)
-        _assert(errno == ENOENT);
-    if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
-        _assert(errno == ENOENT);
-#endif
-
-    $WebDefaultUIKitDelegate = objc_getClass("WebDefaultUIKitDelegate");
-    Method UIWebDocumentView$_setUIKitDelegate$(class_getInstanceMethod([WebView class], @selector(_setUIKitDelegate:)));
-    if (UIWebDocumentView$_setUIKitDelegate$ != NULL) {
-        _UIWebDocumentView$_setUIKitDelegate$ = reinterpret_cast<void (*)(UIWebDocumentView *, SEL, id)>(method_getImplementation(UIWebDocumentView$_setUIKitDelegate$));
-        method_setImplementation(UIWebDocumentView$_setUIKitDelegate$, reinterpret_cast<IMP>(&$UIWebDocumentView$_setUIKitDelegate$));
-    }
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;
@@ -7981,6 +7992,7 @@ int main(int argc, char *argv[]) { _pooled
     /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
     AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/
 
+    /* Load Database {{{ */
     _trace();
     Metadata_ = [[[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"] autorelease];
     _trace();
@@ -8014,6 +8026,7 @@ int main(int argc, char *argv[]) { _pooled
         Sources_ = [[[NSMutableDictionary alloc] initWithCapacity:0] autorelease];
         [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
+    /* }}} */
 
 #if RecycleWebViews
     Documents_ = [[[NSMutableArray alloc] initWithCapacity:4] autorelease];
@@ -8037,6 +8050,14 @@ int main(int argc, char *argv[]) { _pooled
         error:NULL
     ]);
 
+    if (access("/tmp/cydia.chk", F_OK) == 0) {
+        if (unlink("/var/cache/apt/pkgcache.bin") == -1)
+            _assert(errno == ENOENT);
+        if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
+            _assert(errno == ENOENT);
+    }
+
+    /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();
 
     Blue_.Set(space_, 0.2, 0.2, 1.0, 1.0);
@@ -8058,14 +8079,17 @@ int main(int argc, char *argv[]) { _pooled
 //.93
     InstallingColor_ = [UIColor colorWithRed:0.88f green:1.00f blue:0.88f alpha:1.00f];
     RemovingColor_ = [UIColor colorWithRed:1.00f green:0.88f blue:0.88f alpha:1.00f];
+    /* }}}*/
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
+    /* UIKit Configuration {{{ */
     void (*$GSFontSetUseLegacyFontMetrics)(BOOL)(reinterpret_cast<void (*)(BOOL)>(dlsym(RTLD_DEFAULT, "GSFontSetUseLegacyFontMetrics")));
     if ($GSFontSetUseLegacyFontMetrics != NULL)
         $GSFontSetUseLegacyFontMetrics(YES);
 
     UIKeyboardDisableAutomaticAppearance();
+    /* }}} */
 
     _trace();
     int value = UIApplicationMain(argc, argv, @"Cydia", @"Cydia");

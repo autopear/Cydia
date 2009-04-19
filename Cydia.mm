@@ -389,6 +389,7 @@ extern NSString * const kCAFilterNearest;
 #define ForRelease 0
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (1 && !ForRelease)
+#define TrackResize (0 && !ForRelease)
 #define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
@@ -966,6 +967,7 @@ static const NSString *Product_ = nil;
 static const NSString *Safari_ = nil;
 
 CFLocaleRef Locale_;
+NSArray *Languages_;
 CGColorSpaceRef space_;
 
 bool bootstrap_;
@@ -1029,7 +1031,14 @@ NSString *StripVersion(NSString *version) {
 }
 
 NSString *LocalizeSection(NSString *section) {
-    return section;
+    static Pcre title_r("^(.*?) \\((.*)\\)$");
+    if (title_r(section))
+        return [NSString stringWithFormat:CYLocalize("PARENTHETICAL"),
+            LocalizeSection(title_r[1]),
+            LocalizeSection(title_r[2])
+        ];
+
+    return [[NSBundle mainBundle] localizedStringForKey:section value:nil table:@"Sections"];
 }
 
 NSString *Simplify(NSString *title) {
@@ -1044,7 +1053,7 @@ NSString *Simplify(NSString *title) {
     if (paren_r(data, size))
         return Simplify(paren_r[1]);
 
-    static Pcre title_r("^(.*?) \\(.*\\)$");
+    static Pcre title_r("^(.*?) \\((.*)\\)$");
     if (title_r(data, size))
         return Simplify(title_r[1]);
 
@@ -1912,9 +1921,15 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
-    pkgCache::VerIterator version([database policy]->GetCandidateVer(iterator));
+    pkgCache::VerIterator version;
+
+    _profile(Package$packageWithIterator$GetCandidateVer)
+        version = [database policy]->GetCandidateVer(iterator);
+    _end
+
     if (version.end())
         return nil;
+
     return [[[Package alloc]
         initWithVersion:version
         withZone:zone
@@ -4652,6 +4667,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [self setPopupHook:nil];
             WebThreadUnlock();
 
+            //[self yieldToSelector:@selector(callFunction:) withObject:special_];
             [super callFunction:special_];
         }
     }
@@ -5767,7 +5783,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
 
         CGRect frame = [cancel_ frame];
-        frame.size.width = 65;
         frame.origin.x = ovrrect.size.width - frame.size.width - 5;
         frame.origin.y = (ovrrect.size.height - frame.size.height) / 2;
         [cancel_ setFrame:frame];
@@ -7390,7 +7405,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             @"home-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:1], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            CYLocalize("HOME"), kUIButtonBarButtonTitle,
+            @"Cydia", kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -7744,9 +7759,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
     Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
 
-    _assert(pkgInitConfig(*_config));
-    _assert(pkgInitSystem(*_config, _system));
-
     tag_ = 1;
 
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
@@ -7906,9 +7918,17 @@ int main(int argc, char *argv[]) { _pooled
     /* }}} */
     /* Set Locale {{{ */
     Locale_ = CFLocaleCopyCurrent();
-
-    CFStringRef locale(CFLocaleGetIdentifier(Locale_));
-    setenv("LANG", [(NSString *) locale UTF8String], true);
+    Languages_ = [NSLocale preferredLanguages];
+    //CFStringRef locale(CFLocaleGetIdentifier(Locale_));
+    NSLog(@"%@", [Languages_ description]);
+    const char *lang;
+    if (Languages_ == nil || [Languages_ count] == 0)
+        lang = NULL;
+    else
+        lang = [[Languages_ objectAtIndex:0] UTF8String];
+    setenv("LANG", lang, true);
+    //std::setlocale(LC_ALL, lang);
+    NSLog(@"Setting Language: %s", lang);
     /* }}} */
 
     // XXX: apr_app_initialize?
@@ -8056,6 +8076,12 @@ int main(int argc, char *argv[]) { _pooled
         if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
             _assert(errno == ENOENT);
     }
+
+    _assert(pkgInitConfig(*_config));
+    _assert(pkgInitSystem(*_config, _system));
+
+    if (lang != NULL)
+        _config->Set("APT::Acquire::Translation", lang);
 
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();

@@ -96,9 +96,11 @@
 "MANAGE" = "Manage";
 "MODIFY" = "Modify";
 "MORE_INFORMATION" = "More Information";
+"MORE_PACKAGE_SOURCS" = "More Package Sources";
 "NAME" = "Name";
 "NETWORK_ERROR" = "Network Error";
 "NEVER_OR_UNKNOWN" = "Never or Unknown";
+"NEW" = "New";
 "NEW_AT" = "New at %@";
 "NEW_INSTALL" = "New Install";
 "NO_SECTION" = "(No Section)";
@@ -116,6 +118,7 @@
 "PACKAGES_EX" = "View or remove packages you previously installed.";
 "PARENTHETICAL" = "%@ (%@)";
 "PASSWORD" = "password";
+"PRODUCTS" = "Products";
 "PURGE" = "Purge";
 "Q_D" = "Q'd";
 "QUEUED_FOR" = "Queued for %@";
@@ -168,7 +171,7 @@
 "SUBMIT" = "Submit";
 "SUPPORT_KNOWN_ISSUES" = "Support & Known Issues";
 "TEMPORARY_IGNORE" = "Ignore (Temporary)";
-"THANK YOU" = "Thank You";
+"THANK_YOU" = "Thank You";
 "QUEUE" = "Queue";
 "UNABLE_TO_COMPLY" = "Unable to Comply";
 "UNABLE_TO_COMPLY_EX" = "This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. In order to continue and force this operation you will need to be activate the Advanced mode under to continue and force this operation you will need to be activate the Advanced mode under Settings.";

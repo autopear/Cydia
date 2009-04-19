@@ -39,6 +39,36 @@
         <string>Carrier_Bundles</string>
     </dict>
 
+    <key>Messages</key>
+    <dict>
+        <key>Rename</key>
+        <string>Messaging</string>
+    </dict>
+
+    <key>Utilites</key>
+    <dict>
+        <key>Rename</key>
+        <string>Utilities</string>
+    </dict>
+
+    <key>Themes_(Lockscreen)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(LockScreen)</string>
+    </dict>
+
+    <key>Themes_(Complet)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(Complete)</string>
+    </dict>
+
+    <key>Wallpapers</key>
+    <dict>
+        <key>Rename</key>
+        <string>Wallpaper</string>
+    </dict>
+
     <key>Messageing</key>
     <dict>
         <key>Rename</key>

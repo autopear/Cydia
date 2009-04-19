@@ -28,52 +28,42 @@
         }
 
         a.giant-button {
+            background-color: rgba(0, 0, 0, .15);
+            -webkit-border-radius: 10px;
             color: #193250;
             display: block;
             margin: 10px;
             text-decoration: none;
         }
 
-        a.giant-button > div.contents {
-            position: absolute;
-            text-align: left;
-            width: 300px;
-            -webkit-background-size: 75px auto;
-            z-index: 2;
-        }
-
-        a.giant-button > div.contents > img {
+        a.giant-button > img {
+            display: inline-block;
             float: left;
             height: 80px;
-            margin: 10px;
+            margin: 10px -10px 0 10px;
             width: 80px;
             vertical-align: middle;
         }
 
+        a.giant-button > div.contents {
+            display: inline-block;
+            width: 190px;
+            margin: 5px 10px 17px 10px;
+        }
+
         a.giant-button > div.contents > label {
             display: block;
-            float: left;
-            font-size: 30px;
-            margin: 10px 0 4px 4px;
+            font-size: 28px;
+            margin: 8px 0 8px 0;
             text-align: center;
             text-shadow: rgba(200, 200, 200, 0.75) 1px 1px 0;
-            width: 180px;
         }
 
         a.giant-button > div.contents > div {
             display: block;
-            float: left;
             font-size: 14px;
             margin-left: 4px;
             text-align: center;
-            width: 180px;
-        }
-
-        a.giant-button > div.background {
-            background-color: #000000;
-            height: 98px;
-            opacity: 0.15;
-            -webkit-border-radius: 10px;
         }
     </style>
 </head><body><div class="page">
@@ -81,33 +71,27 @@
     <div class="panel">
 
 <a href="cydia://packages" class="giant-button">
+    <img src="packages.png"/>
     <div class="contents">
-        <img src="packages.png"/>
         <label localize="PACKAGES"></label>
         <div localize="PACKAGES_EX"></div>
     </div>
-
-    <div class="background"></div>
 </a>
 
 <a href="cydia://sources" class="giant-button">
+    <img src="sources.png"/>
     <div class="contents">
-        <img src="sources.png"/>
         <label localize="SOURCES"></label>
         <div localize="SOURCES_EX"></div>
     </div>
-
-    <div class="background"></div>
 </a>
 
 <a href="cydia://storage" class="giant-button">
+    <img src="storage.png"/>
     <div class="contents">
-        <img src="storage.png"/>
         <label localize="STORAGE"></label>
         <div localize="STORAGE_EX"></div>
     </div>
-
-    <div class="background"></div>
 </a>
 
     </div>

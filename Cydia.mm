@@ -49,12 +49,16 @@
 #include <GraphicsServices/GraphicsServices.h>
 #include <Foundation/Foundation.h>
 
+#include <CoreFoundation/CFPriv.h>
+#include <CoreFoundation/CFUniChar.h>
+
 #import <QuartzCore/CALayer.h>
 #import <UIKit/UIKit.h>
 
 #include <WebCore/WebCoreThread.h>
 #import <WebKit/WebDefaultUIKitDelegate.h>
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -254,8 +258,9 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     /* XXX: deal with exceptions */
     id value([self performSelector:selector withObject:object]);
 
+    NSMethodSignature *signature([self methodSignatureForSelector:selector]);
     [context removeAllObjects];
-    if (value != nil)
+    if ([signature methodReturnLength] != 0 && value != nil)
         [context addObject:value];
 
     stopped = true;
@@ -302,9 +307,8 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
-static const NSStringCompareOptions BaseCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch;
-static const NSStringCompareOptions ForcedCompareOptions_ = BaseCompareOptions_;
-static const NSStringCompareOptions LaxCompareOptions_ = BaseCompareOptions_ | NSCaseInsensitiveSearch;
+static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
+static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive | kCFCompareNonliteral | kCFCompareLocalized | kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
 
 /* iPhoneOS 2.0 Compatibility {{{ */
 #ifdef __OBJC2__
@@ -388,7 +392,7 @@ extern NSString * const kCAFilterNearest;
 
 #define ForRelease 0
 #define ForSaurik (0 && !ForRelease)
-#define LogBrowser (1 && !ForRelease)
+#define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
 #define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
@@ -1069,8 +1073,8 @@ NSString *Simplify(NSString *title) {
 /* }}} */
 
 bool isSectionVisible(NSString *section) {
-    NSDictionary *metadata = [Sections_ objectForKey:section];
-    NSNumber *hidden = metadata == nil ? nil : [metadata objectForKey:@"Hidden"];
+    NSDictionary *metadata([Sections_ objectForKey:section]);
+    NSNumber *hidden(metadata == nil ? nil : [metadata objectForKey:@"Hidden"]);
     return hidden == nil || ![hidden boolValue];
 }
 
@@ -1250,7 +1254,7 @@ class Progress :
     pkgSourceList *list_;
 
     NSMutableDictionary *sources_;
-    NSMutableArray *packages_;
+    NSArray *packages_;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
     Status status_;
@@ -1556,6 +1560,7 @@ class Progress :
     CYString section_;
     NSString *section$_;
     bool essential_;
+    bool visible_;
 
     NSString *latest_;
     NSString *installed_;
@@ -1578,7 +1583,11 @@ class Progress :
     NSString *role_;
 
     NSArray *relationships_;
+
     NSMutableDictionary *metadata_;
+    _transient NSDate *firstSeen_;
+    _transient NSDate *lastSeen_;
+    bool subscribed_;
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
@@ -1647,7 +1656,6 @@ class Progress :
 - (bool) isCommercial;
 
 - (uint32_t) compareByPrefix;
-- (NSComparisonResult) compareByName:(Package *)package;
 - (uint32_t) compareBySection:(NSArray *)sections;
 
 - (uint32_t) compareForChanges;
@@ -1688,6 +1696,53 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 
     return _not(uint32_t) - value.key;
 }
+
+CFStringRef (*PackageName)(Package *self, SEL sel);
+
+CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
+    _profile(PackageNameCompare)
+        CFStringRef lhn, rhn;
+        CFIndex length;
+
+        _profile(PackageNameCompare$Setup)
+            lhn = PackageName(lhs, @selector(name));
+            rhn = PackageName(rhs, @selector(name));
+        _end
+
+        _profile(PackageNameCompare$Nothing)
+        _end
+
+        _profile(PackageNameCompare$Length)
+            length = CFStringGetLength(lhn);
+        _end
+
+        _profile(PackageNameCompare$NumbersLast)
+            if (length != 0 && CFStringGetLength(rhn) != 0) {
+                UniChar lhc(CFStringGetCharacterAtIndex(lhn, 0));
+                UniChar rhc(CFStringGetCharacterAtIndex(rhn, 0));
+                bool lha(CFUniCharIsMemberOf(lhc, kCFUniCharLetterCharacterSet));
+                if (lha != CFUniCharIsMemberOf(rhc, kCFUniCharLetterCharacterSet))
+                    return lha ? NSOrderedAscending : NSOrderedDescending;
+            }
+        _end
+
+        _profile(PackageNameCompare$Compare)
+            return CFStringCompareWithOptionsAndLocale(lhn, rhn, CFRangeMake(0, length), LaxCompareFlags_, Locale_);
+        _end
+    _end
+}
+
+CFComparisonResult PackageNameCompare_(Package **lhs, Package **rhs, void *arg) {
+    return PackageNameCompare(*lhs, *rhs, arg);
+}
+
+struct PackageNameOrdering :
+    std::binary_function<Package *, Package *, bool>
+{
+    _finline bool operator ()(Package *lhs, Package *rhs) const {
+        return PackageNameCompare(lhs, rhs, NULL) == NSOrderedAscending;
+    }
+};
 
 @implementation Package
 
@@ -1845,21 +1900,28 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 
         _profile(Package$initWithVersion$Metadata)
             metadata_ = [Packages_ objectForKey:key];
+
             if (metadata_ == nil) {
+                firstSeen_ = [now_ retain];
+
                 metadata_ = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                    now_, @"FirstSeen",
+                    firstSeen_, @"FirstSeen",
+                    latest_, @"LastVersion",
                 nil] mutableCopy];
 
-                [metadata_ setObject:latest_ forKey:@"LastVersion"];
                 changed = true;
             } else {
-                NSDate *first([metadata_ objectForKey:@"FirstSeen"]);
-                NSDate *last([metadata_ objectForKey:@"LastSeen"]);
+                firstSeen_ = [metadata_ objectForKey:@"FirstSeen"];
+                lastSeen_ = [metadata_ objectForKey:@"LastSeen"];
+
+                if (NSNumber *subscribed = [metadata_ objectForKey:@"IsSubscribed"])
+                    subscribed_ = [subscribed boolValue];
+
                 NSString *version([metadata_ objectForKey:@"LastVersion"]);
 
-                if (first == nil) {
-                    first = last == nil ? now_ : last;
-                    [metadata_ setObject:first forKey:@"FirstSeen"];
+                if (firstSeen_ == nil) {
+                    firstSeen_ = lastSeen_ == nil ? now_ : lastSeen_;
+                    [metadata_ setObject:firstSeen_ forKey:@"FirstSeen"];
                     changed = true;
                 }
 
@@ -1868,8 +1930,8 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                     changed = true;
                 } else if (![version isEqualToString:latest_]) {
                     [metadata_ setObject:latest_ forKey:@"LastVersion"];
-                    last = now_;
-                    [metadata_ setObject:last forKey:@"LastSeen"];
+                    lastSeen_ = now_;
+                    [metadata_ setObject:lastSeen_ forKey:@"LastSeen"];
                     changed = true;
                 }
             }
@@ -1887,6 +1949,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
         _end
 
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
+        visible_ = [self hasSupportingRole] && [self unfiltered];
     } _end } return self;
 }
 
@@ -1993,36 +2056,28 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 
 - (unichar) index {
     _profile(Package$index)
-        NSString *name([self name]);
-        if ([name length] == 0)
+        CFStringRef name((CFStringRef) [self name]);
+        if (CFStringGetLength(name) == 0)
             return '#';
-        unichar character([name characterAtIndex:0]);
-        if (!isalpha(character))
+        UniChar character(CFStringGetCharacterAtIndex(name, 0));
+        if (!CFUniCharIsMemberOf(character, kCFUniCharLetterCharacterSet))
             return '#';
         return toupper(character);
     _end
 }
 
 - (NSMutableDictionary *) metadata {
-    if (metadata_ == nil)
-        metadata_ = [[Packages_ objectForKey:[id_ lowercaseString]] retain];
     return metadata_;
 }
 
 - (NSDate *) seen {
-    NSDictionary *metadata([self metadata]);
-    if ([self subscribed])
-        if (NSDate *last = [metadata objectForKey:@"LastSeen"])
-            return last;
-    return [metadata objectForKey:@"FirstSeen"];
+    if (subscribed_ && lastSeen_ != nil)
+        return lastSeen_;
+    return firstSeen_;
 }
 
 - (BOOL) subscribed {
-    NSDictionary *metadata([self metadata]);
-    if (NSNumber *subscribed = [metadata objectForKey:@"IsSubscribed"])
-        return [subscribed boolValue];
-    else
-        return false;
+    return subscribed_;
 }
 
 - (BOOL) ignored {
@@ -2046,14 +2101,13 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 }
 
 - (BOOL) upgradableAndEssential:(BOOL)essential {
-    pkgCache::VerIterator current = iterator_.CurrentVer();
-
-    bool value;
-    if (current.end())
-        value = essential && [self essential] && [self visible];
-    else
-        value = !version_.end() && version_ != current;// && (!essential || ![database_ cache][iterator_].Keep());
-    return value;
+    _profile(Package$upgradableAndEssential)
+        pkgCache::VerIterator current(iterator_.CurrentVer());
+        if (current.end())
+            return essential && essential_ && visible_;
+        else
+            return !version_.end() && version_ != current;// && (!essential || ![database_ cache][iterator_].Keep());
+    _end
 }
 
 - (BOOL) essential {
@@ -2065,16 +2119,16 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 }
 
 - (BOOL) unfiltered {
-    NSString *section = [self section];
+    NSString *section([self section]);
     return section == nil || isSectionVisible(section);
 }
 
 - (BOOL) visible {
-    return [self hasSupportingRole] && [self unfiltered];
+    return visible_;
 }
 
 - (BOOL) half {
-    unsigned char current = iterator_->CurrentState;
+    unsigned char current(iterator_->CurrentState);
     return current == pkgCache::State::HalfConfigured || current == pkgCache::State::HalfInstalled;
 }
 
@@ -2371,23 +2425,6 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     return 0;
 }
 
-- (NSComparisonResult) compareByName:(Package *)package {
-    NSString *lhs = [self name];
-    NSString *rhs = [package name];
-
-    if ([lhs length] != 0 && [rhs length] != 0) {
-        unichar lhc = [lhs characterAtIndex:0];
-        unichar rhc = [rhs characterAtIndex:0];
-
-        if (isalpha(lhc) && !isalpha(rhc))
-            return NSOrderedAscending;
-        else if (!isalpha(lhc) && isalpha(rhc))
-            return NSOrderedDescending;
-    }
-
-    return [lhs compare:rhs options:LaxCompareOptions_];
-}
-
 - (uint32_t) compareBySection:(NSArray *)sections {
     NSString *section([self section]);
     for (size_t i(0), e([sections count]); i != e; ++i) {
@@ -2497,7 +2534,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     NSString *localized_;
 }
 
-- (NSComparisonResult) compareByName:(Section *)section;
+- (NSComparisonResult) compareByLocalized:(Section *)section;
 - (Section *) initWithName:(NSString *)name;
 - (Section *) initWithName:(NSString *)name row:(size_t)row;
 - (Section *) initWithIndex:(unichar)index row:(size_t)row;
@@ -2511,6 +2548,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
 - (void) addToCount;
 
 - (void) setCount:(size_t)count;
+- (NSString *) localized;
 
 @end
 
@@ -2523,9 +2561,9 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     [super dealloc];
 }
 
-- (NSComparisonResult) compareByName:(Section *)section {
-    NSString *lhs = [self name];
-    NSString *rhs = [section name];
+- (NSComparisonResult) compareByLocalized:(Section *)section {
+    NSString *lhs = [self localized];
+    NSString *rhs = [section localized];
 
     if ([lhs length] != 0 && [rhs length] != 0) {
         unichar lhc = [lhs characterAtIndex:0];
@@ -2724,7 +2762,7 @@ static NSArray *Finishes_;
         apr_pool_create(&pool_, NULL);
 
         sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        packages_ = [[NSArray alloc] init];
 
         int fds[2];
 
@@ -2956,17 +2994,36 @@ static NSArray *Finishes_;
     }
     _trace();
 
-    [packages_ removeAllObjects];
-    _trace();
-    for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-        if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:pool_ database:self])
-            [packages_ addObject:package];
-    _trace();
-    [packages_ sortUsingSelector:@selector(compareByName:)];
-    _trace();
+    {
+        std::vector<Package *> packages;
+        packages.reserve(std::max(10000U, [packages_ count] + 1000));
 
-    _config->Set("Acquire::http::Timeout", 15);
-    _config->Set("Acquire::http::MaxParallel", 4);
+        [packages_ release];
+        packages_ = nil;
+
+        _trace();
+
+        for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
+            if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:pool_ database:self])
+                packages.push_back(package);
+
+        _trace();
+
+        //std::sort(packages.begin(), packages.end(), PackageNameOrdering());
+        if (!packages.empty())
+            CFQSortArray(&packages.front(), packages.size(), sizeof(packages.front()), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);
+        //CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
+        //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
+
+        _trace();
+
+        if (packages.empty())
+            packages_ = [[NSArray alloc] init];
+        else
+            packages_ = [[NSArray alloc] initWithObjects:&packages.front() count:packages.size()];
+
+        _trace();
+    }
 }
 
 - (void) configure {
@@ -4300,7 +4357,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         name_ = [CYLocalize("ALL_PACKAGES") retain];
         count_ = nil;
     } else {
-        section_ = [section name];
+        section_ = [section localized];
         if (section_ != nil)
             section_ = [section_ retain];
         name_  = [(section_ == nil ? CYLocalize("NO_SECTION") : section_) retain];
@@ -5780,7 +5837,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
-    [prompt_ setText:[NSString stringWithFormat:CYLocalize("ERROR_MESSAGE"), error]];
+    [prompt_ setText:[NSString stringWithFormat:CYLocalize("COLON_DELIMITED"), CYLocalize("ERROR"), error]];
 }
 
 - (void) setProgressTitle:(NSString *)title {
@@ -6130,11 +6187,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sections_ addObjectsFromArray:[sections allValues]];
 #endif
 
-    [sections_ sortUsingSelector:@selector(compareByName:)];
+    [sections_ sortUsingSelector:@selector(compareByLocalized:)];
 
     for (Section *section in sections_) {
         size_t count([section row]);
-        if ([section row] == 0)
+        if (count == 0)
             continue;
 
         section = [[[Section alloc] initWithName:[section name]] autorelease];
@@ -6322,16 +6379,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     upgrades_ = 0;
     bool unseens = false;
 
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+    CFDateFormatterRef formatter(CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle));
 
-    _trace();
     for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
         Package *package = [packages_ objectAtIndex:offset];
 
-        BOOL uae;
-        _profile(ChangesView$reloadData$Upgrade)
-            uae = [package upgradableAndEssential:YES];
-        _end
+        BOOL uae = [package upgradableAndEssential:YES];
 
         if (!uae) {
             unseens = true;
@@ -6341,22 +6394,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 seen = [package seen];
             _end
 
-            bool different;
-            _profile(ChangesView$reloadData$Compare)
-                different = section == nil || last != seen && (seen == nil || [seen compare:last] != NSOrderedSame);
-            _end
-
-            if (different) {
+            if (section == nil || last != seen && (seen == nil || [seen compare:last] != NSOrderedSame)) {
                 last = seen;
 
                 NSString *name;
                 if (seen == nil)
                     name = CYLocalize("UNKNOWN");
                 else {
-                    _profile(ChangesView$reloadData$Format)
-                        name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
-                    _end
-
+                    name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
                     [name autorelease];
                 }
 
@@ -7876,6 +7921,8 @@ void $UIWebDocumentView$_setUIKitDelegate$(UIWebDocumentView *self, SEL sel, id 
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
+    PackageName = reinterpret_cast<CFStringRef (*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(name))));
+
     /* Library Hacks {{{ */
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
 
@@ -8052,6 +8099,8 @@ int main(int argc, char *argv[]) { _pooled
 
     if (lang != NULL)
         _config->Set("APT::Acquire::Translation", lang);
+    _config->Set("Acquire::http::Timeout", 15);
+    _config->Set("Acquire::http::MaxParallel", 4);
 
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();

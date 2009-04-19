@@ -7,7 +7,7 @@
     },
     //"depiction": "http://planet-iphones.com/repository/info/chromium1.3.php",
     "depiction": "http://cydia.saurik.com/terminal.html",
-    "description": "this is a sample description",
+    "longDescription": "this is a sample description",
     "homepage": "http://cydia.saurik.com/terminal.html",
     "installed": "286u-4",
     "id": "mobileterminal",
@@ -202,9 +202,9 @@ var special_ = function () {
         $("#depiction-src").src(depiction);
     }
 
-    var description = package.description;
+    var description = package.longDescription;
     if (description == null)
-        description = package.tagline;
+        description = package.shortDescription;
     else
         description = description.replace(/\n/g, "<br/>");
     $("#description").html(description);

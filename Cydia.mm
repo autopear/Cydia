@@ -49,6 +49,12 @@
 #include <GraphicsServices/GraphicsServices.h>
 #include <Foundation/Foundation.h>
 
+#if 0
+#define DEPLOYMENT_TARGET_MACOSX 1
+#define CF_BUILDING_CF 1
+#include <CoreFoundation/CFInternal.h>
+#endif
+
 #include <CoreFoundation/CFPriv.h>
 #include <CoreFoundation/CFUniChar.h>
 
@@ -473,11 +479,22 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
 @implementation NSMutableArray (Radix)
 
 - (void) radixSortUsingSelector:(SEL)selector withObject:(id)object {
+    size_t count([self count]);
+    if (count == 0)
+        return;
+
+#if 0
     NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:"L12@0:4@8"]]);
     [invocation setSelector:selector];
     [invocation setArgument:&object atIndex:2];
+#else
+    /* XXX: this is an unsafe optimization of doomy hell */
+    Method method(class_getInstanceMethod([[self objectAtIndex:0] class], selector));
+    _assert(method != NULL);
+    uint32_t (*imp)(id, SEL, id) = reinterpret_cast<uint32_t (*)(id, SEL, id)>(method_getImplementation(method));
+    _assert(imp != NULL);
+#endif
 
-    size_t count([self count]);
     struct RadixItem_ *swap(new RadixItem_[count * 2]);
 
     for (size_t i(0); i != count; ++i) {
@@ -485,10 +502,14 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
         item.index = i;
 
         id object([self objectAtIndex:i]);
-        [invocation setTarget:object];
 
+#if 0
+        [invocation setTarget:object];
         [invocation invoke];
         [invocation getReturnValue:&item.key];
+#else
+        item.key = imp(object, selector, object);
+#endif
     }
 
     RadixSort_(self, count, swap);
@@ -510,6 +531,42 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
 }
 
 @end
+/* }}} */
+/* Insertion Sort {{{ */
+
+CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, CFIndex count, CFComparatorFunction comparator, void *context) {
+    const char *ptr = (const char *)list;
+    while (0 < count) {
+        CFIndex half = count / 2;
+        const char *probe = ptr + elementSize * half;
+        CFComparisonResult cr = comparator(element, probe, context);
+	if (0 == cr) return (probe - (const char *)list) / elementSize;
+        ptr = (cr < 0) ? ptr : probe + elementSize;
+        count = (cr < 0) ? half : (half + (count & 1) - 1);
+    }
+    return (ptr - (const char *)list) / elementSize;
+}
+
+void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFComparatorFunction comparator, void *context) {
+    if (range.length == 0)
+        return;
+    const void **values(new const void *[range.length]);
+    CFArrayGetValues(array, range, values);
+
+    for (CFIndex index(1); index != range.length; ++index) {
+        const void *value(values[index]);
+        CFIndex correct(CFBSearch_(&value, sizeof(const void *), values, index, comparator, context));
+        //NSLog(@"%u %u", index, correct);
+        if (correct != index) {
+            memmove(values + correct + 1, values + correct, sizeof(const void *) * (index - correct));
+            values[correct] = value;
+        }
+    }
+
+    CFArrayReplaceValues(array, range, values, range.length);
+    delete [] values;
+}
+
 /* }}} */
 
 /* Apple Bug Fixes {{{ */
@@ -1614,7 +1671,8 @@ class Progress :
 
 - (Address *) maintainer;
 - (size_t) size;
-- (NSString *) description;
+- (NSString *) longDescription;
+- (NSString *) shortDescription;
 - (unichar) index;
 
 - (NSMutableDictionary *) metadata;
@@ -1640,7 +1698,6 @@ class Progress :
 
 - (NSString *) id;
 - (NSString *) name;
-- (NSString *) tagline;
 - (UIImage *) icon;
 - (NSString *) homepage;
 - (NSString *) depiction;
@@ -1741,8 +1798,8 @@ CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
     _end
 }
 
-CFComparisonResult PackageNameCompare_(Package **lhs, Package **rhs, void *arg) {
-    return PackageNameCompare(*lhs, *rhs, arg);
+CFComparisonResult PackageNameCompare_(Package **lhs, Package **rhs, void *context) {
+    return PackageNameCompare(*lhs, *rhs, context);
 }
 
 struct PackageNameOrdering :
@@ -1795,7 +1852,7 @@ struct PackageNameOrdering :
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"description", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"longSection", @"maintainer", @"mode", @"name", @"purposes", @"section", @"shortSection", @"simpleSection", @"size", @"source", @"sponsor", @"support", @"tagline", @"warnings", nil];
+    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"longDescription", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"longSection", @"maintainer", @"mode", @"name", @"purposes", @"section", @"shortDescription", @"shortSection", @"simpleSection", @"size", @"source", @"sponsor", @"support", @"warnings", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -2041,7 +2098,7 @@ struct PackageNameOrdering :
     return version_.end() ? 0 : version_->InstalledSize;
 }
 
-- (NSString *) description {
+- (NSString *) longDescription {
     if (file_.end())
         return nil;
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
@@ -2059,6 +2116,10 @@ struct PackageNameOrdering :
     }
 
     return [trimmed componentsJoinedByString:@"\n"];
+}
+
+- (NSString *) shortDescription {
+    return tagline_;
 }
 
 - (unichar) index {
@@ -2194,10 +2255,6 @@ struct PackageNameOrdering :
 
 - (NSString *) name {
     return name_.empty() ? id_ : name_;
-}
-
-- (NSString *) tagline {
-    return tagline_;
 }
 
 - (UIImage *) icon {
@@ -2380,7 +2437,7 @@ struct PackageNameOrdering :
     if (range.location != NSNotFound)
         return YES;
 
-    range = [[self tagline] rangeOfString:text options:MatchCompareOptions_];
+    range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
         return YES;
 
@@ -3066,7 +3123,9 @@ static NSArray *Finishes_;
             CFQSortArray(&packages.front(), packages.size(), sizeof(packages.front()), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);*/
         //std::sort(packages.begin(), packages.end(), PackageNameOrdering());
 
-        CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
+        //CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
+
+        CFArrayInsertionSortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);
 
         //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
 
@@ -4192,7 +4251,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     icon_ = [[package icon] retain];
     name_ = [[package name] retain];
-    description_ = [[package tagline] retain];
+    description_ = [[package shortDescription] retain];
     commercial_ = [package isCommercial];
 
     package_ = [package retain];
@@ -4317,7 +4376,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 + (int) heightForPackage:(Package *)package {
-    NSString *tagline([package tagline]);
+    NSString *tagline([package shortDescription]);
     int height = tagline == nil || [tagline length] == 0 ? -17 : 0;
 #ifdef USE_BADGES
     if ([package hasMode] || [package half])
@@ -4984,6 +5043,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         /* XXX: this is an unsafe optimization of doomy hell */
         Method method = class_getInstanceMethod([Package class], filter);
+        _assert(method != NULL);
         imp_ = method_getImplementation(method);
         _assert(imp_ != NULL);
 

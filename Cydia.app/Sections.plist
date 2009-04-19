@@ -74,6 +74,30 @@
         <key>Rename</key>
         <string>Networking</string>
     </dict>
+
+    <key>Tweaks_2.0</key>
+    <dict>
+        <key>Rename</key>
+        <string>Tweaks_(2.0)</string>
+    </dict>
+
+    <key>Tweaks_2.1</key>
+    <dict>
+        <key>Rename</key>
+        <string>Tweaks_(2.1)</string>
+    </dict>
+
+    <key>Tweaks_2.2</key>
+    <dict>
+        <key>Rename</key>
+        <string>Tweaks_(2.2)</string>
+    </dict>
+
+    <key>Tweaks_3.0</key>
+    <dict>
+        <key>Rename</key>
+        <string>Tweaks_(3.0)</string>
+    </dict>
 </dict>
 
 </plist>

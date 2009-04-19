@@ -706,8 +706,9 @@ class CYString {
         else {
             clear_();
 
-            char *temp(reinterpret_cast<char *>(apr_palloc(pool, size)));
+            char *temp(reinterpret_cast<char *>(apr_palloc(pool, size + 1)));
             memcpy(temp, data, size);
+            temp[size] = '\0';
             data_ = temp;
             size_ = size;
         }
@@ -1043,11 +1044,15 @@ NSString *StripVersion(NSString *version) {
 
 NSString *LocalizeSection(NSString *section) {
     static Pcre title_r("^(.*?) \\((.*)\\)$");
-    if (title_r(section))
+    if (title_r(section)) {
+        NSString *parent(title_r[1]);
+        NSString *child(title_r[2]);
+
         return [NSString stringWithFormat:CYLocalize("PARENTHETICAL"),
-            LocalizeSection(title_r[1]),
-            LocalizeSection(title_r[2])
+            LocalizeSection(parent),
+            LocalizeSection(child)
         ];
+    }
 
     return [[NSBundle mainBundle] localizedStringForKey:section value:nil table:@"Sections"];
 }
@@ -1069,6 +1074,10 @@ NSString *Simplify(NSString *title) {
         return Simplify(title_r[1]);
 
     return title;
+}
+
+_finline static void Stifle(char &value) {
+    value = (value & 0xdf) ^ 0x40;
 }
 /* }}} */
 
@@ -1254,7 +1263,7 @@ class Progress :
     pkgSourceList *list_;
 
     NSMutableDictionary *sources_;
-    NSArray *packages_;
+    NSMutableArray *packages_;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
     Status status_;
@@ -1565,7 +1574,7 @@ class Progress :
     NSString *latest_;
     NSString *installed_;
 
-    NSString *id_;
+    CYString id_;
     CYString name_;
     CYString tagline_;
     CYString icon_;
@@ -1757,8 +1766,6 @@ struct PackageNameOrdering :
     if (installed_ != nil)
         [installed_ release];
 
-    if (id_ != nil)
-        [id_ release];
     if (sponsor$_ != nil)
         [sponsor$_ release];
     if (author$_ != nil)
@@ -1825,7 +1832,7 @@ struct PackageNameOrdering :
         }
 
         _profile(Package$initWithVersion$Name)
-            id_ = [[NSString stringWithUTF8String:iterator_.Name()] retain];
+            id_.set(pool, iterator_.Name());
         _end
 
         if (!file_.end())
@@ -2186,7 +2193,7 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) name {
-    return name_ == nil ? id_ : name_;
+    return name_.empty() ? id_ : name_;
 }
 
 - (NSString *) tagline {
@@ -2239,7 +2246,7 @@ struct PackageNameOrdering :
 }
 
 - (NSArray *) files {
-    NSString *path = [NSString stringWithFormat:@"/var/lib/dpkg/info/%@.list", id_];
+    NSString *path = [NSString stringWithFormat:@"/var/lib/dpkg/info/%@.list", static_cast<NSString *>(id_)];
     NSMutableArray *files = [NSMutableArray arrayWithCapacity:128];
 
     std::ifstream fin;
@@ -2422,7 +2429,28 @@ struct PackageNameOrdering :
 }
 
 - (uint32_t) compareByPrefix {
-    return 0;
+    size_t offset(0);
+
+    CYString &name(name_.empty() ? id_ : name_);
+    if (name.size() <= offset)
+        return 0;
+    size_t size(name.size() - offset);
+
+    char data[4];
+    if (size >= 4)
+        memcpy(data, name.data() + offset, 4);
+    else {
+        memcpy(data, name.data() + offset, size);
+        memset(data + size, 0, 4 - size);
+    }
+
+    Stifle(data[0]);
+    Stifle(data[1]);
+    Stifle(data[2]);
+    Stifle(data[3]);
+
+    /* XXX: ntohl may be more honest */
+    return OSSwapInt32(*reinterpret_cast<uint32_t *>(data));
 }
 
 - (uint32_t) compareBySection:(NSArray *)sections {
@@ -2535,8 +2563,9 @@ struct PackageNameOrdering :
 }
 
 - (NSComparisonResult) compareByLocalized:(Section *)section;
-- (Section *) initWithName:(NSString *)name;
-- (Section *) initWithName:(NSString *)name row:(size_t)row;
+- (Section *) initWithName:(NSString *)name localized:(NSString *)localized;
+- (Section *) initWithName:(NSString *)name localize:(BOOL)localize;
+- (Section *) initWithName:(NSString *)name row:(size_t)row localize:(BOOL)localize;
 - (Section *) initWithIndex:(unichar)index row:(size_t)row;
 - (NSString *) name;
 - (unichar) index;
@@ -2562,10 +2591,10 @@ struct PackageNameOrdering :
 }
 
 - (NSComparisonResult) compareByLocalized:(Section *)section {
-    NSString *lhs = [self localized];
-    NSString *rhs = [section localized];
+    NSString *lhs(localized_);
+    NSString *rhs([section localized]);
 
-    if ([lhs length] != 0 && [rhs length] != 0) {
+    /*if ([lhs length] != 0 && [rhs length] != 0) {
         unichar lhc = [lhs characterAtIndex:0];
         unichar rhc = [rhs characterAtIndex:0];
 
@@ -2573,21 +2602,29 @@ struct PackageNameOrdering :
             return NSOrderedAscending;
         else if (!isalpha(lhc) && isalpha(rhc))
             return NSOrderedDescending;
-    }
+    }*/
 
     return [lhs compare:rhs options:LaxCompareOptions_];
 }
 
-- (Section *) initWithName:(NSString *)name {
-    return [self initWithName:name row:0];
+- (Section *) initWithName:(NSString *)name localized:(NSString *)localized {
+    if ((self = [self initWithName:name localize:NO]) != nil) {
+        if (localized != nil)
+            localized_ = [localized retain];
+    } return self;
 }
 
-- (Section *) initWithName:(NSString *)name row:(size_t)row {
+- (Section *) initWithName:(NSString *)name localize:(BOOL)localize {
+    return [self initWithName:name row:0 localize:localize];
+}
+
+- (Section *) initWithName:(NSString *)name row:(size_t)row localize:(BOOL)localize {
     if ((self = [super init]) != nil) {
         name_ = [name retain];
         index_ = '\0';
         row_ = row;
-        localized_ = [LocalizeSection(name_) retain];
+        if (localize)
+            localized_ = [LocalizeSection(name_) retain];
     } return self;
 }
 
@@ -2762,7 +2799,7 @@ static NSArray *Finishes_;
         apr_pool_create(&pool_, NULL);
 
         sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
-        packages_ = [[NSArray alloc] init];
+        packages_ = [[NSMutableArray alloc] init];
 
         int fds[2];
 
@@ -2995,32 +3032,43 @@ static NSArray *Finishes_;
     _trace();
 
     {
-        std::vector<Package *> packages;
+        /*std::vector<Package *> packages;
         packages.reserve(std::max(10000U, [packages_ count] + 1000));
-
         [packages_ release];
-        packages_ = nil;
+        packages_ = nil;*/
+
+        [packages_ removeAllObjects];
 
         _trace();
 
         for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
             if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:pool_ database:self])
-                packages.push_back(package);
+                //packages.push_back(package);
+                [packages_ addObject:package];
 
         _trace();
 
-        //std::sort(packages.begin(), packages.end(), PackageNameOrdering());
-        if (!packages.empty())
-            CFQSortArray(&packages.front(), packages.size(), sizeof(packages.front()), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);
-        //CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
-        //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
-
-        _trace();
-
-        if (packages.empty())
+        /*if (packages.empty())
             packages_ = [[NSArray alloc] init];
         else
             packages_ = [[NSArray alloc] initWithObjects:&packages.front() count:packages.size()];
+        _trace();*/
+
+        [packages_ radixSortUsingSelector:@selector(compareByPrefix) withObject:NULL];
+
+        /*_trace();
+        PrintTimes();
+        _trace();*/
+
+        _trace();
+
+        /*if (!packages.empty())
+            CFQSortArray(&packages.front(), packages.size(), sizeof(packages.front()), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);*/
+        //std::sort(packages.begin(), packages.end(), PackageNameOrdering());
+
+        CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
+
+        //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
 
         _trace();
     }
@@ -6142,7 +6190,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             section = &sections[key];
             if (*section == nil) {
                 _profile(SectionsView$reloadData$Section$Allocate)
-                    *section = [[[Section alloc] initWithName:name] autorelease];
+                    *section = [[[Section alloc] initWithName:name localize:YES] autorelease];
                 _end
             }
         _end
@@ -6162,7 +6210,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             section = [sections objectForKey:key];
             if (section == nil) {
                 _profile(SectionsView$reloadData$Section$Allocate)
-                    section = [[[Section alloc] initWithName:name] autorelease];
+                    section = [[[Section alloc] initWithName:name localize:YES] autorelease];
                     [sections setObject:section forKey:key];
                 _end
             }
@@ -6194,7 +6242,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if (count == 0)
             continue;
 
-        section = [[[Section alloc] initWithName:[section name]] autorelease];
+        section = [[[Section alloc] initWithName:[section name] localized:[section localized]] autorelease];
         [section setCount:count];
         [filtered_ addObject:section];
     }
@@ -6371,8 +6419,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [packages_ radixSortUsingFunction:reinterpret_cast<uint32_t (*)(id, void *)>(&PackageChangesRadix) withArgument:NULL];
     _trace();
 
-    Section *upgradable = [[[Section alloc] initWithName:CYLocalize("AVAILABLE_UPGRADES")] autorelease];
-    Section *ignored = [[[Section alloc] initWithName:CYLocalize("IGNORED_UPGRADES")] autorelease];
+    Section *upgradable = [[[Section alloc] initWithName:CYLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
+    Section *ignored = [[[Section alloc] initWithName:CYLocalize("IGNORED_UPGRADES") localize:NO] autorelease];
     Section *section = nil;
     NSDate *last = nil;
 
@@ -6407,7 +6455,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
                 _profile(ChangesView$reloadData$Allocate)
                     name = [NSString stringWithFormat:CYLocalize("NEW_AT"), name];
-                    section = [[[Section alloc] initWithName:name row:offset] autorelease];
+                    section = [[[Section alloc] initWithName:name row:offset localize:NO] autorelease];
                     [sections_ addObject:section];
                 _end
             }

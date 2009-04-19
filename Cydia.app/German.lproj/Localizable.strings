@@ -96,11 +96,11 @@
 "MANAGE" = "Verwalten";
 "MODIFY" = "Verändern";
 "MORE_INFORMATION" = "Mehr Informationen";
-"MORE_PACKAGE_SOURCS" = "More Package Sources" ;
+"MORE_PACKAGE_SOURCS" = "Mehr Quellen für Pakete";
 "NAME" = "Name";
 "NETWORK_ERROR" = "Netzwerk-Fehler";
 "NEVER_OR_UNKNOWN" = "Nie oder unbekannt";
-"NEW" = "New" ;
+"NEW" = "Neu";
 "NEW_AT" = "Neu um %@";
 "NEW_INSTALL" = "Neue Installation";
 "NO_SECTION" = "(Keine Kategorie)";

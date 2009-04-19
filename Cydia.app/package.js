@@ -225,7 +225,7 @@ var special_ = function () {
 
     space("#id", id, 220);
 
-    var section = package.section;
+    var section = package.longSection;
     if (section == null)
         $(".section").addClass("deleted");
     else {

@@ -496,7 +496,7 @@
 
 - (void) fixScroller {
     CGRect bounds([webview_ documentBounds]);
-#if LogBrowser
+#if TrackResize
     NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
 #endif
     [self _fixScroller:bounds];
@@ -504,7 +504,7 @@
 
 - (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
     size_ = frame.size;
-#if LogBrowser
+#if TrackResize
     NSLog(@"dsf:(%f,%f+%f,%f)", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
 #endif
     [self _fixScroller:frame];

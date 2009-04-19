@@ -51,7 +51,6 @@
 "ENTER_APT_URL" = "Enter Cydia/APT URL";
 "ENTERED_BY_USER" = "Entered by User";
 "ERROR" = "Error";
-"ERROR_MESSAGE" = "Error: %@";
 "ESSENTIAL_UPGRADE" = "Essential Upgrade";
 "ESSENTIAL_UPGRADES" = "%d Essential Upgrades";
 "ESSENTIAL_UPGRADE_EX" = "One or more essential packages are currently out of date. If these upgrades are not performed you are likely to encounter errors.";

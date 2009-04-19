@@ -51,7 +51,6 @@
 "ENTER_APT_URL" = "Cydia/APT URL eingeben";
 "ENTERED_BY_USER" = "Durch Benutzer eingegeben";
 "ERROR" = "Fehler";
-"ERROR_MESSAGE" = "Fehler: %@";
 "ESSENTIAL_UPGRADE" = "Wichtige Aktualisierung";
 "ESSENTIAL_UPGRADES" = "%d wichtige Aktualisierungen";
 "ESSENTIAL_UPGRADE_EX" = "Ein oder mehr wichtige Pakete sind veraltet, was zu Fehlern führen kann. Es wird empfohlen die Aktualisierungen zu installieren.";

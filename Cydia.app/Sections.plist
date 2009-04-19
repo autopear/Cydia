@@ -15,12 +15,6 @@
         <string>Themes_(SpringBoard)</string>
     </dict>
 
-    <key>Themes_(LockScreen)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes_(Lockscreen)</string>
-    </dict>
-
     <key>Intelliborn</key>
     <dict>
         <key>Rename</key>

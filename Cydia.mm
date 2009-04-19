@@ -1023,6 +1023,13 @@ NSString *SizeString(double size) {
     return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
 }
 
+NSString *StripVersion(const char *version) {
+    const char *colon(strchr(version, ':'));
+    if (colon != NULL)
+        version = colon + 1;
+    return [NSString stringWithUTF8String:version];
+}
+
 NSString *StripVersion(NSString *version) {
     NSRange colon = [version rangeOfString:@":"];
     if (colon.location != NSNotFound)
@@ -1748,29 +1755,19 @@ uint32_t PackageChangesRadix(Package *self, void *) {
         database_ = database;
 
         _profile(Package$initWithVersion$Latest)
-            latest_ = [StripVersion([NSString stringWithUTF8String:version_.VerStr()]) retain];
+            latest_ = [StripVersion(version_.VerStr()) retain];
         _end
 
-        pkgCache::VerIterator current;
-        NSString *installed;
+        pkgCache::VerIterator current(iterator_.CurrentVer());
+        if (!current.end())
+            installed_ = [StripVersion(current.VerStr()) retain];
 
-        _profile(Package$initWithVersion$Current)
-            current = iterator_.CurrentVer();
-            installed = current.end() ? nil : [NSString stringWithUTF8String:current.VerStr()];
-        _end
-
-        _profile(Package$initWithVersion$Installed)
-            installed_ = [StripVersion(installed) retain];
-        _end
-
-        _profile(Package$initWithVersion$File)
-            if (!version_.end())
-                file_ = version_.FileList();
-            else {
-                pkgCache &cache([database_ cache]);
-                file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
-            }
-        _end
+        if (!version_.end())
+            file_ = version_.FileList();
+        else {
+            pkgCache &cache([database_ cache]);
+            file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
+        }
 
         _profile(Package$initWithVersion$Name)
             id_ = [[NSString stringWithUTF8String:iterator_.Name()] retain];
@@ -1789,63 +1786,36 @@ uint32_t PackageChangesRadix(Package *self, void *) {
                     parser = &[database_ records]->Lookup(file_);
                 _end
 
-                const char *begin, *end;
-                parser->GetRec(begin, end);
-
                 CYString website;
                 CYString tag;
 
-                struct {
-                    const char *name_;
-                    CYString *value_;
-                } names[] = {
-                    {"name", &name_},
-                    {"icon", &icon_},
-                    {"depiction", &depiction_},
-                    {"homepage", &homepage_},
-                    {"website", &website},
-                    {"support", &support_},
-                    {"sponsor", &sponsor_},
-                    {"author", &author_},
-                    {"tag", &tag},
-                };
+                _profile(Package$initWithVersion$Parse$Find)
+                    struct {
+                        const char *name_;
+                        CYString *value_;
+                    } names[] = {
+                        {"name", &name_},
+                        {"icon", &icon_},
+                        {"depiction", &depiction_},
+                        {"homepage", &homepage_},
+                        {"website", &website},
+                        {"support", &support_},
+                        {"sponsor", &sponsor_},
+                        {"author", &author_},
+                        {"tag", &tag},
+                    };
 
-                while (begin != end)
-                    if (*begin == '\n') {
-                        ++begin;
-                        continue;
-                    } else if (isblank(*begin)) next: {
-                        begin = static_cast<char *>(memchr(begin + 1, '\n', end - begin - 1));
-                        if (begin == NULL)
-                            break;
-                    } else if (const char *colon = static_cast<char *>(memchr(begin, ':', end - begin))) {
-                        const char *name(begin);
-                        size_t size(colon - begin);
+                    for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
+                        const char *start, *end;
 
-                        begin = static_cast<char *>(memchr(begin, '\n', end - begin));
-
-                        {
-                            const char *stop(begin == NULL ? end : begin);
-                            while (stop[-1] == '\r')
-                                --stop;
-                            while (++colon != stop && isblank(*colon));
-
-                            for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i)
-                                if (strncasecmp(names[i].name_, name, size) == 0) {
-                                    CYString &value(*names[i].value_);
-
-                                    _profile(Package$initWithVersion$Parse$Value)
-                                        value.set(pool, colon, stop - colon);
-                                    _end
-
-                                    break;
-                                }
+                        if (parser->Find(names[i].name_, start, end)) {
+                            CYString &value(*names[i].value_);
+                            _profile(Package$initWithVersion$Parse$Value)
+                                value.set(pool, start, end - start);
+                            _end
                         }
-
-                        if (begin == NULL)
-                            break;
-                        ++begin;
-                    } else goto next;
+                    }
+                _end
 
                 _profile(Package$initWithVersion$Parse$Tagline)
                     tagline_.set(pool, parser->ShortDesc());
@@ -7920,7 +7890,7 @@ int main(int argc, char *argv[]) { _pooled
     Locale_ = CFLocaleCopyCurrent();
     Languages_ = [NSLocale preferredLanguages];
     //CFStringRef locale(CFLocaleGetIdentifier(Locale_));
-    NSLog(@"%@", [Languages_ description]);
+    //NSLog(@"%@", [Languages_ description]);
     const char *lang;
     if (Languages_ == nil || [Languages_ count] == 0)
         lang = NULL;

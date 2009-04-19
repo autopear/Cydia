@@ -22,7 +22,7 @@
 "CLEAR" = "Nettoyer";
 "CLOSE" = "Fermer";
 "CLOSE_CYDIA" = "Quitter Cydia (Redémarrage)";
-"COLON_DELIMITED" = "%@: %@";
+"COLON_DELIMITED" = "%@ : %@";
 "COMMA_DELIMITED" = "%@, %@";
 "COMING_SOON" = "Pour Bientôt!";
 "COMPLETE" = "Effectué";
@@ -45,6 +45,7 @@
 "DISK_USING" = "Espace Disque Utilisé";
 "DONATE_USING" = "Donnez en utilisant %@";
 "DONE" = "OK";
+"DOUBLE_QUOTED": "« $@ »";
 "DOWNGRADE" = "Rétrograder";
 "DOWNLOADING" = "Téléchargement";
 "EDIT" = "Éditer";
@@ -54,6 +55,7 @@
 "ESSENTIAL_UPGRADE" = "Mise à Jour Essentielle";
 "ESSENTIAL_UPGRADES" = "%d Mises à Jour Essentielles";
 "ESSENTIAL_UPGRADE_EX" = "Un ou plusieurs paquets essentiels sont périmés. Si vous ne les mettez pas à jour, vous pourriez rencontrer des erreurs.";
+"EXCLAMATION": "%@ !";
 "EXPANDED_SIZE" = "Taille Décompressé";
 "EXPERT" = "Expert";
 "FEATURED_PACKAGES" = "Paquets Conseillés";
@@ -121,6 +123,7 @@
 "PURGE" = "Purger";
 "Q_D" = "Q'd";
 "QUEUED_FOR" = "File d'Attente pour %@";
+"QUESTION": "%@ ?";
 "REBOOT_DEVICE" = "Redémarrer l'Appareil";
 "RECENT_CHANGES_UPDATES" = "Mises à Jour ou Changements Récents";
 "RECOMMENDED_BOOKS" = "Livres Recommandés";
@@ -157,6 +160,7 @@
 "SHOW_ALL_CHANGES_EX" = "Seuls les mises à jour de paquets installés ne sont affichés ici pour limiter le spam des empaqueteurs. En activant ceci vous serez averti des mises à jour sans que ce paquet soit installé.";
 "SIGNED_PACKAGE" = "Ce Paquet est Signé.";
 "SIMPLE" = "Simple";
+"SINGLE_QUOTED": "‹ $@ ›";
 "SLASH_DELIMITED" = "%@ / %@";
 "SOURCE_DETAILS" = "Détails sur la Source";
 "SOURCE_WARNING" = "Alerte Source";

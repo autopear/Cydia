@@ -45,6 +45,7 @@
 "DISK_USING" = "Disk Using";
 "DONATE_USING" = "Donate using %@";
 "DONE" = "Done";
+"DOUBLE_QUOTED": "“$@”";
 "DOWNGRADE" = "Downgrade";
 "DOWNLOADING" = "Downloading";
 "EDIT" = "Edit";
@@ -54,6 +55,7 @@
 "ESSENTIAL_UPGRADE" = "Essential Upgrade";
 "ESSENTIAL_UPGRADES" = "%d Essential Upgrades";
 "ESSENTIAL_UPGRADE_EX" = "One or more essential packages are currently out of date. If these upgrades are not performed you are likely to encounter errors.";
+"EXCLAMATION": "%@!";
 "EXPANDED_SIZE" = "Expanded Size";
 "EXPERT" = "Expert";
 "FEATURED_PACKAGES" = "Featured Packages";
@@ -121,6 +123,7 @@
 "PURGE" = "Purge";
 "Q_D" = "Q'd";
 "QUEUED_FOR" = "Queued for %@";
+"QUESTION": "%@?";
 "REBOOT_DEVICE" = "Reboot Device";
 "RECENT_CHANGES_UPDATES" = "Recent Changes/Updates";
 "RECOMMENDED_BOOKS" = "Recommended Books";
@@ -157,6 +160,7 @@
 "SHOW_ALL_CHANGES_EX" = "Changes only shows upgrades to installed packages so as to minimize spam from packagers. Activate this to see upgrades to this package even when it is not installed.";
 "SIGNED_PACKAGE" = "This package has been signed.";
 "SIMPLE" = "Simple";
+"SINGLE_QUOTED": "‘$@’";
 "SLASH_DELIMITED" = "%@ / %@";
 "SOURCE_DETAILS" = "Source Information";
 "SOURCE_WARNING" = "Source Warning";

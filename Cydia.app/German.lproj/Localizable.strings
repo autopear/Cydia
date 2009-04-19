@@ -45,6 +45,7 @@
 "DISK_USING" = "Speicherplatz-Verbrauch";
 "DONATE_USING" = "Spenden via %@";
 "DONE" = "Fertig";
+"DOUBLE_QUOTED": "„$@“";
 "DOWNGRADE" = "Downgrade";
 "DOWNLOADING" = "Herunterladen";
 "EDIT" = "Bearbeiten";
@@ -54,6 +55,7 @@
 "ESSENTIAL_UPGRADE" = "Wichtige Aktualisierung";
 "ESSENTIAL_UPGRADES" = "%d wichtige Aktualisierungen";
 "ESSENTIAL_UPGRADE_EX" = "Ein oder mehr wichtige Pakete sind veraltet, was zu Fehlern führen kann. Es wird empfohlen die Aktualisierungen zu installieren.";
+"EXCLAMATION": "%@!";
 "EXPANDED_SIZE" = "Entpackte Größe";
 "EXPERT" = "Experte";
 "FEATURED_PACKAGES" = "Vorgeschlagene Pakete";
@@ -121,6 +123,7 @@
 "PURGE" = "Leeren";
 "Q_D" = "S";
 "QUEUED_FOR" = "In Warteschlange für %@";
+"QUESTION": "%@?";
 "REBOOT_DEVICE" = "Gerät neustarten";
 "RECENT_CHANGES_UPDATES" = "Neueste Änderungen/Aktualisierungen";
 "RECOMMENDED_BOOKS" = "Empfohlene Bücher";
@@ -157,6 +160,7 @@
 "SHOW_ALL_CHANGES_EX" = "Änderungen zeigt nur Aktualisierungen zu installierten Paketen an um Spam von Paket-Herstellern zu reduzieren. Aktivieren Sie dies, um Aktualisierungen zu diesem Paket zu sehen, obwohl es nicht installiert ist.";
 "SIGNED_PACKAGE" = "Dieses Paket wurde signiert.";
 "SIMPLE" = "Einfach";
+"SINGLE_QUOTED": "‚$@‘";
 "SLASH_DELIMITED" = "%@ / %@";
 "SOURCE_DETAILS" = "Information zur Quelle";
 "SOURCE_WARNING" = "Quellen Warnung";

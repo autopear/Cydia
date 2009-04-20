@@ -1138,11 +1138,15 @@ NSString *SizeString(double size) {
     return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
 }
 
+static _finline CFStringRef CFCString(const char *value) {
+    return CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(value), strlen(value), kCFStringEncodingUTF8, NO, kCFAllocatorNull);
+}
+
 CFStringRef StripVersion(const char *version) {
     const char *colon(strchr(version, ':'));
     if (colon != NULL)
         version = colon + 1;
-    return CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(version), strlen(version), kCFStringEncodingUTF8, NO, kCFAllocatorNull);
+    return CFCString(version);
 }
 
 NSString *LocalizeSection(NSString *section) {
@@ -1691,7 +1695,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     Address *author$_;
 
     CYString support_;
-    NSArray *tags_;
+    NSMutableArray *tags_;
     NSString *role_;
 
     NSArray *relationships_;
@@ -2007,7 +2011,7 @@ struct PackageNameOrdering :
 
         _profile(Package$parse$Tagline)
             const char *start, *end;
-            if (parser->Find("Description", start, end)) {
+            if (parser->ShortDesc(start, end)) {
                 const char *stop(reinterpret_cast<const char *>(memchr(start, '\n', end - start)));
                 if (stop == NULL)
                     stop = end;
@@ -2057,6 +2061,7 @@ struct PackageNameOrdering :
 
         _profile(Package$initWithVersion$Name)
             id_.set(pool_, iterator_.Name());
+            name_.set(pool, iterator_.Display());
         _end
 
         if (!file_.end()) {
@@ -2068,15 +2073,18 @@ struct PackageNameOrdering :
             _end
         }
 
-        /* XXX: get the damned Name */
-
         _profile(Package$initWithVersion$Tags)
-            if (tags_ != nil)
-                for (NSString *tag in tags_)
-                    if ([tag hasPrefix:@"role::"]) {
-                        role_ = [[tag substringFromIndex:6] retain];
-                        break;
-                    }
+            pkgCache::TagIterator tag(iterator_.TagList());
+            if (!tag.end()) {
+                tags_ = [[NSMutableArray alloc] initWithCapacity:8];
+                do {
+                    const char *name(tag.Name());
+                    [tags_ addObject:(NSString *)CFCString(name)];
+                    if (role_ == nil && strncmp(name, "role::", 6) == 0)
+                        role_ = (NSString *) CFCString(name + 6);
+                    ++tag;
+                } while (!tag.end());
+            }
         _end
 
         bool changed(false);

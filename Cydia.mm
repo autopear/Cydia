@@ -417,9 +417,11 @@ extern NSString * const kCAFilterNearest;
 #endif
 
 /* Radix Sort {{{ */
+typedef uint32_t (*SKRadixFunction)(id, void *);
+
 @interface NSMutableArray (Radix)
 - (void) radixSortUsingSelector:(SEL)selector withObject:(id)object;
-- (void) radixSortUsingFunction:(uint32_t (*)(id, void *))function withArgument:(void *)argument;
+- (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument;
 @end
 
 struct RadixItem_ {
@@ -515,7 +517,7 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
     RadixSort_(self, count, swap);
 }
 
-- (void) radixSortUsingFunction:(uint32_t (*)(id, void *))function withArgument:(void *)argument {
+- (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument {
     size_t count([self count]);
     struct RadixItem_ *swap(new RadixItem_[count * 2]);
 
@@ -534,6 +536,19 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
 /* }}} */
 /* Insertion Sort {{{ */
 
+CFIndex SKBSearch_(const void *element, CFIndex elementSize, const void *list, CFIndex count, CFComparatorFunction comparator, void *context) {
+    const char *ptr = (const char *)list;
+    while (0 < count) {
+        CFIndex half = count / 2;
+        const char *probe = ptr + elementSize * half;
+        CFComparisonResult cr = comparator(element, probe, context);
+	if (0 == cr) return (probe - (const char *)list) / elementSize;
+        ptr = (cr < 0) ? ptr : probe + elementSize;
+        count = (cr < 0) ? half : (half + (count & 1) - 1);
+    }
+    return (ptr - (const char *)list) / elementSize;
+}
+
 CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, CFIndex count, CFComparatorFunction comparator, void *context) {
     const char *ptr = (const char *)list;
     while (0 < count) {
@@ -547,24 +562,48 @@ CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, C
     return (ptr - (const char *)list) / elementSize;
 }
 
+#define HistogramInsertionSort 1
+
 void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFComparatorFunction comparator, void *context) {
     if (range.length == 0)
         return;
     const void **values(new const void *[range.length]);
     CFArrayGetValues(array, range, values);
 
+#if HistogramInsertionSort
+    uint32_t total(0), *offsets(new uint32_t[range.length]);
+#endif
+
     for (CFIndex index(1); index != range.length; ++index) {
         const void *value(values[index]);
-        CFIndex correct(CFBSearch_(&value, sizeof(const void *), values, index, comparator, context));
-        //NSLog(@"%u %u", index, correct);
+        //CFIndex correct(SKBSearch_(&value, sizeof(const void *), values, index, comparator, context));
+        CFIndex correct(index);
+        while (comparator(value, values[correct - 1], context) == kCFCompareLessThan)
+            if (--correct == 0)
+                break;
         if (correct != index) {
-            memmove(values + correct + 1, values + correct, sizeof(const void *) * (index - correct));
+            size_t offset(index - correct);
+#if HistogramInsertionSort
+            total += offset;
+            ++offsets[offset];
+            if (offset > 10)
+                NSLog(@"Heavy Insertion Displacement: %u = %@", offset, value);
+#endif
+            memmove(values + correct + 1, values + correct, sizeof(const void *) * offset);
             values[correct] = value;
         }
     }
 
     CFArrayReplaceValues(array, range, values, range.length);
     delete [] values;
+
+#if HistogramInsertionSort
+    for (CFIndex index(0); index != range.length; ++index)
+        if (offsets[index] != 0)
+            NSLog(@"Insertion Displacement [%u]: %u", index, offsets[index]);
+    NSLog(@"Average Insertion Displacement: %f", double(total) / range.length);
+    delete [] offsets;
+#endif
 }
 
 /* }}} */
@@ -783,12 +822,16 @@ class CYString {
         return size_ == rhs.size_ && memcmp(data_, rhs.data_, size_) == 0;
     }
 
-    operator id() {
+    operator CFStringRef() {
         if (cache_ == NULL) {
             if (size_ == 0)
                 return nil;
             cache_ = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<uint8_t *>(data_), size_, kCFStringEncodingUTF8, NO, kCFAllocatorNull);
-        } return (id) cache_;
+        } return cache_;
+    }
+
+    _finline operator id() {
+        return (NSString *) static_cast<CFStringRef>(*this);
     }
 };
 
@@ -1131,10 +1174,6 @@ NSString *Simplify(NSString *title) {
         return Simplify(title_r[1]);
 
     return title;
-}
-
-_finline static void Stifle(char &value) {
-    value = (value & 0xdf) ^ 0x40;
 }
 /* }}} */
 
@@ -1721,7 +1760,8 @@ class Progress :
 - (NSArray *) purposes;
 - (bool) isCommercial;
 
-- (uint32_t) compareByPrefix;
+- (CYString &) cyname;
+
 - (uint32_t) compareBySection:(NSArray *)sections;
 
 - (uint32_t) compareForChanges;
@@ -1763,27 +1803,73 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     return _not(uint32_t) - value.key;
 }
 
-CFStringRef (*PackageName)(Package *self, SEL sel);
+_finline static void Stifle(uint8_t &value) {
+}
+
+uint32_t PackagePrefixRadix(Package *self, void *context) {
+    size_t offset(reinterpret_cast<size_t>(context));
+    CYString &name([self cyname]);
+
+    size_t size(name.size());
+    if (size == 0)
+        return 0;
+    char *text(name.data());
+
+    size_t zeros;
+    if (!isdigit(text[0]))
+        zeros = 0;
+    else {
+        size_t digits(1);
+        while (size != digits && isdigit(text[digits]))
+            if (++digits == 4)
+                break;
+        zeros = 4 - digits;
+    }
+
+    uint8_t data[4];
+
+    // 0.607997
+
+    if (offset == 0 && zeros != 0) {
+        memset(data, '0', zeros);
+        memcpy(data + zeros, text, 4 - zeros);
+    } else {
+        /* XXX: there's some danger here if you request a non-zero offset < 4 and it gets zero padded */
+        if (size <= offset - zeros)
+            return 0;
+
+        text += offset - zeros;
+        size -= offset - zeros;
+
+        if (size >= 4)
+            memcpy(data, text, 4);
+        else {
+            memcpy(data, text, size);
+            memset(data + size, 0, 4 - size);
+        }
+
+        for (size_t i(0); i != 4; ++i)
+            if (isalpha(data[i]))
+                data[i] &= 0xdf;
+    }
+
+    if (offset == 0)
+        data[0] = (data[0] & 0x3f) | "\x80\x00\xc0\x40"[data[0] >> 6];
+
+    /* XXX: ntohl may be more honest */
+    return OSSwapInt32(*reinterpret_cast<uint32_t *>(data));
+}
+
+CYString &(*PackageName)(Package *self, SEL sel);
 
 CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
     _profile(PackageNameCompare)
-        CFStringRef lhn, rhn;
-        CFIndex length;
-
-        _profile(PackageNameCompare$Setup)
-            lhn = PackageName(lhs, @selector(name));
-            rhn = PackageName(rhs, @selector(name));
-        _end
-
-        _profile(PackageNameCompare$Nothing)
-        _end
-
-        _profile(PackageNameCompare$Length)
-            length = CFStringGetLength(lhn);
-        _end
+        CYString &lhi(PackageName(lhs, @selector(cyname)));
+        CYString &rhi(PackageName(rhs, @selector(cyname)));
+        CFStringRef lhn(lhi), rhn(rhi);
 
         _profile(PackageNameCompare$NumbersLast)
-            if (length != 0 && CFStringGetLength(rhn) != 0) {
+            if (!lhi.empty() && !rhi.empty()) {
                 UniChar lhc(CFStringGetCharacterAtIndex(lhn, 0));
                 UniChar rhc(CFStringGetCharacterAtIndex(rhn, 0));
                 bool lha(CFUniCharIsMemberOf(lhc, kCFUniCharLetterCharacterSet));
@@ -1791,6 +1877,8 @@ CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
                     return lha ? NSOrderedAscending : NSOrderedDescending;
             }
         _end
+
+        CFIndex length = CFStringGetLength(lhn);
 
         _profile(PackageNameCompare$Compare)
             return CFStringCompareWithOptionsAndLocale(lhn, rhn, CFRangeMake(0, length), LaxCompareFlags_, Locale_);
@@ -1811,6 +1899,10 @@ struct PackageNameOrdering :
 };
 
 @implementation Package
+
+- (NSString *) description {
+    return [NSString stringWithFormat:@"<Package:%@>", static_cast<NSString *>(name_)];
+}
 
 - (void) dealloc {
     if (source_ != nil)
@@ -2261,7 +2353,7 @@ struct PackageNameOrdering :
     NSString *section = [self simpleSection];
 
     UIImage *icon(nil);
-    if (icon_ != nil)
+    if (!icon_.empty())
         if ([icon_ hasPrefix:@"file:///"])
             icon = [UIImage imageAtPath:[icon_ substringFromIndex:7]];
     if (icon == nil) if (section != nil)
@@ -2299,7 +2391,7 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) support {
-    return support_ != nil ? support_ : [[self source] supportForPackage:id_];
+    return !support_.empty() ? support_ : [[self source] supportForPackage:id_];
 }
 
 - (NSArray *) files {
@@ -2485,29 +2577,8 @@ struct PackageNameOrdering :
     return [self hasTag:@"cydia::commercial"];
 }
 
-- (uint32_t) compareByPrefix {
-    size_t offset(0);
-
-    CYString &name(name_.empty() ? id_ : name_);
-    if (name.size() <= offset)
-        return 0;
-    size_t size(name.size() - offset);
-
-    char data[4];
-    if (size >= 4)
-        memcpy(data, name.data() + offset, 4);
-    else {
-        memcpy(data, name.data() + offset, size);
-        memset(data + size, 0, 4 - size);
-    }
-
-    Stifle(data[0]);
-    Stifle(data[1]);
-    Stifle(data[2]);
-    Stifle(data[3]);
-
-    /* XXX: ntohl may be more honest */
-    return OSSwapInt32(*reinterpret_cast<uint32_t *>(data));
+- (CYString &) cyname {
+    return name_.empty() ? id_ : name_;
 }
 
 - (uint32_t) compareBySection:(NSArray *)sections {
@@ -3111,7 +3182,9 @@ static NSArray *Finishes_;
             packages_ = [[NSArray alloc] initWithObjects:&packages.front() count:packages.size()];
         _trace();*/
 
-        [packages_ radixSortUsingSelector:@selector(compareByPrefix) withObject:NULL];
+        [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(16)];
+        [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(4)];
+        [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(0)];
 
         /*_trace();
         PrintTimes();
@@ -3125,7 +3198,7 @@ static NSArray *Finishes_;
 
         //CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
 
-        CFArrayInsertionSortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);
+        CFArrayInsertionSortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
 
         //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
 
@@ -6476,7 +6549,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [packages_ addObject:package];
 
     _trace();
-    [packages_ radixSortUsingFunction:reinterpret_cast<uint32_t (*)(id, void *)>(&PackageChangesRadix) withArgument:NULL];
+    [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
     _trace();
 
     Section *upgradable = [[[Section alloc] initWithName:CYLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
@@ -8029,7 +8102,7 @@ void $UIWebDocumentView$_setUIKitDelegate$(UIWebDocumentView *self, SEL sel, id 
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
-    PackageName = reinterpret_cast<CFStringRef (*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(name))));
+    PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
     /* Library Hacks {{{ */
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");

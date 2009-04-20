@@ -398,6 +398,7 @@ extern NSString * const kCAFilterNearest;
 
 #define ForRelease 0
 #define TraceLogging (1 && !ForRelease)
+#define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
@@ -566,8 +567,6 @@ CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, C
     }
     return (ptr - (const char *)list) / elementSize;
 }
-
-#define HistogramInsertionSort 0
 
 void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFComparatorFunction comparator, void *context) {
     if (range.length == 0)

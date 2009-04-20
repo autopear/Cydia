@@ -305,7 +305,7 @@
 }
 
 - (NSString *) stringWithFormat:(NSString *)format arguments:(WebScriptObject *)arguments {
-    NSLog(@"SWF:\"%@\" A:%@", format, arguments);
+    //NSLog(@"SWF:\"%@\" A:%@", format, [arguments description]);
     unsigned count([arguments count]);
     id values[count];
     for (unsigned i(0); i != count; ++i)

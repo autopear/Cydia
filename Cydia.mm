@@ -226,12 +226,18 @@ class _H {
         Clear_();
     }
 
+    _finline operator Type_ *() const {
+        return value_;
+    }
+
     _finline This_ &operator =(Type_ *value) {
         if (value_ != value) {
-            Clear_();
+            Type_ *old(value_);
             value_ = value;
             Retain_();
-        } return this;
+            if (old != nil)
+                [old release];
+        } return *this;
     }
 };
 /* }}} */
@@ -399,7 +405,7 @@ extern NSString * const kCAFilterNearest;
 #define ForRelease 0
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
-#define ProfileTimes (0 && !ForRelease)
+#define ProfileTimes (1 && !ForRelease)
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
@@ -1139,13 +1145,6 @@ NSString *StripVersion(const char *version) {
     return [NSString stringWithUTF8String:version];
 }
 
-NSString *StripVersion(NSString *version) {
-    NSRange colon = [version rangeOfString:@":"];
-    if (colon.location != NSNotFound)
-        version = [version substringFromIndex:(colon.location + 1)];
-    return version;
-}
-
 NSString *LocalizeSection(NSString *section) {
     static Pcre title_r("^(.*?) \\((.*)\\)$");
     if (title_r(section)) {
@@ -1347,6 +1346,8 @@ class Progress :
 /* }}} */
 
 /* Database Interface {{{ */
+typedef std::map< unsigned long, _H<Source> > SourceMap;
+
 @interface Database : NSObject {
     NSZone *zone_;
     apr_pool_t *pool_;
@@ -1362,7 +1363,7 @@ class Progress :
     SPtr<pkgPackageManager> manager_;
     pkgSourceList *list_;
 
-    NSMutableDictionary *sources_;
+    SourceMap sources_;
     NSMutableArray *packages_;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
@@ -1657,6 +1658,7 @@ class Progress :
 /* Package Class {{{ */
 @interface Package : NSObject {
     unsigned era_;
+    apr_pool_t *pool_;
 
     pkgCache::VerIterator version_;
     pkgCache::PkgIterator iterator_;
@@ -1665,6 +1667,7 @@ class Progress :
 
     Source *source_;
     bool cached_;
+    bool parsed_;
 
     CYString section_;
     NSString *section$_;
@@ -1703,6 +1706,7 @@ class Progress :
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
 
 - (pkgCache::PkgIterator) iterator;
+- (void) parse;
 
 - (NSString *) section;
 - (NSString *) simpleSection;
@@ -1959,11 +1963,75 @@ struct PackageNameOrdering :
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
+- (void) parse {
+    if (parsed_)
+        return;
+    parsed_ = true;
+    if (file_.end())
+        return;
+
+    _profile(Package$parse)
+        pkgRecords::Parser *parser;
+
+        _profile(Package$parse$Lookup)
+            parser = &[database_ records]->Lookup(file_);
+        _end
+
+        CYString website;
+
+        _profile(Package$parse$Find)
+            struct {
+                const char *name_;
+                CYString *value_;
+            } names[] = {
+                {"icon", &icon_},
+                {"depiction", &depiction_},
+                {"homepage", &homepage_},
+                {"website", &website},
+                {"support", &support_},
+                {"sponsor", &sponsor_},
+                {"author", &author_},
+            };
+
+            for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
+                const char *start, *end;
+
+                if (parser->Find(names[i].name_, start, end)) {
+                    CYString &value(*names[i].value_);
+                    _profile(Package$parse$Value)
+                        value.set(pool_, start, end - start);
+                    _end
+                }
+            }
+        _end
+
+        _profile(Package$parse$Tagline)
+            const char *start, *end;
+            if (parser->Find("Description", start, end)) {
+                const char *stop(reinterpret_cast<const char *>(memchr(start, '\n', end - start)));
+                if (stop == NULL)
+                    stop = end;
+                while (stop != start && stop[-1] == '\r')
+                    --stop;
+                tagline_.set(pool_, start, stop - start);
+            }
+        _end
+
+        _profile(Package$parse$Retain)
+            if (!homepage_.empty())
+                homepage_ = website;
+            if (homepage_ == depiction_)
+                homepage_.clear();
+        _end
+    _end
+}
+
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
     @synchronized (database) {
         era_ = [database era];
+        pool_ = pool;
 
         version_ = version;
         iterator_ = version.ParentPkg();
@@ -1973,78 +2041,34 @@ struct PackageNameOrdering :
             latest_ = [StripVersion(version_.VerStr()) retain];
         _end
 
-        pkgCache::VerIterator current(iterator_.CurrentVer());
-        if (!current.end())
-            installed_ = [StripVersion(current.VerStr()) retain];
+        pkgCache::VerIterator current;
+        _profile(Package$initWithVersion$Versions)
+            current = iterator_.CurrentVer();
+            if (!current.end())
+                installed_ = [StripVersion(current.VerStr()) retain];
 
-        if (!version_.end())
-            file_ = version_.FileList();
-        else {
-            pkgCache &cache([database_ cache]);
-            file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
-        }
-
-        _profile(Package$initWithVersion$Name)
-            id_.set(pool, iterator_.Name());
+            if (!version_.end())
+                file_ = version_.FileList();
+            else {
+                pkgCache &cache([database_ cache]);
+                file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
+            }
         _end
 
-        if (!file_.end())
-            source_ = [database_ getSource:file_.File()];
-            if (source_ != nil)
-                [source_ retain];
-            cached_ = true;
+        _profile(Package$initWithVersion$Name)
+            id_.set(pool_, iterator_.Name());
+        _end
 
-            _profile(Package$initWithVersion$Parse)
-                pkgRecords::Parser *parser;
-
-                _profile(Package$initWithVersion$Parse$Lookup)
-                    parser = &[database_ records]->Lookup(file_);
-                _end
-
-                CYString website;
-                CYString tag;
-
-                _profile(Package$initWithVersion$Parse$Find)
-                    struct {
-                        const char *name_;
-                        CYString *value_;
-                    } names[] = {
-                        {"name", &name_},
-                        {"icon", &icon_},
-                        {"depiction", &depiction_},
-                        {"homepage", &homepage_},
-                        {"website", &website},
-                        {"support", &support_},
-                        {"sponsor", &sponsor_},
-                        {"author", &author_},
-                        {"tag", &tag},
-                    };
-
-                    for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
-                        const char *start, *end;
-
-                        if (parser->Find(names[i].name_, start, end)) {
-                            CYString &value(*names[i].value_);
-                            _profile(Package$initWithVersion$Parse$Value)
-                                value.set(pool, start, end - start);
-                            _end
-                        }
-                    }
-                _end
-
-                _profile(Package$initWithVersion$Parse$Tagline)
-                    tagline_.set(pool, parser->ShortDesc());
-                _end
-
-                _profile(Package$initWithVersion$Parse$Retain)
-                    if (!homepage_.empty())
-                        homepage_ = website;
-                    if (homepage_ == depiction_)
-                        homepage_.clear();
-                    if (!tag.empty())
-                        tags_ = [[tag componentsSeparatedByString:@", "] retain];
-                _end
+        if (!file_.end()) {
+            _profile(Package$initWithVersion$Source)
+                source_ = [database_ getSource:file_.File()];
+                if (source_ != nil)
+                    [source_ retain];
+                cached_ = true;
             _end
+        }
+
+        /* XXX: get the damned Name */
 
         _profile(Package$initWithVersion$Tags)
             if (tags_ != nil)
@@ -2105,7 +2129,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Section)
-            section_.set(pool, iterator_.Section());
+            section_.set(pool_, iterator_.Section());
         _end
 
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
@@ -2930,7 +2954,6 @@ static NSArray *Finishes_;
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
         apr_pool_create(&pool_, NULL);
 
-        sources_ = [[NSMutableDictionary dictionaryWithCapacity:16] retain];
         packages_ = [[NSMutableArray alloc] init];
 
         int fds[2];
@@ -3003,7 +3026,10 @@ static NSArray *Finishes_;
 }
 
 - (NSArray *) sources {
-    return [sources_ allValues];
+    NSMutableArray *sources([NSMutableArray arrayWithCapacity:sources_.size()]);
+    for (SourceMap::const_iterator i(sources_.begin()); i != sources_.end(); ++i)
+        [sources addObject:i->second];
+    return sources;
 }
 
 - (NSArray *) issues {
@@ -3144,23 +3170,19 @@ static NSArray *Finishes_;
     }
 
     _trace();
-    {
-        std::string lists(_config->FindDir("Dir::State::lists"));
 
-        [sources_ removeAllObjects];
-        for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-            std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
-            for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
-                if (debPackagesIndex *packages = dynamic_cast<debPackagesIndex *>(*index))
-                    [sources_
-                        setObject:[[[Source alloc] initWithMetaIndex:*source] autorelease]
-                        forKey:[NSString stringWithFormat:@"%s%s",
-                            lists.c_str(),
-                            URItoFileName(packages->IndexURI("Packages")).c_str()
-                        ]
-                    ];
-        }
+    sources_.clear();
+    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+        std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
+        for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
+            // XXX: this could be more intelligent
+            if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {
+                pkgCache::PkgFileIterator cached((*index)->FindInCache(cache_));
+                if (!cached.end())
+                    sources_[cached->ID] = [[[Source alloc] initWithMetaIndex:*source] autorelease];
+            }
     }
+
     _trace();
 
     {
@@ -3368,10 +3390,7 @@ static NSArray *Finishes_;
 }
 
 - (Source *) getSource:(pkgCache::PkgFileIterator)file {
-    if (const char *name = file.FileName())
-        if (Source *source = [sources_ objectForKey:[NSString stringWithUTF8String:name]])
-            return source;
-    return nil;
+    return sources_[file->ID];
 }
 
 @end
@@ -4323,6 +4342,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setPackage:(Package *)package {
     [self clearPackage];
+    [package parse];
 
     Source *source = [package source];
 
@@ -4453,14 +4473,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 + (int) heightForPackage:(Package *)package {
-    NSString *tagline([package shortDescription]);
-    int height = tagline == nil || [tagline length] == 0 ? -17 : 0;
-#ifdef USE_BADGES
-    if ([package hasMode] || [package half])
-        return height + 96;
-    else
-#endif
-        return height + 73;
+    return 73;
 }
 
 @end
@@ -4845,6 +4858,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [buttons_ removeAllObjects];
 
     if (package != nil) {
+        [package parse];
+
         package_ = [package retain];
         name_ = [[package id] retain];
         commercial_ = [package isCommercial];

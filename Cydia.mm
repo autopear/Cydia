@@ -87,6 +87,7 @@
 #include <apt-pkg/sourcelist.h>
 #include <apt-pkg/sptr.h>
 #include <apt-pkg/strutl.h>
+#include <apt-pkg/tagfile.h>
 
 #include <apr-1/apr_pools.h>
 
@@ -405,9 +406,9 @@ extern NSString * const kCAFilterNearest;
 #define ForRelease 0
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
-#define ProfileTimes (1 && !ForRelease)
+#define ProfileTimes (0 && !ForRelease)
 #define ForSaurik (0 && !ForRelease)
-#define LogBrowser (0 && !ForRelease)
+#define LogBrowser (1 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
 #define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
@@ -1415,23 +1416,25 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 /* Source Class {{{ */
 @interface Source : NSObject {
-    NSString *description_;
-    NSString *label_;
-    NSString *origin_;
-    NSString *support_;
+    CYString description_;
+    CYString label_;
+    CYString origin_;
+    CYString support_;
 
-    NSString *uri_;
-    NSString *distribution_;
-    NSString *type_;
-    NSString *version_;
+    CYString uri_;
+    CYString distribution_;
+    CYString type_;
+    CYString version_;
 
-    NSString *defaultIcon_;
+    NSString *host_;
+
+    CYString defaultIcon_;
 
     NSDictionary *record_;
     BOOL trusted_;
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index;
+- (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool;
 
 - (NSComparisonResult) compareByNameAndType:(Source *)source;
 
@@ -1458,23 +1461,27 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 @implementation Source
 
-#define _clear(field) \
-    if (field != nil) \
-        [field release]; \
-    field = nil;
-
 - (void) _clear {
-    _clear(uri_)
-    _clear(distribution_)
-    _clear(type_)
+    uri_.clear();
+    distribution_.clear();
+    type_.clear();
 
-    _clear(description_)
-    _clear(label_)
-    _clear(origin_)
-    _clear(support_)
-    _clear(version_)
-    _clear(defaultIcon_)
-    _clear(record_)
+    description_.clear();
+    label_.clear();
+    origin_.clear();
+    support_.clear();
+    version_.clear();
+    defaultIcon_.clear();
+
+    if (record_ != nil) {
+        [record_ release];
+        record_ = nil;
+    }
+
+    if (host_ != nil) {
+        [host_ release];
+        host_ = nil;
+    }
 }
 
 - (void) dealloc {
@@ -1494,52 +1501,55 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
-- (void) setMetaIndex:(metaIndex *)index {
+- (void) setMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
     [self _clear];
 
     trusted_ = index->IsTrusted();
 
-    uri_ = [[NSString stringWithUTF8String:index->GetURI().c_str()] retain];
-    distribution_ = [[NSString stringWithUTF8String:index->GetDist().c_str()] retain];
-    type_ = [[NSString stringWithUTF8String:index->GetType()] retain];
+    uri_.set(pool, index->GetURI());
+    distribution_.set(pool, index->GetDist());
+    type_.set(pool, index->GetType());
 
     debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
     if (dindex != NULL) {
-        std::ifstream release(dindex->MetaIndexFile("Release").c_str());
-        std::string line;
-        while (std::getline(release, line)) {
-            std::string::size_type colon(line.find(':'));
-            if (colon == std::string::npos)
-                continue;
+        FileFd fd(dindex->MetaIndexFile("Release"), FileFd::ReadOnly);
+        pkgTagFile tags(&fd);
 
-            std::string name(line.substr(0, colon));
-            std::string value(line.substr(colon + 1));
-            while (!value.empty() && value[0] == ' ')
-                value = value.substr(1);
+        pkgTagSection section;
+        tags.Step(section);
 
-            if (name == "Default-Icon")
-                defaultIcon_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-            else if (name == "Description")
-                description_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-            else if (name == "Label")
-                label_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-            else if (name == "Origin")
-                origin_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-            else if (name == "Support")
-                support_ = [[NSString stringWithUTF8String:value.c_str()] retain];
-            else if (name == "Version")
-                version_ = [[NSString stringWithUTF8String:value.c_str()] retain];
+        struct {
+            const char *name_;
+            CYString *value_;
+        } names[] = {
+            {"default-icon", &defaultIcon_},
+            {"description", &description_},
+            {"label", &label_},
+            {"origin", &origin_},
+            {"support", &support_},
+            {"version", &version_},
+        };
+
+        for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
+            const char *start, *end;
+
+            if (section.Find(names[i].name_, start, end)) {
+                CYString &value(*names[i].value_);
+                value.set(pool, start, end - start);
+            }
         }
     }
 
     record_ = [Sources_ objectForKey:[self key]];
     if (record_ != nil)
         record_ = [record_ retain];
+
+    host_ = [[[[NSURL URLWithString:uri_] host] lowercaseString] retain];
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index {
+- (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
     if ((self = [super init]) != nil) {
-        [self setMetaIndex:index];
+        [self setMetaIndex:index inPool:pool];
     } return self;
 }
 
@@ -1567,7 +1577,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (NSString *) supportForPackage:(NSString *)package {
-    return support_ == nil ? nil : [support_ stringByReplacingOccurrencesOfString:@"*" withString:package];
+    return support_.empty() ? nil : [support_ stringByReplacingOccurrencesOfString:@"*" withString:package];
 }
 
 - (NSDictionary *) record {
@@ -1591,15 +1601,15 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (NSString *) key {
-    return [NSString stringWithFormat:@"%@:%@:%@", type_, uri_, distribution_];
+    return [NSString stringWithFormat:@"%@:%@:%@", (NSString *) type_, (NSString *) uri_, (NSString *) distribution_];
 }
 
 - (NSString *) host {
-    return [[[NSURL URLWithString:[self uri]] host] lowercaseString];
+    return host_;
 }
 
 - (NSString *) name {
-    return origin_ == nil ? [self host] : origin_;
+    return origin_.empty() ? host_ : origin_;
 }
 
 - (NSString *) description {
@@ -1607,7 +1617,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (NSString *) label {
-    return label_ == nil ? [self host] : label_;
+    return label_.empty() ? host_ : label_;
 }
 
 - (NSString *) origin {
@@ -3194,7 +3204,7 @@ static NSArray *Finishes_;
             if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {
                 pkgCache::PkgFileIterator cached((*index)->FindInCache(cache_));
                 if (!cached.end())
-                    sources_[cached->ID] = [[[Source alloc] initWithMetaIndex:*source] autorelease];
+                    sources_[cached->ID] = [[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease];
             }
     }
 

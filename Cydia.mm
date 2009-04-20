@@ -1138,11 +1138,11 @@ NSString *SizeString(double size) {
     return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
 }
 
-NSString *StripVersion(const char *version) {
+CFStringRef StripVersion(const char *version) {
     const char *colon(strchr(version, ':'));
     if (colon != NULL)
         version = colon + 1;
-    return [NSString stringWithUTF8String:version];
+    return CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(version), strlen(version), kCFStringEncodingUTF8, NO, kCFAllocatorNull);
 }
 
 NSString *LocalizeSection(NSString *section) {
@@ -2038,14 +2038,14 @@ struct PackageNameOrdering :
         database_ = database;
 
         _profile(Package$initWithVersion$Latest)
-            latest_ = [StripVersion(version_.VerStr()) retain];
+            latest_ = (NSString *) StripVersion(version_.VerStr());
         _end
 
         pkgCache::VerIterator current;
         _profile(Package$initWithVersion$Versions)
             current = iterator_.CurrentVer();
             if (!current.end())
-                installed_ = [StripVersion(current.VerStr()) retain];
+                installed_ = (NSString *) StripVersion(current.VerStr());
 
             if (!version_.end())
                 file_ = version_.FileList();
@@ -2086,7 +2086,7 @@ struct PackageNameOrdering :
             metadata_ = [Packages_ objectForKey:key];
 
             if (metadata_ == nil) {
-                firstSeen_ = [now_ retain];
+                firstSeen_ = now_;
 
                 metadata_ = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
                     firstSeen_, @"FirstSeen",
@@ -3101,6 +3101,9 @@ static NSArray *Finishes_;
         ++era_;
     }
 
+    [packages_ removeAllObjects];
+    sources_.clear();
+
     _error->Discard();
 
     delete list_;
@@ -3116,6 +3119,11 @@ static NSArray *Finishes_;
     records_ = NULL;
     delete policy_;
     policy_ = NULL;
+
+    if (now_ != nil) {
+        [now_ release];
+        now_ = nil;
+    }
 
     cache_.Close();
 
@@ -3171,7 +3179,6 @@ static NSArray *Finishes_;
 
     _trace();
 
-    sources_.clear();
     for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
         std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
         for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
@@ -3190,8 +3197,6 @@ static NSArray *Finishes_;
         packages.reserve(std::max(10000U, [packages_ count] + 1000));
         [packages_ release];
         packages_ = nil;*/
-
-        [packages_ removeAllObjects];
 
         _trace();
 

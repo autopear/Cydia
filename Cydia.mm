@@ -7204,7 +7204,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ManageView *manage_;
     SearchView *search_;
 
-    PackageView *package_;
+    NSMutableArray *details_;
 }
 
 @end
@@ -7584,19 +7584,30 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setPackageView:(PackageView *)view {
-    if (package_ == nil)
-        package_ = [view retain];
+    WebThreadLock();
+    [view setPackage:nil];
+    if ([details_ count] < 3)
+        [details_ addObject:view];
+    WebThreadUnlock();
+}
+
+- (PackageView *) _packageView {
+    return [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
 }
 
 - (PackageView *) packageView {
     PackageView *view;
+    size_t count([details_ count]);
 
-    if (package_ == nil)
-        view = [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
-    else {
-        return package_;
-        view = [package_ autorelease];
-        package_ = nil;
+    if (count == 0) {
+        view = [self _packageView];
+      renew:
+        [details_ addObject:[self _packageView]];
+    } else {
+        view = [[[details_ lastObject] retain] autorelease];
+        [details_ removeLastObject];
+        if (count == 1)
+            goto renew;
     }
 
     return view;
@@ -7734,7 +7745,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withClass:[ManageView class]
     ] retain];
 
-    [self setPackageView:[self packageView]];
+    details_ = [[NSMutableArray alloc] initWithCapacity:4];
+    [details_ addObject:[self _packageView]];
+    [details_ addObject:[self _packageView]];
 
     PrintTimes();
 

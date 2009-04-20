@@ -574,8 +574,7 @@
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     if (![self _allowJavaScriptPanel])
         return;
-
-    // WTR: [self retain];
+    [self retain];
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
@@ -592,6 +591,7 @@
 - (BOOL) webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     if (![self _allowJavaScriptPanel])
         return NO;
+    [self retain];
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
@@ -612,6 +612,8 @@
 
     NSNumber *confirm([confirm_ autorelease]);
     confirm_ = nil;
+
+    [self autorelease];
     return [confirm boolValue];
 }
 
@@ -1005,7 +1007,9 @@
 }
 
 - (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    [loading_ addObject:frame];
+    if ([loading_ count] == 0)
+        [self retain];
+    [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
         [webview_ resignFirstResponder];
@@ -1065,7 +1069,10 @@
 }
 
 - (void) _finishLoading {
-    if (reloading_ || [loading_ count] != 0)
+    size_t count([loading_ count]);
+    if (count == 0)
+        [self autorelease];
+    if (reloading_ || count != 0)
         return;
     if (finish_ != nil)
         [self callFunction:finish_];
@@ -1106,8 +1113,7 @@
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    [loading_ removeObject:frame];
-
+    [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
     [self _finishLoading];
 
     if ([frame parentFrame] == nil) {
@@ -1156,11 +1162,14 @@
 }
 
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    [loading_ removeObject:frame];
+    if ([frame parentFrame] == nil)
+        [self autorelease];
+
+    [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
+    [self _finishLoading];
+
     if (reloading_)
         return;
-
-    [self _finishLoading];
 
     if ([frame parentFrame] == nil) {
         [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",

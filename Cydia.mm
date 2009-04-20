@@ -397,6 +397,8 @@ extern NSString * const kCAFilterNearest;
 #define lprintf(args...) fprintf(stderr, args)
 
 #define ForRelease 0
+#define TraceLogging (1 && !ForRelease)
+#define ProfileTimes (0 && !ForRelease)
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
@@ -406,9 +408,12 @@ extern NSString * const kCAFilterNearest;
 #define RecycleWebViews 0
 #define AlwaysReload (1 && !ForRelease)
 
-#if ForRelease
+#if !TraceLogging
 #undef _trace
 #define _trace(args...)
+#endif
+
+#if !ProfileTimes
 #undef _profile
 #define _profile(name) {
 #undef _end
@@ -562,7 +567,7 @@ CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, C
     return (ptr - (const char *)list) / elementSize;
 }
 
-#define HistogramInsertionSort 1
+#define HistogramInsertionSort 0
 
 void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFComparatorFunction comparator, void *context) {
     if (range.length == 0)

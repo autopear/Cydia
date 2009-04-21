@@ -282,6 +282,14 @@
     }
 }
 
+- (void) reloadButtons {
+    size_t count([pages_ count]);
+    if (count != 0) {
+        RVPage *page([pages_ lastObject]);
+        [self reloadButtonsForPage:page];
+    }
+}
+
 - (CGRect) pageBounds {
     return [transition_ bounds];
 }

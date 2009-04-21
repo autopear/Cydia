@@ -63,6 +63,7 @@
 - (void) reloadButtonsForPage:(RVPage *)page;
 - (NSString *) getTitleForPage:(RVPage *)page;
 
+- (void) reloadButtons;
 - (void) reloadData;
 
 - (CGRect) pageBounds;

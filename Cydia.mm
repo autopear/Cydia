@@ -764,8 +764,10 @@ class CYString {
     CFStringRef cache_;
 
     _finline void clear_() {
-        if (cache_ != nil)
+        if (cache_ != NULL) {
             CFRelease(cache_);
+            cache_ = NULL;
+        }
     }
 
   public:
@@ -789,7 +791,7 @@ class CYString {
     _finline CYString() :
         data_(0),
         size_(0),
-        cache_(nil)
+        cache_(NULL)
     {
     }
 
@@ -1407,7 +1409,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (void) upgrade;
 - (void) update;
 
-- (void) updateWithStatus:(Status &)status;
+- (NSString *) updateWithStatus:(Status &)status;
 
 - (void) setDelegate:(id)delegate;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file;
@@ -1512,30 +1514,34 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
     debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
     if (dindex != NULL) {
-        FileFd fd(dindex->MetaIndexFile("Release"), FileFd::ReadOnly);
-        pkgTagFile tags(&fd);
+        FileFd fd;
+        if (!fd.Open(dindex->MetaIndexFile("Release"), FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            pkgTagFile tags(&fd);
 
-        pkgTagSection section;
-        tags.Step(section);
+            pkgTagSection section;
+            tags.Step(section);
 
-        struct {
-            const char *name_;
-            CYString *value_;
-        } names[] = {
-            {"default-icon", &defaultIcon_},
-            {"description", &description_},
-            {"label", &label_},
-            {"origin", &origin_},
-            {"support", &support_},
-            {"version", &version_},
-        };
+            struct {
+                const char *name_;
+                CYString *value_;
+            } names[] = {
+                {"default-icon", &defaultIcon_},
+                {"description", &description_},
+                {"label", &label_},
+                {"origin", &origin_},
+                {"support", &support_},
+                {"version", &version_},
+            };
 
-        for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
-            const char *start, *end;
+            for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
+                const char *start, *end;
 
-            if (section.Find(names[i].name_, start, end)) {
-                CYString &value(*names[i].value_);
-                value.set(pool, start, end - start);
+                if (section.Find(names[i].name_, start, end)) {
+                    CYString &value(*names[i].value_);
+                    value.set(pool, start, end - start);
+                }
             }
         }
     }
@@ -2204,7 +2210,7 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) longSection {
-    return LocalizeSection(section_);
+    return LocalizeSection([self section]);
 }
 
 - (NSString *) shortSection {
@@ -3377,13 +3383,20 @@ static NSArray *Finishes_;
     [self updateWithStatus:status_];
 }
 
-- (void) updateWithStatus:(Status &)status {
+- (NSString *) updateWithStatus:(Status &)status {
     pkgSourceList list;
     _assert(list.ReadMainList());
 
     FileFd lock;
     lock.Fd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"));
-    _assert(!_error->PendingError());
+
+    if (_error->PendingError()) {
+        std::string error;
+        if (!_error->PopMessage(error))
+            _assert(false);
+        _error->Discard();
+        return [NSString stringWithUTF8String:error.c_str()];
+    }
 
     pkgAcquire fetcher(&status);
     _assert(list.GetIndexes(&fetcher));
@@ -3404,6 +3417,8 @@ static NSArray *Finishes_;
         [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
         Changed_ = true;
     }
+
+    return nil;
 }
 
 - (void) setDelegate:(id)delegate {
@@ -5939,7 +5954,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) _update_ {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"refresh"])
+        [sheet dismiss];
+}
+
+- (void) _update_:(NSString *)error {
     updating_ = false;
 
     [indicator_ stopAnimation];
@@ -5961,7 +5983,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [UIView commitAnimations];
 
-    [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+    if (error == nil)
+        [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+    else {
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
+            initWithTitle:[NSString stringWithFormat:CYLocalize("COLON_DELIMITED"), CYLocalize("ERROR"), CYLocalize("REFRESH")]
+            buttons:[NSArray arrayWithObjects:
+                CYLocalize("OK"),
+            nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:@"refresh"
+        ] autorelease];
+
+        [sheet setBodyText:error];
+        [sheet popupAlertAnimated:YES];
+
+        [self reloadButtons];
+    }
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database {
@@ -6050,11 +6089,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Status status;
     status.setDelegate(self);
 
-    [database_ updateWithStatus:status];
+    NSString *error([database_ updateWithStatus:status]);
 
     [self
-        performSelectorOnMainThread:@selector(_update_)
-        withObject:nil
+        performSelectorOnMainThread:@selector(_update_:)
+        withObject:error
         waitUntilDone:NO
     ];
 }
@@ -6092,10 +6131,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (bool) isCancelling:(size_t)received {
     return !updating_;
-}
-
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    [sheet dismiss];
 }
 
 - (void) _setProgressTitle:(NSString *)title {

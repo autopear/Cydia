@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008  Jay Freeman (saurik)
+ * Copyright (C) 2008-2009  Jay Freeman (saurik)
 */
 
 /*
@@ -216,6 +216,11 @@ class _H {
     }
 
   public:
+    _finline _H(const This_ &rhs) :
+        value_(rhs.value_ == nil ? nil : [rhs.value_ retain])
+    {
+    }
+
     _finline _H(Type_ *value = NULL, bool mended = false) :
         value_(value)
     {
@@ -3428,7 +3433,8 @@ static NSArray *Finishes_;
 }
 
 - (Source *) getSource:(pkgCache::PkgFileIterator)file {
-    return sources_[file->ID];
+    SourceMap::const_iterator i(sources_.find(file->ID));
+    return i == sources_.end() ? nil : i->second;
 }
 
 @end

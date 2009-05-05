@@ -2176,7 +2176,7 @@ struct PackageNameOrdering :
         _end
 
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
-        visible_ &&= [self hasSupportingRole] && [self unfiltered];
+        visible_ = visible_ && [self hasSupportingRole] && [self unfiltered];
     } _end } return self;
 }
 

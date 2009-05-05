@@ -1,5 +1,6 @@
 #!/bin/bash
-Cydia=$(dirname "$0")
+C=/${0}
+C=${C%/*}
 declare -a flags
 [[ :${DYLD_INSERT_LIBRARIES}: == */MobileSubstrate.dylib: ]] && flags[${#flags[@]}]=--substrate
-exec "${Cydia}"/Cydia_ "${flags[@]}" -- "$@" 2>>/tmp/cydia.log
+exec "${C:-.}"/Cydia_ "${flags[@]}" -- "$@" 2>>/tmp/cydia.log

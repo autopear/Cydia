@@ -240,7 +240,8 @@
         _assert(dup2(fds[1], 1) != -1);
         _assert(close(fds[0]) != -1);
         _assert(close(fds[1]) != -1);
-        execlp("du", "du", "-s", [path UTF8String], NULL);
+        /* XXX: this should probably not use du */
+        execl("/usr/libexec/cydia/du", "du", "-s", [path UTF8String], NULL);
         exit(1);
         _assert(false);
     }

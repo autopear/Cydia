@@ -95,6 +95,7 @@
 "LOGIN" = "Login";
 "MAINTAINER" = "Contact";
 "MANAGE" = "Manage";
+"MODIFICATIONS" = "Modifications";
 "MODIFY" = "Modify";
 "MORE_INFORMATION" = "More Information";
 "MORE_PACKAGE_SOURCES" = "More Package Sources";

@@ -5,6 +5,7 @@ for dir in \
     /Library/Wallpaper \
     /Library/Ringtones \
     /usr/include \
+    /usr/lib/pam \
     /usr/libexec \
     /usr/share \
 ; do

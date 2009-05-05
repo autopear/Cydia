@@ -45,7 +45,7 @@ function shift_() {
     dir=${1%/}
 
     if [[ -d ${dir} && ! -h ${dir} ]]; then
-        used=$(du -bs "${dir}")
+        used=$(/usr/libexec/cydia/du -bs "${dir}")
         used=${used%%$'\t'*}
         free=$(df_ /var)
 

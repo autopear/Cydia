@@ -1423,6 +1423,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 /* Source Class {{{ */
 @interface Source : NSObject {
+    CYString depiction_;
     CYString description_;
     CYString label_;
     CYString origin_;
@@ -1445,6 +1446,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (NSComparisonResult) compareByNameAndType:(Source *)source;
 
+- (NSString *) depictionForPackage:(NSString *)package;
 - (NSString *) supportForPackage:(NSString *)package;
 
 - (NSDictionary *) record;
@@ -1476,6 +1478,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     description_.clear();
     label_.clear();
     origin_.clear();
+    depiction_.clear();
     support_.clear();
     version_.clear();
     defaultIcon_.clear();
@@ -1533,6 +1536,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
                 CYString *value_;
             } names[] = {
                 {"default-icon", &defaultIcon_},
+                {"depiction", &depiction_},
                 {"description", &description_},
                 {"label", &label_},
                 {"origin", &origin_},
@@ -1585,6 +1589,10 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     }
 
     return [lhs compare:rhs options:LaxCompareOptions_];
+}
+
+- (NSString *) depictionForPackage:(NSString *)package {
+    return depiction_.empty() ? nil : [depiction_ stringByReplacingOccurrencesOfString:@"*" withString:package];
 }
 
 - (NSString *) supportForPackage:(NSString *)package {
@@ -2094,6 +2102,8 @@ struct PackageNameOrdering :
             _end
         }
 
+        visible_ = true;
+
         _profile(Package$initWithVersion$Tags)
             pkgCache::TagIterator tag(iterator_.TagList());
             if (!tag.end()) {
@@ -2101,8 +2111,12 @@ struct PackageNameOrdering :
                 do {
                     const char *name(tag.Name());
                     [tags_ addObject:(NSString *)CFCString(name)];
-                    if (role_ == nil && strncmp(name, "role::", 6) == 0)
+                    if (role_ == nil && strncmp(name, "role::", 6) == 0 && strcmp(name, "role::leaper") != 0)
                         role_ = (NSString *) CFCString(name + 6);
+                    if (visible_ && strncmp(name, "require::", 9) == 0 && (
+                        true
+                    ))
+                        visible_ = false;
                     ++tag;
                 } while (!tag.end());
             }
@@ -2162,7 +2176,7 @@ struct PackageNameOrdering :
         _end
 
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
-        visible_ = [self hasSupportingRole] && [self unfiltered];
+        visible_ &&= [self hasSupportingRole] && [self unfiltered];
     } _end } return self;
 }
 
@@ -2428,7 +2442,7 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) depiction {
-    return depiction_;
+    return !depiction_.empty() ? depiction_ : [[self source] depictionForPackage:id_];
 }
 
 - (Address *) sponsor {
@@ -3331,6 +3345,8 @@ static NSArray *Finishes_;
     for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {
         if ((*item)->Status == pkgAcquire::Item::StatDone && (*item)->Complete)
             continue;
+        if ((*item)->Status == pkgAcquire::Item::StatIdle)
+            continue;
 
         std::string uri = (*item)->DescURI();
         std::string error = (*item)->ErrorText;
@@ -3991,64 +4007,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [transition_ transition:6 toView:view_];
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
+- (void) _checkError {
+    if (_error->PendingError()) {
+        std::string error;
+        if (!_error->PopMessage(error))
+            _assert(false);
 
-    if ([context isEqualToString:@"error"])
-        [sheet dismiss];
-    else if ([context isEqualToString:@"conffile"]) {
-        FILE *input = [database_ input];
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
+            initWithTitle:CYLocalize("ERROR")
+            buttons:[NSArray arrayWithObjects:CYLocalize("OKAY"), nil]
+            defaultButtonIndex:0
+            delegate:self
+            context:@"_error"
+        ] autorelease];
 
-        switch (button) {
-            case 1:
-                fprintf(input, "N\n");
-                fflush(input);
-                break;
-            case 2:
-                fprintf(input, "Y\n");
-                fflush(input);
-                break;
-            default:
-                _assert(false);
-        }
+        [sheet setBodyText:[NSString stringWithUTF8String:error.c_str()]];
+        [sheet popupAlertAnimated:YES];
 
-        [sheet dismiss];
+        return;
     }
-}
-
-- (void) closeButtonPushed {
-    running_ = NO;
-
-    switch (Finish_) {
-        case 0:
-            [self resetView];
-        break;
-
-        case 1:
-            [delegate_ suspendWithAnimation:YES];
-        break;
-
-        case 2:
-            system("launchctl stop com.apple.SpringBoard");
-        break;
-
-        case 3:
-            system("launchctl unload "SpringBoard_"; launchctl load "SpringBoard_);
-        break;
-
-        case 4:
-            system("reboot");
-        break;
-    }
-}
-
-- (void) _retachThread {
-    UINavigationItem *item = [navbar_ topItem];
-    [item setTitle:CYLocalize("COMPLETE")];
-
-    [overlay_ addSubview:close_];
-    [progress_ removeFromSuperview];
-    [status_ removeFromSuperview];
 
     [delegate_ progressViewIsComplete:self];
 
@@ -4135,6 +4112,71 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     notify_post("com.apple.mobile.application_installed");
 
     [delegate_ setStatusBarShowsProgress:NO];
+}
+
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"error"])
+        [sheet dismiss];
+    else if ([context isEqualToString:@"_error"]) {
+        [sheet dismiss];
+        [self _checkError];
+    } else if ([context isEqualToString:@"conffile"]) {
+        FILE *input = [database_ input];
+
+        switch (button) {
+            case 1:
+                fprintf(input, "N\n");
+                fflush(input);
+                break;
+            case 2:
+                fprintf(input, "Y\n");
+                fflush(input);
+                break;
+            default:
+                _assert(false);
+        }
+
+        [sheet dismiss];
+    }
+}
+
+- (void) closeButtonPushed {
+    running_ = NO;
+
+    switch (Finish_) {
+        case 0:
+            [self resetView];
+        break;
+
+        case 1:
+            [delegate_ suspendWithAnimation:YES];
+        break;
+
+        case 2:
+            system("launchctl stop com.apple.SpringBoard");
+        break;
+
+        case 3:
+            system("launchctl unload "SpringBoard_"; launchctl load "SpringBoard_);
+        break;
+
+        case 4:
+            system("reboot");
+        break;
+    }
+}
+
+- (void) _retachThread {
+    UINavigationItem *item = [navbar_ topItem];
+    [item setTitle:CYLocalize("COMPLETE")];
+
+    [overlay_ addSubview:close_];
+    [progress_ removeFromSuperview];
+    [status_ removeFromSuperview];
+
+    [self _checkError];
 }
 
 - (void) _detachNewThreadData:(ProgressData *)data { _pooled

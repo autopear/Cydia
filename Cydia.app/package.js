@@ -291,6 +291,7 @@ var special = function () {
     $("#thumb")[0].className = 'flip-180';
 
     /* XXX: this could be better */
+    $("#rating-href").href(null);
     $("#rating-none").css("display", "none");
     $("#rating-done").css("display", "none");
 

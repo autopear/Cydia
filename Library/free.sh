@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# /usr/bin \
+
 for dir in \
     /Applications \
     /Library/Wallpaper \

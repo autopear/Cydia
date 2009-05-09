@@ -2111,7 +2111,7 @@ struct PackageNameOrdering :
                 do {
                     const char *name(tag.Name());
                     [tags_ addObject:(NSString *)CFCString(name)];
-                    if (role_ == nil && strncmp(name, "role::", 6) == 0 && strcmp(name, "role::leaper") != 0)
+                    if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
                         role_ = (NSString *) CFCString(name + 6);
                     if (visible_ && strncmp(name, "require::", 9) == 0 && (
                         true
@@ -4030,30 +4030,42 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ progressViewIsComplete:self];
 
     if (Finish_ < 4) {
-        FileFd file(SandboxTemplate_, FileFd::ReadOnly);
-        MMap mmap(file, MMap::ReadOnly);
-        SHA1Summation sha1;
-        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-        if (!(sandplate_ == sha1.Result()))
-            Finish_ = 4;
+        FileFd file;
+        if (!file.Open(SandboxTemplate_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            if (!(sandplate_ == sha1.Result()))
+                Finish_ = 4;
+        }
     }
 
     if (Finish_ < 4) {
-        FileFd file(NotifyConfig_, FileFd::ReadOnly);
-        MMap mmap(file, MMap::ReadOnly);
-        SHA1Summation sha1;
-        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-        if (!(notifyconf_ == sha1.Result()))
-            Finish_ = 4;
+        FileFd file;
+        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            if (!(notifyconf_ == sha1.Result()))
+                Finish_ = 4;
+        }
     }
 
     if (Finish_ < 3) {
-        FileFd file(SpringBoard_, FileFd::ReadOnly);
-        MMap mmap(file, MMap::ReadOnly);
-        SHA1Summation sha1;
-        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-        if (!(springlist_ == sha1.Result()))
-            Finish_ = 3;
+        FileFd file;
+        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            if (!(springlist_ == sha1.Result()))
+                Finish_ = 3;
+        }
     }
 
     switch (Finish_) {
@@ -4202,27 +4214,39 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     running_ = YES;
 
     {
-        FileFd file(SandboxTemplate_, FileFd::ReadOnly);
-        MMap mmap(file, MMap::ReadOnly);
-        SHA1Summation sha1;
-        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-        sandplate_ = sha1.Result();
+        FileFd file;
+        if (!file.Open(SandboxTemplate_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            sandplate_ = sha1.Result();
+        }
     }
 
     {
-        FileFd file(NotifyConfig_, FileFd::ReadOnly);
-        MMap mmap(file, MMap::ReadOnly);
-        SHA1Summation sha1;
-        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-        notifyconf_ = sha1.Result();
+        FileFd file;
+        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            notifyconf_ = sha1.Result();
+        }
     }
 
     {
-        FileFd file(SpringBoard_, FileFd::ReadOnly);
-        MMap mmap(file, MMap::ReadOnly);
-        SHA1Summation sha1;
-        sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-        springlist_ = sha1.Result();
+        FileFd file;
+        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            springlist_ = sha1.Result();
+        }
     }
 
     [transition_ transition:6 toView:overlay_];
@@ -4643,7 +4667,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         section_ = [section localized];
         if (section_ != nil)
             section_ = [section_ retain];
-        name_  = [(section_ == nil ? CYLocalize("NO_SECTION") : section_) retain];
+        name_  = [(section_ == nil || [section_ length] == 0 ? CYLocalize("NO_SECTION") : section_) retain];
         count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
 
         if (editing_)
@@ -7927,12 +7951,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         Changed_ = true;
 
+        [sheet dismiss];
+
         if (reset)
             [self updateData];
         else
             [self finish];
-
-        [sheet dismiss];
     } else if ([context isEqualToString:@"upgrade"]) {
         switch (button) {
             case 1:
@@ -8120,8 +8144,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (
         readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL /*||
+        readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL*/ ||
         readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL /*||
         readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL*/

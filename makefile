@@ -21,6 +21,7 @@ package: sign
 	
 	mkdir -p _/usr/libexec
 	svn export Library _/usr/libexec/cydia
+	cp -a /apl/tel/dest/iphoneos-arm/coreutils/usr/bin/du _/usr/libexec/cydia
 	
 	mkdir -p _/System/Library
 	svn export LaunchDaemons _/System/Library/LaunchDaemons

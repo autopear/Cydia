@@ -1150,10 +1150,19 @@ static _finline CFStringRef CFCString(const char *value) {
     return CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(value), strlen(value), kCFStringEncodingUTF8, NO, kCFAllocatorNull);
 }
 
+const char *StripVersion_(const char *version) {
+    const char *colon(strchr(version, ':'));
+    if (colon != NULL)
+        version = colon + 1;
+    return version;
+}
+
 CFStringRef StripVersion(const char *version) {
     const char *colon(strchr(version, ':'));
     if (colon != NULL)
         version = colon + 1;
+    return CFStringCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(version), strlen(version), kCFStringEncodingUTF8, NO);
+    // XXX: performance
     return CFCString(version);
 }
 
@@ -1708,7 +1717,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     bool visible_;
 
     NSString *latest_;
-    NSString *installed_;
+    CYString installed_;
 
     CYString id_;
     CYString name_;
@@ -1762,6 +1771,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (NSString *) latest;
 - (NSString *) installed;
+- (BOOL) uninstalled;
 
 - (BOOL) valid;
 - (BOOL) upgradableAndEssential:(BOOL)essential;
@@ -1953,8 +1963,6 @@ struct PackageNameOrdering :
 
     if (latest_ != nil)
         [latest_ release];
-    if (installed_ != nil)
-        [installed_ release];
 
     if (sponsor$_ != nil)
         [sponsor$_ release];
@@ -2078,7 +2086,7 @@ struct PackageNameOrdering :
         _profile(Package$initWithVersion$Versions)
             current = iterator_.CurrentVer();
             if (!current.end())
-                installed_ = (NSString *) StripVersion(current.VerStr());
+                installed_.set(pool_, StripVersion_(current.VerStr()));
 
             if (!version_.end())
                 file_ = version_.FileList();
@@ -2155,12 +2163,13 @@ struct PackageNameOrdering :
                 if (version == nil) {
                     [metadata_ setObject:latest_ forKey:@"LastVersion"];
                     changed = true;
-                } else if (![version isEqualToString:latest_]) {
+                } else {
+                if (![version isEqualToString:latest_]) {
                     [metadata_ setObject:latest_ forKey:@"LastVersion"];
                     lastSeen_ = now_;
                     [metadata_ setObject:lastSeen_ forKey:@"LastSeen"];
                     changed = true;
-                }
+                } }
             }
 
             metadata_ = [metadata_ retain];
@@ -2325,6 +2334,10 @@ struct PackageNameOrdering :
 
 - (NSString *) installed {
     return installed_;
+}
+
+- (BOOL) uninstalled {
+    return installed_.empty();
 }
 
 - (BOOL) valid {
@@ -2731,7 +2744,7 @@ struct PackageNameOrdering :
 }
 
 - (bool) isInstalledAndVisible:(NSNumber *)number {
-    return (![number boolValue] || [self visible]) && [self installed] != nil;
+    return (![number boolValue] || [self visible]) && ![self uninstalled];
 }
 
 - (bool) isVisiblyUninstalledInSection:(NSString *)name {
@@ -2739,7 +2752,7 @@ struct PackageNameOrdering :
 
     return
         [self visible] &&
-        [self installed] == nil && (
+        [self uninstalled] && (
             name == nil ||
             section == nil && [name length] == 0 ||
             [name isEqualToString:section]
@@ -4979,11 +4992,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ([package_ source] == nil);
         else if ([package_ upgradableAndEssential:NO])
             [buttons_ addObject:CYLocalize("UPGRADE")];
-        else if ([package_ installed] == nil)
+        else if ([package_ uninstalled])
             [buttons_ addObject:CYLocalize("INSTALL")];
         else
             [buttons_ addObject:CYLocalize("REINSTALL")];
-        if ([package_ installed] != nil)
+        if (![package_ uninstalled])
             [buttons_ addObject:CYLocalize("REMOVE")];
 
         if (special_ != NULL) {
@@ -6480,7 +6493,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [*section addToCount];
 
         _profile(SectionsView$reloadData$Filter)
-            if (![package valid] || [package installed] != nil || ![package visible])
+            if (![package valid] || ![package uninstalled] || ![package visible])
                 continue;
         _end
 
@@ -6501,7 +6514,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [section addToCount];
 
         _profile(SectionsView$reloadData$Filter)
-            if (![package valid] || [package installed] != nil || ![package visible])
+            if (![package valid] || ![package uninstalled] || ![package visible])
                 continue;
         _end
 
@@ -6692,7 +6705,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
     for (Package *package in packages)
         if (
-            [package installed] == nil && [package valid] && [package visible] ||
+            [package uninstalled] && [package valid] && [package visible] ||
             [package upgradableAndEssential:YES]
         )
             [packages_ addObject:package];

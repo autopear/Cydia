@@ -1058,8 +1058,10 @@
 
         if ([scroller_ respondsToSelector:@selector(setZoomScale:duration:)])
             [scroller_ setZoomScale:1 duration:0];
-        else
-            [scroller_ setZoomScale:1 animated:NO];
+        else if ([scroller_ respondsToSelector:@selector(_setZoomScale:duration:)])
+            [scroller_ _setZoomScale:1 duration:0];
+        /*else if ([scroller_ respondsToSelector:@selector(setZoomScale:animated:)])
+            [scroller_ setZoomScale:1 animated:NO];*/
 
         CGRect webrect = [scroller_ bounds];
         webrect.size.height = 0;

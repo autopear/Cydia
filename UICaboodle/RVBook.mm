@@ -172,7 +172,10 @@
     [pages_ addObject:page];
     [self reloadButtonsForPage:page];
 
-    [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+    if ([navbar_ respondsToSelector:@selector(setAccessoryView:animate:removeOnPop:)])
+        [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+    else
+        [navbar_ setAccessoryView:[page accessoryView] animate:animated];
 }
 
 - (void) pushPage:(RVPage *)page {
@@ -223,7 +226,10 @@
     [page setPageActive:YES];
     [self reloadButtonsForPage:page];
 
-    [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+    if ([navbar_ respondsToSelector:@selector(setAccessoryView:animate:removeOnPop:)])
+        [navbar_ setAccessoryView:[page accessoryView] animate:animated removeOnPop:NO];
+    else
+        [navbar_ setAccessoryView:[page accessoryView] animate:animated];
 }
 
 - (void) setBackButtonTitle:(NSString *)title forPage:(RVPage *)page {

@@ -1051,7 +1051,6 @@ static const int ButtonBarHeight_ = 48;
 static const float KeyboardTime_ = 0.3f;
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
-#define SandboxTemplate_ "/usr/share/sandbox/SandboxTemplate.sb"
 #define NotifyConfig_ "/etc/notify.conf"
 
 static bool Queuing_;
@@ -4044,19 +4043,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (Finish_ < 4) {
         FileFd file;
-        if (!file.Open(SandboxTemplate_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(sandplate_ == sha1.Result()))
-                Finish_ = 4;
-        }
-    }
-
-    if (Finish_ < 4) {
-        FileFd file;
         if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
             _error->Discard();
         else {
@@ -4225,18 +4211,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [delegate_ setStatusBarShowsProgress:YES];
     running_ = YES;
-
-    {
-        FileFd file;
-        if (!file.Open(SandboxTemplate_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            sandplate_ = sha1.Result();
-        }
-    }
 
     {
         FileFd file;

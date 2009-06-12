@@ -50,6 +50,7 @@
     NSURLRequest *request_;
 
     NSNumber *confirm_;
+    NSNumber *sensitive_;
     NSString *title_;
     NSMutableSet *loading_;
     bool reloading_;
@@ -103,5 +104,8 @@
 - (void) setPopupHook:(id)function;
 
 - (id) _rightButtonTitle;
+
+- (bool) promptForSensitive:(NSString *)name;
+- (bool) allowSensitiveRequests;
 
 @end

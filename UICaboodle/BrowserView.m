@@ -156,7 +156,7 @@
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"device", nil];
+    return [NSArray arrayWithObjects:@"device", @"firewire", @"imei", @"mac", @"serial", nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -169,6 +169,26 @@
 
 - (NSString *) device {
     return [[UIDevice currentDevice] uniqueIdentifier];
+}
+
+- (NSString *) mac {
+    if (![indirect_ promptForSensitive:@"Mac Address"])
+        return nil;
+}
+
+- (NSString *) serial {
+    if (![indirect_ promptForSensitive:@"Serial #"])
+        return nil;
+}
+
+- (NSString *) firewire {
+    if (![indirect_ promptForSensitive:@"Firewire GUID"])
+        return nil;
+}
+
+- (NSString *) imei {
+    if (![indirect_ promptForSensitive:@"IMEI"])
+        return nil;
 }
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
@@ -399,6 +419,8 @@
     [indicator_ release];
     if (confirm_ != nil)
         [confirm_ release];
+    if (sensitive_ != nil)
+        [sensitive_ release];
     if (title_ != nil)
         [title_ release];
     [super dealloc];
@@ -572,6 +594,50 @@
     return true;
 }
 
+- (bool) allowSensitiveRequests {
+    [self _allowJavaScriptPanel];
+}
+
+- (void) _promptForSensitive:(NSMutableArray *)array {
+    NSString *name([array objectAtIndex:0]);
+
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
+        initWithTitle:nil
+        buttons:[NSArray arrayWithObjects:CYLocalize("YES"), CYLocalize("NO"), nil]
+        defaultButtonIndex:0
+        delegate:indirect_
+        context:@"sensitive"
+    ] autorelease];
+
+    NSString *host(@"XXX");
+
+    [sheet setNumberOfRows:1];
+    [sheet setBodyText:[NSString stringWithFormat:@"The website at %@ is requesting your phone's %@. This is almost certainly for product licensing purposes. Will you allow this?", host, name]];
+    [sheet popupAlertAnimated:YES];
+
+    NSRunLoop *loop([NSRunLoop currentRunLoop]);
+    NSDate *future([NSDate distantFuture]);
+
+    while (sensitive_ == nil && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
+
+    NSNumber *sensitive([sensitive_ autorelease]);
+    sensitive_ = nil;
+
+    [self autorelease];
+    [array replaceObjectAtIndex:0 withObject:sensitive];
+}
+
+- (bool) promptForSensitive:(NSString *)name {
+    if (![self allowSensitiveRequests])
+        return false;
+
+    NSMutableArray *array([NSMutableArray arrayWithCapacity:1]);
+    [array addObject:name];
+
+    [self performSelectorOnMainThread:@selector(_promptForSensitive:) withObject:array waitUntilDone:YES];
+    return [[array lastObject] boolValue];
+}
+
 - (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     if (![self _allowJavaScriptPanel])
         return;
@@ -596,7 +662,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:CYLocalize("OK"), CYLocalize("Cancel"), nil]
+        buttons:[NSArray arrayWithObjects:CYLocalize("OK"), CYLocalize("CANCEL"), nil]
         defaultButtonIndex:0
         delegate:indirect_
         context:@"confirm"
@@ -862,6 +928,18 @@
 
             case 2:
                 confirm_ = [NSNumber numberWithBool:NO];
+            break;
+        }
+
+        [sheet dismiss];
+    } else if ([context isEqualToString:@"sensitive"]) {
+        switch (button) {
+            case 1:
+                sensitive_ = [NSNumber numberWithBool:YES];
+            break;
+
+            case 2:
+                sensitive_ = [NSNumber numberWithBool:NO];
             break;
         }
 

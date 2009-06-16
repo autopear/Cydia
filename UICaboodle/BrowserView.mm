@@ -1,6 +1,17 @@
 #include <BrowserView.h>
+#include <UCLocalize.h>
+
+#import <QuartzCore/CALayer.h>
+// XXX: fix the minimum requirement
+extern NSString * const kCAFilterNearest;
 
 #include <WebCore/WebCoreThread.h>
+
+#include "substrate.h"
+
+@interface NSString (UIKit)
+- (NSString *) stringByAddingPercentEscapes;
+@end
 
 /* Indirect Delegate {{{ */
 @interface IndirectDelegate : NSObject {
@@ -103,7 +114,7 @@
 @end
 /* }}} */
 
-@interface WebView (Cydia)
+@interface WebView (UICaboodle)
 - (void) setScriptDebugDelegate:(id)delegate;
 - (void) _setFormDelegate:(id)delegate;
 - (void) _setUIKitDelegate:(id)delegate;
@@ -111,14 +122,7 @@
 - (void) _setLayoutInterval:(float)interval;
 @end
 
-@interface WebScriptObject (Cydia)
-
-- (unsigned) count;
-- (id) objectAtIndex:(unsigned)index;
-
-@end
-
-@implementation WebScriptObject (Cydia)
+@implementation WebScriptObject (UICaboodle)
 
 - (unsigned) count {
     id length([self valueForKey:@"length"]);
@@ -134,214 +138,76 @@
 
 @end
 
-/* Web Scripting {{{ */
-@interface CydiaObject : NSObject {
-    id indirect_;
+#if 0
+/* Mail Composition {{{ */
+@interface MailToView : PopUpView {
+    MailComposeController *controller_;
 }
 
-- (id) initWithDelegate:(IndirectDelegate *)indirect;
+- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url;
+
 @end
 
-@implementation CydiaObject
+@implementation MailToView
 
 - (void) dealloc {
-    [indirect_ release];
+    [controller_ release];
     [super dealloc];
 }
 
-- (id) initWithDelegate:(IndirectDelegate *)indirect {
-    if ((self = [super init]) != nil) {
-        indirect_ = [indirect retain];
-    } return self;
+- (void) mailComposeControllerWillAttemptToSend:(MailComposeController *)controller {
+    NSLog(@"will");
 }
 
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"device", @"firewire", @"imei", @"mac", @"serial", nil];
+- (void) mailComposeControllerDidAttemptToSend:(MailComposeController *)controller mailDelivery:(id)delivery {
+    NSLog(@"did:%@", delivery);
+// [UIApp setStatusBarShowsProgress:NO];
+if ([controller error]){
+NSArray *buttons = [NSArray arrayWithObjects:UCLocalize("OK"), nil];
+UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize("ERROR") buttons:buttons defaultButtonIndex:0 delegate:self context:self];
+[mailAlertSheet setBodyText:[controller error]];
+[mailAlertSheet popupAlertAnimated:YES];
+}
 }
 
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
+- (void) showError {
+    NSLog(@"%@", [controller_ error]);
+    NSArray *buttons = [NSArray arrayWithObjects:UCLocalize("OK"), nil];
+    UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize("ERROR") buttons:buttons defaultButtonIndex:0 delegate:self context:self];
+    [mailAlertSheet setBodyText:[controller_ error]];
+    [mailAlertSheet popupAlertAnimated:YES];
 }
 
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+- (void) deliverMessage { _pooled
+    setuid(501);
+    setgid(501);
+
+    if (![controller_ deliverMessage])
+        [self performSelectorOnMainThread:@selector(showError) withObject:nil waitUntilDone:NO];
 }
 
-- (NSString *) device {
-    return [[UIDevice currentDevice] uniqueIdentifier];
-}
-
-- (NSString *) mac {
-    if (![indirect_ promptForSensitive:@"Mac Address"])
-        return nil;
-}
-
-- (NSString *) serial {
-    if (![indirect_ promptForSensitive:@"Serial #"])
-        return nil;
-}
-
-- (NSString *) firewire {
-    if (![indirect_ promptForSensitive:@"Firewire GUID"])
-        return nil;
-}
-
-- (NSString *) imei {
-    if (![indirect_ promptForSensitive:@"IMEI"])
-        return nil;
-}
-
-+ (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (selector == @selector(close))
-        return @"close";
-    else if (selector == @selector(getPackageById:))
-        return @"getPackageById";
-    else if (selector == @selector(setAutoPopup:))
-        return @"setAutoPopup";
-    else if (selector == @selector(setButtonImage:withStyle:toFunction:))
-        return @"setButtonImage";
-    else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
-        return @"setButtonTitle";
-    else if (selector == @selector(setFinishHook:))
-        return @"setFinishHook";
-    else if (selector == @selector(setPopupHook:))
-        return @"setPopupHook";
-    else if (selector == @selector(setSpecial:))
-        return @"setSpecial";
-    else if (selector == @selector(setViewportWidth:))
-        return @"setViewportWidth";
-    else if (selector == @selector(supports:))
-        return @"supports";
-    else if (selector == @selector(stringWithFormat:arguments:))
-        return @"format";
-    else if (selector == @selector(localizedStringForKey:value:table:))
-        return @"localize";
-    else if (selector == @selector(du:))
-        return @"du";
-    else if (selector == @selector(statfs:))
-        return @"statfs";
+- (void) mailComposeControllerCompositionFinished:(MailComposeController *)controller {
+    if ([controller_ needsDelivery])
+        [NSThread detachNewThreadSelector:@selector(deliverMessage) toTarget:self withObject:nil];
     else
-        return nil;
+        [self cancel];
 }
 
-+ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
-    return [self webScriptNameForSelector:selector] == nil;
-}
+- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url {
+    if ((self = [super initWithView:view delegate:delegate]) != nil) {
+        controller_ = [[MailComposeController alloc] initForContentSize:[overlay_ bounds].size];
+        [controller_ setDelegate:self];
+        [controller_ initializeUI];
+        [controller_ setupForURL:url];
 
-- (BOOL) supports:(NSString *)feature {
-    return [feature isEqualToString:@"window.open"];
-}
-
-- (Package *) getPackageById:(NSString *)id {
-    return [[Database sharedInstance] packageWithName:id];
-}
-
-- (NSArray *) statfs:(NSString *)path {
-    struct statfs stat;
-
-    if (path == nil || statfs([path UTF8String], &stat) == -1)
-        return nil;
-
-    return [NSArray arrayWithObjects:
-        [NSNumber numberWithUnsignedLong:stat.f_bsize],
-        [NSNumber numberWithUnsignedLong:stat.f_blocks],
-        [NSNumber numberWithUnsignedLong:stat.f_bfree],
-    nil];
-}
-
-- (NSNumber *) du:(NSString *)path {
-    NSNumber *value(nil);
-
-    int fds[2];
-    _assert(pipe(fds) != -1);
-
-    pid_t pid(ExecFork());
-    if (pid == 0) {
-        _assert(dup2(fds[1], 1) != -1);
-        _assert(close(fds[0]) != -1);
-        _assert(close(fds[1]) != -1);
-        /* XXX: this should probably not use du */
-        execl("/usr/libexec/cydia/du", "du", "-s", [path UTF8String], NULL);
-        exit(1);
-        _assert(false);
-    }
-
-    _assert(close(fds[1]) != -1);
-
-    if (FILE *du = fdopen(fds[0], "r")) {
-        char line[1024];
-        while (fgets(line, sizeof(line), du) != NULL) {
-            size_t length(strlen(line));
-            while (length != 0 && line[length - 1] == '\n')
-                line[--length] = '\0';
-            if (char *tab = strchr(line, '\t')) {
-                *tab = '\0';
-                value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
-            }
-        }
-
-        fclose(du);
-    } else _assert(close(fds[0]));
-
-    int status;
-  wait:
-    if (waitpid(pid, &status, 0) == -1)
-        if (errno == EINTR)
-            goto wait;
-        else _assert(false);
-
-    return value;
-}
-
-- (void) close {
-    [indirect_ close];
-}
-
-- (void) setAutoPopup:(BOOL)popup {
-    [indirect_ setAutoPopup:popup];
-}
-
-- (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    [indirect_ setButtonImage:button withStyle:style toFunction:function];
-}
-
-- (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    [indirect_ setButtonTitle:button withStyle:style toFunction:function];
-}
-
-- (void) setSpecial:(id)function {
-    [indirect_ setSpecial:function];
-}
-
-- (void) setFinishHook:(id)function {
-    [indirect_ setFinishHook:function];
-}
-
-- (void) setPopupHook:(id)function {
-    [indirect_ setPopupHook:function];
-}
-
-- (void) setViewportWidth:(float)width {
-    [indirect_ setViewportWidth:width];
-}
-
-- (NSString *) stringWithFormat:(NSString *)format arguments:(WebScriptObject *)arguments {
-    //NSLog(@"SWF:\"%@\" A:%@", format, [arguments description]);
-    unsigned count([arguments count]);
-    id values[count];
-    for (unsigned i(0); i != count; ++i)
-        values[i] = [arguments objectAtIndex:i];
-    return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
-}
-
-- (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {
-    if (reinterpret_cast<id>(table) == [WebUndefined undefined])
-        table = nil;
-    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:table];
+        UIView *view([controller_ view]);
+        [overlay_ addSubview:view];
+    } return self;
 }
 
 @end
 /* }}} */
+#endif
 
 @implementation BrowserView
 
@@ -398,8 +264,6 @@
 
     WebThreadUnlock();
 
-    [cydia_ release];
-
     [scroller_ setDelegate:nil];
 
     if (button_ != nil)
@@ -438,20 +302,6 @@
     [self loadURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy];
 }
 
-- (NSMutableURLRequest *) _addHeadersToRequest:(NSURLRequest *)request {
-    NSMutableURLRequest *copy = [request mutableCopy];
-
-    if (Machine_ != NULL)
-        [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (UniqueID_ != nil)
-        [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-
-    if (Role_ != nil)
-        [copy setValue:Role_ forHTTPHeaderField:@"X-Role"];
-
-    return copy;
-}
-
 - (void) loadRequest:(NSURLRequest *)request {
     pushed_ = true;
     error_ = false;
@@ -469,8 +319,8 @@
         [self loadRequest:request_];
     else {
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:CYLocalize("RESUBMIT_FORM")
-            buttons:[NSArray arrayWithObjects:CYLocalize("CANCEL"), CYLocalize("SUBMIT"), nil]
+            initWithTitle:UCLocalize("RESUBMIT_FORM")
+            buttons:[NSArray arrayWithObjects:UCLocalize("CANCEL"), UCLocalize("SUBMIT"), nil]
             defaultButtonIndex:0
             delegate:self
             context:@"submit"
@@ -564,26 +414,15 @@
     NSLog(@"getSpecial:%@", url);
 #endif
 
-    NSString *href([url absoluteString]);
-    NSString *scheme([[url scheme] lowercaseString]);
-
-    RVPage *page = nil;
-
-    if ([href hasPrefix:@"apptapp://package/"])
-        page = [delegate_ pageForPackage:[href substringFromIndex:18]];
-    else if ([scheme isEqualToString:@"cydia"]) {
-        page = [delegate_ pageForURL:url hasTag:NULL];
-        if (page == nil)
-            return false;
-    } else if (![scheme isEqualToString:@"apptapp"])
-        return false;
-
-    if (page != nil)
+    if (RVPage *page = [delegate_ pageForURL:url hasTag:NULL]) {
         if (swap)
             [self swapPage:page];
         else
             [self pushPage:page];
-    return true;
+
+        return true;
+    } else
+        return false;
 }
 
 - (void) webViewShow:(WebView *)sender {
@@ -595,7 +434,7 @@
 }
 
 - (bool) allowSensitiveRequests {
-    [self _allowJavaScriptPanel];
+    return [self _allowJavaScriptPanel];
 }
 
 - (void) _promptForSensitive:(NSMutableArray *)array {
@@ -603,7 +442,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:CYLocalize("YES"), CYLocalize("NO"), nil]
+        buttons:[NSArray arrayWithObjects:UCLocalize("YES"), UCLocalize("NO"), nil]
         defaultButtonIndex:0
         delegate:indirect_
         context:@"sensitive"
@@ -645,7 +484,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:CYLocalize("OK"), nil]
+        buttons:[NSArray arrayWithObjects:UCLocalize("OK"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"alert"
@@ -662,7 +501,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:CYLocalize("OK"), CYLocalize("CANCEL"), nil]
+        buttons:[NSArray arrayWithObjects:UCLocalize("OK"), UCLocalize("CANCEL"), nil]
         defaultButtonIndex:0
         delegate:indirect_
         context:@"confirm"
@@ -738,6 +577,15 @@
     closer_ = function == nil ? nil : [function retain];
 }
 
+- (void) _openMailToURL:(NSURL *)url {
+// XXX: this makes me sad
+#if 0
+    [[[MailToView alloc] initWithView:underlay_ delegate:self url:url] autorelease];
+#else
+    [UIApp openURL:url];// asPanel:YES];
+#endif
+}
+
 - (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {
     editing_ = true;
 }
@@ -760,7 +608,6 @@
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [window setValue:cydia_ forKey:@"cydia"];
 }
 
 - (void) webView:(WebView *)sender unableToImplementPolicyWithError:(NSError *)error frame:(WebFrame *)frame {
@@ -777,7 +624,7 @@
             if (![self getSpecial:url swap:NO]) {
                 NSString *scheme([[url scheme] lowercaseString]);
                 if ([scheme isEqualToString:@"mailto"])
-                    [delegate_ openMailToURL:url];
+                    [self _openMailToURL:url];
                 else goto use;
             }
         } else if ([name isEqualToString:@"_open"])
@@ -785,7 +632,7 @@
         else if ([name isEqualToString:@"_popup"]) {
             NSString *scheme([[url scheme] lowercaseString]);
             if ([scheme isEqualToString:@"mailto"])
-                [delegate_ openMailToURL:url];
+                [self _openMailToURL:url];
             else {
                 RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
                 [book setHook:indirect_];
@@ -896,7 +743,7 @@
     }
 
     if ([scheme isEqualToString:@"mailto"]) {
-        [delegate_ openMailToURL:url];
+        [self _openMailToURL:url];
         goto ignore;
     }
 
@@ -1000,7 +847,7 @@
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:realm
-        buttons:[NSArray arrayWithObjects:CYLocalize("LOGIN"), CYLocalize("CANCEL"), nil]
+        buttons:[NSArray arrayWithObjects:UCLocalize("LOGIN"), UCLocalize("CANCEL"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"challenge"
@@ -1008,8 +855,8 @@
 
     [sheet setNumberOfRows:1];
 
-    [sheet addTextFieldWithValue:@"" label:CYLocalize("USERNAME")];
-    [sheet addTextFieldWithValue:@"" label:CYLocalize("PASSWORD")];
+    [sheet addTextFieldWithValue:@"" label:UCLocalize("USERNAME")];
+    [sheet addTextFieldWithValue:@"" label:UCLocalize("PASSWORD")];
 
     UITextField *username([sheet textFieldAtIndex:0]); {
         UITextInputTraits *traits([username textInputTraits]);
@@ -1033,7 +880,7 @@
 }
 
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
-    return [self _addHeadersToRequest:request];
+    return request;
 }
 
 - (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
@@ -1419,23 +1266,7 @@
 
         //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
-        Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
-        NSString *application = package == nil ? @"Cydia" : [NSString
-            stringWithFormat:@"Cydia/%@",
-            [package installed]
-        ];
-
-        if (Product_ != nil)
-            application = [NSString stringWithFormat:@"%@ Version/%@", application, Product_];
-        if (Build_ != nil)
-            application = [NSString stringWithFormat:@"%@ Mobile/%@", application, Build_];
-        if (Safari_ != nil)
-            application = [NSString stringWithFormat:@"%@ Safari/%@", application, Safari_];
-
-        [webview setApplicationNameForUserAgent:application];
-
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
-        cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         [webview setFrameLoadDelegate:indirect_];
         [webview setResourceLoadDelegate:indirect_];
@@ -1488,7 +1319,10 @@
         settings->setJavaScriptCanOpenWindowsAutomatically(true);
     }
 
-    [delegate_ clearFirstResponder];
+    if (UIWindow *window = [self window])
+        if (UIResponder *responder = [window firstResponder])
+            [responder resignFirstResponder];
+
     JSObjectRef object([function JSObject]);
     JSGlobalContextRef context([frame globalContext]);
     JSObjectCallAsFunction(context, object, NULL, 0, NULL, NULL);
@@ -1519,7 +1353,7 @@
 }
 
 - (id) _rightButtonTitle {
-    return CYLocalize("RELOAD");
+    return UCLocalize("RELOAD");
 }
 
 - (id) rightButtonTitle {
@@ -1541,11 +1375,11 @@
 }
 
 - (NSString *) title {
-    return title_ == nil ? CYLocalize("LOADING") : title_;
+    return title_ == nil ? UCLocalize("LOADING") : title_;
 }
 
 - (NSString *) backButtonTitle {
-    return CYLocalize("BROWSER");
+    return UCLocalize("BROWSER");
 }
 
 - (void) setPageActive:(BOOL)active {

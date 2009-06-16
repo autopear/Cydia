@@ -1,6 +1,5 @@
 #import "ResetView.h"
 
-
 #include <WebKit/DOMCSSPrimitiveValue.h>
 #include <WebKit/DOMCSSStyleDeclaration.h>
 #include <WebKit/DOMDocument.h>
@@ -34,7 +33,15 @@
 
 @class Database;
 @class IndirectDelegate;
-@class CydiaObject;
+
+@interface WebScriptObject (UICaboodle)
+- (unsigned) count;
+- (id) objectAtIndex:(unsigned)index;
+@end
+
+@protocol BrowserViewDelegate
+- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag;
+@end
 
 @interface BrowserView : RVPage <
     RVBookHook
@@ -43,7 +50,6 @@
     UIWebDocumentView *webview_;
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
-    CydiaObject *cydia_;
     NSURLAuthenticationChallenge *challenge_;
 
     bool error_;
@@ -94,6 +100,8 @@
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+
+- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source;
 
 + (float) defaultWidth;
 - (void) setViewportWidth:(float)width;

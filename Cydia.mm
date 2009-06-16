@@ -40,6 +40,7 @@
 
 /* #include Directives {{{ */
 #import "UICaboodle.h"
+#import "UCLocalize.h"
 
 #include <objc/message.h>
 #include <objc/objc.h>
@@ -58,7 +59,6 @@
 #include <CoreFoundation/CFPriv.h>
 #include <CoreFoundation/CFUniChar.h>
 
-#import <QuartzCore/CALayer.h>
 #import <UIKit/UIKit.h>
 
 #include <WebCore/WebCoreThread.h>
@@ -343,8 +343,6 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 @end
 #endif
 /* }}} */
-
-extern NSString * const kCAFilterNearest;
 
 /* Information Dictionaries {{{ */
 @interface NSMutableArray (Cydia)
@@ -756,12 +754,6 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
 @end
 
-static inline NSString *CYLocalizeEx(NSString *key, NSString *value = nil) {
-    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:nil];
-}
-
-#define CYLocalize(key) CYLocalizeEx(@ key)
-
 class CYString {
   private:
     char *data_;
@@ -1113,7 +1105,7 @@ NSString *GetLastUpdate() {
     NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
 
     if (update == nil)
-        return CYLocalize("NEVER_OR_UNKNOWN");
+        return UCLocalize("NEVER_OR_UNKNOWN");
 
     CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
     CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
@@ -1171,7 +1163,7 @@ NSString *LocalizeSection(NSString *section) {
         NSString *parent(title_r[1]);
         NSString *child(title_r[2]);
 
-        return [NSString stringWithFormat:CYLocalize("PARENTHETICAL"),
+        return [NSString stringWithFormat:UCLocalize("PARENTHETICAL"),
             LocalizeSection(parent),
             LocalizeSection(child)
         ];
@@ -1252,10 +1244,7 @@ bool isSectionVisible(NSString *section) {
 - (void) askForSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
-- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 - (RVPage *) pageForPackage:(NSString *)name;
-- (void) openMailToURL:(NSURL *)url;
-- (void) clearFirstResponder;
 - (PackageView *) packageView;
 @end
 /* }}} */
@@ -2503,7 +2492,7 @@ struct PackageNameOrdering :
 
     size_t length(strlen(name));
     if (length < 2) invalid:
-        [warnings addObject:CYLocalize("ILLEGAL_PACKAGE_IDENTIFIER")];
+        [warnings addObject:UCLocalize("ILLEGAL_PACKAGE_IDENTIFIER")];
     else for (size_t i(0); i != length; ++i)
         if (
             /* XXX: technically this is not allowed */
@@ -2531,11 +2520,11 @@ struct PackageNameOrdering :
 
         /* XXX: this is not sensitive enough. only some folders are valid. */
         if (cydia && !repository)
-            [warnings addObject:[NSString stringWithFormat:CYLocalize("FILES_INSTALLED_TO"), @"Cydia.app"]];
+            [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"Cydia.app"]];
         if (_private)
-            [warnings addObject:[NSString stringWithFormat:CYLocalize("FILES_INSTALLED_TO"), @"/private"]];
+            [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/private"]];
         if (stash)
-            [warnings addObject:[NSString stringWithFormat:CYLocalize("FILES_INSTALLED_TO"), @"/var/stash"]];
+            [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/var/stash"]];
     }
 
     return [warnings count] == 0 ? nil : warnings;
@@ -3520,77 +3509,6 @@ static NSArray *Finishes_;
 @end
 /* }}} */
 
-#if 0
-/* Mail Composition {{{ */
-@interface MailToView : PopUpView {
-    MailComposeController *controller_;
-}
-
-- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url;
-
-@end
-
-@implementation MailToView
-
-- (void) dealloc {
-    [controller_ release];
-    [super dealloc];
-}
-
-- (void) mailComposeControllerWillAttemptToSend:(MailComposeController *)controller {
-    NSLog(@"will");
-}
-
-- (void) mailComposeControllerDidAttemptToSend:(MailComposeController *)controller mailDelivery:(id)delivery {
-    NSLog(@"did:%@", delivery);
-// [UIApp setStatusBarShowsProgress:NO];
-if ([controller error]){
-NSArray *buttons = [NSArray arrayWithObjects:CYLocalize("OK"), nil];
-UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:CYLocalize("ERROR") buttons:buttons defaultButtonIndex:0 delegate:self context:self];
-[mailAlertSheet setBodyText:[controller error]];
-[mailAlertSheet popupAlertAnimated:YES];
-}
-}
-
-- (void) showError {
-    NSLog(@"%@", [controller_ error]);
-    NSArray *buttons = [NSArray arrayWithObjects:CYLocalize("OK"), nil];
-    UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:CYLocalize("ERROR") buttons:buttons defaultButtonIndex:0 delegate:self context:self];
-    [mailAlertSheet setBodyText:[controller_ error]];
-    [mailAlertSheet popupAlertAnimated:YES];
-}
-
-- (void) deliverMessage { _pooled
-    setuid(501);
-    setgid(501);
-
-    if (![controller_ deliverMessage])
-        [self performSelectorOnMainThread:@selector(showError) withObject:nil waitUntilDone:NO];
-}
-
-- (void) mailComposeControllerCompositionFinished:(MailComposeController *)controller {
-    if ([controller_ needsDelivery])
-        [NSThread detachNewThreadSelector:@selector(deliverMessage) toTarget:self withObject:nil];
-    else
-        [self cancel];
-}
-
-- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url {
-    if ((self = [super initWithView:view delegate:delegate]) != nil) {
-        controller_ = [[MailComposeController alloc] initForContentSize:[overlay_ bounds].size];
-        [controller_ setDelegate:self];
-        [controller_ initializeUI];
-        [controller_ setupForURL:url];
-
-        UIView *view([controller_ view]);
-        [overlay_ addSubview:view];
-    } return self;
-}
-
-@end
-/* }}} */
-#endif
-
 /* Confirmation View {{{ */
 bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!iterator.end())
@@ -3607,13 +3525,281 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return false;
 }
 
+/* Web Scripting {{{ */
+@interface CydiaObject : NSObject {
+    id indirect_;
+}
+
+- (id) initWithDelegate:(IndirectDelegate *)indirect;
+@end
+
+@implementation CydiaObject
+
+- (void) dealloc {
+    [indirect_ release];
+    [super dealloc];
+}
+
+- (id) initWithDelegate:(IndirectDelegate *)indirect {
+    if ((self = [super init]) != nil) {
+        indirect_ = [indirect retain];
+    } return self;
+}
+
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:@"device", @"firewire", @"imei", @"mac", @"serial", nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (NSString *) device {
+    return [[UIDevice currentDevice] uniqueIdentifier];
+}
+
+#if 0 // XXX: implement!
+- (NSString *) mac {
+    if (![indirect_ promptForSensitive:@"Mac Address"])
+        return nil;
+}
+
+- (NSString *) serial {
+    if (![indirect_ promptForSensitive:@"Serial #"])
+        return nil;
+}
+
+- (NSString *) firewire {
+    if (![indirect_ promptForSensitive:@"Firewire GUID"])
+        return nil;
+}
+
+- (NSString *) imei {
+    if (![indirect_ promptForSensitive:@"IMEI"])
+        return nil;
+}
+#endif
+
++ (NSString *) webScriptNameForSelector:(SEL)selector {
+    if (selector == @selector(close))
+        return @"close";
+    else if (selector == @selector(getPackageById:))
+        return @"getPackageById";
+    else if (selector == @selector(setAutoPopup:))
+        return @"setAutoPopup";
+    else if (selector == @selector(setButtonImage:withStyle:toFunction:))
+        return @"setButtonImage";
+    else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
+        return @"setButtonTitle";
+    else if (selector == @selector(setFinishHook:))
+        return @"setFinishHook";
+    else if (selector == @selector(setPopupHook:))
+        return @"setPopupHook";
+    else if (selector == @selector(setSpecial:))
+        return @"setSpecial";
+    else if (selector == @selector(setViewportWidth:))
+        return @"setViewportWidth";
+    else if (selector == @selector(supports:))
+        return @"supports";
+    else if (selector == @selector(stringWithFormat:arguments:))
+        return @"format";
+    else if (selector == @selector(localizedStringForKey:value:table:))
+        return @"localize";
+    else if (selector == @selector(du:))
+        return @"du";
+    else if (selector == @selector(statfs:))
+        return @"statfs";
+    else
+        return nil;
+}
+
++ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
+    return [self webScriptNameForSelector:selector] == nil;
+}
+
+- (BOOL) supports:(NSString *)feature {
+    return [feature isEqualToString:@"window.open"];
+}
+
+- (Package *) getPackageById:(NSString *)id {
+    return [[Database sharedInstance] packageWithName:id];
+}
+
+- (NSArray *) statfs:(NSString *)path {
+    struct statfs stat;
+
+    if (path == nil || statfs([path UTF8String], &stat) == -1)
+        return nil;
+
+    return [NSArray arrayWithObjects:
+        [NSNumber numberWithUnsignedLong:stat.f_bsize],
+        [NSNumber numberWithUnsignedLong:stat.f_blocks],
+        [NSNumber numberWithUnsignedLong:stat.f_bfree],
+    nil];
+}
+
+- (NSNumber *) du:(NSString *)path {
+    NSNumber *value(nil);
+
+    int fds[2];
+    _assert(pipe(fds) != -1);
+
+    pid_t pid(ExecFork());
+    if (pid == 0) {
+        _assert(dup2(fds[1], 1) != -1);
+        _assert(close(fds[0]) != -1);
+        _assert(close(fds[1]) != -1);
+        /* XXX: this should probably not use du */
+        execl("/usr/libexec/cydia/du", "du", "-s", [path UTF8String], NULL);
+        exit(1);
+        _assert(false);
+    }
+
+    _assert(close(fds[1]) != -1);
+
+    if (FILE *du = fdopen(fds[0], "r")) {
+        char line[1024];
+        while (fgets(line, sizeof(line), du) != NULL) {
+            size_t length(strlen(line));
+            while (length != 0 && line[length - 1] == '\n')
+                line[--length] = '\0';
+            if (char *tab = strchr(line, '\t')) {
+                *tab = '\0';
+                value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
+            }
+        }
+
+        fclose(du);
+    } else _assert(close(fds[0]));
+
+    int status;
+  wait:
+    if (waitpid(pid, &status, 0) == -1)
+        if (errno == EINTR)
+            goto wait;
+        else _assert(false);
+
+    return value;
+}
+
+- (void) close {
+    [indirect_ close];
+}
+
+- (void) setAutoPopup:(BOOL)popup {
+    [indirect_ setAutoPopup:popup];
+}
+
+- (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
+    [indirect_ setButtonImage:button withStyle:style toFunction:function];
+}
+
+- (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
+    [indirect_ setButtonTitle:button withStyle:style toFunction:function];
+}
+
+- (void) setSpecial:(id)function {
+    [indirect_ setSpecial:function];
+}
+
+- (void) setFinishHook:(id)function {
+    [indirect_ setFinishHook:function];
+}
+
+- (void) setPopupHook:(id)function {
+    [indirect_ setPopupHook:function];
+}
+
+- (void) setViewportWidth:(float)width {
+    [indirect_ setViewportWidth:width];
+}
+
+- (NSString *) stringWithFormat:(NSString *)format arguments:(WebScriptObject *)arguments {
+    //NSLog(@"SWF:\"%@\" A:%@", format, [arguments description]);
+    unsigned count([arguments count]);
+    id values[count];
+    for (unsigned i(0); i != count; ++i)
+        values[i] = [arguments objectAtIndex:i];
+    return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
+}
+
+- (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {
+    if (reinterpret_cast<id>(table) == [WebUndefined undefined])
+        table = nil;
+    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:table];
+}
+
+@end
+/* }}} */
+
+@interface CydiaBrowserView : BrowserView {
+    CydiaObject *cydia_;
+}
+
+@end
+
+@implementation CydiaBrowserView
+
+- (void) dealloc {
+    [cydia_ release];
+    [super dealloc];
+}
+
+- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [super webView:sender didClearWindowObject:window forFrame:frame];
+    [window setValue:cydia_ forKey:@"cydia"];
+}
+
+- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
+    NSMutableURLRequest *copy = [request mutableCopy];
+
+    if (Machine_ != NULL)
+        [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    if (UniqueID_ != nil)
+        [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+
+    if (Role_ != nil)
+        [copy setValue:Role_ forHTTPHeaderField:@"X-Role"];
+
+    return copy;
+}
+
+- (id) initWithBook:(RVBook *)book forWidth:(float)width {
+    if ((self = [super initWithBook:book]) != nil) {
+        cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
+
+        WebView *webview([webview_ webView]);
+
+        Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
+        NSString *application = package == nil ? @"Cydia" : [NSString
+            stringWithFormat:@"Cydia/%@",
+            [package installed]
+        ];
+
+        if (Product_ != nil)
+            application = [NSString stringWithFormat:@"%@ Version/%@", application, Product_];
+        if (Build_ != nil)
+            application = [NSString stringWithFormat:@"%@ Mobile/%@", application, Build_];
+        if (Safari_ != nil)
+            application = [NSString stringWithFormat:@"%@ Safari/%@", application, Safari_];
+
+        [webview setApplicationNameForUserAgent:application];
+    } return self;
+}
+
+@end
+
 @protocol ConfirmationViewDelegate
 - (void) cancel;
 - (void) confirm;
 - (void) queue;
 @end
 
-@interface ConfirmationView : BrowserView {
+@interface ConfirmationView : CydiaBrowserView {
     _transient Database *database_;
     UIActionSheet *essential_;
     NSArray *changes_;
@@ -3718,13 +3904,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if (!remove)
             essential_ = nil;
         else if (Advanced_ || true) {
-            NSString *parenthetical(CYLocalize("PARENTHETICAL"));
+            NSString *parenthetical(UCLocalize("PARENTHETICAL"));
 
             essential_ = [[UIActionSheet alloc]
-                initWithTitle:CYLocalize("REMOVING_ESSENTIALS")
+                initWithTitle:UCLocalize("REMOVING_ESSENTIALS")
                 buttons:[NSArray arrayWithObjects:
-                    [NSString stringWithFormat:parenthetical, CYLocalize("CANCEL_OPERATION"), CYLocalize("SAFE")],
-                    [NSString stringWithFormat:parenthetical, CYLocalize("FORCE_REMOVAL"), CYLocalize("UNSAFE")],
+                    [NSString stringWithFormat:parenthetical, UCLocalize("CANCEL_OPERATION"), UCLocalize("SAFE")],
+                    [NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")],
                 nil]
                 defaultButtonIndex:0
                 delegate:self
@@ -3734,17 +3920,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #ifndef __OBJC2__
             [essential_ setDestructiveButton:[[essential_ buttons] objectAtIndex:0]];
 #endif
-            [essential_ setBodyText:CYLocalize("REMOVING_ESSENTIALS_EX")];
+            [essential_ setBodyText:UCLocalize("REMOVING_ESSENTIALS_EX")];
         } else {
             essential_ = [[UIActionSheet alloc]
-                initWithTitle:CYLocalize("UNABLE_TO_COMPLY")
-                buttons:[NSArray arrayWithObjects:CYLocalize("OKAY"), nil]
+                initWithTitle:UCLocalize("UNABLE_TO_COMPLY")
+                buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
                 defaultButtonIndex:0
                 delegate:self
                 context:@"unable"
             ];
 
-            [essential_ setBodyText:CYLocalize("UNABLE_TO_COMPLY_EX")];
+            [essential_ setBodyText:UCLocalize("UNABLE_TO_COMPLY_EX")];
         }
 
         changes_ = [[NSArray alloc] initWithObjects:
@@ -3770,11 +3956,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) backButtonTitle {
-    return CYLocalize("CONFIRM");
+    return UCLocalize("CONFIRM");
 }
 
 - (NSString *) leftButtonTitle {
-    return [NSString stringWithFormat:CYLocalize("SLASH_DELIMITED"), CYLocalize("CANCEL"), CYLocalize("QUEUE")];
+    return [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")];
 }
 
 - (id) rightButtonTitle {
@@ -3785,7 +3971,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #if AlwaysReload || IgnoreInstall
     return [super _rightButtonTitle];
 #else
-    return CYLocalize("CONFIRM");
+    return UCLocalize("CONFIRM");
 #endif
 }
 
@@ -4026,8 +4212,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             _assert(false);
 
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:CYLocalize("ERROR")
-            buttons:[NSArray arrayWithObjects:CYLocalize("OKAY"), nil]
+            initWithTitle:UCLocalize("ERROR")
+            buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
             defaultButtonIndex:0
             delegate:self
             context:@"_error"
@@ -4068,11 +4254,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     switch (Finish_) {
-        case 0: [close_ setTitle:CYLocalize("RETURN_TO_CYDIA")]; break;
-        case 1: [close_ setTitle:CYLocalize("CLOSE_CYDIA")]; break;
-        case 2: [close_ setTitle:CYLocalize("RESTART_SPRINGBOARD")]; break;
-        case 3: [close_ setTitle:CYLocalize("RELOAD_SPRINGBOARD")]; break;
-        case 4: [close_ setTitle:CYLocalize("REBOOT_DEVICE")]; break;
+        case 0: [close_ setTitle:UCLocalize("RETURN_TO_CYDIA")]; break;
+        case 1: [close_ setTitle:UCLocalize("CLOSE_CYDIA")]; break;
+        case 2: [close_ setTitle:UCLocalize("RESTART_SPRINGBOARD")]; break;
+        case 3: [close_ setTitle:UCLocalize("RELOAD_SPRINGBOARD")]; break;
+        case 4: [close_ setTitle:UCLocalize("REBOOT_DEVICE")]; break;
     }
 
 #define Cache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
@@ -4181,7 +4367,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _retachThread {
     UINavigationItem *item = [navbar_ topItem];
-    [item setTitle:CYLocalize("COMPLETE")];
+    [item setTitle:UCLocalize("COMPLETE")];
 
     [overlay_ addSubview:close_];
     [progress_ removeFromSuperview];
@@ -4254,7 +4440,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:selector
         toTarget:database_
         withObject:nil
-        title:CYLocalize("REPAIRING")
+        title:UCLocalize("REPAIRING")
     ];
 }
 
@@ -4271,7 +4457,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:(package == nil ? id : [package name])
-        buttons:[NSArray arrayWithObjects:CYLocalize("OKAY"), nil]
+        buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"error"
@@ -4321,18 +4507,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     //NSString *nfile = conffile_r[2];
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:CYLocalize("CONFIGURATION_UPGRADE")
+        initWithTitle:UCLocalize("CONFIGURATION_UPGRADE")
         buttons:[NSArray arrayWithObjects:
-            CYLocalize("KEEP_OLD_COPY"),
-            CYLocalize("ACCEPT_NEW_COPY"),
-            // XXX: CYLocalize("SEE_WHAT_CHANGED"),
+            UCLocalize("KEEP_OLD_COPY"),
+            UCLocalize("ACCEPT_NEW_COPY"),
+            // XXX: UCLocalize("SEE_WHAT_CHANGED"),
         nil]
         defaultButtonIndex:0
         delegate:self
         context:@"conffile"
     ] autorelease];
 
-    [sheet setBodyText:[NSString stringWithFormat:@"%@\n\n%@", CYLocalize("CONFIGURATION_UPGRADE_EX"), ofile]];
+    [sheet setBodyText:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]];
     [sheet popupAlertAnimated:YES];
 }
 
@@ -4457,19 +4643,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         label = [source label];
         trusted = [source trusted];
     } else if ([[package id] isEqualToString:@"firmware"])
-        label = CYLocalize("APPLE");
+        label = UCLocalize("APPLE");
     else
-        label = [NSString stringWithFormat:CYLocalize("SLASH_DELIMITED"), CYLocalize("UNKNOWN"), CYLocalize("LOCAL")];
+        label = [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("UNKNOWN"), UCLocalize("LOCAL")];
 
     NSString *from(label);
 
     NSString *section = [package simpleSection];
     if (section != nil && ![section isEqualToString:label]) {
         section = [[NSBundle mainBundle] localizedStringForKey:section value:nil table:@"Sections"];
-        from = [NSString stringWithFormat:CYLocalize("PARENTHETICAL"), from, section];
+        from = [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), from, section];
     }
 
-    from = [NSString stringWithFormat:CYLocalize("FROM"), from];
+    from = [NSString stringWithFormat:UCLocalize("FROM"), from];
     source_ = [from retain];
 
     if (NSString *purpose = [package primaryPurpose])
@@ -4482,11 +4668,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"] ? @"removing.png" : @"installing.png"
         ]];
 
-        [status_ setText:[NSString stringWithFormat:CYLocalize("QUEUED_FOR"), CYLocalize(mode)]];
+        [status_ setText:[NSString stringWithFormat:UCLocalize("QUEUED_FOR"), UCLocalize(mode)]];
         [status_ setColor:[UIColor colorWithCGColor:Blueish_]];
     } else if ([package half]) {
         [badge_ setImage:[UIImage applicationImageNamed:@"damaged.png"]];
-        [status_ setText:CYLocalize("PACKAGE_DAMAGED")];
+        [status_ setText:UCLocalize("PACKAGE_DAMAGED")];
         [status_ setColor:[UIColor redColor]];
     } else {
         [badge_ setImage:nil];
@@ -4648,13 +4834,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self clearSection];
 
     if (section == nil) {
-        name_ = [CYLocalize("ALL_PACKAGES") retain];
+        name_ = [UCLocalize("ALL_PACKAGES") retain];
         count_ = nil;
     } else {
         section_ = [section localized];
         if (section_ != nil)
             section_ = [section_ retain];
-        name_  = [(section_ == nil || [section_ length] == 0 ? CYLocalize("NO_SECTION") : section_) retain];
+        name_  = [(section_ == nil || [section_ length] == 0 ? UCLocalize("NO_SECTION") : section_) retain];
         count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
 
         if (editing_)
@@ -4742,7 +4928,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [self addSubview:list_];
 
         UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:CYLocalize("NAME")
+            initWithTitle:UCLocalize("NAME")
             identifier:@"name"
             width:[self frame].size.width
         ] autorelease];
@@ -4810,17 +4996,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) title {
-    return CYLocalize("INSTALLED_FILES");
+    return UCLocalize("INSTALLED_FILES");
 }
 
 - (NSString *) backButtonTitle {
-    return CYLocalize("FILES");
+    return UCLocalize("FILES");
 }
 
 @end
 /* }}} */
 /* Package View {{{ */
-@interface PackageView : BrowserView {
+@interface PackageView : CydiaBrowserView {
     _transient Database *database_;
     Package *package_;
     NSString *name_;
@@ -4852,15 +5038,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* XXX: this is not safe at all... localization of /fail/ */
 - (void) _clickButtonWithName:(NSString *)name {
-    if ([name isEqualToString:CYLocalize("CLEAR")])
+    if ([name isEqualToString:UCLocalize("CLEAR")])
         [delegate_ clearPackage:package_];
-    else if ([name isEqualToString:CYLocalize("INSTALL")])
+    else if ([name isEqualToString:UCLocalize("INSTALL")])
         [delegate_ installPackage:package_];
-    else if ([name isEqualToString:CYLocalize("REINSTALL")])
+    else if ([name isEqualToString:UCLocalize("REINSTALL")])
         [delegate_ installPackage:package_];
-    else if ([name isEqualToString:CYLocalize("REMOVE")])
+    else if ([name isEqualToString:UCLocalize("REMOVE")])
         [delegate_ removePackage:package_];
-    else if ([name isEqualToString:CYLocalize("UPGRADE")])
+    else if ([name isEqualToString:UCLocalize("UPGRADE")])
         [delegate_ installPackage:package_];
     else _assert(false);
 }
@@ -4904,7 +5090,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     else {
         NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:(count + 1)];
         [buttons addObjectsFromArray:buttons_];
-        [buttons addObject:CYLocalize("CANCEL")];
+        [buttons addObject:UCLocalize("CANCEL")];
 
         [delegate_ slideUp:[[[UIActionSheet alloc]
             initWithTitle:nil
@@ -4926,7 +5112,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) _rightButtonTitle {
     int count = [buttons_ count];
-    return count == 0 ? nil : count != 1 ? CYLocalize("MODIFY") : [buttons_ objectAtIndex:0];
+    return count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0];
 }
 
 - (NSString *) backButtonTitle {
@@ -4962,16 +5148,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         commercial_ = [package isCommercial];
 
         if ([package_ mode] != nil)
-            [buttons_ addObject:CYLocalize("CLEAR")];
+            [buttons_ addObject:UCLocalize("CLEAR")];
         if ([package_ source] == nil);
         else if ([package_ upgradableAndEssential:NO])
-            [buttons_ addObject:CYLocalize("UPGRADE")];
+            [buttons_ addObject:UCLocalize("UPGRADE")];
         else if ([package_ uninstalled])
-            [buttons_ addObject:CYLocalize("INSTALL")];
+            [buttons_ addObject:UCLocalize("INSTALL")];
         else
-            [buttons_ addObject:CYLocalize("REINSTALL")];
+            [buttons_ addObject:UCLocalize("REINSTALL")];
         if (![package_ uninstalled])
-            [buttons_ addObject:CYLocalize("REMOVE")];
+            [buttons_ addObject:UCLocalize("REMOVE")];
 
         if (special_ != NULL) {
             CGRect frame([webview_ frame]);
@@ -5098,7 +5284,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [list_ setDataSource:self];
 
         UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:CYLocalize("NAME")
+            initWithTitle:UCLocalize("NAME")
             identifier:@"name"
             width:[self frame].size.width
         ] autorelease];
@@ -5385,8 +5571,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
     switch (section + (offset_ == 0 ? 1 : 0)) {
-        case 0: return CYLocalize("ENTERED_BY_USER");
-        case 1: return CYLocalize("INSTALLED_BY_PACKAGE");
+        case 0: return UCLocalize("ENTERED_BY_USER");
+        case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
 
         default:
             _assert(false);
@@ -5514,8 +5700,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 defer = true;
 
                 UIActionSheet *sheet = [[[UIActionSheet alloc]
-                    initWithTitle:CYLocalize("SOURCE_WARNING")
-                    buttons:[NSArray arrayWithObjects:CYLocalize("ADD_ANYWAY"), CYLocalize("CANCEL"), nil]
+                    initWithTitle:UCLocalize("SOURCE_WARNING")
+                    buttons:[NSArray arrayWithObjects:UCLocalize("ADD_ANYWAY"), UCLocalize("CANCEL"), nil]
                     defaultButtonIndex:0
                     delegate:self
                     context:@"warning"
@@ -5529,8 +5715,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [self complete];
         } else if (error_ != nil) {
             UIActionSheet *sheet = [[[UIActionSheet alloc]
-                initWithTitle:CYLocalize("VERIFICATION_ERROR")
-                buttons:[NSArray arrayWithObjects:CYLocalize("OK"), nil]
+                initWithTitle:UCLocalize("VERIFICATION_ERROR")
+                buttons:[NSArray arrayWithObjects:UCLocalize("OK"), nil]
                 defaultButtonIndex:0
                 delegate:self
                 context:@"urlerror"
@@ -5540,14 +5726,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [sheet popupAlertAnimated:YES];
         } else {
             UIActionSheet *sheet = [[[UIActionSheet alloc]
-                initWithTitle:CYLocalize("NOT_REPOSITORY")
-                buttons:[NSArray arrayWithObjects:CYLocalize("OK"), nil]
+                initWithTitle:UCLocalize("NOT_REPOSITORY")
+                buttons:[NSArray arrayWithObjects:UCLocalize("OK"), nil]
                 defaultButtonIndex:0
                 delegate:self
                 context:@"trivial"
             ] autorelease];
 
-            [sheet setBodyText:CYLocalize("NOT_REPOSITORY_EX")];
+            [sheet setBodyText:UCLocalize("NOT_REPOSITORY_EX")];
             [sheet popupAlertAnimated:YES];
         }
 
@@ -5630,7 +5816,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 trivial_ = false;
 
                 hud_ = [[delegate_ addProgressHUD] retain];
-                [hud_ setText:CYLocalize("VERIFYING_URL")];
+                [hud_ setText:UCLocalize("VERIFYING_URL")];
             } break;
 
             case 2:
@@ -5678,7 +5864,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [list_ setDataSource:self];
 
         UITableColumn *column = [[UITableColumn alloc]
-            initWithTitle:CYLocalize("NAME")
+            initWithTitle:UCLocalize("NAME")
             identifier:@"name"
             width:[self frame].size.width
         ];
@@ -5726,8 +5912,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease]];*/
 
     UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:CYLocalize("ENTER_APT_URL")
-        buttons:[NSArray arrayWithObjects:CYLocalize("ADD_SOURCE"), CYLocalize("CANCEL"), nil]
+        initWithTitle:UCLocalize("ENTER_APT_URL")
+        buttons:[NSArray arrayWithObjects:UCLocalize("ADD_SOURCE"), UCLocalize("CANCEL"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"source"
@@ -5755,15 +5941,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) title {
-    return CYLocalize("SOURCES");
+    return UCLocalize("SOURCES");
 }
 
 - (NSString *) leftButtonTitle {
-    return [[list_ table] isRowDeletionEnabled] ? CYLocalize("ADD") : nil;
+    return [[list_ table] isRowDeletionEnabled] ? UCLocalize("ADD") : nil;
 }
 
 - (id) rightButtonTitle {
-    return [[list_ table] isRowDeletionEnabled] ? CYLocalize("DONE") : CYLocalize("EDIT");
+    return [[list_ table] isRowDeletionEnabled] ? UCLocalize("DONE") : UCLocalize("EDIT");
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {
@@ -5826,15 +6012,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) title {
-    return CYLocalize("INSTALLED");
+    return UCLocalize("INSTALLED");
 }
 
 - (NSString *) backButtonTitle {
-    return CYLocalize("PACKAGES");
+    return UCLocalize("PACKAGES");
 }
 
 - (id) rightButtonTitle {
-    return Role_ != nil && [Role_ isEqualToString:@"Developer"] ? nil : expert_ ? CYLocalize("EXPERT") : CYLocalize("SIMPLE");
+    return Role_ != nil && [Role_ isEqualToString:@"Developer"] ? nil : expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE");
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {
@@ -5850,7 +6036,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Home View {{{ */
-@interface HomeView : BrowserView {
+@interface HomeView : CydiaBrowserView {
 }
 
 @end
@@ -5868,8 +6054,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _leftButtonClicked {
     UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:CYLocalize("ABOUT_CYDIA")
-        buttons:[NSArray arrayWithObjects:CYLocalize("CLOSE"), nil]
+        initWithTitle:UCLocalize("ABOUT_CYDIA")
+        buttons:[NSArray arrayWithObjects:UCLocalize("CLOSE"), nil]
         defaultButtonIndex:0
         delegate:self
         context:@"about"
@@ -5894,13 +6080,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) leftButtonTitle {
-    return CYLocalize("ABOUT");
+    return UCLocalize("ABOUT");
 }
 
 @end
 /* }}} */
 /* Manage View {{{ */
-@interface ManageView : BrowserView {
+@interface ManageView : CydiaBrowserView {
 }
 
 @end
@@ -5908,7 +6094,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation ManageView
 
 - (NSString *) title {
-    return CYLocalize("MANAGE");
+    return UCLocalize("MANAGE");
 }
 
 - (void) _leftButtonClicked {
@@ -5916,12 +6102,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) leftButtonTitle {
-    return CYLocalize("SETTINGS");
+    return UCLocalize("SETTINGS");
 }
 
 #if !AlwaysReload
 - (id) _rightButtonTitle {
-    return Queuing_ ? CYLocalize("QUEUE") : nil;
+    return Queuing_ ? UCLocalize("QUEUE") : nil;
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {
@@ -5939,8 +6125,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-
-#include <BrowserView.m>
 
 /* Cydia Book {{{ */
 @interface CYBook : RVBook <
@@ -6000,7 +6184,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [UIView endAnimations];
 
     [indicator_ startAnimation];
-    [prompt_ setText:CYLocalize("UPDATING_DATABASE")];
+    [prompt_ setText:UCLocalize("UPDATING_DATABASE")];
     [progress_ setProgress:0];
 
     updating_ = true;
@@ -6046,9 +6230,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
     else {
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:[NSString stringWithFormat:CYLocalize("COLON_DELIMITED"), CYLocalize("ERROR"), CYLocalize("REFRESH")]
+            initWithTitle:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), UCLocalize("REFRESH")]
             buttons:[NSArray arrayWithObjects:
-                CYLocalize("OK"),
+                UCLocalize("OK"),
             nil]
             defaultButtonIndex:0
             delegate:self
@@ -6127,7 +6311,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [progress_ setStyle:0];
         [overlay_ addSubview:progress_];
 
-        cancel_ = [[UINavigationButton alloc] initWithTitle:CYLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
+        cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
         [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
 
         CGRect frame = [cancel_ frame];
@@ -6158,7 +6342,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
-    [prompt_ setText:[NSString stringWithFormat:CYLocalize("COLON_DELIMITED"), CYLocalize("ERROR"), error]];
+    [prompt_ setText:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
 }
 
 - (void) setProgressTitle:(NSString *)title {
@@ -6375,7 +6559,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (row == 0) {
         section = nil;
         name = nil;
-        title = CYLocalize("ALL_PACKAGES");
+        title = UCLocalize("ALL_PACKAGES");
     } else {
         section = [filtered_ objectAtIndex:(row - 1)];
         name = [section name];
@@ -6384,7 +6568,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             title = [[NSBundle mainBundle] localizedStringForKey:Simplify(name) value:nil table:@"Sections"];
         else {
             name = @"";
-            title = CYLocalize("NO_SECTION");
+            title = UCLocalize("NO_SECTION");
         }
     }
 
@@ -6415,7 +6599,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [transition_ transition:0 toView:list_];
 
         UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:CYLocalize("NAME")
+            initWithTitle:UCLocalize("NAME")
             identifier:@"name"
             width:[self frame].size.width
         ] autorelease];
@@ -6539,15 +6723,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) title {
-    return editing_ ? CYLocalize("SECTION_VISIBILITY") : CYLocalize("INSTALL_BY_SECTION");
+    return editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("INSTALL_BY_SECTION");
 }
 
 - (NSString *) backButtonTitle {
-    return CYLocalize("SECTIONS");
+    return UCLocalize("SECTIONS");
 }
 
 - (id) rightButtonTitle {
-    return [sections_ count] == 0 ? nil : editing_ ? CYLocalize("DONE") : CYLocalize("EDIT");
+    return [sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT");
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {
@@ -6652,7 +6836,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         //[list_ setSectionListStyle:1];
 
         UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:CYLocalize("NAME")
+            initWithTitle:UCLocalize("NAME")
             identifier:@"name"
             width:[self frame].size.width
         ] autorelease];
@@ -6688,8 +6872,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
     _trace();
 
-    Section *upgradable = [[[Section alloc] initWithName:CYLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
-    Section *ignored = [[[Section alloc] initWithName:CYLocalize("IGNORED_UPGRADES") localize:NO] autorelease];
+    Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
+    Section *ignored = [[[Section alloc] initWithName:UCLocalize("IGNORED_UPGRADES") localize:NO] autorelease];
     Section *section = nil;
     NSDate *last = nil;
 
@@ -6716,14 +6900,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
                 NSString *name;
                 if (seen == nil)
-                    name = CYLocalize("UNKNOWN");
+                    name = UCLocalize("UNKNOWN");
                 else {
                     name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
                     [name autorelease];
                 }
 
                 _profile(ChangesView$reloadData$Allocate)
-                    name = [NSString stringWithFormat:CYLocalize("NEW_AT"), name];
+                    name = [NSString stringWithFormat:UCLocalize("NEW_AT"), name];
                     section = [[[Section alloc] initWithName:name row:offset localize:NO] autorelease];
                     [sections_ addObject:section];
                 _end
@@ -6762,15 +6946,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) leftButtonTitle {
-    return [(CYBook *)book_ updating] ? nil : CYLocalize("REFRESH");
+    return [(CYBook *)book_ updating] ? nil : UCLocalize("REFRESH");
 }
 
 - (id) rightButtonTitle {
-    return upgrades_ == 0 ? nil : [NSString stringWithFormat:CYLocalize("PARENTHETICAL"), CYLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]];
+    return upgrades_ == 0 ? nil : [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]];
 }
 
 - (NSString *) title {
-    return CYLocalize("CHANGES");
+    return UCLocalize("CHANGES");
 }
 
 @end
@@ -6816,7 +7000,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
     switch (group) {
-        case 0: return [NSString stringWithFormat:CYLocalize("PARENTHETICAL"), CYLocalize("ADVANCED_SEARCH"), CYLocalize("COMING_SOON")];
+        case 0: return [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("ADVANCED_SEARCH"), UCLocalize("COMING_SOON")];
 
         default: _assert(false);
     }
@@ -6949,7 +7133,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIFont *font = [UIFont systemFontOfSize:16];
         [field_ setFont:font];
 
-        [field_ setPlaceholder:CYLocalize("SEARCH_EX")];
+        [field_ setPlaceholder:UCLocalize("SEARCH_EX")];
         [field_ setDelegate:self];
 
         [field_ setPaddingTop:5];
@@ -7025,7 +7209,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) backButtonTitle {
-    return CYLocalize("SEARCH");
+    return UCLocalize("SEARCH");
 }
 
 - (void) setDelegate:(id)delegate {
@@ -7162,7 +7346,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             case 0: {
                 UIPreferencesControlTableCell *cell([[[UIPreferencesControlTableCell alloc] init] autorelease]);
                 [cell setShowSelection:NO];
-                [cell setTitle:CYLocalize("SHOW_ALL_CHANGES_EX")];
+                [cell setTitle:UCLocalize("SHOW_ALL_CHANGES_EX")];
                 return cell;
             }
 
@@ -7191,12 +7375,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         subscribedCell_ = [[UIPreferencesControlTableCell alloc] init];
         [subscribedCell_ setShowSelection:NO];
-        [subscribedCell_ setTitle:CYLocalize("SHOW_ALL_CHANGES")];
+        [subscribedCell_ setTitle:UCLocalize("SHOW_ALL_CHANGES")];
         [subscribedCell_ setControl:subscribedSwitch_];
 
         ignoredCell_ = [[UIPreferencesControlTableCell alloc] init];
         [ignoredCell_ setShowSelection:NO];
-        [ignoredCell_ setTitle:CYLocalize("IGNORE_UPGRADES")];
+        [ignoredCell_ setTitle:UCLocalize("IGNORE_UPGRADES")];
         [ignoredCell_ setControl:ignoredSwitch_];
 
         [table_ setDataSource:self];
@@ -7222,13 +7406,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) title {
-    return CYLocalize("SETTINGS");
+    return UCLocalize("SETTINGS");
 }
 
 @end
 
 /* Signature View {{{ */
-@interface SignatureView : BrowserView {
+@interface SignatureView : CydiaBrowserView {
     _transient Database *database_;
     NSString *package_;
 }
@@ -7310,34 +7494,34 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         int count = [broken_ count];
 
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:(count == 1 ? CYLocalize("HALFINSTALLED_PACKAGE") : [NSString stringWithFormat:CYLocalize("HALFINSTALLED_PACKAGES"), count])
+            initWithTitle:(count == 1 ? UCLocalize("HALFINSTALLED_PACKAGE") : [NSString stringWithFormat:UCLocalize("HALFINSTALLED_PACKAGES"), count])
             buttons:[NSArray arrayWithObjects:
-                CYLocalize("FORCIBLY_CLEAR"),
-                CYLocalize("TEMPORARY_IGNORE"),
+                UCLocalize("FORCIBLY_CLEAR"),
+                UCLocalize("TEMPORARY_IGNORE"),
             nil]
             defaultButtonIndex:0
             delegate:self
             context:@"fixhalf"
         ] autorelease];
 
-        [sheet setBodyText:CYLocalize("HALFINSTALLED_PACKAGE_EX")];
+        [sheet setBodyText:UCLocalize("HALFINSTALLED_PACKAGE_EX")];
         [sheet popupAlertAnimated:YES];
     } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];
 
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:(count == 1 ? CYLocalize("ESSENTIAL_UPGRADE") : [NSString stringWithFormat:CYLocalize("ESSENTIAL_UPGRADES"), count])
+            initWithTitle:(count == 1 ? UCLocalize("ESSENTIAL_UPGRADE") : [NSString stringWithFormat:UCLocalize("ESSENTIAL_UPGRADES"), count])
             buttons:[NSArray arrayWithObjects:
-                CYLocalize("UPGRADE_ESSENTIAL"),
-                CYLocalize("COMPLETE_UPGRADE"),
-                CYLocalize("TEMPORARY_IGNORE"),
+                UCLocalize("UPGRADE_ESSENTIAL"),
+                UCLocalize("COMPLETE_UPGRADE"),
+                UCLocalize("TEMPORARY_IGNORE"),
             nil]
             defaultButtonIndex:0
             delegate:self
             context:@"upgrade"
         ] autorelease];
 
-        [sheet setBodyText:CYLocalize("ESSENTIAL_UPGRADE_EX")];
+        [sheet setBodyText:UCLocalize("ESSENTIAL_UPGRADE_EX")];
         [sheet popupAlertAnimated:YES];
     }
 }
@@ -7347,7 +7531,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     static bool loaded(false);
     UIProgressHUD *hud([self addProgressHUD]);
-    [hud setText:(loaded ? CYLocalize("RELOADING_DATA") : CYLocalize("LOADING_DATA"))];
+    [hud setText:(loaded ? UCLocalize("RELOADING_DATA") : UCLocalize("LOADING_DATA"))];
     loaded = true;
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
@@ -7473,7 +7657,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:@selector(update_)
         toTarget:self
         withObject:nil
-        title:CYLocalize("UPDATING_SOURCES")
+        title:UCLocalize("UPDATING_SOURCES")
     ];
 }
 
@@ -7553,7 +7737,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) cancel {
     [self slideUp:[[[UIActionSheet alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:CYLocalize("CONTINUE_QUEUING"), CYLocalize("CANCEL_CLEAR"), nil]
+        buttons:[NSArray arrayWithObjects:UCLocalize("CONTINUE_QUEUING"), UCLocalize("CANCEL_CLEAR"), nil]
         defaultButtonIndex:1
         delegate:self
         context:@"cancel"
@@ -7579,7 +7763,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         detachNewThreadSelector:@selector(perform)
         toTarget:database_
         withObject:nil
-        title:CYLocalize("RUNNING")
+        title:UCLocalize("RUNNING")
     ];
 }
 
@@ -7616,7 +7800,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (RVPage *) _pageForURL:(NSURL *)url withClass:(Class)_class {
-    BrowserView *browser = [[[_class alloc] initWithBook:book_] autorelease];
+    CydiaBrowserView *browser = [[[_class alloc] initWithBook:book_] autorelease];
     [browser loadURL:url];
     return browser;
 }
@@ -7659,21 +7843,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) askForSettings {
-    NSString *parenthetical(CYLocalize("PARENTHETICAL"));
+    NSString *parenthetical(UCLocalize("PARENTHETICAL"));
 
     UIActionSheet *role = [[[UIActionSheet alloc]
-        initWithTitle:CYLocalize("WHO_ARE_YOU")
+        initWithTitle:UCLocalize("WHO_ARE_YOU")
         buttons:[NSArray arrayWithObjects:
-            [NSString stringWithFormat:parenthetical, CYLocalize("USER"), CYLocalize("USER_EX")],
-            [NSString stringWithFormat:parenthetical, CYLocalize("HACKER"), CYLocalize("HACKER_EX")],
-            [NSString stringWithFormat:parenthetical, CYLocalize("DEVELOPER"), CYLocalize("DEVELOPER_EX")],
+            [NSString stringWithFormat:parenthetical, UCLocalize("USER"), UCLocalize("USER_EX")],
+            [NSString stringWithFormat:parenthetical, UCLocalize("HACKER"), UCLocalize("HACKER_EX")],
+            [NSString stringWithFormat:parenthetical, UCLocalize("DEVELOPER"), UCLocalize("DEVELOPER_EX")],
         nil]
         defaultButtonIndex:-1
         delegate:self
         context:@"role"
     ] autorelease];
 
-    [role setBodyText:CYLocalize("ROLE_EX")];
+    [role setBodyText:UCLocalize("ROLE_EX")];
     [role popupAlertAnimated:YES];
 }
 
@@ -7758,7 +7942,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             @"install-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:2], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            CYLocalize("SECTIONS"), kUIButtonBarButtonTitle,
+            UCLocalize("SECTIONS"), kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -7768,7 +7952,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             @"changes-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:3], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            CYLocalize("CHANGES"), kUIButtonBarButtonTitle,
+            UCLocalize("CHANGES"), kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -7778,7 +7962,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             @"manage-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:4], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            CYLocalize("MANAGE"), kUIButtonBarButtonTitle,
+            UCLocalize("MANAGE"), kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
 
@@ -7788,7 +7972,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             @"search-dn.png", kUIButtonBarButtonSelectedInfo,
             [NSNumber numberWithInt:5], kUIButtonBarButtonTag,
             self, kUIButtonBarButtonTarget,
-            CYLocalize("SEARCH"), kUIButtonBarButtonTitle,
+            UCLocalize("SEARCH"), kUIButtonBarButtonTitle,
             @"0", kUIButtonBarButtonType,
         nil],
     nil];
@@ -7879,7 +8063,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [self _reloadData];
             else {
                 Queuing_ = true;
-                [buttonbar_ setBadgeValue:CYLocalize("Q_D") forButton:4];
+                [buttonbar_ setBadgeValue:UCLocalize("Q_D") forButton:4];
                 [book_ reloadData];
             }
 
@@ -8006,20 +8190,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window_ setUserInteractionEnabled:YES];
 }
 
-- (void) openMailToURL:(NSURL *)url {
-// XXX: this makes me sad
-#if 0
-    [[[MailToView alloc] initWithView:underlay_ delegate:self url:url] autorelease];
-#else
-    [UIApp openURL:url];// asPanel:YES];
-#endif
-}
-
-- (void) clearFirstResponder {
-    if (id responder = [window_ firstResponder])
-        [responder resignFirstResponder];
-}
-
 - (RVPage *) pageForPackage:(NSString *)name {
     if (Package *package = [database_ packageWithName:name]) {
         PackageView *view([self packageView]);
@@ -8027,14 +8197,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return view;
     } else {
         UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:CYLocalize("CANNOT_LOCATE_PACKAGE")
-            buttons:[NSArray arrayWithObjects:CYLocalize("CLOSE"), nil]
+            initWithTitle:UCLocalize("CANNOT_LOCATE_PACKAGE")
+            buttons:[NSArray arrayWithObjects:UCLocalize("CLOSE"), nil]
             defaultButtonIndex:0
             delegate:self
             context:@"missing"
         ] autorelease];
 
-        [sheet setBodyText:[NSString stringWithFormat:CYLocalize("PACKAGE_CANNOT_BE_FOUND"), name]];
+        [sheet setBodyText:[NSString stringWithFormat:UCLocalize("PACKAGE_CANNOT_BE_FOUND"), name]];
 
         [sheet popupAlertAnimated:YES];
         return nil;
@@ -8044,6 +8214,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
     if (tag != NULL)
         tag = 0;
+
+    NSString *href([url absoluteString]);
+    if ([href hasPrefix:@"apptapp://package/"])
+        return [self pageForPackage:[href substringFromIndex:18]];
 
     NSString *scheme([[url scheme] lowercaseString]);
     if (![scheme isEqualToString:@"cydia"])
@@ -8058,13 +8232,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([path isEqualToString:@"/add-source"])
         return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
     else if ([path isEqualToString:@"/storage"])
-        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[BrowserView class]];
+        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CydiaBrowserView class]];
     else if ([path isEqualToString:@"/sources"])
         return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
     else if ([path isEqualToString:@"/packages"])
         return [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
     else if ([path hasPrefix:@"/url/"])
-        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[BrowserView class]];
+        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[CydiaBrowserView class]];
     else if ([path hasPrefix:@"/launch/"])
         [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
     else if ([path hasPrefix:@"/package-settings/"])

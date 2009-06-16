@@ -105,6 +105,7 @@
 "NEW" = "New";
 "NEW_AT" = "New at %@";
 "NEW_INSTALL" = "New Install";
+"NO" = "No";
 "NO_SECTION" = "(No Section)";
 "NOT_RATED" = "Not Rated";
 "NODE" = "Note";
@@ -195,3 +196,4 @@
 "VERSION" = "Version";
 "WELCOME_TO_CYDIA" = "Welcome to Cydia™";
 "WHO_ARE_YOU" = "Who Are You?";
+"YES" = "Yes";

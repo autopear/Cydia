@@ -44,3 +44,6 @@ while (false)
 
 #define _packed \
     __attribute__((packed))
+
+//#define _finline __attribute__((force_inline))
+#define _finline inline

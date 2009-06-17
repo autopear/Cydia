@@ -3,8 +3,14 @@
 
 #import <Foundation/NSString.h>
 
+@interface NSString (UIKit)
+- (NSString *) stringByAddingPercentEscapes;
+- (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
+@end
+
 @interface NSString (UICaboodle)
 + (NSString *) stringWithDataSize:(double)size;
+- (NSString *) stringByAddingPercentEscapesIncludingReserved;
 @end
 
 @implementation NSString (UICaboodle)
@@ -19,6 +25,16 @@
     static const char *powers_[] = {"B", "KiB", "MiB", "GiB"};
 
     return [NSString stringWithFormat:@"%.1f%s", size, powers_[power]];
+}
+
+- (NSString *) stringByAddingPercentEscapesIncludingReserved {
+    return [(id)CFURLCreateStringByAddingPercentEscapes(
+        kCFAllocatorDefault, 
+        (CFStringRef) self,
+        NULL,
+        CFSTR(";/?:@&=+$,"),
+        kCFStringEncodingUTF8
+    ) autorelease];
 }
 
 @end

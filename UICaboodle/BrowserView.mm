@@ -1,5 +1,5 @@
-#include <BrowserView.h>
-#include <UCLocalize.h>
+#include <UICaboodle/BrowserView.h>
+#include <UICaboodle/UCLocalize.h>
 
 #import <QuartzCore/CALayer.h>
 // XXX: fix the minimum requirement

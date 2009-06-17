@@ -1,4 +1,4 @@
-#import "UICaboodle.h"
+#import <UICaboodle/UCPlatform.h>
 
 #import <UIKit/UIKit.h>
 

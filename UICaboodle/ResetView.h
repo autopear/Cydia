@@ -1,5 +1,5 @@
-#import <RVPage.h>
-#import <RVBook.h>
+#import <UICaboodle/RVPage.h>
+#import <UICaboodle/RVBook.h>
 
 #import <UIKit/UIKit.h>
 

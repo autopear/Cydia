@@ -9,8 +9,8 @@ all: Cydia
 clean:
 	rm -f Cydia
 
-Cydia: Cydia.mm ../uicaboodle.m/*.mm ../mobilesubstrate/*.h #makefile
-	$(target)g++ -march=armv6 -mcpu=arm1176jzf-s -mthumb -I../uicaboodle.m -I../mobilesubstrate -fobjc-call-cxx-cdtors -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework UIKit -framework IOKit -framework CoreFoundation -framework Foundation -framework CoreGraphics -framework GraphicsServices -framework QuartzCore -framework JavaScriptCore -framework WebCore -framework WebKit -lobjc -lapt-pkg -lpcre -fobjc-exceptions -F"$${PKG_ROOT}"/System/Library/PrivateFrameworks -multiply_defined suppress -lapr-1
+Cydia: Cydia.mm UICaboodle/*.mm ../mobilesubstrate/*.h #makefile
+	$(target)g++ -march=armv6 -mcpu=arm1176jzf-s -mthumb -I. -I../mobilesubstrate -fobjc-call-cxx-cdtors -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework UIKit -framework IOKit -framework CoreFoundation -framework Foundation -framework CoreGraphics -framework GraphicsServices -framework QuartzCore -framework JavaScriptCore -framework WebCore -framework WebKit -lobjc -lapt-pkg -lpcre -fobjc-exceptions -F"$${PKG_ROOT}"/System/Library/PrivateFrameworks -multiply_defined suppress -lapr-1
 
 sign: Cydia
 	CODESIGN_ALLOCATE=$$(which "$(target)codesign_allocate") ldid -Slaunch.xml Cydia

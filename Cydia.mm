@@ -39,8 +39,8 @@
 #define USE_SYSTEM_MALLOC 1
 
 /* #include Directives {{{ */
-#import "UICaboodle.h"
-#import "UCLocalize.h"
+#import "UICaboodle/UCPlatform.h"
+#import "UICaboodle/UCLocalize.h"
 
 #include <objc/message.h>
 #include <objc/objc.h>
@@ -113,8 +113,8 @@ extern "C" {
 
 #include <ext/hash_map>
 
-#import "BrowserView.h"
-#import "ResetView.h"
+#import "UICaboodle/BrowserView.h"
+#import "UICaboodle/ResetView.h"
 
 #import "substrate.h"
 /* }}} */
@@ -3728,6 +3728,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {
+    if (reinterpret_cast<id>(value) == [WebUndefined undefined])
+        value = nil;
     if (reinterpret_cast<id>(table) == [WebUndefined undefined])
         table = nil;
     return [[NSBundle mainBundle] localizedStringForKey:key value:value table:table];
@@ -3769,7 +3771,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithBook:(RVBook *)book forWidth:(float)width {
-    if ((self = [super initWithBook:book]) != nil) {
+    if ((self = [super initWithBook:book forWidth:width]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         WebView *webview([webview_ webView]);

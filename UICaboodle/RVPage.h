@@ -35,5 +35,6 @@
 - (id) initWithBook:(RVBook *)book;
 
 - (void) setDelegate:(id)delegate;
+- (void) setBook:(RVBook *)book;
 
 @end

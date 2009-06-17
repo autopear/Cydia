@@ -65,6 +65,9 @@
     if (toolbar_ != nil)
         [toolbar_ setDelegate:nil];
 
+    for (RVPage *page in pages_)
+        [page setBook:nil];
+
     [pages_ release];
     [navbar_ release];
     [transition_ release];

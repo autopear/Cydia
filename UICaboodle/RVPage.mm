@@ -76,4 +76,8 @@
     delegate_ = delegate;
 }
 
+- (void) setBook:(RVBook *)book {
+    book_ = book;
+}
+
 @end

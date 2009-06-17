@@ -2178,6 +2178,7 @@ struct PackageNameOrdering :
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
+@synchronized ([Database class]) {
     pkgCache::VerIterator version;
 
     _profile(Package$packageWithIterator$GetCandidateVer)
@@ -2193,7 +2194,7 @@ struct PackageNameOrdering :
         inPool:pool
         database:database
     ] autorelease];
-}
+} }
 
 - (pkgCache::PkgIterator) iterator {
     return iterator_;
@@ -2981,11 +2982,12 @@ static NSArray *Finishes_;
 }
 
 - (Package *) packageWithName:(NSString *)name {
+@synchronized ([Database class]) {
     if (static_cast<pkgDepCache *>(cache_) == NULL)
         return nil;
     pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
     return iterator.end() ? nil : [Package packageWithIterator:iterator withZone:NULL inPool:pool_ database:self];
-}
+} }
 
 - (Database *) init {
     if ((self = [super init]) != nil) {
@@ -3141,6 +3143,8 @@ static NSArray *Finishes_;
 }
 
 - (void) reloadData { _pooled
+@synchronized ([Database class]) {
+
     @synchronized (self) {
         ++era_;
     }
@@ -3279,7 +3283,7 @@ static NSArray *Finishes_;
 
         _trace();
     }
-}
+} }
 
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
@@ -6566,9 +6570,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         section = [filtered_ objectAtIndex:(row - 1)];
         name = [section name];
 
-        if (name != nil)
+        if (name != nil) {
+            name = [NSString stringWithString:name];
             title = [[NSBundle mainBundle] localizedStringForKey:Simplify(name) value:nil table:@"Sections"];
-        else {
+        } else {
             name = @"";
             title = UCLocalize("NO_SECTION");
         }

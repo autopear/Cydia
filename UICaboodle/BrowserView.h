@@ -76,6 +76,8 @@
 
     CGSize size_;
     bool editing_;
+
+    Class class_;
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button;
@@ -94,6 +96,7 @@
 
 - (id) initWithBook:(RVBook *)book;
 - (id) initWithBook:(RVBook *)book forWidth:(float)width;
+- (id) initWithBook:(RVBook *)book forWidth:(float)width ofClass:(Class)_class;
 
 - (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script;
 - (void) callFunction:(WebScriptObject *)function;

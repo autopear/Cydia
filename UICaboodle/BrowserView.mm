@@ -643,7 +643,7 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 
                     [self setBackButtonTitle:title_];
 
-                    BrowserView *browser([[[BrowserView alloc] initWithBook:book] autorelease]);
+                    BrowserView *browser([[[class_ alloc] initWithBook:book] autorelease]);
                     [browser loadURL:url];
                     page = browser;
                 }
@@ -896,7 +896,7 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
     RVBook *book(!popup_ ? book_ : [[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
 
     /* XXX: deal with cydia:// pages */
-    BrowserView *browser([[[BrowserView alloc] initWithBook:book forWidth:width] autorelease]);
+    BrowserView *browser([[[class_ alloc] initWithBook:book forWidth:width] autorelease]);
 
     if (features != nil && popup_) {
         [book setDelegate:delegate_];
@@ -1158,8 +1158,9 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
     [self _setTileDrawingEnabled:YES];
 }
 
-- (id) initWithBook:(RVBook *)book forWidth:(float)width {
+- (id) initWithBook:(RVBook *)book forWidth:(float)width ofClass:(Class)_class {
     if ((self = [super initWithBook:book]) != nil) {
+        class_ = _class;
         loading_ = [[NSMutableSet alloc] initWithCapacity:3];
         popup_ = false;
 
@@ -1287,6 +1288,10 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
         [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];
         [self addSubview:test];*/
     } return self;
+}
+
+- (id) initWithBook:(RVBook *)book forWidth:(float)width {
+    return [self initWithBook:book forWidth:width ofClass:[self class]];
 }
 
 - (id) initWithBook:(RVBook *)book {

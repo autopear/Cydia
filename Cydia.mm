@@ -3775,7 +3775,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithBook:(RVBook *)book forWidth:(float)width {
-    if ((self = [super initWithBook:book forWidth:width]) != nil) {
+    if ((self = [super initWithBook:book forWidth:width ofClass:[CydiaBrowserView class]]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         WebView *webview([webview_ webView]);

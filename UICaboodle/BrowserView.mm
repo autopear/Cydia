@@ -6,6 +6,7 @@
 extern NSString * const kCAFilterNearest;
 
 #include <WebCore/WebCoreThread.h>
+#include <WebKit/WebPreferences-WebPrivate.h>
 
 #include "substrate.h"
 
@@ -209,11 +210,27 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 /* }}} */
 #endif
 
+#define ShowInternals 0
+#define LogBrowser 0
+
+#define lprintf(args...) fprintf(stderr, args)
+
 @implementation BrowserView
 
 #if ShowInternals
-#include "Internals.h"
+#include "UICaboodle/UCInternal.h"
 #endif
+
++ (void) _initialize {
+    NSLog(@"INITIALIZING");
+    [WebView enableWebThread];
+
+    WebPreferences *preferences([WebPreferences standardPreferences]);
+    [preferences setCacheModel:WebCacheModelDocumentBrowser];
+    [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+    [WebPreferences _setInitialDefaultTextEncodingToSystemEncoding];
+}
 
 - (void) dealloc {
 #if LogBrowser
@@ -232,9 +249,8 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
     [webview setScriptDebugDelegate:nil];
     [webview setPolicyDelegate:nil];
 
-    [webview setDownloadDelegate:nil];
-
     /* XXX: these are set by UIWebDocumentView
+    [webview setDownloadDelegate:nil];
     [webview _setFormDelegate:nil];
     [webview _setUIKitDelegate:nil];
     [webview setEditingDelegate:nil];*/
@@ -423,6 +439,13 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
         return true;
     } else
         return false;
+}
+
+- (void) formAssistant:(id)sender didBeginEditingFormNode:(id)node {
+}
+
+- (void) formAssistant:(id)sender didEndEditingFormNode:(id)node {
+    [self fixScroller];
 }
 
 - (void) webViewShow:(WebView *)sender {
@@ -1214,17 +1237,25 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 
             [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
 
+            if ([webview_ respondsToSelector:@selector(enableReachability)])
+                [webview_ enableReachability];
+
             [webview_ setAllowsMessaging:YES];
+
+            if ([webview_ respondsToSelector:@selector(useSelectionAssistantWithMode:)])
+                [webview_ useSelectionAssistantWithMode:0];
 
             [webview_ setTilingEnabled:YES];
             [webview_ setDrawsGrid:NO];
             [webview_ setLogsTilingChanges:NO];
             [webview_ setTileMinificationFilter:kCAFilterNearest];
+
             if ([webview_ respondsToSelector:@selector(setDataDetectorTypes:)])
                 /* XXX: abstractify */
                 [webview_ setDataDetectorTypes:0x80000000];
             else
                 [webview_ setDetectsPhoneNumbers:NO];
+
             [webview_ setAutoresizes:YES];
 
             [webview_ setMinimumScale:0.25f forDocumentTypes:0x10];
@@ -1252,8 +1283,13 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
             [webview _setUsesLoaderCache:YES];
 
             [webview setGroupName:@"CydiaGroup"];
+
+            WebPreferences *preferences([webview preferences]);
+
             if ([webview respondsToSelector:@selector(_setLayoutInterval:)])
                 [webview _setLayoutInterval:0];
+            else
+                [preferences _setLayoutInterval:0];
         }
 
         [self setViewportWidth:width];
@@ -1270,10 +1306,12 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
 
         [webview setFrameLoadDelegate:indirect_];
+        [webview setPolicyDelegate:indirect_];
         [webview setResourceLoadDelegate:indirect_];
         [webview setUIDelegate:indirect_];
-        [webview setScriptDebugDelegate:indirect_];
-        [webview setPolicyDelegate:indirect_];
+
+        /* XXX: do not turn this on under penalty of extreme pain */
+        [webview setScriptDebugDelegate:nil];
 
         WebThreadUnlock();
 

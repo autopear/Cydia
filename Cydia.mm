@@ -417,6 +417,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
+#define RecyclePackageViews 0
 #define AlwaysReload (1 && !ForRelease)
 
 #if !TraceLogging
@@ -2457,9 +2458,12 @@ struct PackageNameOrdering :
 
 - (Address *) author {
     if (author$_ == nil) {
+_trace();
         if (author_.empty())
             return nil;
+_trace();
         author$_ = [[Address addressWithString:author_] retain];
+_trace();
     } return author$_;
 }
 
@@ -7489,7 +7493,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ManageView *manage_;
     SearchView *search_;
 
+#if RecyclePackageViews
     NSMutableArray *details_;
+#endif
 }
 
 @end
@@ -7871,8 +7877,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setPackageView:(PackageView *)view {
     WebThreadLock();
     [view setPackage:nil];
+#if RecyclePackageViews
     if ([details_ count] < 3)
         [details_ addObject:view];
+#endif
     WebThreadUnlock();
 }
 
@@ -7881,6 +7889,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (PackageView *) packageView {
+#if RecyclePackageViews
     PackageView *view;
     size_t count([details_ count]);
 
@@ -7896,6 +7905,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     return view;
+#else
+    return [self _packageView];
+#endif
 }
 
 - (void) finish {
@@ -8030,9 +8042,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withClass:[ManageView class]
     ] retain];
 
+#if RecyclePackageViews
     details_ = [[NSMutableArray alloc] initWithCapacity:4];
     [details_ addObject:[self _packageView]];
     [details_ addObject:[self _packageView]];
+#endif
 
     PrintTimes();
 
@@ -8278,6 +8292,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
+    [BrowserView _initialize];
+
     _trace();
     Font12_ = [[UIFont systemFontOfSize:12] retain];
     Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
@@ -8587,7 +8603,8 @@ int main(int argc, char *argv[]) { _pooled
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 
-    if (access("/User", F_OK) != 0) {
+    if (access("/User", F_OK) != 0 || access("/tmp/.cydia.fw", F_OK) != 0) {
+        unlink("/tmp/.cydia.fw");
         _trace();
         system("/usr/libexec/cydia/firmware.sh");
         _trace();

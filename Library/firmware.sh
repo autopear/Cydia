@@ -3,19 +3,40 @@ set -e
 
 version=$(sw_vers -productVersion)
 
-cat /var/lib/dpkg/status | while IFS= read -r line; do
+cat /var/lib/dpkg/status | {
+
+while IFS= read -r line; do
+    #echo "#${firmware+@}/${blank+@} ${line}" 1>&2
+
+    if [[ ${line} == '' && "${blank+@}" ]]; then
+        continue
+    else
+        unset blank
+    fi
+
     if [[ ${line} == 'Package: firmware' ]]; then
         firmware=
     elif [[ ${line} == '' ]]; then
-        unset firmware
-    elif [[ "${firmware+@}" ]]; then
+        blank=
+    fi
+
+    if [[ "${firmware+@}" ]]; then
+        if [[ "${blank+@}" ]]; then
+            unset firmware
+        fi
         continue
     fi
 
+    #echo "${firmware+@}/${blank+@} ${line}" 1>&2
     echo "${line}"
-done >/var/lib/dpkg/status_
+done
 
-cat >>/var/lib/dpkg/status_ <<EOF
+#echo "#${firmware+@}/${blank+@} EOF" 1>&2
+if ! [[ "${blank+@}" || "${firmware+@}" ]]; then
+    echo
+fi
+
+cat <<EOF
 Package: firmware
 Essential: yes
 Status: install ok installed
@@ -29,6 +50,8 @@ Description: almost impressive Apple frameworks
 Name: iPhone Firmware
 
 EOF
+
+} >/var/lib/dpkg/status_
 
 mv -f /var/lib/dpkg/status{_,}
 

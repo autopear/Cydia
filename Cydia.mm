@@ -3634,7 +3634,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (Package *) getPackageById:(NSString *)id {
-    return [[Database sharedInstance] packageWithName:id];
+    Package *package([[Database sharedInstance] packageWithName:id]);
+    [package parse];
+    return package;
 }
 
 - (NSArray *) statfs:(NSString *)path {

@@ -59,6 +59,8 @@ var special_ = function () {
     var icon = 'cydia://package-icon/' + idc;
     var api = 'http://cydia.saurik.com/api/';
 
+    var support = package.support;
+
     var regarding = function (type) {
         return encodeURIComponent("Cydia/APT(" + type + "): " + name);
     };
@@ -175,13 +177,10 @@ var special_ = function () {
         space("#author", author.name, 160);
         if (author.address == null)
             $("#author-icon").addClass("deleted");
-        else {
-            var support = package.support;
-            if (support == null)
-                $("#author-href").href("mailto:" + author.address + "?subject=" + regarding("A"));
-            else
-                $("#author-href").href(support);
-        }
+        else if (support == null)
+            $("#author-href").href("mailto:" + author.address + "?subject=" + regarding("A"));
+        else
+            $("#author-href").href(support);
     }
 
     //$("#notice-src").src("http://saurik.cachefly.net/notice/" + idc + ".html");
@@ -246,8 +245,10 @@ var special_ = function () {
         space("#maintainer", maintainer.name, 153);
         if (maintainer.address == null)
             $("#maintainer-icon").addClass("deleted");
-        else
+        else if (support == null)
             $("#maintainer-href").href("mailto:" + maintainer.address + "?subject=" + regarding("M"));
+        else
+            $("#maintainer-href").href(support);
     }
 
     var sponsor = package.sponsor;

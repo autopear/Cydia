@@ -8606,8 +8606,11 @@ int main(int argc, char *argv[]) { _pooled
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 
-    if (access("/User", F_OK) != 0 || access("/tmp/.cydia.fw", F_OK) == 0) {
+    if (access("/tmp/.cydia.fw", F_OK) == 0) {
         unlink("/tmp/.cydia.fw");
+        goto firmware;
+    } else if (access("/User", F_OK) != 0) {
+      firmware:
         _trace();
         system("/usr/libexec/cydia/firmware.sh");
         _trace();

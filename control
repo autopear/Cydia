@@ -3,7 +3,7 @@ Priority: required
 Section: Packaging
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 1.0.2942-1
+Version: 1.0.2943-1
 Replaces: com.sosiphone.addcydia
 Depends: apr-lib, apt7-lib, apt7-key, darwintools, pcre, shell-cmds, system-cmds
 Pre-Depends: dpkg (>= 1.14.25-8)

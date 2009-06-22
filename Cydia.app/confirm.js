@@ -43,9 +43,12 @@ $(function () {
             var type = entry[0];
             if (type == "PreDepends")
                 type = "Depends";
+            var version = entry[1];
+            if (entry.length >= 4)
+                version += " " + entry[3];
             $("#i" + i).append("<div class=\"clearfix\"><div>" +
                 "<label>" + $.xml(type) + "</label>" +
-                "<label>" + $.xml(entry[1] + " " + entry[3]) + "</label>" +
+                "<label>" + $.xml(version) + "</label>" +
             "</div></div>");
         }
     }

@@ -418,7 +418,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
 #define RecyclePackageViews 1
-#define AlwaysReload (1 && !ForRelease)
+#define AlwaysReload (0 && !ForRelease)
 
 #if !TraceLogging
 #undef _trace
@@ -2458,12 +2458,9 @@ struct PackageNameOrdering :
 
 - (Address *) author {
     if (author$_ == nil) {
-_trace();
         if (author_.empty())
             return nil;
-_trace();
         author$_ = [[Address addressWithString:author_] retain];
-_trace();
     } return author$_;
 }
 
@@ -3115,8 +3112,10 @@ static NSArray *Finishes_;
             [entry addObject:failure];
             [failure addObject:[NSString stringWithUTF8String:start.DepType()]];
 
-            Package *package([self packageWithName:[NSString stringWithUTF8String:start.TargetPkg().Name()]]);
-            [failure addObject:[package name]];
+            NSString *name([NSString stringWithUTF8String:start.TargetPkg().Name()]);
+            if (Package *package = [self packageWithName:name])
+                name = [package name];
+            [failure addObject:name];
 
             pkgCache::PkgIterator target(start.TargetPkg());
             if (target->ProvidesList != 0)
@@ -3322,6 +3321,8 @@ static NSArray *Finishes_;
 }
 
 - (void) prepare {
+    fetcher_->Shutdown();
+
     pkgRecords records(cache_);
 
     lock_ = new FileFd();

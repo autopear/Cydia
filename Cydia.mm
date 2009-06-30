@@ -2048,7 +2048,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$parse$Retain)
-            if (!homepage_.empty())
+            if (homepage_.empty())
                 homepage_ = website;
             if (homepage_ == depiction_)
                 homepage_.clear();
@@ -4274,7 +4274,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 4: [close_ setTitle:UCLocalize("REBOOT_DEVICE")]; break;
     }
 
-#define Cache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
+#define ListCache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
+#define IconCache_ "/User/Library/Caches/com.apple.springboard-imagecache-icons.plist"
 
     if (NSMutableDictionary *cache = [[NSMutableDictionary alloc] initWithContentsOfFile:@ Cache_]) {
         [cache autorelease];

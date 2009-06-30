@@ -34,6 +34,18 @@
 
 @end
 
+@implementation UITableView (RVBook)
+
+- (void) resetViewAnimated:(BOOL)animated {
+    [self selectRowAtIndexPath:nil animated:animated scrollPosition:UITableViewScrollPositionNone];
+}
+
+- (void) clearView {
+    //XXX:[[self table] clearView];
+}
+
+@end
+
 @implementation UISectionList (RVBook)
 
 - (void) resetViewAnimated:(BOOL)animated {

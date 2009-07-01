@@ -3,6 +3,18 @@
 <plist version="1.0">
 
 <dict>
+    <key>Hunspell_Dictionaries</key>
+    <dict>
+        <key>Rename</key>
+        <string>Dictionaries_(Hunspell)</string>
+    </dict>
+
+    <key>Utility</key>
+    <dict>
+        <key>Rename</key>
+        <string>Utilities</string>
+    </dict>
+
     <key>Themes_(Springboard)</key>
     <dict>
         <key>Rename</key>

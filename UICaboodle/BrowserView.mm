@@ -10,6 +10,9 @@ extern NSString * const kCAFilterNearest;
 
 #include "substrate.h"
 
+static CFArrayRef (*$GSSystemCopyCapability)(CFStringRef);
+static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
+
 @interface NSString (UIKit)
 - (NSString *) stringByAddingPercentEscapes;
 @end
@@ -222,7 +225,6 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 #endif
 
 + (void) _initialize {
-    NSLog(@"INITIALIZING");
     [WebView enableWebThread];
 
     WebPreferences *preferences([WebPreferences standardPreferences]);
@@ -230,6 +232,9 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
     [preferences setOfflineWebApplicationCacheEnabled:YES];
 
     [WebPreferences _setInitialDefaultTextEncodingToSystemEncoding];
+
+    $GSSystemCopyCapability = reinterpret_cast<CFArrayRef (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemCopyCapability"));
+    $GSSystemGetCapability = reinterpret_cast<CFArrayRef (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemGetCapability"));
 }
 
 - (void) dealloc {
@@ -704,6 +709,7 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
     }
 
     NSURL *url([request URL]);
+    NSString *host([url host]);
 
     if (url == nil) use: {
         if (!error_ && [frame parentFrame] == nil) {
@@ -728,16 +734,22 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 
     const NSArray *capability;
 
-#if 0 // XXX:3:GSSystemCopyCapability
-    capability = reinterpret_cast<const NSArray *>(GSSystemGetCapability(kGSDisplayIdentifiersCapability));
-#else
-    capability = nil;
-#endif
+    if ($GSSystemCopyCapability != NULL) {
+        capability = reinterpret_cast<const NSArray *>((*$GSSystemCopyCapability)(kGSDisplayIdentifiersCapability));
+        capability = [capability autorelease];
+    } else if ($GSSystemGetCapability != NULL) {
+        capability = reinterpret_cast<const NSArray *>((*$GSSystemGetCapability)(kGSDisplayIdentifiersCapability));
+    } else
+        capability = nil;
+
+    NSURL *open(nil);
 
     if (capability != nil && (
-        [capability containsObject:@"com.apple.Maps"] && [url mapsURL] ||
-        [capability containsObject:@"com.apple.youtube"] && [url youTubeURL]
+        [url isGoogleMapsURL] && [capability containsObject:@"com.apple.Maps"] && (open = [url mapsURL]) != nil||
+        [host hasSuffix:@"youtube.com"] && [capability containsObject:@"com.apple.youtube"] && (open = [url youTubeURL]) != nil ||
+        [url respondsToSelector:@selector(phobosURL)] && (open = [url phobosURL]) != nil
     )) {
+        url = open;
       open:
         [UIApp openURL:url];
         goto ignore;

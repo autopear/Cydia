@@ -1276,7 +1276,7 @@ class Status :
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
         //NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
-        [delegate_ setProgressTitle:[NSString stringWithUTF8String:("Downloading " + item.ShortDesc).c_str()]];
+        [delegate_ setProgressTitle:[NSString stringWithFormat:UCLocalize("DOWNLOADING"), [NSString stringWithUTF8String:item.ShortDesc.c_str()]]];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
@@ -2833,7 +2833,7 @@ struct PackageNameOrdering :
 /* XXX: localize the index thingees */
 - (Section *) initWithIndex:(unichar)index row:(size_t)row {
     if ((self = [super init]) != nil) {
-        name_ = [(index == '#' ? @"123" : [NSString stringWithCharacters:&index length:1]) retain];
+        name_ = [[NSString stringWithCharacters:&index length:1] retain];
         index_ = index;
         row_ = row;
     } return self;
@@ -4277,7 +4277,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #define ListCache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
 #define IconCache_ "/User/Library/Caches/com.apple.springboard-imagecache-icons.plist"
 
-    if (NSMutableDictionary *cache = [[NSMutableDictionary alloc] initWithContentsOfFile:@ Cache_]) {
+    unlink(IconCache_);
+
+    if (NSMutableDictionary *cache = [[NSMutableDictionary alloc] initWithContentsOfFile:@ListCache_]) {
         [cache autorelease];
 
         NSFileManager *manager = [NSFileManager defaultManager];
@@ -4288,7 +4290,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             goto error;
 
         struct stat info;
-        if (stat(Cache_, &info) == -1)
+        if (stat(ListCache_, &info) == -1)
             goto error;
 
         [system removeAllObjects];
@@ -4309,11 +4311,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 }
         } else goto error;
 
-        [cache writeToFile:@Cache_ atomically:YES];
+        [cache writeToFile:@ListCache_ atomically:YES];
 
-        if (chown(Cache_, info.st_uid, info.st_gid) == -1)
+        if (chown(ListCache_, info.st_uid, info.st_gid) == -1)
             goto error;
-        if (chmod(Cache_, info.st_mode) == -1)
+        if (chmod(ListCache_, info.st_mode) == -1)
             goto error;
 
         if (false) error:
@@ -4566,24 +4568,49 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Package Cell {{{ */
-@interface PackageCell : UITableCell {
+@interface ContentView : UIView {
+    _transient id delegate_;
+}
+
+@end
+
+@interface PackageCell : UITableViewCell {
     UIImage *icon_;
     NSString *name_;
     NSString *description_;
     bool commercial_;
     NSString *source_;
     UIImage *badge_;
-    bool cached_;
     Package *package_;
-#ifdef USE_BADGES
-    UITextLabel *status_;
-#endif
+    UIColor *color_;
+    ContentView *content_;
+    BOOL faded_;
+    float fade_;
 }
 
 - (PackageCell *) init;
 - (void) setPackage:(Package *)package;
 
 + (int) heightForPackage:(Package *)package;
+- (void) drawContentRect:(CGRect)rect;
+
+@end
+
+@implementation ContentView
+
+- (id) initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame]) != nil) {
+    } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (void) drawRect:(CGRect)rect {
+    [super drawRect:rect];
+    [delegate_ drawContentRect:rect];
+}
 
 @end
 
@@ -4621,20 +4648,40 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [self clearPackage];
-#ifdef USE_BADGES
-    [status_ release];
-#endif
+    [content_ release];
+    [color_ release];
     [super dealloc];
 }
 
+- (float) fade {
+    return faded_ ? [self selectionPercent] : fade_;
+}
+
 - (PackageCell *) init {
-    if ((self = [super init]) != nil) {
-#ifdef USE_BADGES
-        status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(48, 68, 280, 20)];
-        [status_ setBackgroundColor:[UIColor clearColor]];
-        [status_ setFont:small];
-#endif
+    CGRect frame(CGRectMake(0, 0, 320, 74));
+    if ((self = [super initWithFrame:frame reuseIdentifier:@"Package"]) != nil) {
+        UIView *content([self contentView]);
+        CGRect bounds([content bounds]);
+        content_ = [[ContentView alloc] initWithFrame:bounds];
+        [content_ setDelegate:self];
+        [content_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [content_ setOpaque:YES];
+        [content addSubview:content_];
+        if ([self respondsToSelector:@selector(selectionPercent)])
+            faded_ = YES;
     } return self;
+}
+
+- (void) _setBackgroundColor {
+    UIColor *color;
+    if (NSString *mode = [package_ mode]) {
+        bool remove([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]);
+        color = remove ? RemovingColor_ : InstallingColor_;
+    } else
+        color = [UIColor whiteColor];
+
+    [content_ setBackgroundColor:color];
+    [self setNeedsDisplay];
 }
 
 - (void) setPackage:(Package *)package {
@@ -4676,57 +4723,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ((badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]]) != nil)
             badge_ = [badge_ retain];
 
-#ifdef USE_BADGES
-    if (NSString *mode = [package mode]) {
-        [badge_ setImage:[UIImage applicationImageNamed:
-            [mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"] ? @"removing.png" : @"installing.png"
-        ]];
+    [self _setBackgroundColor];
+    [content_ setNeedsDisplay];
+}
 
-        [status_ setText:[NSString stringWithFormat:UCLocalize("QUEUED_FOR"), UCLocalize(mode)]];
-        [status_ setColor:[UIColor colorWithCGColor:Blueish_]];
-    } else if ([package half]) {
-        [badge_ setImage:[UIImage applicationImageNamed:@"damaged.png"]];
-        [status_ setText:UCLocalize("PACKAGE_DAMAGED")];
-        [status_ setColor:[UIColor redColor]];
-    } else {
-        [badge_ setImage:nil];
-        [status_ setText:nil];
-    }
+- (void) drawContentRect:(CGRect)rect {
+    bool selected([self isSelected]);
+
+#if 0
+    CGContextRef context(UIGraphicsGetCurrentContext());
+    [([[self selectedBackgroundView] superview] != nil ? [UIColor clearColor] : [self backgroundColor]) set];
+    CGContextFillRect(context, rect);
 #endif
 
-    cached_ = false;
-}
-
-- (void) drawRect:(CGRect)rect {
-    if (!cached_) {
-        UIColor *color;
-
-        if (NSString *mode = [package_ mode]) {
-            bool remove([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]);
-            color = remove ? RemovingColor_ : InstallingColor_;
-        } else
-            color = [UIColor whiteColor];
-
-        [self setBackgroundColor:color];
-        cached_ = true;
-    }
-
-    [super drawRect:rect];
-}
-
-- (void) drawBackgroundInRect:(CGRect)rect withFade:(float)fade {
-    if (fade == 0) {
-        CGContextRef context(UIGraphicsGetCurrentContext());
-        [[self backgroundColor] set];
-        CGRect back(rect);
-        back.size.height -= 1;
-        CGContextFillRect(context, back);
-    }
-
-    [super drawBackgroundInRect:rect withFade:fade];
-}
-
-- (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
     if (icon_ != nil) {
         CGRect rect;
         rect.size = [icon_ size];
@@ -4760,13 +4769,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!selected)
         UISetColor(commercial_ ? Purplish_ : Gray_);
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
-
-    [super drawContentInRect:rect selected:selected];
 }
 
-- (void) setSelected:(BOOL)selected withFade:(BOOL)fade {
-    cached_ = false;
-    [super setSelected:selected withFade:fade];
+- (void) setSelected:(BOOL)selected animated:(BOOL)fade {
+    //[self _setBackgroundColor];
+    [super setSelected:selected animated:fade];
+    [content_ setNeedsDisplay];
 }
 
 + (int) heightForPackage:(Package *)package {
@@ -5214,7 +5222,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *title_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
-    UISectionList *list_;
+    UITableView *list_;
+    NSMutableArray *index_;
+    NSMutableDictionary *indices_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title;
@@ -5224,7 +5234,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) reloadData;
 - (void) resetCursor;
 
-- (UISectionList *) list;
+- (UITableView *) list;
 
 - (void) setShouldHideHeaderInShortLists:(BOOL)hide;
 
@@ -5239,51 +5249,64 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [packages_ release];
     [sections_ release];
     [list_ release];
+    [index_ release];
+    [indices_ release];
     [super dealloc];
 }
 
-- (int) numberOfSectionsInSectionList:(UISectionList *)list {
-    return [sections_ count];
+- (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
+    NSInteger count([sections_ count]);
+    return count == 0 ? 1 : count;
 }
 
-- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
+- (NSString *) tableView:(UITableView *)list titleForHeaderInSection:(NSInteger)section {
+    if ([sections_ count] == 0)
+        return nil;
     return [[sections_ objectAtIndex:section] name];
 }
 
-- (int) sectionList:(UISectionList *)list rowForSection:(int)section {
-    return [[sections_ objectAtIndex:section] row];
+- (NSInteger) tableView:(UITableView *)list numberOfRowsInSection:(NSInteger)section {
+    if ([sections_ count] == 0)
+        return 0;
+    return [[sections_ objectAtIndex:section] count];
 }
 
-- (int) numberOfRowsInTable:(UITable *)table {
-    return [packages_ count];
+- (Package *) packageAtIndexPath:(NSIndexPath *)path {
+    Section *section([sections_ objectAtIndex:[path section]]);
+    NSInteger row([path row]);
+    Package *package([packages_ objectAtIndex:([section row] + row)]);
+    return package;
 }
 
-- (float) table:(UITable *)table heightForRow:(int)row {
-    return [PackageCell heightForPackage:[packages_ objectAtIndex:row]];
+- (UITableViewCell *) tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    PackageCell *cell([table dequeueReusableCellWithIdentifier:@"Package"]);
+    if (cell == nil)
+        cell = [[[PackageCell alloc] init] autorelease];
+    [cell setPackage:[self packageAtIndexPath:path]];
+    return cell;
 }
 
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
-    if (reusing == nil)
-        reusing = [[[PackageCell alloc] init] autorelease];
-    [(PackageCell *)reusing setPackage:[packages_ objectAtIndex:row]];
-    return reusing;
+- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
+    return 73;
+    return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
 }
 
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
-    return NO;
-}
-
-- (void) tableRowSelected:(NSNotification *)notification {
-    int row = [[notification object] selectedRow];
-    if (row == INT_MAX)
-        return;
-
-    Package *package = [packages_ objectAtIndex:row];
+- (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
+    Package *package([self packageAtIndexPath:path]);
     package = [database_ packageWithName:[package id]];
     PackageView *view([delegate_ packageView]);
     [view setPackage:package];
     [view setDelegate:delegate_];
     [book_ pushPage:view];
+    return path;
+}
+
+- (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
+    return [packages_ count] > 20 ? index_ : nil;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index {
+    return index;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title {
@@ -5291,23 +5314,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
         title_ = [title retain];
 
+        index_ = [[NSMutableArray alloc] initWithCapacity:32];
+        indices_ = [[NSMutableDictionary alloc] initWithCapacity:32];
+
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:YES];
+        list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
         [list_ setDataSource:self];
-
-        UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:UCLocalize("NAME")
-            identifier:@"name"
-            width:[self frame].size.width
-        ] autorelease];
-
-        UITable *table = [list_ table];
-        [table setSeparatorStyle:1];
-        [table addTableColumn:column];
-        [table setDelegate:self];
-        [table setReusesTableCells:YES];
+        [list_ setDelegate:self];
 
         [self addSubview:list_];
 
@@ -5336,6 +5351,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [packages_ addObject:package];
     _end
 
+    [index_ removeAllObjects];
+    [indices_ removeAllObjects];
+
     Section *section = nil;
 
     _profile(PackageTable$reloadData$Section)
@@ -5352,6 +5370,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 _profile(PackageTable$reloadData$Section$Allocate)
                     section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
                 _end
+
+                [index_ addObject:[section name]];
+                //[indices_ setObject:[NSNumber numberForInt:[sections_ count]] forKey:index];
 
                 _profile(PackageTable$reloadData$Section$Add)
                     [sections_ addObject:section];
@@ -5376,15 +5397,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) resetCursor {
-    [[list_ table] scrollPointVisibleAtTopLeft:CGPointMake(0, 0) animated:NO];
+    [list_ scrollRectToVisible:CGRectMake(0, 0, 0, 0) animated:NO];
 }
 
-- (UISectionList *) list {
+- (UITableView *) list {
     return list_;
 }
 
 - (void) setShouldHideHeaderInShortLists:(BOOL)hide {
-    [list_ setShouldHideHeaderInShortLists:hide];
+    //XXX:[list_ setShouldHideHeaderInShortLists:hide];
 }
 
 @end
@@ -6764,7 +6785,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
-    UISectionList *list_;
+    UITableView *list_;
     unsigned upgrades_;
 }
 
@@ -6776,7 +6797,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation ChangesView
 
 - (void) dealloc {
-    [[list_ table] setDelegate:nil];
+    [list_ setDelegate:nil];
     [list_ setDataSource:nil];
 
     [packages_ release];
@@ -6785,46 +6806,49 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (int) numberOfSectionsInSectionList:(UISectionList *)list {
-    return [sections_ count];
+- (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
+    NSInteger count([sections_ count]);
+    return count == 0 ? 1 : count;
 }
 
-- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
+- (NSString *) tableView:(UITableView *)list titleForHeaderInSection:(NSInteger)section {
+    if ([sections_ count] == 0)
+        return nil;
     return [[sections_ objectAtIndex:section] name];
 }
 
-- (int) sectionList:(UISectionList *)list rowForSection:(int)section {
-    return [[sections_ objectAtIndex:section] row];
+- (NSInteger) tableView:(UITableView *)list numberOfRowsInSection:(NSInteger)section {
+    if ([sections_ count] == 0)
+        return 0;
+    return [[sections_ objectAtIndex:section] count];
 }
 
-- (int) numberOfRowsInTable:(UITable *)table {
-    return [packages_ count];
+- (Package *) packageAtIndexPath:(NSIndexPath *)path {
+    Section *section([sections_ objectAtIndex:[path section]]);
+    NSInteger row([path row]);
+    return [packages_ objectAtIndex:([section row] + row)];
 }
 
-- (float) table:(UITable *)table heightForRow:(int)row {
-    return [PackageCell heightForPackage:[packages_ objectAtIndex:row]];
+- (UITableViewCell *) tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    PackageCell *cell([table dequeueReusableCellWithIdentifier:@"Package"]);
+    if (cell == nil)
+        cell = [[[PackageCell alloc] init] autorelease];
+    [cell setPackage:[self packageAtIndexPath:path]];
+    return cell;
 }
 
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
-    if (reusing == nil)
-        reusing = [[[PackageCell alloc] init] autorelease];
-    [(PackageCell *)reusing setPackage:[packages_ objectAtIndex:row]];
-    return reusing;
+- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
+    return 73;
+    return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
 }
 
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
-    return NO;
-}
-
-- (void) tableRowSelected:(NSNotification *)notification {
-    int row = [[notification object] selectedRow];
-    if (row == INT_MAX)
-        return;
-    Package *package = [packages_ objectAtIndex:row];
+- (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
+    Package *package([self packageAtIndexPath:path]);
     PackageView *view([delegate_ packageView]);
     [view setDelegate:delegate_];
     [view setPackage:package];
     [book_ pushPage:view];
+    return path;
 }
 
 - (void) _leftButtonClicked {
@@ -6843,24 +6867,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:NO];
+        list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
         [self addSubview:list_];
 
-        [list_ setShouldHideHeaderInShortLists:NO];
+        //XXX:[list_ setShouldHideHeaderInShortLists:NO];
         [list_ setDataSource:self];
+        [list_ setDelegate:self];
         //[list_ setSectionListStyle:1];
-
-        UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:UCLocalize("NAME")
-            identifier:@"name"
-            width:[self frame].size.width
-        ] autorelease];
-
-        UITable *table = [list_ table];
-        [table setSeparatorStyle:1];
-        [table addTableColumn:column];
-        [table setDelegate:self];
-        [table setReusesTableCells:YES];
 
         [self reloadData];
 

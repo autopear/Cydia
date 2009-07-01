@@ -47,7 +47,7 @@
 "DONE" = "Done";
 "DOUBLE_QUOTED" = "“%@”";
 "DOWNGRADE" = "Downgrade";
-"DOWNLOADING" = "Downloading";
+"DOWNLOADING" = "Downloading %@";
 "EDIT" = "Edit";
 "ENTER_APT_URL" = "Enter Cydia/APT URL";
 "ENTERED_BY_USER" = "Entered by User";
@@ -108,7 +108,7 @@
 "NO" = "No";
 "NO_SECTION" = "(No Section)";
 "NOT_RATED" = "Not Rated";
-"NODE" = "Note";
+"NOTE" = "Note";
 "NOT_REPOSITORY" = "Did not Find Repository";
 "NOT_REPOSITORY_EX" = "The indicated repository could not be found. This could be because you are trying to add a legacy Installer repository (these are not supported). Also, this interface is only capable of working with exact repository URLs. If you host a repository and are having issues please contact the author of Cydia with any questions you have.";
 "OK" = "OK";

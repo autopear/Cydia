@@ -47,7 +47,7 @@
 "DONE" = "OK";
 "DOUBLE_QUOTED" = "« $@ »";
 "DOWNGRADE" = "Rétrograder";
-"DOWNLOADING" = "Téléchargement";
+"DOWNLOADING" = "Téléchargement %@";
 "EDIT" = "Éditer";
 "ENTER_APT_URL" = "Entrez une adresse Cydia/APT";
 "ENTERED_BY_USER" = "Entré par l'Utilisateur";
@@ -106,7 +106,7 @@
 "NEW_INSTALL" = "Nouvelle Installation";
 "NO_SECTION" = "(Pas de Catégorie)";
 "NOT_RATED" = "Pas de Note";
-"NODE" = "Note";
+"NOTE" = "Note";
 "NOT_REPOSITORY" = "Impossible de Trouver Cette Source";
 "NOT_REPOSITORY_EX" = "La source de paquets ne peut pas être trouvée. Ce pourrait être car c'est une source d'Installer (qui ne fonctionne pas avec Cydia). Cydia ne peut fonctionner qu'avec des adresses rigoureusement exactes. Si vous hébergez une source de paquets, contactez l'auteur de Cydia à propos de ces erreurs.";
 "OK" = "OK";

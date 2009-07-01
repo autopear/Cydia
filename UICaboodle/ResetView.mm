@@ -37,7 +37,9 @@
 @implementation UITableView (RVBook)
 
 - (void) resetViewAnimated:(BOOL)animated {
-    [self selectRowAtIndexPath:nil animated:animated scrollPosition:UITableViewScrollPositionNone];
+    //[self selectRowAtIndexPath:nil animated:animated scrollPosition:UITableViewScrollPositionNone];
+    if (NSIndexPath *path = [self indexPathForSelectedRow])
+        [self deselectRowAtIndexPath:path animated:animated];
 }
 
 - (void) clearView {

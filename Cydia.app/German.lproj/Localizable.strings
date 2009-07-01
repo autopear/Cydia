@@ -95,6 +95,7 @@
 "LOGIN" = "Anmeldung";
 "MAINTAINER" = "Kontakt";
 "MANAGE" = "Verwalten";
+"MODIFICATIONS" = "Änderungen";
 "MODIFY" = "Verändern";
 "MORE_INFORMATION" = "Mehr Informationen";
 "MORE_PACKAGE_SOURCES" = "Mehr Quellen für Pakete";
@@ -104,6 +105,7 @@
 "NEW" = "Neu";
 "NEW_AT" = "Neu um %@";
 "NEW_INSTALL" = "Neue Installation";
+"NO" = "Nein";
 "NO_SECTION" = "(Keine Kategorie)";
 "NOT_RATED" = "Nicht bewertet";
 "NODE" = "Notiz";
@@ -194,3 +196,4 @@
 "VERSION" = "Version";
 "WELCOME_TO_CYDIA" = "Willkommen zu Cydia™";
 "WHO_ARE_YOU" = "Wer sind Sie?";
+"YES" = "Ja";

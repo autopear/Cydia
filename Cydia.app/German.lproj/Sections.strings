@@ -1,5 +1,7 @@
+"Addons" = "";
 "Administration" = "Verwaltung";
-"App Addoms" = "Programm-Erweiterugen";
+"Adult" = "";
+"App Addons" = "Programm-Erweiterugen";
 "Archiving" = "Archivierung";
 "Battery" = "Batterie";
 "Carrier Bundles" = "Telefongesellschaft-Pakete";
@@ -32,6 +34,7 @@
 "Security" = "Sicherheit";
 "Sliders" = "";
 "SMS" = "SMS";
+"Social" = "";
 "System" = "System";
 "Terminal Support" = "Konsolen-Support";
 "Text Editors" = "Texteditoren";
@@ -39,6 +42,7 @@
 "Toys" = "Spielzeuge";
 "Tweaks" = "Verbesserungen";
 "Utilities" = "Dienstprogramme";
+"Videos" = "";
 "Wallpaper" = "Hintergründe";
 "Weather" = "Wetter";
 "WebClips" = "WebClips";

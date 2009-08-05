@@ -1412,6 +1412,8 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (void) upgrade;
 - (void) update;
 
+- (void) setVisible;
+
 - (NSString *) updateWithStatus:(Status &)status;
 
 - (void) setDelegate:(id)delegate;
@@ -1490,6 +1492,11 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
         [host_ release];
         host_ = nil;
     }
+
+    if (authority_ != nil) {
+        [authority_ release];
+        authority_ = nil;
+    }
 }
 
 - (void) dealloc {
@@ -1557,7 +1564,16 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     if (record_ != nil)
         record_ = [record_ retain];
 
-    host_ = [[[[NSURL URLWithString:uri_] host] lowercaseString] retain];
+    NSURL *url([NSURL URLWithString:uri_]);
+
+    host_ = [url host];
+    if (host_ != nil)
+        host_ = [[host_ lowercaseString] retain];
+
+    if (host_ != nil)
+        authority_ = [host_ retain];
+    else
+        authority_ = [url path];
 }
 
 - (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
@@ -1626,7 +1642,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (NSString *) name {
-    return origin_.empty() ? host_ : origin_;
+    return origin_.empty() ? authority_ : origin_;
 }
 
 - (NSString *) description {
@@ -1634,7 +1650,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (NSString *) label {
-    return label_.empty() ? host_ : label_;
+    return label_.empty() ? authority_ : label_;
 }
 
 - (NSString *) origin {
@@ -1703,6 +1719,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     CYString section_;
     NSString *section$_;
     bool essential_;
+    bool required_;
     bool visible_;
 
     NSString *latest_;
@@ -1721,6 +1738,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     CYString author_;
     Address *author$_;
 
+    CYString bugs_;
     CYString support_;
     NSMutableArray *tags_;
     NSString *role_;
@@ -1774,6 +1792,8 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (BOOL) halfInstalled;
 - (BOOL) hasMode;
 - (NSString *) mode;
+
+- (void) setVisible;
 
 - (NSString *) id;
 - (NSString *) name;
@@ -2018,6 +2038,7 @@ struct PackageNameOrdering :
                 {"depiction", &depiction_},
                 {"homepage", &homepage_},
                 {"website", &website},
+                {"bugs", &bugs_},
                 {"support", &support_},
                 {"sponsor", &sponsor_},
                 {"author", &author_},
@@ -2054,6 +2075,10 @@ struct PackageNameOrdering :
                 homepage_.clear();
         _end
     _end
+}
+
+- (void) setVisible {
+    visible_ = required_ && [self hasSupportingRole] && [self unfiltered];
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
@@ -2099,7 +2124,7 @@ struct PackageNameOrdering :
             _end
         }
 
-        visible_ = true;
+        required_ = true;
 
         _profile(Package$initWithVersion$Tags)
             pkgCache::TagIterator tag(iterator_.TagList());
@@ -2110,10 +2135,10 @@ struct PackageNameOrdering :
                     [tags_ addObject:(NSString *)CFCString(name)];
                     if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
                         role_ = (NSString *) CFCString(name + 6);
-                    if (visible_ && strncmp(name, "require::", 9) == 0 && (
+                    if (required_ && strncmp(name, "require::", 9) == 0 && (
                         true
                     ))
-                        visible_ = false;
+                        required_ = false;
                     ++tag;
                 } while (!tag.end());
             }
@@ -2174,7 +2199,7 @@ struct PackageNameOrdering :
         _end
 
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
-        visible_ = visible_ && [self hasSupportingRole] && [self unfiltered];
+        [self setVisible];
     } _end } return self;
 }
 
@@ -2465,7 +2490,7 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) support {
-    return !support_.empty() ? support_ : [[self source] supportForPackage:id_];
+    return !bugs_.empty() ? bugs_ : [[self source] supportForPackage:id_];
 }
 
 - (NSArray *) files {
@@ -2506,6 +2531,7 @@ struct PackageNameOrdering :
 
     if (strcmp(name, "cydia") != 0) {
         bool cydia = false;
+        bool user = false;
         bool _private = false;
         bool stash = false;
 
@@ -2515,6 +2541,8 @@ struct PackageNameOrdering :
             for (NSString *file in files)
                 if (!cydia && [file isEqualToString:@"/Applications/Cydia.app"])
                     cydia = true;
+                else if (!user && [file isEqualToString:@"/User"])
+                    user = true;
                 else if (!_private && [file isEqualToString:@"/private"])
                     _private = true;
                 else if (!stash && [file isEqualToString:@"/var/stash"])
@@ -2523,6 +2551,8 @@ struct PackageNameOrdering :
         /* XXX: this is not sensitive enough. only some folders are valid. */
         if (cydia && !repository)
             [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"Cydia.app"]];
+        if (user)
+            [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/User"]];
         if (_private)
             [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/private"]];
         if (stash)
@@ -3414,6 +3444,11 @@ static NSArray *Finishes_;
     [self updateWithStatus:status_];
 }
 
+- (void) setVisible {
+    for (Package *package in packages_)
+        [package setVisible];
+}
+
 - (NSString *) updateWithStatus:(Status &)status {
     pkgSourceList list;
     _assert(list.ReadMainList());
@@ -3421,7 +3456,7 @@ static NSArray *Finishes_;
     FileFd lock;
     lock.Fd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"));
 
-    if (_error->PendingError()) {
+    if (_error->PendingError()) error: {
         std::string error;
         if (!_error->PopMessage(error))
             _assert(false);
@@ -3429,25 +3464,11 @@ static NSArray *Finishes_;
         return [NSString stringWithUTF8String:error.c_str()];
     }
 
-    pkgAcquire fetcher(&status);
-    _assert(list.GetIndexes(&fetcher));
+    if (!ListUpdate(status, list, PulseInterval_))
+        goto error;
 
-    if (fetcher.Run(PulseInterval_) != pkgAcquire::Failed) {
-        bool failed = false;
-        for (pkgAcquire::ItemIterator item = fetcher.ItemsBegin(); item != fetcher.ItemsEnd(); item++)
-            if ((*item)->Status != pkgAcquire::Item::StatDone) {
-                (*item)->Finished();
-                failed = true;
-            }
-
-        if (!failed && _config->FindB("APT::Get::List-Cleanup", true) == true) {
-            _assert(fetcher.Clean(_config->FindDir("Dir::State::lists")));
-            _assert(fetcher.Clean(_config->FindDir("Dir::State::lists") + "partial/"));
-        }
-
-        [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
-        Changed_ = true;
-    }
+    [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
+    Changed_ = true;
 
     return nil;
 }
@@ -5844,6 +5865,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     href_ = href;
                 href_ = [href_ retain];
 
+                trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
                 trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
                 trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
                 //trivial_bz2_ = [[self _requestHRef:[href stringByAppendingString:@"dists/Release"] method:@"HEAD"] retain];
@@ -7556,6 +7578,39 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (void) _saveConfig {
+    if (Changed_) {
+        _trace();
+        NSString *error(nil);
+        if (NSData *data = [NSPropertyListSerialization dataFromPropertyList:Metadata_ format:NSPropertyListBinaryFormat_v1_0 errorDescription:&error]) {
+            _trace();
+            NSError *error(nil);
+            if (![data writeToFile:@"/var/lib/cydia/metadata.plist" options:NSAtomicWrite error:&error])
+                NSLog(@"failure to save metadata data: %@", error);
+            _trace();
+        } else {
+            NSLog(@"failure to serialize metadata: %@", error);
+            return;
+        }
+
+        Changed_ = false;
+    }
+}
+
+- (void) _updateData {
+    [self _saveConfig];
+
+    /* XXX: this is just stupid */
+    if (tag_ != 2 && sections_ != nil)
+        [sections_ reloadData];
+    if (tag_ != 3 && changes_ != nil)
+        [changes_ reloadData];
+    if (tag_ != 5 && search_ != nil)
+        [search_ reloadData];
+
+    [book_ reloadData];
+}
+
 - (void) _reloadData {
     UIView *block();
 
@@ -7607,7 +7662,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Queuing_ = false;
     [buttonbar_ setBadgeValue:nil forButton:4];
 
-    [self updateData];
+    [self _updateData];
 
     // XXX: what is this line of code for?
     if ([packages count] == 0);
@@ -7626,37 +7681,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) _saveConfig {
-    if (Changed_) {
-        _trace();
-        NSString *error(nil);
-        if (NSData *data = [NSPropertyListSerialization dataFromPropertyList:Metadata_ format:NSPropertyListBinaryFormat_v1_0 errorDescription:&error]) {
-            _trace();
-            NSError *error(nil);
-            if (![data writeToFile:@"/var/lib/cydia/metadata.plist" options:NSAtomicWrite error:&error])
-                NSLog(@"failure to save metadata data: %@", error);
-            _trace();
-        } else {
-            NSLog(@"failure to serialize metadata: %@", error);
-            return;
-        }
-
-        Changed_ = false;
-    }
-}
-
 - (void) updateData {
-    [self _saveConfig];
-
-    /* XXX: this is just stupid */
-    if (tag_ != 2 && sections_ != nil)
-        [sections_ reloadData];
-    if (tag_ != 3 && changes_ != nil)
-        [changes_ reloadData];
-    if (tag_ != 5 && search_ != nil)
-        [search_ reloadData];
-
-    [book_ reloadData];
+    [database_ setVisible];
+    [self _updateData];
 }
 
 - (void) update_ {
@@ -8650,7 +8677,7 @@ int main(int argc, char *argv[]) { _pooled
     if (lang != NULL)
         _config->Set("APT::Acquire::Translation", lang);
     _config->Set("Acquire::http::Timeout", 15);
-    _config->Set("Acquire::http::MaxParallel", 4);
+    _config->Set("Acquire::http::MaxParallel", 3);
 
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();

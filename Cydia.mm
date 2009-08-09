@@ -1435,6 +1435,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     CYString version_;
 
     NSString *host_;
+    NSString *authority_;
 
     CYString defaultIcon_;
 

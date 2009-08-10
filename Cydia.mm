@@ -406,7 +406,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
@@ -1063,7 +1063,6 @@ static UIColor *RemovingColor_;
 
 static NSString *App_;
 static NSString *Home_;
-static BOOL Sounds_Keyboard_;
 
 static BOOL Advanced_;
 static BOOL Loaded_;
@@ -1076,6 +1075,8 @@ static UIFont *Font18Bold_;
 static UIFont *Font22Bold_;
 
 static const char *Machine_ = NULL;
+static const NSString *SerialNumber_ = nil;
+static const NSString *ChipID_ = nil;
 static const NSString *UniqueID_ = nil;
 static const NSString *Build_ = nil;
 static const NSString *Product_ = nil;
@@ -8070,7 +8071,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CGSize keysize = [UIKeyboard defaultSize];
     CGRect keyrect = {{0, [overlay_ bounds].size.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
-    //[[UIKeyboardImpl sharedInstance] setSoundsEnabled:(Sounds_Keyboard_ ? YES : NO)];
     [overlay_ addSubview:keyboard_];
 
     if (!bootstrap_)
@@ -8551,13 +8551,6 @@ int main(int argc, char *argv[]) { _pooled
     }
     /* }}} */
 
-    {
-        NSString *plist = [Home_ stringByAppendingString:@"/Library/Preferences/com.apple.preferences.sounds.plist"];
-        if (NSDictionary *sounds = [NSDictionary dictionaryWithContentsOfFile:plist])
-            if (NSNumber *keyboard = [sounds objectForKey:@"keyboard"])
-                Sounds_Keyboard_ = [keyboard boolValue];
-    }
-
     App_ = [[NSBundle mainBundle] bundlePath];
     Home_ = NSHomeDirectory();
 
@@ -8590,6 +8583,29 @@ int main(int argc, char *argv[]) { _pooled
         perror("sysctlbyname(\"hw.machine\", ?)");
     else
         Machine_ = machine;
+
+    if (CFMutableDictionaryRef dict = IOServiceMatching("IOPlatformExpertDevice")) {
+        if (io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, dict)) {
+            if (CFTypeRef serial = IORegistryEntryCreateCFProperty(service, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0)) {
+                SerialNumber_ = [[NSString alloc] initWithString:(NSString *)serial];
+                CFRelease(serial);
+            }
+
+            if (CFTypeRef ecid = IORegistryEntrySearchCFProperty(service, kIODeviceTreePlane, CFSTR("unique-chip-id"), kCFAllocatorDefault, kIORegistryIterateRecursively)) {
+                NSData *data((NSData *) ecid);
+                size_t length([data length]);
+                uint8_t bytes[length];
+                [data getBytes:bytes];
+                char string[length * 2 + 1];
+                for (size_t i(0); i != length; ++i)
+                    sprintf(string + i * 2, "%.2X", bytes[length - i - 1]);
+                ChipID_ = [[NSString alloc] initWithUTF8String:string];
+                CFRelease(ecid);
+            }
+
+            IOObjectRelease(service);
+        }
+    }
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 
@@ -8672,6 +8688,9 @@ int main(int argc, char *argv[]) { _pooled
             _assert(errno == ENOENT);
     }
 
+    Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
+
+    /* APT Initialization {{{ */
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
 
@@ -8679,7 +8698,7 @@ int main(int argc, char *argv[]) { _pooled
         _config->Set("APT::Acquire::Translation", lang);
     _config->Set("Acquire::http::Timeout", 15);
     _config->Set("Acquire::http::MaxParallel", 3);
-
+    /* }}} */
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();
 
@@ -8692,20 +8711,10 @@ int main(int argc, char *argv[]) { _pooled
     Green_.Set(space_, 0.0, 0.5, 0.0, 1.0);
     Purple_.Set(space_, 0.0, 0.0, 0.7, 1.0);
     Purplish_.Set(space_, 0.4, 0.4, 0.8, 1.0);
-    /*Purple_.Set(space_, 1.0, 0.3, 0.0, 1.0);
-    Purplish_.Set(space_, 1.0, 0.6, 0.4, 1.0); ORANGE */
-    /*Purple_.Set(space_, 1.0, 0.5, 0.0, 1.0);
-    Purplish_.Set(space_, 1.0, 0.7, 0.2, 1.0); ORANGISH */
-    /*Purple_.Set(space_, 0.5, 0.0, 0.7, 1.0);
-    Purplish_.Set(space_, 0.7, 0.4, 0.8, 1.0); PURPLE */
 
-//.93
     InstallingColor_ = [UIColor colorWithRed:0.88f green:1.00f blue:0.88f alpha:1.00f];
     RemovingColor_ = [UIColor colorWithRed:1.00f green:0.88f blue:0.88f alpha:1.00f];
     /* }}}*/
-
-    Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
-
     /* UIKit Configuration {{{ */
     void (*$GSFontSetUseLegacyFontMetrics)(BOOL)(reinterpret_cast<void (*)(BOOL)>(dlsym(RTLD_DEFAULT, "GSFontSetUseLegacyFontMetrics")));
     if ($GSFontSetUseLegacyFontMetrics != NULL)

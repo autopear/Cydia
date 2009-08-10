@@ -5,5 +5,5 @@ rsync -SPaz --copy-links saurik@carrier.saurik.com:menes/cydia/cydia_iphoneos-ar
 dpkg -i cydia_iphoneos-arm.deb
 touch /tmp/cydia.log
 chown mobile.mobile /tmp/cydia.log
-openURL "${1-cydia://}"
+uiopen "${1-cydia://}"
 exec tail /var/log/syslog /tmp/cydia.log -fn0

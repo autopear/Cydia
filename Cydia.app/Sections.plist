@@ -87,6 +87,12 @@
         <string>Networking</string>
     </dict>
 
+    <key>Tweak</key>
+    <dict>
+        <key>Rename</key>
+        <string>Tweaks</string>
+    </dict>
+
     <key>Tweaks_2.0</key>
     <dict>
         <key>Rename</key>

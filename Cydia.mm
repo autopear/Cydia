@@ -2,6 +2,7 @@
  * Copyright (C) 2008-2009  Jay Freeman (saurik)
 */
 
+/* Modified BSD License {{{ */
 /*
  *        Redistribution and use in source and binary
  * forms, with or without modification, are permitted
@@ -34,6 +35,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/* }}} */
 
 // XXX: wtf/FastMalloc.h... wtf?
 #define USE_SYSTEM_MALLOC 1
@@ -119,19 +121,10 @@ extern "C" {
 #import "substrate.h"
 /* }}} */
 
-//#define _finline __attribute__((force_inline))
-#define _finline inline
-
+/* Profiler {{{ */
 struct timeval _ltv;
 bool _itv;
 
-#define _limit(count) do { \
-    static size_t _count(0); \
-    if (++_count == count) \
-        exit(0); \
-} while (false)
-
-/* Profiler {{{ */
 #define _timestamp ({ \
     struct timeval tv; \
     gettimeofday(&tv, NULL); \
@@ -258,6 +251,7 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     NSLog(@"%s(%g,%g)+(%g,%g)", fix, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
 }
 
+/* [NSObject yieldToSelector:(withObject:)] {{{*/
 @interface NSObject (Cydia)
 - (id) yieldToSelector:(SEL)selector withObject:(id)object;
 - (id) yieldToSelector:(SEL)selector;
@@ -322,6 +316,7 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 }
 
 @end
+/* }}} */
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
@@ -364,8 +359,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 @implementation NSMutableDictionary (Cydia)
 
 - (void) addInfoDictionary:(NSDictionary *)info {
-    NSString *bundle = [info objectForKey:@"CFBundleIdentifier"];
-    [self setObject:info forKey:bundle];
+    [self setObject:info forKey:[info objectForKey:@"CFBundleIdentifier"]];
 }
 
 @end
@@ -651,15 +645,6 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 @end
 /* }}} */
 
-typedef enum {
-    kUIControlEventMouseDown = 1 << 0,
-    kUIControlEventMouseMovedInside = 1 << 2, // mouse moved inside control target
-    kUIControlEventMouseMovedOutside = 1 << 3, // mouse moved outside control target
-    kUIControlEventMouseUpInside = 1 << 6, // mouse up inside control target
-    kUIControlEventMouseUpOutside = 1 << 7, // mouse up outside control target
-    kUIControlAllEvents = (kUIControlEventMouseDown | kUIControlEventMouseMovedInside | kUIControlEventMouseMovedOutside | kUIControlEventMouseUpInside | kUIControlEventMouseUpOutside)
-} UIControlEventMasks;
-
 NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
     size_t length([self length] - state->state);
     if (length <= 0)
@@ -675,9 +660,9 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
 @interface NSString (UIKit)
 - (NSString *) stringByAddingPercentEscapes;
-- (NSString *) stringByReplacingCharacter:(unsigned short)arg0 withCharacter:(unsigned short)arg1;
 @end
 
+/* Cydia NSString Additions {{{ */
 @interface NSString (Cydia)
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length withZone:(NSZone *)zone inPool:(apr_pool_t *)pool;
@@ -754,7 +739,9 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 }
 
 @end
+/* }}} */
 
+/* C++ NSString Wrapper Cache {{{ */
 class CYString {
   private:
     char *data_;
@@ -845,7 +832,8 @@ class CYString {
         return (NSString *) static_cast<CFStringRef>(*this);
     }
 };
-
+/* }}} */
+/* C++ NSString Algorithm Adapters {{{ */
 extern "C" {
     CF_EXPORT CFHashCode CFStringHashNSString(CFStringRef str);
 }
@@ -875,6 +863,7 @@ struct NSStringMapEqual :
         //[lhs isEqualToString:rhs];
     }
 };
+/* }}} */
 
 /* Perl-Compatible RegEx {{{ */
 class Pcre {
@@ -1036,8 +1025,6 @@ class CGColor {
 };
 /* }}} */
 
-extern "C" void UISetColor(CGColorRef color);
-
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
 static const int ButtonBarHeight_ = 48;
@@ -1075,6 +1062,7 @@ static UIFont *Font18Bold_;
 static UIFont *Font22Bold_;
 
 static const char *Machine_ = NULL;
+static const NSString *System_ = NULL;
 static const NSString *SerialNumber_ = nil;
 static const NSString *ChipID_ = nil;
 static const NSString *UniqueID_ = nil;
@@ -1199,6 +1187,9 @@ bool isSectionVisible(NSString *section) {
     NSNumber *hidden(metadata == nil ? nil : [metadata objectForKey:@"Hidden"]);
     return hidden == nil || ![hidden boolValue];
 }
+
+static int Finish_;
+static NSArray *Finishes_;
 
 /* Delegate Prototypes {{{ */
 @class Package;
@@ -1333,16 +1324,23 @@ class Progress :
 {
   private:
     _transient id<ProgressDelegate> delegate_;
+    float percent_;
 
   protected:
     virtual void Update() {
+        if (abs(Percent - percent_) > 2) {
+            NSLog(@"%s:%s:%f", Op.c_str(), SubOp.c_str(), Percent);
+            percent_ = Percent;
+        }
+
         /*[delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
         [delegate_ setProgressPercent:(Percent / 100)];*/
     }
 
   public:
     Progress() :
-        delegate_(nil)
+        delegate_(nil),
+        percent_(0)
     {
     }
 
@@ -1351,6 +1349,7 @@ class Progress :
     }
 
     virtual void Done() {
+        NSLog(@"DONE");
         //[delegate_ setProgressPercent:1];
     }
 };
@@ -2906,9 +2905,6 @@ struct PackageNameOrdering :
 @end
 /* }}} */
 
-static int Finish_;
-static NSArray *Finishes_;
-
 /* Database Implementation {{{ */
 @implementation Database
 
@@ -3790,17 +3786,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window setValue:cydia_ forKey:@"cydia"];
 }
 
+- (void) _setMoreHeaders:(NSMutableURLRequest *)request {
+    if (System_ != NULL)
+        [request setValue:System_ forHTTPHeaderField:@"X-System"];
+    if (Machine_ != NULL)
+        [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    if (UniqueID_ != nil)
+        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+    if (Role_ != nil)
+        [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
+}
+
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
     NSMutableURLRequest *copy = [request mutableCopy];
-
-    if (Machine_ != NULL)
-        [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (UniqueID_ != nil)
-        [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-
-    if (Role_ != nil)
-        [copy setValue:Role_ forHTTPHeaderField:@"X-Role"];
-
+    [self _setMoreHeaders:copy];
     return copy;
 }
 
@@ -4227,7 +4226,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIFont *bold = [UIFont boldSystemFontOfSize:22];
         [close_ setTitleFont:bold];
 
-        [close_ addTarget:self action:@selector(closeButtonPushed) forEvents:kUIControlEventMouseUpInside];
+        [close_ addTarget:self action:@selector(closeButtonPushed) forEvents:UIControlEventTouchUpInside];
         [close_ setBackground:[UIImage applicationImageNamed:@"green-up.png"] forState:0];
         [close_ setBackground:[UIImage applicationImageNamed:@"green-dn.png"] forState:1];
     } return self;
@@ -4852,7 +4851,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
 
         switch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
-        [switch_ addTarget:self action:@selector(onSwitch:) forEvents:kUIControlEventMouseUpInside];
+        [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventTouchUpInside];
     } return self;
 }
 
@@ -6111,6 +6110,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [super alertSheet:sheet buttonClicked:button];
 }
 
+- (void) _setMoreHeaders:(NSMutableURLRequest *)request {
+    [super _setMoreHeaders:request];
+    if (ChipID_ != nil)
+        [request setValue:ChipID_ forHTTPHeaderField:@"X-Chip-ID"];
+}
+
 - (void) _leftButtonClicked {
     UIActionSheet *sheet = [[[UIActionSheet alloc]
         initWithTitle:UCLocalize("ABOUT_CYDIA")
@@ -7271,7 +7276,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-
+/* Settings View {{{ */
 @interface SettingsView : RVPage {
     _transient Database *database_;
     NSString *name_;
@@ -7420,10 +7425,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [self addSubview:table_];
 
         subscribedSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
-        [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:kUIControlEventMouseUpInside];
+        [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventTouchUpInside];
 
         ignoredSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
-        [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:kUIControlEventMouseUpInside];
+        [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventTouchUpInside];
 
         subscribedCell_ = [[UIPreferencesControlTableCell alloc] init];
         [subscribedCell_ setShowSelection:NO];
@@ -7462,6 +7467,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 @end
+/* }}} */
 
 /* Signature View {{{ */
 @interface SignatureView : CydiaBrowserView {
@@ -8339,7 +8345,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) applicationDidFinishLaunching:(id)unused {
     [BrowserView _initialize];
 
-    _trace();
+    [NSURLProtocol registerClass:[CydiaURLProtocol class]];
+
     Font12_ = [[UIFont systemFontOfSize:12] retain];
     Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
     Font14_ = [[UIFont systemFontOfSize:14] retain];
@@ -8351,16 +8358,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
-    [NSURLProtocol registerClass:[CydiaURLProtocol class]];
-
-    CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
-    window_ = [[UIWindow alloc] initWithContentRect:screenrect];
-
+    window_ = [[UIWindow alloc] initWithContentRect:[UIHardware fullScreenApplicationContentRect]];
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
 
     database_ = [Database sharedInstance];
+
     progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
     [database_ setDelegate:progress_];
     [window_ setContentView:progress_];
@@ -8373,13 +8377,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (
         readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL /*||
-        readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL*/ ||
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
         readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL /*||
-        readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL*/
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
+        false
     ) {
         [self setIdleTimerDisabled:YES];
 
@@ -8577,6 +8582,13 @@ int main(int argc, char *argv[]) { _pooled
             perror("sysctlbyname(\"kern.maxproc\", #)");
     }
 
+    sysctlbyname("kern.osversion", NULL, &size, NULL, 0);
+    char *osversion = new char[size];
+    if (sysctlbyname("kern.osversion", osversion, &size, NULL, 0) == -1)
+        perror("sysctlbyname(\"kern.osversion\", ?)");
+    else
+        System_ = [NSString stringWithUTF8String:osversion];
+
     sysctlbyname("hw.machine", NULL, &size, NULL, 0);
     char *machine = new char[size];
     if (sysctlbyname("hw.machine", machine, &size, NULL, 0) == -1)
@@ -8587,7 +8599,7 @@ int main(int argc, char *argv[]) { _pooled
     if (CFMutableDictionaryRef dict = IOServiceMatching("IOPlatformExpertDevice")) {
         if (io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, dict)) {
             if (CFTypeRef serial = IORegistryEntryCreateCFProperty(service, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0)) {
-                SerialNumber_ = [[NSString alloc] initWithString:(NSString *)serial];
+                SerialNumber_ = [NSString stringWithString:(NSString *)serial];
                 CFRelease(serial);
             }
 
@@ -8599,7 +8611,7 @@ int main(int argc, char *argv[]) { _pooled
                 char string[length * 2 + 1];
                 for (size_t i(0); i != length; ++i)
                     sprintf(string + i * 2, "%.2X", bytes[length - i - 1]);
-                ChipID_ = [[NSString alloc] initWithUTF8String:string];
+                ChipID_ = [NSString stringWithUTF8String:string];
                 CFRelease(ecid);
             }
 

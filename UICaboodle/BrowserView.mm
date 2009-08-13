@@ -10,6 +10,8 @@ extern NSString * const kCAFilterNearest;
 
 #include "substrate.h"
 
+#define ForSaurik 1
+
 static CFArrayRef (*$GSSystemCopyCapability)(CFStringRef);
 static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
@@ -214,7 +216,7 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 #endif
 
 #define ShowInternals 0
-#define LogBrowser 0
+#define LogBrowser 1
 
 #define lprintf(args...) fprintf(stderr, args)
 
@@ -968,8 +970,8 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 }
 
 - (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    if ([loading_ count] == 0)
-        [self retain];
+    /*if ([loading_ count] == 0)
+        [self retain];*/
     [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
@@ -1033,8 +1035,8 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 
 - (void) _finishLoading {
     size_t count([loading_ count]);
-    if (count == 0)
-        [self autorelease];
+    /*if (count == 0)
+        [self autorelease];*/
     if (reloading_ || count != 0)
         return;
     if (finish_ != nil)
@@ -1125,8 +1127,9 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 }
 
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    if ([frame parentFrame] == nil)
-        [self autorelease];
+    _trace();
+    /*if ([frame parentFrame] == nil)
+        [self autorelease];*/
 
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
     [self _finishLoading];

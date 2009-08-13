@@ -3817,11 +3817,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ];
 
         if (Safari_ != nil)
-            application = [NSString stringWithFormat:@"Safari/%@ %@", application, Safari_];
+            application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];
         if (Build_ != nil)
-            application = [NSString stringWithFormat:@"Mobile/%@ %@", application, Build_];
+            application = [NSString stringWithFormat:@"Mobile/%@ %@", Build_, application];
         if (Product_ != nil)
-            application = [NSString stringWithFormat:@"Version/%@ %@", application, Product_];
+            application = [NSString stringWithFormat:@"Version/%@ %@", Product_, application];
 
         [webview setApplicationNameForUserAgent:application];
     } return self;

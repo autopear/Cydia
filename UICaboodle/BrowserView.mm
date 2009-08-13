@@ -1171,7 +1171,7 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 }
 
 - (void) setViewportWidth:(float)width {
-    width_ = width ? width != 0 : [[self class] defaultWidth];
+    width_ = width != 0 ? width : [[self class] defaultWidth];
     [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 }
 

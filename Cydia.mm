@@ -3810,17 +3810,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         WebView *webview([webview_ webView]);
 
         Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
+
         NSString *application = package == nil ? @"Cydia" : [NSString
             stringWithFormat:@"Cydia/%@",
             [package installed]
         ];
 
-        if (Product_ != nil)
-            application = [NSString stringWithFormat:@"%@ Version/%@", application, Product_];
-        if (Build_ != nil)
-            application = [NSString stringWithFormat:@"%@ Mobile/%@", application, Build_];
         if (Safari_ != nil)
-            application = [NSString stringWithFormat:@"%@ Safari/%@", application, Safari_];
+            application = [NSString stringWithFormat:@"Safari/%@ %@", application, Safari_];
+        if (Build_ != nil)
+            application = [NSString stringWithFormat:@"Mobile/%@ %@", application, Build_];
+        if (Product_ != nil)
+            application = [NSString stringWithFormat:@"Version/%@ %@", application, Product_];
 
         [webview setApplicationNameForUserAgent:application];
     } return self;

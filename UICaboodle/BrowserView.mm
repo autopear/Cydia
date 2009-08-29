@@ -144,77 +144,6 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
 @end
 
-#if 0
-/* Mail Composition {{{ */
-@interface MailToView : PopUpView {
-    MailComposeController *controller_;
-}
-
-- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url;
-
-@end
-
-@implementation MailToView
-
-- (void) dealloc {
-    [controller_ release];
-    [super dealloc];
-}
-
-- (void) mailComposeControllerWillAttemptToSend:(MailComposeController *)controller {
-    NSLog(@"will");
-}
-
-- (void) mailComposeControllerDidAttemptToSend:(MailComposeController *)controller mailDelivery:(id)delivery {
-    NSLog(@"did:%@", delivery);
-// [UIApp setStatusBarShowsProgress:NO];
-if ([controller error]){
-NSArray *buttons = [NSArray arrayWithObjects:UCLocalize("OK"), nil];
-UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize("ERROR") buttons:buttons defaultButtonIndex:0 delegate:self context:self];
-[mailAlertSheet setBodyText:[controller error]];
-[mailAlertSheet popupAlertAnimated:YES];
-}
-}
-
-- (void) showError {
-    NSLog(@"%@", [controller_ error]);
-    NSArray *buttons = [NSArray arrayWithObjects:UCLocalize("OK"), nil];
-    UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize("ERROR") buttons:buttons defaultButtonIndex:0 delegate:self context:self];
-    [mailAlertSheet setBodyText:[controller_ error]];
-    [mailAlertSheet popupAlertAnimated:YES];
-}
-
-- (void) deliverMessage { _pooled
-    setuid(501);
-    setgid(501);
-
-    if (![controller_ deliverMessage])
-        [self performSelectorOnMainThread:@selector(showError) withObject:nil waitUntilDone:NO];
-}
-
-- (void) mailComposeControllerCompositionFinished:(MailComposeController *)controller {
-    if ([controller_ needsDelivery])
-        [NSThread detachNewThreadSelector:@selector(deliverMessage) toTarget:self withObject:nil];
-    else
-        [self cancel];
-}
-
-- (id) initWithView:(UIView *)view delegate:(id)delegate url:(NSURL *)url {
-    if ((self = [super initWithView:view delegate:delegate]) != nil) {
-        controller_ = [[MailComposeController alloc] initForContentSize:[overlay_ bounds].size];
-        [controller_ setDelegate:self];
-        [controller_ initializeUI];
-        [controller_ setupForURL:url];
-
-        UIView *view([controller_ view]);
-        [overlay_ addSubview:view];
-    } return self;
-}
-
-@end
-/* }}} */
-#endif
-
 #define ShowInternals 0
 #define LogBrowser 1
 
@@ -608,12 +537,7 @@ UIActionSheet *mailAlertSheet = [[UIActionSheet alloc] initWithTitle:UCLocalize(
 }
 
 - (void) _openMailToURL:(NSURL *)url {
-// XXX: this makes me sad
-#if 0
-    [[[MailToView alloc] initWithView:underlay_ delegate:self url:url] autorelease];
-#else
     [UIApp openURL:url];// asPanel:YES];
-#endif
 }
 
 - (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {

@@ -44,7 +44,6 @@
 #import "UICaboodle/UCPlatform.h"
 #import "UICaboodle/UCLocalize.h"
 
-#include <objc/message.h>
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
@@ -322,22 +321,6 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive | kCFCompareNonliteral | kCFCompareLocalized | kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
-
-/* iPhoneOS 2.0 Compatibility {{{ */
-#ifdef __OBJC2__
-@interface UITextView (iPhoneOS)
-- (void) setTextSize:(float)size;
-@end
-
-@implementation UITextView (iPhoneOS)
-
-- (void) setTextSize:(float)size {
-    [self setFont:[[self font] fontWithSize:size]];
-}
-
-@end
-#endif
-/* }}} */
 
 /* Information Dictionaries {{{ */
 @interface NSMutableArray (Cydia)
@@ -1030,6 +1013,9 @@ static const int PulseInterval_ = 50000;
 static const int ButtonBarHeight_ = 48;
 static const float KeyboardTime_ = 0.3f;
 
+static int Finish_;
+static NSArray *Finishes_;
+
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
 #define NotifyConfig_ "/etc/notify.conf"
 
@@ -1070,12 +1056,11 @@ static const NSString *Build_ = nil;
 static const NSString *Product_ = nil;
 static const NSString *Safari_ = nil;
 
-CFLocaleRef Locale_;
-NSArray *Languages_;
-CGColorSpaceRef space_;
+static CFLocaleRef Locale_;
+static NSArray *Languages_;
+static CGColorSpaceRef space_;
 
-bool bootstrap_;
-bool reload_;
+static bool reload_;
 
 static NSDictionary *SectionMap_;
 static NSMutableDictionary *Metadata_;
@@ -1090,21 +1075,8 @@ static NSDate *now_;
 #if RecycleWebViews
 static NSMutableArray *Documents_;
 #endif
-
-NSString *GetLastUpdate() {
-    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
-
-    if (update == nil)
-        return UCLocalize("NEVER_OR_UNKNOWN");
-
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
-
-    CFRelease(formatter);
-
-    return [(NSString *) formatted autorelease];
-}
 /* }}} */
+
 /* Display Helpers {{{ */
 inline float Interpolate(float begin, float end, float fraction) {
     return (end - begin) * fraction + begin;
@@ -1182,14 +1154,25 @@ NSString *Simplify(NSString *title) {
 }
 /* }}} */
 
+NSString *GetLastUpdate() {
+    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
+
+    if (update == nil)
+        return UCLocalize("NEVER_OR_UNKNOWN");
+
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
+
+    CFRelease(formatter);
+
+    return [(NSString *) formatted autorelease];
+}
+
 bool isSectionVisible(NSString *section) {
     NSDictionary *metadata([Sections_ objectForKey:section]);
     NSNumber *hidden(metadata == nil ? nil : [metadata objectForKey:@"Hidden"]);
     return hidden == nil || ![hidden boolValue];
 }
-
-static int Finish_;
-static NSArray *Finishes_;
 
 /* Delegate Prototypes {{{ */
 @class Package;
@@ -3485,58 +3468,6 @@ struct PackageNameOrdering :
 @end
 /* }}} */
 
-/* PopUp Windows {{{ */
-@interface PopUpView : UIView {
-    _transient id delegate_;
-    UITransitionView *transition_;
-    UIView *overlay_;
-}
-
-- (void) cancel;
-- (id) initWithView:(UIView *)view delegate:(id)delegate;
-
-@end
-
-@implementation PopUpView
-
-- (void) dealloc {
-    [transition_ setDelegate:nil];
-    [transition_ release];
-    [overlay_ release];
-    [super dealloc];
-}
-
-- (void) cancel {
-    [transition_ transition:UITransitionPushFromTop toView:nil];
-}
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
-    if (from != nil && to == nil)
-        [self removeFromSuperview];
-}
-
-- (id) initWithView:(UIView *)view delegate:(id)delegate {
-    if ((self = [super initWithFrame:[view bounds]]) != nil) {
-        delegate_ = delegate;
-
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [self addSubview:transition_];
-
-        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-
-        [view addSubview:self];
-
-        [transition_ setDelegate:self];
-
-        UIView *blank = [[[UIView alloc] initWithFrame:[transition_ bounds]] autorelease];
-        [transition_ transition:UITransitionNone toView:blank];
-        [transition_ transition:UITransitionPushFromBottom toView:overlay_];
-    } return self;
-}
-
-@end
-/* }}} */
-
 /* Confirmation View {{{ */
 bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!iterator.end())
@@ -3939,7 +3870,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         if (!remove)
             essential_ = nil;
-        else if (Advanced_ || true) {
+        else if (Advanced_) {
             NSString *parenthetical(UCLocalize("PARENTHETICAL"));
 
             essential_ = [[UIActionSheet alloc]
@@ -3953,9 +3884,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 context:@"remove"
             ];
 
-#ifndef __OBJC2__
-            [essential_ setDestructiveButton:[[essential_ buttons] objectAtIndex:0]];
-#endif
+            [essential_ setDestructiveButtonIndex:1];
             [essential_ setBodyText:UCLocalize("REMOVING_ESSENTIALS_EX")];
         } else {
             essential_ = [[UIActionSheet alloc]
@@ -4090,10 +4019,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL running_;
     SHA1SumValue springlist_;
     SHA1SumValue notifyconf_;
-    SHA1SumValue sandplate_;
 }
-
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to;
 
 - (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate;
 - (void) setContentView:(UIView *)view;
@@ -4130,11 +4056,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (void) transitionViewDidComplete:(UITransitionView*)view fromView:(UIView*)from toView:(UIView*)to {
-    if (bootstrap_ && from == overlay_ && to == view_)
-        exit(0);
-}
-
 - (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate {
     if ((self = [super initWithFrame:frame]) != nil) {
         database_ = database;
@@ -4145,13 +4066,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
 
-        if (bootstrap_)
-            [overlay_ setBackgroundColor:[UIColor blackColor]];
-        else {
-            background_ = [[UIView alloc] initWithFrame:[self bounds]];
-            [background_ setBackgroundColor:[UIColor blackColor]];
-            [self addSubview:background_];
-        }
+        background_ = [[UIView alloc] initWithFrame:[self bounds]];
+        [background_ setBackgroundColor:[UIColor blackColor]];
+        [self addSubview:background_];
 
         [self addSubview:transition_];
 
@@ -4190,7 +4107,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [status_ setCentersHorizontally:YES];
         //[status_ setFont:font];
-        _trace();
 
         output_ = [[UITextView alloc] initWithFrame:CGRectMake(
             10,
@@ -4198,10 +4114,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             bounds.size.width - 20,
             bounds.size.height - navsize.height - 62 - navrect.size.height
         )];
-        _trace();
 
         //[output_ setTextFont:@"Courier New"];
-        [output_ setTextSize:12];
+        [output_ setFont:[[output_ font] fontWithSize:12]];
 
         [output_ setTextColor:[UIColor whiteColor]];
         [output_ setBackgroundColor:[UIColor clearColor]];
@@ -6349,10 +6264,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         CGRect prmrect = {{
             indoffset * 2 + indsize.width,
-#ifdef __OBJC2__
-            -1 +
-#endif
-            unsigned(ovrrect.size.height - prmsize.height) / 2
+            unsigned(ovrrect.size.height - prmsize.height) / 2 - 1
         }, prmsize};
 
         UIFont *font = [UIFont systemFontOfSize:15];
@@ -7025,11 +6937,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface SearchView : RVPage {
     UIView *accessory_;
     UISearchField *field_;
-    UITransitionView *transition_;
     FilteredPackageTable *table_;
-    UIPreferencesTable *advanced_;
     UIView *dimmed_;
-    bool flipped_;
     bool reload_;
 }
 
@@ -7045,31 +6954,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [accessory_ release];
     [field_ release];
-    [transition_ release];
     [table_ release];
-    [advanced_ release];
     [dimmed_ release];
     [super dealloc];
-}
-
-- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
-    return 1;
-}
-
-- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
-    switch (group) {
-        case 0: return [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("ADVANCED_SEARCH"), UCLocalize("COMING_SOON")];
-
-        default: _assert(false);
-    }
-}
-
-- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
-    switch (group) {
-        case 0: return 0;
-
-        default: _assert(false);
-    }
 }
 
 - (void) _showKeyboard:(BOOL)show {
@@ -7144,15 +7031,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithBook:book]) != nil) {
         CGRect pageBounds = [book_ pageBounds];
 
-        transition_ = [[UITransitionView alloc] initWithFrame:pageBounds];
-        [self addSubview:transition_];
-
-        advanced_ = [[UIPreferencesTable alloc] initWithFrame:pageBounds];
-
-        [advanced_ setReusesTableCells:YES];
-        [advanced_ setDataSource:self];
-        [advanced_ reloadData];
-
         dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
         CGColor dimmed(space_, 0, 0, 0, 0.5);
         [dimmed_ setBackgroundColor:[UIColor colorWithCGColor:dimmed]];
@@ -7166,24 +7044,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ];
 
         [table_ setShouldHideHeaderInShortLists:NO];
-        [transition_ transition:0 toView:table_];
+        [self addSubview:table_];
 
-        CGRect cnfrect = {{
-#ifdef __OBJC2__
-        6 +
-#endif
-        1, 38}, {17, 18}};
+        CGRect cnfrect = {{7, 38}, {17, 18}};
 
         CGRect area;
-        area.origin.x = /*cnfrect.origin.x + cnfrect.size.width + 4 +*/ 10;
+
+        area.origin.x = 10;
         area.origin.y = 1;
 
-        area.size.width =
-#ifdef __OBJC2__
-            8 +
-#endif
-            [self bounds].size.width - area.origin.x - 18;
-
+        area.size.width = [self bounds].size.width - area.origin.x * 2;
         area.size.height = [UISearchField defaultHeight];
 
         field_ = [[UISearchField alloc] initWithFrame:area];
@@ -7206,41 +7076,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         accessory_ = [[UIView alloc] initWithFrame:accrect];
         [accessory_ addSubview:field_];
 
-        /*UIPushButton *configure = [[[UIPushButton alloc] initWithFrame:cnfrect] autorelease];
-        [configure setShowPressFeedback:YES];
-        [configure setImage:[UIImage applicationImageNamed:@"advanced.png"]];
-        [configure addTarget:self action:@selector(configurePushed) forEvents:1];
-        [accessory_ addSubview:configure];*/
-
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
         [table_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
     } return self;
 }
 
-- (void) flipPage {
-#ifndef __OBJC2__
-    LKAnimation *animation = [LKTransition animation];
-    [animation setType:@"oglFlip"];
-    [animation setTimingFunction:[LKTimingFunction functionWithName:@"easeInEaseOut"]];
-    [animation setFillMode:@"extended"];
-    [animation setTransitionFlags:3];
-    [animation setDuration:10];
-    [animation setSpeed:0.35];
-    [animation setSubtype:(flipped_ ? @"fromLeft" : @"fromRight")];
-    [[transition_ _layer] addAnimation:animation forKey:0];
-    [transition_ transition:0 toView:(flipped_ ? (UIView *) table_ : (UIView *) advanced_)];
-    flipped_ = !flipped_;
-#endif
-}
-
-- (void) configurePushed {
-    [field_ resignFirstResponder];
-    [self flipPage];
-}
-
 - (void) resetViewAnimated:(BOOL)animated {
-    if (flipped_)
-        [self flipPage];
     [table_ resetViewAnimated:animated];
 }
 
@@ -7248,8 +7089,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
-    if (flipped_)
-        [self flipPage];
     [table_ setObject:[field_ text]];
     _profile(SearchView$reloadData)
         [table_ reloadData];
@@ -7833,23 +7672,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) bootstrap_ {
-    [database_ update];
-    [database_ upgrade];
-    [database_ prepare];
-    [database_ perform];
-}
-
-/* XXX: replace and localize */
-- (void) bootstrap {
-    [progress_
-        detachNewThreadSelector:@selector(bootstrap_)
-        toTarget:self
-        withObject:nil
-        title:@"Bootstrap Install"
-    ];
-}
-
 - (void) progressViewIsComplete:(ProgressView *)progress {
     if (confirm_ != nil) {
         [underlay_ addSubview:overlay_];
@@ -8080,8 +7902,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
     [overlay_ addSubview:keyboard_];
 
-    if (!bootstrap_)
-        [underlay_ addSubview:overlay_];
+    [underlay_ addSubview:overlay_];
 
     [self reloadData];
 
@@ -8102,10 +7923,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     PrintTimes();
 
-    if (bootstrap_)
-        [self bootstrap];
-    else
-        [self _setHomePage];
+    [self _setHomePage];
 }
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
@@ -8404,12 +8222,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) showKeyboard:(BOOL)show {
-    CGSize keysize = [UIKeyboard defaultSize];
+    CGSize keysize([UIKeyboard defaultSize]);
     CGRect keydown = {{0, [overlay_ bounds].size.height}, keysize};
-    CGRect keyup = keydown;
+    CGRect keyup(keydown);
     keyup.origin.y -= keysize.height;
 
-    UIFrameAnimation *animation = [[[UIFrameAnimation alloc] initWithTarget:keyboard_] autorelease];
+    UIFrameAnimation *animation([[[UIFrameAnimation alloc] initWithTarget:keyboard_] autorelease]);
     [animation setSignificantRectFields:2];
 
     if (show) {
@@ -8430,49 +8248,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) slideUp:(UIActionSheet *)alert {
-    if (Advanced_)
-        [alert presentSheetFromButtonBar:buttonbar_];
-    else
-        [alert presentSheetInView:overlay_];
+    [alert presentSheetInView:overlay_];
 }
 
 @end
-
-void AddPreferences(NSString *plist) { _pooled
-    NSMutableDictionary *settings = [[[NSMutableDictionary alloc] initWithContentsOfFile:plist] autorelease];
-    _assert(settings != NULL);
-    NSMutableArray *items = [settings objectForKey:@"items"];
-
-    bool cydia(false);
-
-    for (NSMutableDictionary *item in items) {
-        NSString *label = [item objectForKey:@"label"];
-        if (label != nil && [label isEqualToString:@"Cydia"]) {
-            cydia = true;
-            break;
-        }
-    }
-
-    if (!cydia) {
-        for (size_t i(0); i != [items count]; ++i) {
-            NSDictionary *item([items objectAtIndex:i]);
-            NSString *label = [item objectForKey:@"label"];
-            if (label != nil && [label isEqualToString:@"General"]) {
-                [items insertObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                    @"CydiaSettings", @"bundle",
-                    @"PSLinkCell", @"cell",
-                    [NSNumber numberWithBool:YES], @"hasIcon",
-                    [NSNumber numberWithBool:YES], @"isController",
-                    @"Cydia", @"label",
-                nil] atIndex:(i + 1)];
-
-                break;
-            }
-        }
-
-        _assert([settings writeToFile:plist atomically:YES] == YES);
-    }
-}
 
 /*IMP alloc_;
 id Alloc_(id self, SEL selector) {
@@ -8490,12 +8269,10 @@ id Dealloc_(id self, SEL selector) {
 
 Class $WebDefaultUIKitDelegate;
 
-void (*_UIWebDocumentView$_setUIKitDelegate$)(UIWebDocumentView *, SEL, id);
-
-void $UIWebDocumentView$_setUIKitDelegate$(UIWebDocumentView *self, SEL sel, id delegate) {
+MSHook(void, UIWebDocumentView$_setUIKitDelegate$, UIWebDocumentView *self, SEL _cmd, id delegate) {
     if (delegate == nil && $WebDefaultUIKitDelegate != nil)
         delegate = [$WebDefaultUIKitDelegate sharedUIKitDelegate];
-    return _UIWebDocumentView$_setUIKitDelegate$(self, sel, delegate);
+    return _UIWebDocumentView$_setUIKitDelegate$(self, _cmd, delegate);
 }
 
 int main(int argc, char *argv[]) { _pooled
@@ -8528,8 +8305,7 @@ int main(int argc, char *argv[]) { _pooled
     NSLog(@"Setting Language: %s", lang);
     /* }}} */
 
-    // XXX: apr_app_initialize?
-    apr_initialize();
+    apr_app_initialize(&argc, const_cast<const char * const **>(&argv), NULL);
 
     /* Parse Arguments {{{ */
     bool substrate(false);
@@ -8548,9 +8324,7 @@ int main(int argc, char *argv[]) { _pooled
             }
 
         for (int argi(1); argi != arge; ++argi)
-            if (strcmp(args[argi], "--bootstrap") == 0)
-                bootstrap_ = true;
-            else if (strcmp(args[argi], "--substrate") == 0)
+            if (strcmp(args[argi], "--substrate") == 0)
                 substrate = true;
             else
                 fprintf(stderr, "unknown argument: %s\n", args[argi]);
@@ -8559,6 +8333,7 @@ int main(int argc, char *argv[]) { _pooled
 
     App_ = [[NSBundle mainBundle] bundlePath];
     Home_ = NSHomeDirectory();
+    Advanced_ = YES;
 
     setuid(0);
     setgid(0);
@@ -8571,6 +8346,7 @@ int main(int argc, char *argv[]) { _pooled
     dealloc_ = dealloc->method_imp;
     dealloc->method_imp = (IMP) &Dealloc_;*/
 
+    /* System Information {{{ */
     size_t size;
 
     int maxproc;
@@ -8628,10 +8404,7 @@ int main(int argc, char *argv[]) { _pooled
         Product_ = [info objectForKey:@"SafariProductVersion"];
         Safari_ = [info objectForKey:@"CFBundleVersion"];
     }
-
-    /*AddPreferences(@"/Applications/Preferences.app/Settings-iPhone.plist");
-    AddPreferences(@"/Applications/Preferences.app/Settings-iPod.plist");*/
-
+    /* }}} */
     /* Load Database {{{ */
     _trace();
     Metadata_ = [[[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"] autorelease];
@@ -8672,6 +8445,8 @@ int main(int argc, char *argv[]) { _pooled
     Documents_ = [[[NSMutableArray alloc] initWithCapacity:4] autorelease];
 #endif
 
+    Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
+
     if (substrate && access("/Applications/WinterBoard.app/WinterBoard.dylib", F_OK) == 0)
         dlopen("/Applications/WinterBoard.app/WinterBoard.dylib", RTLD_LAZY | RTLD_GLOBAL);
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
@@ -8700,8 +8475,6 @@ int main(int argc, char *argv[]) { _pooled
         if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
             _assert(errno == ENOENT);
     }
-
-    Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
     /* APT Initialization {{{ */
     _assert(pkgInitConfig(*_config));

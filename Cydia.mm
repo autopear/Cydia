@@ -7360,7 +7360,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIView *underlay_;
     UIView *overlay_;
     CYBook *book_;
-    UIToolbar *buttonbar_;
+    UIToolbar *toolbar_;
 
     RVBook *confirm_;
 
@@ -7490,17 +7490,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (changes != 0) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
-        [buttonbar_ setBadgeValue:badge forButton:3];
-        if ([buttonbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-            [buttonbar_ setBadgeAnimated:([essential_ count] != 0) forButton:3];
+        [toolbar_ setBadgeValue:badge forButton:3];
+        if ([toolbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
+            [toolbar_ setBadgeAnimated:([essential_ count] != 0) forButton:3];
         if ([self respondsToSelector:@selector(setApplicationBadge:)])
             [self setApplicationBadge:badge];
         else
             [self setApplicationBadgeString:badge];
     } else {
-        [buttonbar_ setBadgeValue:nil forButton:3];
-        if ([buttonbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-            [buttonbar_ setBadgeAnimated:NO forButton:3];
+        [toolbar_ setBadgeValue:nil forButton:3];
+        if ([toolbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
+            [toolbar_ setBadgeAnimated:NO forButton:3];
         if ([self respondsToSelector:@selector(removeApplicationBadge)])
             [self removeApplicationBadge];
         else // XXX: maybe use setApplicationBadgeString also?
@@ -7508,7 +7508,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     Queuing_ = false;
-    [buttonbar_ setBadgeValue:nil forButton:4];
+    [toolbar_ setBadgeValue:nil forButton:4];
 
     [self _updateData];
 
@@ -7871,7 +7871,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         nil],
     nil];
 
-    buttonbar_ = [[UIToolbar alloc]
+    toolbar_ = [[UIToolbar alloc]
         initInView:overlay_
         withFrame:CGRectMake(
             0, screenrect.size.height - ButtonBarHeight_,
@@ -7880,21 +7880,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withItemList:buttonitems
     ];
 
-    [buttonbar_ setDelegate:self];
-    [buttonbar_ setBarStyle:1];
-    [buttonbar_ setButtonBarTrackingMode:2];
+    [toolbar_ setDelegate:self];
+    [toolbar_ setBarStyle:1];
+    [toolbar_ setButtonBarTrackingMode:2];
 
     int buttons[5] = {1, 2, 3, 4, 5};
-    [buttonbar_ registerButtonGroup:0 withButtons:buttons withCount:5];
-    [buttonbar_ showButtonGroup:0 withDuration:0];
+    [toolbar_ registerButtonGroup:0 withButtons:buttons withCount:5];
+    [toolbar_ showButtonGroup:0 withDuration:0];
 
     for (int i = 0; i != 5; ++i)
-        [[buttonbar_ viewWithTag:(i + 1)] setFrame:CGRectMake(
+        [[toolbar_ viewWithTag:(i + 1)] setFrame:CGRectMake(
             i * 64 + 2, 1, 60, ButtonBarHeight_
         )];
 
-    [buttonbar_ showSelectionForButton:1];
-    [overlay_ addSubview:buttonbar_];
+    [toolbar_ showSelectionForButton:1];
+    [overlay_ addSubview:toolbar_];
 
     [UIKeyboard initImplementationNow];
     CGSize keysize = [UIKeyboard defaultSize];
@@ -7954,7 +7954,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [self _reloadData];
             else {
                 Queuing_ = true;
-                [buttonbar_ setBadgeValue:UCLocalize("Q_D") forButton:4];
+                [toolbar_ setBadgeValue:UCLocalize("Q_D") forButton:4];
                 [book_ reloadData];
             }
 
@@ -8156,7 +8156,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     int tag;
     if (RVPage *page = [self pageForURL:url hasTag:&tag]) {
         [self setPage:page];
-        [buttonbar_ showSelectionForButton:tag];
+        [toolbar_ showSelectionForButton:tag];
         tag_ = tag;
     }
 }

@@ -47,7 +47,8 @@
 "DONE" = "OK";
 "DOUBLE_QUOTED" = "« $@ »";
 "DOWNGRADE" = "Rétrograder";
-"DOWNLOADING" = "Téléchargement %@";
+"DOWNLOADING" = "Téléchargement";
+"DOWNLOADING_" = "Téléchargement %@";
 "EDIT" = "Éditer";
 "ENTER_APT_URL" = "Entrez une adresse Cydia/APT";
 "ENTERED_BY_USER" = "Entré par l'Utilisateur";
@@ -83,7 +84,6 @@
 "IGNORED_UPGRADES" = "Mises à Jour Ignorées";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Indentifiant du Paquet Illégal";
 "INSTALL" = "Installer";
-"INSTALL_BY_SECTION" = "Installer par Catégorie";
 "INSTALLED" = "Installé";
 "INSTALLED_BY_PACKAGE" = "Installer par Paquet";
 "INSTALLED_DETAILS" = "Paquet Installé";

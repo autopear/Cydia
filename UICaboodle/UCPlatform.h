@@ -46,3 +46,11 @@ while (false)
     __attribute__((packed))
 
 #define _finline inline __attribute__((always_inline))
+
+#define _assume(e) \
+    _assert(e)
+
+#define _nodefault \
+    default: \
+        _assume(false); \
+        throw;

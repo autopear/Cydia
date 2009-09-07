@@ -83,6 +83,6 @@ $(function () {
         ["Themes", "/Library/Themes/"],
         ["iTunes", "/var/mobile/Media/iTunes_Control/"],
         ["App Store", "/var/mobile/Applications/"],
-        ["Photos", "/var/mobile/Media/DCIM/"]
+        ["Camera", "/var/mobile/Media/DCIM/"]
     ]);
 });

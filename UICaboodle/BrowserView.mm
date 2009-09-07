@@ -10,7 +10,7 @@ extern NSString * const kCAFilterNearest;
 
 #include "substrate.h"
 
-#define ForSaurik 1
+#define ForSaurik 0
 
 static CFArrayRef (*$GSSystemCopyCapability)(CFStringRef);
 static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
@@ -145,7 +145,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 @end
 
 #define ShowInternals 0
-#define LogBrowser 1
+#define LogBrowser 0
 
 #define lprintf(args...) fprintf(stderr, args)
 
@@ -769,8 +769,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
                 [sender cancelAuthenticationChallenge:challenge_];
             break;
 
-            default:
-                _assert(false);
+            _nodefault
         }
 
         [challenge_ release];
@@ -790,8 +789,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
                 }
             break;
 
-            default:
-                _assert(false);
+            _nodefault
         }
 
         [sheet dismiss];

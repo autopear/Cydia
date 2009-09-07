@@ -250,6 +250,16 @@ void NSLogRect(const char *fix, const CGRect &rect) {
     NSLog(@"%s(%g,%g)+(%g,%g)", fix, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
 }
 
+static _finline NSString *CydiaURL(NSString *path) {
+    char page[25];
+    page[0] = 'h'; page[1] = 't'; page[2] = 't'; page[3] = 'p'; page[4] = ':';
+    page[5] = '/'; page[6] = '/'; page[7] = 'c'; page[8] = 'y'; page[9] = 'd';
+    page[10] = 'i'; page[11] = 'a'; page[12] = '.'; page[13] = 's'; page[14] = 'a';
+    page[15] = 'u'; page[16] = 'r'; page[17] = 'i'; page[18] = 'k'; page[19] = '.';
+    page[20] = 'c'; page[21] = 'o'; page[22] = 'm'; page[23] = '/'; page[24] = '\0';
+    return [[NSString stringWithUTF8String:page] stringByAppendingString:path];
+}
+
 /* [NSObject yieldToSelector:(withObject:)] {{{*/
 @interface NSObject (Cydia)
 - (id) yieldToSelector:(SEL)selector withObject:(id)object;
@@ -316,6 +326,35 @@ void NSLogRect(const char *fix, const CGRect &rect) {
 
 @end
 /* }}} */
+
+@interface CYActionSheet : UIActionSheet {
+    unsigned button_;
+}
+
+- (int) yieldToPopupAlertAnimated:(BOOL)animated;
+@end
+
+@implementation CYActionSheet
+
+- (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
+    if ((self = [super initWithTitle:title buttons:buttons defaultButtonIndex:index delegate:self context:nil]) != nil) {
+    } return self;
+}
+
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    button_ = button;
+}
+
+- (int) yieldToPopupAlertAnimated:(BOOL)animated {
+    button_ = 0;
+    [self popupAlertAnimated:animated];
+    NSRunLoop *loop([NSRunLoop currentRunLoop]);
+    NSDate *future([NSDate distantFuture]);
+    while (button_ == 0 && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
+    return button_;
+}
+
+@end
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
@@ -388,9 +427,9 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
 #define ForSaurik (0 && !ForRelease)
-#define LogBrowser (1 && !ForRelease)
+#define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
-#define ManualRefresh (1 && !ForRelease)
+#define ManualRefresh (0 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
@@ -1038,7 +1077,6 @@ static NSString *App_;
 static NSString *Home_;
 
 static BOOL Advanced_;
-static BOOL Loaded_;
 static BOOL Ignored_;
 
 static UIFont *Font12_;
@@ -1181,19 +1219,8 @@ bool isSectionVisible(NSString *section) {
 @interface NSObject (ProgressDelegate)
 @end
 
-@implementation NSObject(ProgressDelegate)
-
-- (void) _setProgressError:(NSArray *)args {
-    [self performSelector:@selector(setProgressError:forPackage:)
-        withObject:[args objectAtIndex:0]
-        withObject:([args count] == 1 ? nil : [args objectAtIndex:1])
-    ];
-}
-
-@end
-
 @protocol ProgressDelegate
-- (void) setProgressError:(NSString *)error forPackage:(NSString *)id;
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)id;
 - (void) setProgressTitle:(NSString *)title;
 - (void) setProgressPercent:(float)percent;
 - (void) startProgress;
@@ -1242,6 +1269,10 @@ class Status :
         delegate_ = delegate;
     }
 
+    NSObject<ProgressDelegate> *getDelegate() const {
+        return delegate_;
+    }
+
     virtual bool MediaChange(std::string media, std::string drive) {
         return false;
     }
@@ -1251,7 +1282,7 @@ class Status :
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
         //NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
-        [delegate_ setProgressTitle:[NSString stringWithFormat:UCLocalize("DOWNLOADING"), [NSString stringWithUTF8String:item.ShortDesc.c_str()]]];
+        [delegate_ setProgressTitle:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), [NSString stringWithUTF8String:item.ShortDesc.c_str()]]];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
@@ -1272,7 +1303,7 @@ class Status :
         NSArray *fields([description componentsSeparatedByString:@" "]);
         NSString *source([fields count] == 0 ? nil : [fields objectAtIndex:0]);
 
-        [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
+        [delegate_ performSelectorOnMainThread:@selector(_setProgressErrorPackage:)
             withObject:[NSArray arrayWithObjects:
                 [NSString stringWithUTF8String:error.c_str()],
                 source,
@@ -1311,10 +1342,10 @@ class Progress :
 
   protected:
     virtual void Update() {
-        if (abs(Percent - percent_) > 2) {
-            NSLog(@"%s:%s:%f", Op.c_str(), SubOp.c_str(), Percent);
+        /*if (abs(Percent - percent_) > 2)
+            //NSLog(@"%s:%s:%f", Op.c_str(), SubOp.c_str(), Percent);
             percent_ = Percent;
-        }
+        }*/
 
         /*[delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
         [delegate_ setProgressPercent:(Percent / 100)];*/
@@ -1331,8 +1362,12 @@ class Progress :
         delegate_ = delegate;
     }
 
+    id getDelegate() const {
+        return delegate_;
+    }
+
     virtual void Done() {
-        NSLog(@"DONE");
+        //NSLog(@"DONE");
         //[delegate_ setProgressPercent:1];
     }
 };
@@ -1390,17 +1425,49 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (void) reloadData;
 
 - (void) configure;
-- (void) prepare;
+- (bool) prepare;
 - (void) perform;
-- (void) upgrade;
+- (bool) upgrade;
 - (void) update;
 
 - (void) setVisible;
 
-- (NSString *) updateWithStatus:(Status &)status;
+- (void) updateWithStatus:(Status &)status;
 
 - (void) setDelegate:(id)delegate;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file;
+@end
+/* }}} */
+/* Delegate Helpers {{{ */
+@implementation NSObject(ProgressDelegate)
+
+- (void) _setProgressErrorPackage:(NSArray *)args {
+    [self performSelector:@selector(setProgressError:forPackage:)
+        withObject:[args objectAtIndex:0]
+        withObject:([args count] == 1 ? nil : [args objectAtIndex:1])
+    ];
+}
+
+- (void) _setProgressErrorTitle:(NSArray *)args {
+    [self performSelector:@selector(setProgressError:withTitle:)
+        withObject:[args objectAtIndex:0]
+        withObject:([args count] == 1 ? nil : [args objectAtIndex:1])
+    ];
+}
+
+- (void) _setProgressError:(NSString *)error withTitle:(NSString *)title {
+    [self performSelectorOnMainThread:@selector(_setProgressErrorTitle:)
+        withObject:[NSArray arrayWithObjects:error, title, nil]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
+    Package *package = id == nil ? nil : [[Database sharedInstance] packageWithName:id];
+    // XXX: holy typecast batman!
+    [(id<ProgressDelegate>)self setProgressError:error withTitle:(package == nil ? id : [package name])];
+}
+
 @end
 /* }}} */
 
@@ -1815,7 +1882,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (bool) isUnfilteredAndSearchedForBy:(NSString *)search;
 - (bool) isInstalledAndVisible:(NSNumber *)number;
-- (bool) isVisiblyUninstalledInSection:(NSString *)section;
+- (bool) isVisibleInSection:(NSString *)section;
 - (bool) isVisibleInSource:(Source *)source;
 
 @end
@@ -2416,11 +2483,9 @@ struct PackageNameOrdering :
                     return @"UPGRADE";
                 case 2:
                     return @"NEW_INSTALL";
-                default:
-                    _assert(false);
+                _nodefault
             }
-        default:
-            _assert(false);
+        _nodefault
     }
 }
 
@@ -2751,12 +2816,11 @@ struct PackageNameOrdering :
     return (![number boolValue] || [self visible]) && ![self uninstalled];
 }
 
-- (bool) isVisiblyUninstalledInSection:(NSString *)name {
+- (bool) isVisibleInSection:(NSString *)name {
     NSString *section = [self section];
 
     return
-        [self visible] &&
-        [self uninstalled] && (
+        [self visible] && (
             name == nil ||
             section == nil && [name length] == 0 ||
             [name isEqualToString:section]
@@ -2888,6 +2952,10 @@ struct PackageNameOrdering :
 @end
 /* }}} */
 
+static NSString *Colon_;
+static NSString *Error_;
+static NSString *Warning_;
+
 /* Database Implementation {{{ */
 @implementation Database
 
@@ -2930,7 +2998,7 @@ struct PackageNameOrdering :
         }
     }
 
-    _assert(false);
+    _assume(false);
 }
 
 - (void) _readStatus:(NSNumber *)fd { _pooled
@@ -2943,7 +3011,7 @@ struct PackageNameOrdering :
 
     while (std::getline(is, line)) {
         const char *data(line.c_str());
-        size_t size = line.size();
+        size_t size(line.size());
         lprintf("S:%s\n", data);
 
         if (conffile_r(data, size)) {
@@ -2961,7 +3029,7 @@ struct PackageNameOrdering :
             NSString *string = pmstatus_r[4];
 
             if (type == "pmerror")
-                [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
+                [delegate_ performSelectorOnMainThread:@selector(_setProgressErrorPackage:)
                     withObject:[NSArray arrayWithObjects:string, id, nil]
                     waitUntilDone:YES
                 ];
@@ -2969,11 +3037,13 @@ struct PackageNameOrdering :
                 [delegate_ setProgressTitle:string];
             } else if (type == "pmconffile")
                 [delegate_ setConfigurationData:string];
-            else _assert(false);
-        } else _assert(false);
+            else
+                lprintf("E:unknown pmstatus\n");
+        } else
+            lprintf("E:unknown status\n");
     }
 
-    _assert(false);
+    _assume(false);
 }
 
 - (void) _readOutput:(NSNumber *)fd { _pooled
@@ -2986,7 +3056,7 @@ struct PackageNameOrdering :
         [delegate_ addProgressOutput:[NSString stringWithUTF8String:line.c_str()]];
     }
 
-    _assert(false);
+    _assume(false);
 }
 
 - (FILE *) input {
@@ -3156,9 +3226,40 @@ struct PackageNameOrdering :
     return issues;
 }
 
+- (bool) popErrorWithTitle:(NSString *)title {
+    bool fatal(false);
+    std::string message;
+
+    while (!_error->empty()) {
+        std::string error;
+        bool warning(!_error->PopMessage(error));
+        if (!warning)
+            fatal = true;
+        for (;;) {
+            size_t size(error.size());
+            if (size == 0 || error[size - 1] != '\n')
+                break;
+            error.resize(size - 1);
+        }
+        lprintf("%c:[%s]\n", warning ? 'W' : 'E', error.c_str());
+
+        if (!message.empty())
+            message += "\n\n";
+        message += error;
+    }
+
+    if (!message.empty())
+        [delegate_ _setProgressError:[NSString stringWithUTF8String:message.c_str()] withTitle:[NSString stringWithFormat:Colon_, fatal ? Error_ : Warning_, title]];
+
+    return fatal;
+}
+
+- (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success {
+    return [self popErrorWithTitle:title] || !success;
+}
+
 - (void) reloadData { _pooled
 @synchronized ([Database class]) {
-
     @synchronized (self) {
         ++era_;
     }
@@ -3196,12 +3297,12 @@ struct PackageNameOrdering :
     if (chk != -1)
         close(chk);
 
+    NSString *title(UCLocalize("DATABASE"));
+
     _trace();
-    if (!cache_.Open(progress_, true)) {
+    if (!cache_.Open(progress_, true)) { pop:
         std::string error;
-        if (!_error->PopMessage(error))
-            _assert(false);
-        _error->Discard();
+        bool warning(!_error->PopMessage(error));
         lprintf("cache_.Open():[%s]\n", error.c_str());
 
         if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
@@ -3211,8 +3312,12 @@ struct PackageNameOrdering :
         // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
         // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
         // else if (error == "The list of sources could not be read.")
-        else _assert(false);
+        else
+            [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, warning ? Warning_ : Error_, title]];
 
+        if (warning)
+            goto pop;
+        _error->Discard();
         return;
     }
     _trace();
@@ -3228,15 +3333,28 @@ struct PackageNameOrdering :
     lock_ = NULL;
 
     list_ = new pkgSourceList();
-    _assert(list_->ReadMainList());
+    if ([self popErrorWithTitle:title forOperation:list_->ReadMainList()])
+        return;
 
-    _assert(cache_->DelCount() == 0 && cache_->InstCount() == 0);
-    _assert(pkgApplyStatus(cache_));
+    if (cache_->DelCount() != 0 || cache_->InstCount() != 0) {
+        [delegate_ _setProgressError:@"COUNTS_NONZERO_EX" withTitle:title];
+        return;
+    }
+
+    if ([self popErrorWithTitle:title forOperation:pkgApplyStatus(cache_)])
+        return;
 
     if (cache_->BrokenCount() != 0) {
-        _assert(pkgFixBroken(cache_));
-        _assert(cache_->BrokenCount() == 0);
-        _assert(pkgMinimizeUpgrade(cache_));
+        if ([self popErrorWithTitle:title forOperation:pkgFixBroken(cache_)])
+            return;
+
+        if (cache_->BrokenCount() != 0) {
+            [delegate_ _setProgressError:@"STILL_BROKEN_EX" withTitle:title];
+            return;
+        }
+
+        if ([self popErrorWithTitle:title forOperation:pkgMinimizeUpgrade(cache_)])
+            return;
     }
 
     _trace();
@@ -3304,13 +3422,18 @@ struct PackageNameOrdering :
     system([dpkg UTF8String]);
 }
 
-- (void) clean {
+- (bool) clean {
+    // XXX: I don't remember this condition
     if (lock_ != NULL)
-        return;
+        return false;
 
     FileFd Lock;
     Lock.Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
-    _assert(!_error->PendingError());
+
+    NSString *title(UCLocalize("CLEAN_ARCHIVES"));
+
+    if ([self popErrorWithTitle:title])
+        return false;
 
     pkgAcquire fetcher;
     fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
@@ -3324,35 +3447,43 @@ struct PackageNameOrdering :
         }
     } cleaner;
 
-    if (!cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)) {
-        std::string error;
-        while (_error->PopMessage(error))
-            lprintf("ArchiveCleaner: %s\n", error.c_str());
-    }
+    if ([self popErrorWithTitle:title forOperation:cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
+        return false;
+
+    return true;
 }
 
-- (void) prepare {
+- (bool) prepare {
     fetcher_->Shutdown();
 
     pkgRecords records(cache_);
 
     lock_ = new FileFd();
     lock_->Fd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"));
-    _assert(!_error->PendingError());
+
+    NSString *title(UCLocalize("PREPARE_ARCHIVES"));
+
+    if ([self popErrorWithTitle:title])
+        return false;
 
     pkgSourceList list;
-    // XXX: explain this with an error message
-    _assert(list.ReadMainList());
+    if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+        return false;
 
     manager_ = (_system->CreatePM(cache_));
-    _assert(manager_->GetArchives(fetcher_, &list, &records));
-    _assert(!_error->PendingError());
+    if ([self popErrorWithTitle:title forOperation:manager_->GetArchives(fetcher_, &list, &records)])
+        return false;
+
+    return true;
 }
 
 - (void) perform {
+    NSString *title(UCLocalize("PERFORM_SELECTIONS"));
+
     NSMutableArray *before = [NSMutableArray arrayWithCapacity:16]; {
         pkgSourceList list;
-        _assert(list.ReadMainList());
+        if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+            return;
         for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
             [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
     }
@@ -3375,7 +3506,7 @@ struct PackageNameOrdering :
         lprintf("pAf:%s:%s\n", uri.c_str(), error.c_str());
         failed = true;
 
-        [delegate_ performSelectorOnMainThread:@selector(_setProgressError:)
+        [delegate_ performSelectorOnMainThread:@selector(_setProgressErrorPackage:)
             withObject:[NSArray arrayWithObjects:
                 [NSString stringWithUTF8String:error.c_str()],
             nil]
@@ -3408,7 +3539,8 @@ struct PackageNameOrdering :
 
     NSMutableArray *after = [NSMutableArray arrayWithCapacity:16]; {
         pkgSourceList list;
-        _assert(list.ReadMainList());
+        if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+            return;
         for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
             [after addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
     }
@@ -3417,8 +3549,11 @@ struct PackageNameOrdering :
         [self update];
 }
 
-- (void) upgrade {
-    _assert(pkgDistUpgrade(cache_));
+- (bool) upgrade {
+    NSString *title(UCLocalize("UPGRADE"));
+    if ([self popErrorWithTitle:title forOperation:pkgDistUpgrade(cache_)])
+        return false;
+    return true;
 }
 
 - (void) update {
@@ -3430,28 +3565,24 @@ struct PackageNameOrdering :
         [package setVisible];
 }
 
-- (NSString *) updateWithStatus:(Status &)status {
+- (void) updateWithStatus:(Status &)status {
+    _transient NSObject<ProgressDelegate> *delegate(status.getDelegate());
+    NSString *title(UCLocalize("REFRESHING_DATA"));
+
     pkgSourceList list;
-    _assert(list.ReadMainList());
+    if (!list.ReadMainList())
+        [delegate _setProgressError:@"Unable to read source list." withTitle:title];
 
     FileFd lock;
     lock.Fd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"));
+    if ([self popErrorWithTitle:title])
+        return;
 
-    if (_error->PendingError()) error: {
-        std::string error;
-        if (!_error->PopMessage(error))
-            _assert(false);
-        _error->Discard();
-        return [NSString stringWithUTF8String:error.c_str()];
-    }
-
-    if (!ListUpdate(status, list, PulseInterval_))
-        goto error;
+    if ([self popErrorWithTitle:title forOperation:ListUpdate(status, list, PulseInterval_)])
+        return;
 
     [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
     Changed_ = true;
-
-    return nil;
 }
 
 - (void) setDelegate:(id)delegate {
@@ -3809,8 +3940,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     Finish_ = 2;
                 [delegate_ confirm];
                 break;
-            default:
-                _assert(false);
+            _nodefault
         }
 
         [sheet dismiss];
@@ -4019,6 +4149,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL running_;
     SHA1SumValue springlist_;
     SHA1SumValue notifyconf_;
+    NSString *title_;
 }
 
 - (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate;
@@ -4053,6 +4184,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [output_ release];
     [status_ release];
     [close_ release];
+    if (title_ != nil)
+        [title_ release];
     [super dealloc];
 }
 
@@ -4156,26 +4289,63 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [transition_ transition:6 toView:view_];
 }
 
-- (void) _checkError {
-    if (_error->PendingError()) {
-        std::string error;
-        if (!_error->PopMessage(error))
-            _assert(false);
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    NSString *context([sheet context]);
 
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:UCLocalize("ERROR")
-            buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
-            defaultButtonIndex:0
-            delegate:self
-            context:@"_error"
-        ] autorelease];
+    if ([context isEqualToString:@"conffile"]) {
+        FILE *input = [database_ input];
 
-        [sheet setBodyText:[NSString stringWithUTF8String:error.c_str()]];
-        [sheet popupAlertAnimated:YES];
+        switch (button) {
+            case 1:
+                fprintf(input, "N\n");
+                fflush(input);
+                break;
+            case 2:
+                fprintf(input, "Y\n");
+                fflush(input);
+                break;
+            _nodefault
+        }
 
-        return;
+        [sheet dismiss];
     }
+}
 
+- (void) closeButtonPushed {
+    running_ = NO;
+
+    switch (Finish_) {
+        case 0:
+            [self resetView];
+        break;
+
+        case 1:
+            [delegate_ suspendWithAnimation:YES];
+        break;
+
+        case 2:
+            system("launchctl stop com.apple.SpringBoard");
+        break;
+
+        case 3:
+            system("launchctl unload "SpringBoard_"; launchctl load "SpringBoard_);
+        break;
+
+        case 4:
+            system("reboot");
+        break;
+    }
+}
+
+- (void) _retachThread {
+    UINavigationItem *item([navbar_ topItem]);
+    [item setTitle:UCLocalize("COMPLETE")];
+
+    [overlay_ addSubview:close_];
+    [progress_ removeFromSuperview];
+    [status_ removeFromSuperview];
+
+    [database_ popErrorWithTitle:title_];
     [delegate_ progressViewIsComplete:self];
 
     if (Finish_ < 4) {
@@ -4220,10 +4390,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (NSMutableDictionary *cache = [[NSMutableDictionary alloc] initWithContentsOfFile:@ListCache_]) {
         [cache autorelease];
 
-        NSFileManager *manager = [NSFileManager defaultManager];
-        NSError *error = nil;
+        NSFileManager *manager([NSFileManager defaultManager]);
+        NSError *error(nil);
 
-        id system = [cache objectForKey:@"System"];
+        id system([cache objectForKey:@"System"]);
         if (system == nil)
             goto error;
 
@@ -4265,71 +4435,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ setStatusBarShowsProgress:NO];
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
-
-    if ([context isEqualToString:@"error"])
-        [sheet dismiss];
-    else if ([context isEqualToString:@"_error"]) {
-        [sheet dismiss];
-        [self _checkError];
-    } else if ([context isEqualToString:@"conffile"]) {
-        FILE *input = [database_ input];
-
-        switch (button) {
-            case 1:
-                fprintf(input, "N\n");
-                fflush(input);
-                break;
-            case 2:
-                fprintf(input, "Y\n");
-                fflush(input);
-                break;
-            default:
-                _assert(false);
-        }
-
-        [sheet dismiss];
-    }
-}
-
-- (void) closeButtonPushed {
-    running_ = NO;
-
-    switch (Finish_) {
-        case 0:
-            [self resetView];
-        break;
-
-        case 1:
-            [delegate_ suspendWithAnimation:YES];
-        break;
-
-        case 2:
-            system("launchctl stop com.apple.SpringBoard");
-        break;
-
-        case 3:
-            system("launchctl unload "SpringBoard_"; launchctl load "SpringBoard_);
-        break;
-
-        case 4:
-            system("reboot");
-        break;
-    }
-}
-
-- (void) _retachThread {
-    UINavigationItem *item = [navbar_ topItem];
-    [item setTitle:UCLocalize("COMPLETE")];
-
-    [overlay_ addSubview:close_];
-    [progress_ removeFromSuperview];
-    [status_ removeFromSuperview];
-
-    [self _checkError];
-}
-
 - (void) _detachNewThreadData:(ProgressData *)data { _pooled
     [[data target] performSelector:[data selector] withObject:[data object]];
     [data release];
@@ -4338,8 +4443,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title {
-    UINavigationItem *item = [navbar_ topItem];
-    [item setTitle:title];
+    if (title_ != nil)
+        [title_ release];
+    if (title == nil)
+        title_ = nil;
+    else
+        title_ = [title retain];
+
+    UINavigationItem *item([navbar_ topItem]);
+    [item setTitle:title_];
 
     [status_ setText:nil];
     [output_ setText:@""];
@@ -4406,19 +4518,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
-    Package *package = id == nil ? nil : [database_ packageWithName:id];
-
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:(package == nil ? id : [package name])
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
+    CYActionSheet *sheet([[[CYActionSheet alloc]
+        initWithTitle:title
         buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
         defaultButtonIndex:0
-        delegate:self
-        context:@"error"
-    ] autorelease];
+    ] autorelease]);
 
     [sheet setBodyText:error];
-    [sheet popupAlertAnimated:YES];
+    [sheet yieldToPopupAlertAnimated:YES];
+    [sheet dismiss];
 }
 
 - (void) setProgressTitle:(NSString *)title {
@@ -4455,7 +4564,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _setConfigurationData:(NSString *)data {
     static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
-    _assert(conffile_r(data));
+    if (!conffile_r(data)) {
+        lprintf("E:invalid conffile\n");
+        return;
+    }
 
     NSString *ofile = conffile_r[1];
     //NSString *nfile = conffile_r[2];
@@ -4524,6 +4636,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ContentView *content_;
     BOOL faded_;
     float fade_;
+    UIImage *placard_;
 }
 
 - (PackageCell *) init;
@@ -4578,6 +4691,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (badge_ != nil) {
         [badge_ release];
         badge_ = nil;
+    }
+
+    if (placard_ != nil) {
+        [placard_ release];
+        placard_ = nil;
     }
 
     [package_ release];
@@ -4661,6 +4779,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ((badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]]) != nil)
             badge_ = [badge_ retain];
 
+    if ([package installed] != nil)
+        if ((placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/installed.png", App_]]) != nil)
+            placard_ = [placard_ retain];
+
     [self _setBackgroundColor];
     [content_ setNeedsDisplay];
 }
@@ -4701,12 +4823,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!selected)
         UISetColor(commercial_ ? Purple_ : Black_);
-    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:240 withFont:Font18Bold_ ellipsis:2];
+    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(placard_ == nil ? 240 : 214) withFont:Font18Bold_ ellipsis:2];
     [source_ drawAtPoint:CGPointMake(58, 29) forWidth:225 withFont:Font12_ ellipsis:2];
 
     if (!selected)
         UISetColor(commercial_ ? Purplish_ : Gray_);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:274 withFont:Font14_ ellipsis:2];
+
+    if (placard_ != nil)
+        [placard_ drawAtPoint:CGPointMake(268, 9)];
 }
 
 - (void) setSelected:(BOOL)selected animated:(BOOL)fade {
@@ -5042,8 +5167,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if !AlwaysReload
 - (void) __rightButtonClicked {
-    int count = [buttons_ count];
-    _assert(count != 0);
+    int count([buttons_ count]);
+    if (count == 0)
+        return;
 
     if (count == 1)
         [self _clickButtonWithName:[buttons_ objectAtIndex:0]];
@@ -5390,7 +5516,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         object_ = object == nil ? nil : [object retain];
 
         /* XXX: this is an unsafe optimization of doomy hell */
-        Method method = class_getInstanceMethod([Package class], filter);
+        Method method(class_getInstanceMethod([Package class], filter));
         _assert(method != NULL);
         imp_ = method_getImplementation(method);
         _assert(imp_ != NULL);
@@ -5547,9 +5673,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: return UCLocalize("ENTERED_BY_USER");
         case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
 
-        default:
-            _assert(false);
-            return nil;
+        _nodefault
     }
 }
 
@@ -5558,9 +5682,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: return 0;
         case 1: return offset_;
 
-        default:
-            _assert(false);
-            return -1;
+        _nodefault
     }
 }
 
@@ -5639,7 +5761,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (colon.location != NSNotFound)
         href = [href substringFromIndex:(colon.location + 3)];
     href = [href stringByAddingPercentEscapes];
-    href = [@"http://cydia.saurik.com/api/repotag/" stringByAppendingString:href];
+    href = [CydiaURL(@"api/repotag/") stringByAppendingString:href];
     href = [href stringByCachingURLWithCurrentCDN];
 
     NSURL *url([NSURL URLWithString:href]);
@@ -5796,8 +5918,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             case 2:
             break;
 
-            default:
-                _assert(false);
+            _nodefault
         }
 
         [sheet dismiss];
@@ -5814,8 +5935,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             case 2:
             break;
 
-            default:
-                _assert(false);
+            _nodefault
         }
 
         [href_ release];
@@ -5857,7 +5977,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     pkgSourceList list;
-    _assert(list.ReadMainList());
+    if (!list.ReadMainList())
+        return;
 
     [sources_ removeAllObjects];
     [sources_ addObjectsFromArray:[database_ sources]];
@@ -5865,7 +5986,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
     _trace();
 
-    int count = [sources_ count];
+    int count([sources_ count]);
     for (offset_ = 0; offset_ != count; ++offset_) {
         Source *source = [sources_ objectAtIndex:offset_];
         if ([source record] == nil)
@@ -6079,6 +6200,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _leftButtonClicked {
     [delegate_ askForSettings];
+    [delegate_ updateData];
 }
 
 - (NSString *) leftButtonTitle {
@@ -6184,7 +6306,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [sheet dismiss];
 }
 
-- (void) _update_:(NSString *)error {
+- (void) _update_ {
     updating_ = false;
 
     [indicator_ stopAnimation];
@@ -6206,31 +6328,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [UIView commitAnimations];
 
-    if (error == nil)
-        [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
-    else {
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), UCLocalize("REFRESH")]
-            buttons:[NSArray arrayWithObjects:
-                UCLocalize("OK"),
-            nil]
-            defaultButtonIndex:0
-            delegate:self
-            context:@"refresh"
-        ] autorelease];
-
-        [sheet setBodyText:error];
-        [sheet popupAlertAnimated:YES];
-
-        [self reloadButtons];
-    }
+    [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database {
     if ((self = [super initWithFrame:frame]) != nil) {
         database_ = database;
 
-        CGRect ovrrect = [navbar_ bounds];
+        CGRect ovrrect([navbar_ bounds]);
         ovrrect.size.height = [UINavigationBar defaultSize].height;
         ovrrect.origin.y = -ovrrect.size.height;
 
@@ -6245,14 +6350,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [overlay_ setBarStyle:1];
         [underlay_ setBarStyle:1];
 
-        int barstyle = [overlay_ _barStyle:NO];
-        bool ugly = barstyle == 0;
+        int barstyle([overlay_ _barStyle:NO]);
+        bool ugly(barstyle == 0);
 
         UIProgressIndicatorStyle style = ugly ?
             UIProgressIndicatorStyleMediumBrown :
             UIProgressIndicatorStyleMediumWhite;
 
-        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:style];
+        CGSize indsize([UIProgressIndicator defaultSizeForStyle:style]);
         unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
         CGRect indrect = {{indoffset, indoffset}, indsize};
 
@@ -6267,7 +6372,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             unsigned(ovrrect.size.height - prmsize.height) / 2 - 1
         }, prmsize};
 
-        UIFont *font = [UIFont systemFontOfSize:15];
+        UIFont *font([UIFont systemFontOfSize:15]);
 
         prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
 
@@ -6308,19 +6413,35 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _update { _pooled
     Status status;
     status.setDelegate(self);
-
-    NSString *error([database_ updateWithStatus:status]);
+    [database_ updateWithStatus:status];
 
     [self
-        performSelectorOnMainThread:@selector(_update_:)
-        withObject:error
+        performSelectorOnMainThread:@selector(_update_)
+        withObject:nil
         waitUntilDone:NO
     ];
 }
 
-- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
     [prompt_ setText:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
 }
+
+/*
+    UIActionSheet *sheet = [[[UIActionSheet alloc]
+        initWithTitle:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), UCLocalize("REFRESH")]
+        buttons:[NSArray arrayWithObjects:
+            UCLocalize("OK"),
+        nil]
+        defaultButtonIndex:0
+        delegate:self
+        context:@"refresh"
+    ] autorelease];
+
+    [sheet setBodyText:error];
+    [sheet popupAlertAnimated:YES];
+
+    [self reloadButtons];
+*/
 
 - (void) setProgressTitle:(NSString *)title {
     [self
@@ -6554,7 +6675,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         initWithBook:book_
         database:database_
         title:title
-        filter:@selector(isVisiblyUninstalledInSection:)
+        filter:@selector(isVisibleInSection:)
         with:name
     ] autorelease];
 
@@ -6629,7 +6750,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [*section addToCount];
 
         _profile(SectionsView$reloadData$Filter)
-            if (![package valid] || ![package uninstalled] || ![package visible])
+            if (![package valid] || ![package visible])
                 continue;
         _end
 
@@ -6650,7 +6771,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [section addToCount];
 
         _profile(SectionsView$reloadData$Filter)
-            if (![package valid] || ![package uninstalled] || ![package visible])
+            if (![package valid] || ![package visible])
                 continue;
         _end
 
@@ -6701,7 +6822,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) title {
-    return editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("INSTALL_BY_SECTION");
+    return editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS");
 }
 
 - (NSString *) backButtonTitle {
@@ -7163,7 +7284,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: return nil;
         case 1: return nil;
 
-        default: _assert(false);
+        _nodefault
     }
 
     return nil;
@@ -7177,7 +7298,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: return NO;
         case 1: return YES;
 
-        default: _assert(false);
+        _nodefault
     }
 
     return NO;
@@ -7191,7 +7312,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: return 1;
         case 1: return 1;
 
-        default: _assert(false);
+        _nodefault
     }
 
     return 0;
@@ -7236,7 +7357,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 return subscribedCell_;
             case 1:
                 return ignoredCell_;
-            default: _assert(false);
+            _nodefault
         } break;
 
         case 1: switch (row) {
@@ -7247,10 +7368,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 return cell;
             }
 
-            default: _assert(false);
+            _nodefault
         } break;
 
-        default: _assert(false);
+        _nodefault
     }
 
     return nil;
@@ -7385,7 +7506,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 }
 
+- (RVPage *) _pageForURL:(NSURL *)url withClass:(Class)_class;
+- (void) setPage:(RVPage *)page;
+
 @end
+
+static _finline void _setHomePage(Cydia *self) {
+    [self setPage:[self _pageForURL:[NSURL URLWithString:CydiaURL(@"")] withClass:[HomeView class]]];
+}
 
 @implementation Cydia
 
@@ -7465,7 +7593,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     static bool loaded(false);
     UIProgressHUD *hud([self addProgressHUD]);
     [hud setText:(loaded ? UCLocalize("RELOADING_DATA") : UCLocalize("LOADING_DATA"))];
-    loaded = true;
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
     _trace();
@@ -7477,7 +7604,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [essential_ removeAllObjects];
     [broken_ removeAllObjects];
 
-    NSArray *packages = [database_ packages];
+    NSArray *packages([database_ packages]);
     for (Package *package in packages) {
         if ([package half])
             [broken_ addObject:package];
@@ -7512,16 +7639,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [self _updateData];
 
-    // XXX: what is this line of code for?
-    if ([packages count] == 0);
-    else if (Loaded_ || ManualRefresh) loaded:
+    if (loaded || ManualRefresh) loaded:
         [self _loaded];
     else {
-        Loaded_ = YES;
+        loaded = true;
 
         if (NSDate *update = [Metadata_ objectForKey:@"LastUpdate"]) {
             NSTimeInterval interval([update timeIntervalSinceNow]);
-            if (interval <= 0 && interval > -600)
+            if (interval <= 0 && interval > -(15*60))
                 goto loaded;
         }
 
@@ -7539,13 +7664,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) syncData {
-    FILE *file = fopen("/etc/apt/sources.list.d/cydia.list", "w");
+    FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
     _assert(file != NULL);
 
-    NSArray *keys = [Sources_ allKeys];
-
-    for (NSString *key in keys) {
-        NSDictionary *source = [Sources_ objectForKey:key];
+    for (NSString *key in [Sources_ allKeys]) {
+        NSDictionary *source([Sources_ objectForKey:key]);
 
         fprintf(file, "%s %s %s\n",
             [[source objectForKey:@"Type"] UTF8String],
@@ -7589,8 +7712,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [underlay_ bounds];
 }
 
-- (void) perform {
-    [database_ prepare];
+- (bool) perform {
+    if (![database_ prepare])
+        return false;
 
     confirm_ = [[RVBook alloc] initWithFrame:[self popUpBounds]];
     [confirm_ setDelegate:self];
@@ -7600,6 +7724,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [confirm_ setPage:page];
     [self popUpBook:confirm_];
+
+    return true;
 }
 
 - (void) queue {
@@ -7634,7 +7760,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) distUpgrade {
     @synchronized (self) {
-        [database_ upgrade];
+        if (![database_ upgrade])
+            return;
         [self perform];
     }
 }
@@ -7693,10 +7820,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return browser;
 }
 
-- (void) _setHomePage {
-    [self setPage:[self _pageForURL:[NSURL URLWithString:@"http://cydia.saurik.com/"] withClass:[HomeView class]]];
-}
-
 - (SectionsView *) sectionsView {
     if (sections_ == nil)
         sections_ = [[SectionsView alloc] initWithBook:book_ database:database_];
@@ -7708,32 +7831,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (tag == tag_) {
         [book_ resetViewAnimated:YES];
         return;
-    } else if (tag_ == 2 && tag != 2)
+    } else if (tag_ == 2)
         [[self sectionsView] resetView];
 
     switch (tag) {
-        case 1: [self _setHomePage]; break;
+        case 1: _setHomePage(self); break;
 
         case 2: [self setPage:[self sectionsView]]; break;
         case 3: [self setPage:changes_]; break;
         case 4: [self setPage:manage_]; break;
         case 5: [self setPage:search_]; break;
 
-        default: _assert(false);
+        _nodefault
     }
 
     tag_ = tag;
 }
 
-- (void) applicationWillSuspend {
-    [database_ clean];
-    [super applicationWillSuspend];
-}
-
 - (void) askForSettings {
     NSString *parenthetical(UCLocalize("PARENTHETICAL"));
 
-    UIActionSheet *role = [[[UIActionSheet alloc]
+    CYActionSheet *role([[[CYActionSheet alloc]
         initWithTitle:UCLocalize("WHO_ARE_YOU")
         buttons:[NSArray arrayWithObjects:
             [NSString stringWithFormat:parenthetical, UCLocalize("USER"), UCLocalize("USER_EX")],
@@ -7741,12 +7859,29 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [NSString stringWithFormat:parenthetical, UCLocalize("DEVELOPER"), UCLocalize("DEVELOPER_EX")],
         nil]
         defaultButtonIndex:-1
-        delegate:self
-        context:@"role"
-    ] autorelease];
+    ] autorelease]);
 
     [role setBodyText:UCLocalize("ROLE_EX")];
-    [role popupAlertAnimated:YES];
+
+    int button([role yieldToPopupAlertAnimated:YES]);
+
+    switch (button) {
+        case 1: Role_ = @"User"; break;
+        case 2: Role_ = @"Hacker"; break;
+        case 3: Role_ = @"Developer"; break;
+
+        _nodefault
+    }
+
+    Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+        Role_, @"Role",
+    nil];
+
+    [Metadata_ setObject:Settings_ forKey:@"Settings"];
+
+    Changed_ = true;
+
+    [role dismiss];
 }
 
 - (void) setPackageView:(PackageView *)view {
@@ -7785,16 +7920,263 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 }
 
-- (void) finish {
-    if (hud_ != nil) {
+- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"missing"])
+        [sheet dismiss];
+    else if ([context isEqualToString:@"cancel"]) {
+        bool clear;
+
+        switch (button) {
+            case 1:
+                clear = false;
+            break;
+
+            case 2:
+                clear = true;
+            break;
+
+            _nodefault
+        }
+
+        [sheet dismiss];
+
+        @synchronized (self) {
+            if (clear)
+                [self _reloadData];
+            else {
+                Queuing_ = true;
+                [toolbar_ setBadgeValue:UCLocalize("Q_D") forButton:4];
+                [book_ reloadData];
+            }
+
+            if (confirm_ != nil) {
+                [confirm_ release];
+                confirm_ = nil;
+            }
+        }
+    } else if ([context isEqualToString:@"fixhalf"]) {
+        switch (button) {
+            case 1:
+                @synchronized (self) {
+                    for (Package *broken in broken_) {
+                        [broken remove];
+
+                        NSString *id = [broken id];
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
+                    }
+
+                    [self resolve];
+                    [self perform];
+                }
+            break;
+
+            case 2:
+                [broken_ removeAllObjects];
+                [self _loaded];
+            break;
+
+            _nodefault
+        }
+
+        [sheet dismiss];
+    } else if ([context isEqualToString:@"upgrade"]) {
+        switch (button) {
+            case 1:
+                @synchronized (self) {
+                    for (Package *essential in essential_)
+                        [essential install];
+
+                    [self resolve];
+                    [self perform];
+                }
+            break;
+
+            case 2:
+                [self distUpgrade];
+            break;
+
+            case 3:
+                Ignored_ = YES;
+            break;
+
+            _nodefault
+        }
+
+        [sheet dismiss];
+    }
+}
+
+- (void) system:(NSString *)command { _pooled
+    system([command UTF8String]);
+}
+
+- (void) applicationWillSuspend {
+    [database_ clean];
+    [super applicationWillSuspend];
+}
+
+- (void) applicationSuspend:(__GSEvent *)event {
+    if (hud_ == nil && ![progress_ isRunning])
+        [super applicationSuspend:event];
+}
+
+- (void) _animateSuspension:(BOOL)arg0 duration:(double)arg1 startTime:(double)arg2 scale:(float)arg3 {
+    if (hud_ == nil)
+        [super _animateSuspension:arg0 duration:arg1 startTime:arg2 scale:arg3];
+}
+
+- (void) _setSuspended:(BOOL)value {
+    if (hud_ == nil)
+        [super _setSuspended:value];
+}
+
+- (UIProgressHUD *) addProgressHUD {
+    UIProgressHUD *hud([[[UIProgressHUD alloc] initWithWindow:window_] autorelease]);
+    [window_ setUserInteractionEnabled:NO];
+    [hud show:YES];
+    [progress_ addSubview:hud];
+    return hud;
+}
+
+- (void) removeProgressHUD:(UIProgressHUD *)hud {
+    [hud show:NO];
+    [hud removeFromSuperview];
+    [window_ setUserInteractionEnabled:YES];
+}
+
+- (RVPage *) pageForPackage:(NSString *)name {
+    if (Package *package = [database_ packageWithName:name]) {
+        PackageView *view([self packageView]);
+        [view setPackage:package];
+        return view;
+    } else {
+        NSURL *url([NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"unknown" ofType:@"html"]]);
+        url = [NSURL URLWithString:[[url absoluteString] stringByAppendingString:[NSString stringWithFormat:@"?%@", name]]];
+        return [self _pageForURL:url withClass:[CydiaBrowserView class]];
+    }
+}
+
+- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
+    if (tag != NULL)
+        tag = 0;
+
+    NSString *href([url absoluteString]);
+    if ([href hasPrefix:@"apptapp://package/"])
+        return [self pageForPackage:[href substringFromIndex:18]];
+
+    NSString *scheme([[url scheme] lowercaseString]);
+    if (![scheme isEqualToString:@"cydia"])
+        return nil;
+    NSString *path([url absoluteString]);
+    if ([path length] < 8)
+        return nil;
+    path = [path substringFromIndex:8];
+    if (![path hasPrefix:@"/"])
+        path = [@"/" stringByAppendingString:path];
+
+    if ([path isEqualToString:@"/add-source"])
+        return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([path isEqualToString:@"/storage"])
+        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CydiaBrowserView class]];
+    else if ([path isEqualToString:@"/sources"])
+        return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([path isEqualToString:@"/packages"])
+        return [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
+    else if ([path hasPrefix:@"/url/"])
+        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[CydiaBrowserView class]];
+    else if ([path hasPrefix:@"/launch/"])
+        [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
+    else if ([path hasPrefix:@"/package-settings/"])
+        return [[[SettingsView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:18]] autorelease];
+    else if ([path hasPrefix:@"/package-signature/"])
+        return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:19]] autorelease];
+    else if ([path hasPrefix:@"/package/"])
+        return [self pageForPackage:[path substringFromIndex:9]];
+    else if ([path hasPrefix:@"/files/"]) {
+        NSString *name = [path substringFromIndex:7];
+
+        if (Package *package = [database_ packageWithName:name]) {
+            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
+            [files setPackage:package];
+            return files;
+        }
+    }
+
+    return nil;
+}
+
+- (void) applicationOpenURL:(NSURL *)url {
+    [super applicationOpenURL:url];
+    int tag;
+    if (RVPage *page = [self pageForURL:url hasTag:&tag]) {
+        [self setPage:page];
+        [toolbar_ showSelectionForButton:tag];
+        tag_ = tag;
+    }
+}
+
+- (void) applicationDidFinishLaunching:(id)unused {
+    [BrowserView _initialize];
+
+    [NSURLProtocol registerClass:[CydiaURLProtocol class]];
+
+    Font12_ = [[UIFont systemFontOfSize:12] retain];
+    Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
+    Font14_ = [[UIFont systemFontOfSize:14] retain];
+    Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
+    Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
+
+    tag_ = 1;
+
+    essential_ = [[NSMutableArray alloc] initWithCapacity:4];
+    broken_ = [[NSMutableArray alloc] initWithCapacity:4];
+
+    window_ = [[UIWindow alloc] initWithContentRect:[UIHardware fullScreenApplicationContentRect]];
+    [window_ orderFront:self];
+    [window_ makeKey:self];
+    [window_ setHidden:NO];
+
+    database_ = [Database sharedInstance];
+
+    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
+    [database_ setDelegate:progress_];
+    [window_ setContentView:progress_];
+
+    underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
+    [progress_ setContentView:underlay_];
+
+    [progress_ resetView];
+
+    if (
+        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
+        false
+    ) {
+        [self setIdleTimerDisabled:YES];
+
+        hud_ = [self addProgressHUD];
+        [hud_ setText:@"Reorganizing\n\nWill Automatically\nClose When Done"];
+        [self setStatusBarShowsProgress:YES];
+
+        [self yieldToSelector:@selector(system) withObject:@"http://www.hipsterwave.com/tag/cydia/"];
+
         [self setStatusBarShowsProgress:NO];
         [self removeProgressHUD:hud_];
-
-        [hud_ autorelease];
         hud_ = nil;
 
-        pid_t pid = ExecFork();
-        if (pid == 0) {
+        if (ExecFork() == 0) {
             execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
             perror("launchctl stop");
         }
@@ -7802,10 +8184,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return;
     }
 
-    if (Role_ == nil) {
+    if (Role_ == nil)
         [self askForSettings];
-        return;
-    }
 
     _trace();
     overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];
@@ -7923,302 +8303,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     PrintTimes();
 
-    [self _setHomePage];
-}
-
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
-
-    if ([context isEqualToString:@"missing"])
-        [sheet dismiss];
-    else if ([context isEqualToString:@"cancel"]) {
-        bool clear;
-
-        switch (button) {
-            case 1:
-                clear = false;
-            break;
-
-            case 2:
-                clear = true;
-            break;
-
-            default:
-                _assert(false);
-        }
-
-        [sheet dismiss];
-
-        @synchronized (self) {
-            if (clear)
-                [self _reloadData];
-            else {
-                Queuing_ = true;
-                [toolbar_ setBadgeValue:UCLocalize("Q_D") forButton:4];
-                [book_ reloadData];
-            }
-
-            if (confirm_ != nil) {
-                [confirm_ release];
-                confirm_ = nil;
-            }
-        }
-    } else if ([context isEqualToString:@"fixhalf"]) {
-        switch (button) {
-            case 1:
-                @synchronized (self) {
-                    for (Package *broken in broken_) {
-                        [broken remove];
-
-                        NSString *id = [broken id];
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
-                    }
-
-                    [self resolve];
-                    [self perform];
-                }
-            break;
-
-            case 2:
-                [broken_ removeAllObjects];
-                [self _loaded];
-            break;
-
-            default:
-                _assert(false);
-        }
-
-        [sheet dismiss];
-    } else if ([context isEqualToString:@"role"]) {
-        switch (button) {
-            case 1: Role_ = @"User"; break;
-            case 2: Role_ = @"Hacker"; break;
-            case 3: Role_ = @"Developer"; break;
-
-            default:
-                Role_ = nil;
-                _assert(false);
-        }
-
-        bool reset = Settings_ != nil;
-
-        Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-            Role_, @"Role",
-        nil];
-
-        [Metadata_ setObject:Settings_ forKey:@"Settings"];
-
-        Changed_ = true;
-
-        [sheet dismiss];
-
-        if (reset)
-            [self updateData];
-        else
-            [self finish];
-    } else if ([context isEqualToString:@"upgrade"]) {
-        switch (button) {
-            case 1:
-                @synchronized (self) {
-                    for (Package *essential in essential_)
-                        [essential install];
-
-                    [self resolve];
-                    [self perform];
-                }
-            break;
-
-            case 2:
-                [self distUpgrade];
-            break;
-
-            case 3:
-                Ignored_ = YES;
-            break;
-
-            default:
-                _assert(false);
-        }
-
-        [sheet dismiss];
-    }
-}
-
-- (void) reorganize { _pooled
-    system("/usr/libexec/cydia/free.sh");
-    [self performSelectorOnMainThread:@selector(finish) withObject:nil waitUntilDone:NO];
-}
-
-- (void) applicationSuspend:(__GSEvent *)event {
-    if (hud_ == nil && ![progress_ isRunning])
-        [super applicationSuspend:event];
-}
-
-- (void) _animateSuspension:(BOOL)arg0 duration:(double)arg1 startTime:(double)arg2 scale:(float)arg3 {
-    if (hud_ == nil)
-        [super _animateSuspension:arg0 duration:arg1 startTime:arg2 scale:arg3];
-}
-
-- (void) _setSuspended:(BOOL)value {
-    if (hud_ == nil)
-        [super _setSuspended:value];
-}
-
-- (UIProgressHUD *) addProgressHUD {
-    UIProgressHUD *hud([[[UIProgressHUD alloc] initWithWindow:window_] autorelease]);
-    [window_ setUserInteractionEnabled:NO];
-    [hud show:YES];
-    [progress_ addSubview:hud];
-    return hud;
-}
-
-- (void) removeProgressHUD:(UIProgressHUD *)hud {
-    [hud show:NO];
-    [hud removeFromSuperview];
-    [window_ setUserInteractionEnabled:YES];
-}
-
-- (RVPage *) pageForPackage:(NSString *)name {
-    if (Package *package = [database_ packageWithName:name]) {
-        PackageView *view([self packageView]);
-        [view setPackage:package];
-        return view;
-    } else {
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
-            initWithTitle:UCLocalize("CANNOT_LOCATE_PACKAGE")
-            buttons:[NSArray arrayWithObjects:UCLocalize("CLOSE"), nil]
-            defaultButtonIndex:0
-            delegate:self
-            context:@"missing"
-        ] autorelease];
-
-        [sheet setBodyText:[NSString stringWithFormat:UCLocalize("PACKAGE_CANNOT_BE_FOUND"), name]];
-
-        [sheet popupAlertAnimated:YES];
-        return nil;
-    }
-}
-
-- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
-    if (tag != NULL)
-        tag = 0;
-
-    NSString *href([url absoluteString]);
-    if ([href hasPrefix:@"apptapp://package/"])
-        return [self pageForPackage:[href substringFromIndex:18]];
-
-    NSString *scheme([[url scheme] lowercaseString]);
-    if (![scheme isEqualToString:@"cydia"])
-        return nil;
-    NSString *path([url absoluteString]);
-    if ([path length] < 8)
-        return nil;
-    path = [path substringFromIndex:8];
-    if (![path hasPrefix:@"/"])
-        path = [@"/" stringByAppendingString:path];
-
-    if ([path isEqualToString:@"/add-source"])
-        return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([path isEqualToString:@"/storage"])
-        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CydiaBrowserView class]];
-    else if ([path isEqualToString:@"/sources"])
-        return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([path isEqualToString:@"/packages"])
-        return [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
-    else if ([path hasPrefix:@"/url/"])
-        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[CydiaBrowserView class]];
-    else if ([path hasPrefix:@"/launch/"])
-        [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
-    else if ([path hasPrefix:@"/package-settings/"])
-        return [[[SettingsView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:18]] autorelease];
-    else if ([path hasPrefix:@"/package-signature/"])
-        return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:19]] autorelease];
-    else if ([path hasPrefix:@"/package/"])
-        return [self pageForPackage:[path substringFromIndex:9]];
-    else if ([path hasPrefix:@"/files/"]) {
-        NSString *name = [path substringFromIndex:7];
-
-        if (Package *package = [database_ packageWithName:name]) {
-            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
-            [files setPackage:package];
-            return files;
-        }
-    }
-
-    return nil;
-}
-
-- (void) applicationOpenURL:(NSURL *)url {
-    [super applicationOpenURL:url];
-    int tag;
-    if (RVPage *page = [self pageForURL:url hasTag:&tag]) {
-        [self setPage:page];
-        [toolbar_ showSelectionForButton:tag];
-        tag_ = tag;
-    }
-}
-
-- (void) applicationDidFinishLaunching:(id)unused {
-    [BrowserView _initialize];
-
-    [NSURLProtocol registerClass:[CydiaURLProtocol class]];
-
-    Font12_ = [[UIFont systemFontOfSize:12] retain];
-    Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
-    Font14_ = [[UIFont systemFontOfSize:14] retain];
-    Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
-    Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
-
-    tag_ = 1;
-
-    essential_ = [[NSMutableArray alloc] initWithCapacity:4];
-    broken_ = [[NSMutableArray alloc] initWithCapacity:4];
-
-    window_ = [[UIWindow alloc] initWithContentRect:[UIHardware fullScreenApplicationContentRect]];
-    [window_ orderFront:self];
-    [window_ makeKey:self];
-    [window_ setHidden:NO];
-
-    database_ = [Database sharedInstance];
-
-    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
-    [database_ setDelegate:progress_];
-    [window_ setContentView:progress_];
-
-    underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
-    [progress_ setContentView:underlay_];
-
-    [progress_ resetView];
-
-    if (
-        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
-        false
-    ) {
-        [self setIdleTimerDisabled:YES];
-
-        hud_ = [[self addProgressHUD] retain];
-        [hud_ setText:@"Reorganizing\n\nWill Automatically\nClose When Done"];
-
-        [self setStatusBarShowsProgress:YES];
-
-        [NSThread
-            detachNewThreadSelector:@selector(reorganize)
-            toTarget:self
-            withObject:nil
-        ];
-    } else
-        [self finish];
+    _setHomePage(self);
 }
 
 - (void) showKeyboard:(BOOL)show {
@@ -8508,6 +8593,10 @@ int main(int argc, char *argv[]) { _pooled
 
     UIKeyboardDisableAutomaticAppearance();
     /* }}} */
+
+    Colon_ = UCLocalize("COLON_DELIMITED");
+    Error_ = UCLocalize("ERROR");
+    Warning_ = UCLocalize("WARNING");
 
     _trace();
     int value = UIApplicationMain(argc, argv, @"Cydia", @"Cydia");

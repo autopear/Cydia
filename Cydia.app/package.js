@@ -75,6 +75,11 @@ var special_ = function () {
         success: function (value) {
             value = eval(value);
 
+            if (typeof value.notice == "undefined")
+                $(".notice").addClass("deleted");
+            else
+                $("#notice-src").src(value.notice);
+
             if (typeof value.rating == "undefined")
                 $(".rating").addClass("deleted");
             else {
@@ -182,8 +187,6 @@ var special_ = function () {
         else
             $("#author-href").href(support);
     }
-
-    //$("#notice-src").src("http://saurik.cachefly.net/notice/" + idc + ".html");
 
     /*var store = commercial;
     if (!store)
@@ -295,6 +298,17 @@ var special = function () {
     $("#rating-href").href(null);
     $("#rating-none").css("display", "none");
     $("#rating-done").css("display", "none");
+
+    var notice = $("#notice-src");
+
+    notice[0].outerHTML = '<iframe' +
+        ' class="notice"' +
+        ' id="notice-src"' +
+        ' frameborder="0"' +
+        ' width="320"' +
+        ' height="0"' +
+        ' target="_top"' +
+    '></iframe>';
 
     var depiction = $("#depiction-src");
 

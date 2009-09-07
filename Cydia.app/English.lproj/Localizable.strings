@@ -19,6 +19,7 @@
 "CANNOT_LOCATE_PACKAGE" = "Cannot Locate Package";
 "CHANGE_PACKAGE_SETTINGS" = "Change Package Settings";
 "CHANGES" = "Changes";
+"CLEAN_ARCHIVES" = "Clean Archives";
 "CLEAR" = "Clear";
 "CLOSE" = "Close";
 "CLOSE_CYDIA" = "Close Cydia (Restart)";
@@ -34,8 +35,10 @@
 "CONSOLE_PACKAGE" = "This is a console package!";
 "CONSOLE_UTILITIES_DAEMONS" = "Console Utilities & Daemons";
 "CONTINUE_QUEUING" = "Continue Queuing";
+"COUNTS_NONZERO_EX" = "So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.";
 "CREDITS" = "Credits";
 "CYDIA_STORE" = "Cydia Store";
+"DATABASE" = "Database";
 "DETAILS" = "Details";
 "DEVELOPER" = "Developer";
 "DEVELOPER_EX" = "No Filters";
@@ -47,7 +50,8 @@
 "DONE" = "Done";
 "DOUBLE_QUOTED" = "“%@”";
 "DOWNGRADE" = "Downgrade";
-"DOWNLOADING" = "Downloading %@";
+"DOWNLOADING" = "Downloading";
+"DOWNLOADING_" = "Downloading %@";
 "EDIT" = "Edit";
 "ENTER_APT_URL" = "Enter Cydia/APT URL";
 "ENTERED_BY_USER" = "Entered by User";
@@ -83,7 +87,6 @@
 "IGNORED_UPGRADES" = "Ignored Upgrades";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Illegal Package Identifier";
 "INSTALL" = "Install";
-"INSTALL_BY_SECTION" = "Install by Section";
 "INSTALLED" = "Installed";
 "INSTALLED_BY_PACKAGE" = "Installed by Package";
 "INSTALLED_DETAILS" = "Installed Package";
@@ -114,6 +117,7 @@
 "OK" = "OK";
 "OKAY" = "Okay";
 "PACKAGE_CANNOT_BE_FOUND" = "The package %@ cannot be found in your current sources. I might recommend installing more sources.";
+"PACKAGE_CANNOT_BE_FOUND_EX" = "This issue may also be caused by a number of other factors. The most common one is that your package catalog is out of date. To manually refresh, click the Refresh button on the Changes tab. This package may simply no longer exist. It is also possible you are using an old firmware version: users should attempt to remain reasonably up to date with Apple's firmware releases.";
 "PACKAGE_DAMAGED" = "Package Damaged";
 "PACKAGE_DETAILS" = "Package Details";
 "PACKAGE_QUEUE" = "Package Queue";
@@ -121,6 +125,8 @@
 "PACKAGES_EX" = "View or remove packages you previously installed.";
 "PARENTHETICAL" = "%@ (%@)";
 "PASSWORD" = "password";
+"PERFORM_SELECTIONS" = "Perform Selections";
+"PREPARE_ARCHIVES" = "Prepare Archives";
 "PRODUCTS" = "Products";
 "PURGE" = "Purge";
 "Q_D" = "Q'd";
@@ -130,6 +136,7 @@
 "RECENT_CHANGES_UPDATES" = "Recent Changes/Updates";
 "RECOMMENDED_BOOKS" = "Recommended Books";
 "REFRESH" = "Refresh";
+"REFRESHING_DATA" = "Refreshing Data";
 "REINSTALL" = "Reinstall";
 "RELOAD" = "Reload";
 "RELOAD_SPRINGBOARD" = "Reload SpringBoard";
@@ -171,6 +178,7 @@
 "SPONSOR" = "Sponsor";
 "SPONSORING_PRODUCTS" = "Sponsoring Products";
 "STATISTICS" = "Statistics";
+"STILL_BROKEN_EX" = "Trying to fix the broken selections did not seem to help.";
 "STORAGE" = "Storage";
 "STORAGE_EX" = "See how much room you have left for new packages.";
 "SUBMIT" = "Submit";
@@ -194,6 +202,7 @@
 "VERIFICATION_ERROR" = "Verification Error";
 "VERIFYING_URL" = "Verifying URL";
 "VERSION" = "Version";
+"WARNING" = "Warning";
 "WELCOME_TO_CYDIA" = "Welcome to Cydia™";
 "WHO_ARE_YOU" = "Who Are You?";
 "YES" = "Yes";

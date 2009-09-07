@@ -47,7 +47,8 @@
 "DONE" = "Fertig";
 "DOUBLE_QUOTED" = "„%@“";
 "DOWNGRADE" = "Downgrade";
-"DOWNLOADING" = "Lädt %@ herunter";
+"DOWNLOADING" = "Lädt";
+"DOWNLOADING_" = "Lädt %@ herunter";
 "EDIT" = "Bearbeiten";
 "ENTER_APT_URL" = "Cydia/APT URL eingeben";
 "ENTERED_BY_USER" = "Vom Benutzer eingegeben";
@@ -83,7 +84,6 @@
 "IGNORED_UPGRADES" = "Ignorierte Aktualisierungen";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Unerlaubte Paket-Kennung";
 "INSTALL" = "Installieren";
-"INSTALL_BY_SECTION" = "Installieren nach Kategorie";
 "INSTALLED" = "Installiert";
 "INSTALLED_BY_PACKAGE" = "Installiert nach Paket";
 "INSTALLED_DETAILS" = "Installiertes Paket";

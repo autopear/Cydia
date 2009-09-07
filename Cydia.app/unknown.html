@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<html><head>
+    <title localize="UNKNOWN"></title>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <link rel="stylesheet" type="text/css" href="menes/style.css"/>
+    <script type="text/javascript" src="menes/menes.js"></script>
+    <script type="text/javascript" src="localize.js"></script>
+    <base target="_blank"/>
+    <script type="text/javascript">
+    $(function () {
+        $("#body").html($.xml(cydia.format(cydia.localize("PACKAGE_CANNOT_BE_FOUND"), [location.search.substring(1)])));
+    });
+    </script>
+</head><body class="pinstripe">
+<panel>
+
+<fieldset>
+    <div><p style="font-weight: bold"><span style="color: red" localize="NOTE"></span>: <span localize="CANNOT_LOCATE_PACKAGE"></span></p></div>
+</fieldset>
+
+<block>
+    <p id="body"></p>
+    <p localize="PACKAGE_CANNOT_BE_FOUND_EX"></p>
+</block>
+
+</panel>
+</body></html>

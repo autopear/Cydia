@@ -196,7 +196,7 @@
 "UPDATING_SOURCES" = "Mise à jour des sources";
 "UPGRADE" = "Mise à jour";
 "UPGRADE_ESSENTIAL" = "Mise à jour des essentiels";
-"UPGRADING_TO" = "À lire: mise à jour à %@";
+"UPGRADING_TO_READ_THIS" = "À lire: mise à jour à %@";
 "USER" = "Utilisateur";
 "USER_EX" = "GUI seulement";
 "USER_GUIDES" = "Guides utilisateur";

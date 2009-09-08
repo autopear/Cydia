@@ -4320,7 +4320,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         break;
 
         case 1:
-            [delegate_ suspendWithAnimation:YES];
+            [delegate_ terminateWithSuccess];
+            /*if ([delegate_ respondsToSelector:@selector(suspendWithAnimation:)])
+                [delegate_ suspendWithAnimation:YES];
+            else
+                [delegate_ suspend];*/
         break;
 
         case 2:

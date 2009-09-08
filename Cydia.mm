@@ -5626,11 +5626,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSError *error_;
 
     //NSURLConnection *installer_;
+    NSURLConnection *trivial_;
     NSURLConnection *trivial_bz2_;
     NSURLConnection *trivial_gz_;
     //NSURLConnection *automatic_;
 
-    BOOL trivial_;
+    BOOL cydia_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -5659,6 +5660,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [error_ release];
 
     //[self _deallocConnection:installer_];
+    [self _deallocConnection:trivial_];
     [self _deallocConnection:trivial_gz_];
     [self _deallocConnection:trivial_bz2_];
     //[self _deallocConnection:automatic_];
@@ -5780,7 +5782,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _endConnection:(NSURLConnection *)connection {
     NSURLConnection **field = NULL;
-    if (connection == trivial_bz2_)
+    if (connection == trivial_)
+        field = &trivial_;
+    else if (connection == trivial_bz2_)
         field = &trivial_bz2_;
     else if (connection == trivial_gz_)
         field = &trivial_gz_;
@@ -5789,12 +5793,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     *field = nil;
 
     if (
+        trivial_ == nil &&
         trivial_bz2_ == nil &&
         trivial_gz_ == nil
     ) {
         bool defer(false);
 
-        if (trivial_) {
+        if (cydia_) {
             if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
                 defer = true;
 
@@ -5857,7 +5862,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {
     switch ([response statusCode]) {
         case 200:
-            trivial_ = YES;
+            cydia_ = YES;
     }
 }
 
@@ -5908,12 +5913,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     href_ = href;
                 href_ = [href_ retain];
 
-                trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
+                trivial_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
                 trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
                 trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
                 //trivial_bz2_ = [[self _requestHRef:[href stringByAppendingString:@"dists/Release"] method:@"HEAD"] retain];
 
-                trivial_ = false;
+                cydia_ = false;
 
                 hud_ = [[delegate_ addProgressHUD] retain];
                 [hud_ setText:UCLocalize("VERIFYING_URL")];

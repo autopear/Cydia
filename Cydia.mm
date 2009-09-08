@@ -422,7 +422,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
@@ -3248,7 +3248,7 @@ static NSString *Warning_;
         message += error;
     }
 
-    if (!message.empty())
+    if (fatal && !message.empty())
         [delegate_ _setProgressError:[NSString stringWithUTF8String:message.c_str()] withTitle:[NSString stringWithFormat:Colon_, fatal ? Error_ : Warning_, title]];
 
     return fatal;
@@ -3579,7 +3579,7 @@ static NSString *Warning_;
         return;
 
     if ([self popErrorWithTitle:title forOperation:ListUpdate(status, list, PulseInterval_)])
-        return;
+        /* XXX: ignore this because users suck and don't understand why refreshing is important: return */;
 
     [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
     Changed_ = true;

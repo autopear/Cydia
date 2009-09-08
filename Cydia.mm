@@ -1622,9 +1622,12 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
         host_ = [[host_ lowercaseString] retain];
 
     if (host_ != nil)
-        authority_ = [host_ retain];
+        authority_ = host_;
     else
         authority_ = [url path];
+
+    if (authority_ != nil)
+        authority_ = [authority_ retain];
 }
 
 - (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {

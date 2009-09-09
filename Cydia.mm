@@ -8182,7 +8182,7 @@ static _finline void _setHomePage(Cydia *self) {
         [hud_ setText:@"Reorganizing\n\nWill Automatically\nClose When Done"];
         [self setStatusBarShowsProgress:YES];
 
-        [self yieldToSelector:@selector(system) withObject:@"http://www.hipsterwave.com/tag/cydia/"];
+        [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/space.sh"];
 
         [self setStatusBarShowsProgress:NO];
         [self removeProgressHUD:hud_];

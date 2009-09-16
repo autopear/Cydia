@@ -189,56 +189,6 @@ void PrintTimes() {
 
 #define _end }
 /* }}} */
-/* Objective-C Handle<> {{{ */
-template <typename Type_>
-class _H {
-    typedef _H<Type_> This_;
-
-  private:
-    Type_ *value_;
-
-    _finline void Retain_() {
-        if (value_ != nil)
-            [value_ retain];
-    }
-
-    _finline void Clear_() {
-        if (value_ != nil)
-            [value_ release];
-    }
-
-  public:
-    _finline _H(const This_ &rhs) :
-        value_(rhs.value_ == nil ? nil : [rhs.value_ retain])
-    {
-    }
-
-    _finline _H(Type_ *value = NULL, bool mended = false) :
-        value_(value)
-    {
-        if (!mended)
-            Retain_();
-    }
-
-    _finline ~_H() {
-        Clear_();
-    }
-
-    _finline operator Type_ *() const {
-        return value_;
-    }
-
-    _finline This_ &operator =(Type_ *value) {
-        if (value_ != value) {
-            Type_ *old(value_);
-            value_ = value;
-            Retain_();
-            if (old != nil)
-                [old release];
-        } return *this;
-    }
-};
-/* }}} */
 
 #define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
 
@@ -426,15 +376,15 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
-#define ForSaurik (0 && !ForRelease)
+#define ForSaurik (1 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
-#define ManualRefresh (0 && !ForRelease)
+#define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
-#define RecyclePackageViews 1
-#define AlwaysReload (0 && !ForRelease)
+#define RecyclePackageViews (1 && ForRelease)
+#define AlwaysReload (1 && !ForRelease)
 
 #if !TraceLogging
 #undef _trace
@@ -3680,6 +3630,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (selector == @selector(close))
         return @"close";
+    else if (selector == @selector(getInstalledPackages))
+        return @"getInstalledPackages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
     else if (selector == @selector(setAutoPopup:))
@@ -3716,6 +3668,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (BOOL) supports:(NSString *)feature {
     return [feature isEqualToString:@"window.open"];
+}
+
+- (NSArray *) getInstalledPackages {
+    NSArray *packages([[Database sharedInstance] packages]);
+    NSMutableArray *installed([NSMutableArray arrayWithCapacity:[packages count]]);
+    for (Package *package in installed)
+        if ([package installed] != nil)
+            [installed addObject:package];
+    return installed;
 }
 
 - (Package *) getPackageById:(NSString *)id {

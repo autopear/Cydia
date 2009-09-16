@@ -78,7 +78,16 @@ var special_ = function () {
             if (typeof value.notice == "undefined")
                 $(".notice").addClass("deleted");
             else
-                $("#notice-src").src(value.notice);
+                $("#notice-src")[0].outerHTML = '<iframe' +
+                    ' class="notice"' +
+                    ' id="notice-src"' +
+                    ' frameborder="0"' +
+                    ' width="320"' +
+                    ' height="0"' +
+                    ' target="_top"' +
+                    ' src="' + $.xml(value.notice) + '"' +
+                    ' onload="onframe(' + "'notice-src', 'notice'" + ')"' +
+                '></iframe>';
 
             if (typeof value.rating == "undefined")
                 $(".rating").addClass("deleted");
@@ -201,7 +210,17 @@ var special_ = function () {
         $(".depiction").addClass("deleted");
     else {
         $(".description").addClass("deleted");
-        $("#depiction-src").src(depiction);
+
+        $("#depiction-src")[0].outerHTML = '<iframe' +
+            ' class="depiction"' +
+            ' id="depiction-src"' +
+            ' frameborder="0"' +
+            ' width="320"' +
+            ' height="0"' +
+            ' target="_top"' +
+            ' src="' + $.xml(depiction) + '"' +
+            ' onload="onframe(' + "'depiction-src', 'depiction'" + ')"' +
+        '></iframe>';
     }
 
     var description = package.longDescription;
@@ -308,6 +327,7 @@ var special = function () {
         ' width="320"' +
         ' height="0"' +
         ' target="_top"' +
+        ' onload="onframe(' + "'notice-src', 'notice'" + ')"' +
     '></iframe>';
 
     var depiction = $("#depiction-src");
@@ -319,7 +339,7 @@ var special = function () {
         ' width="320"' +
         ' height="0"' +
         ' target="_top"' +
-        ' onload_="loaded()"' +
+        ' onload="onframe(' + "'depiction-src', 'depiction'" + ')"' +
     '></iframe>';
 
     special_();

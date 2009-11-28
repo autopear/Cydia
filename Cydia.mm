@@ -8353,12 +8353,16 @@ int main(int argc, char *argv[]) { _pooled
     Languages_ = [NSLocale preferredLanguages];
     //CFStringRef locale(CFLocaleGetIdentifier(Locale_));
     //NSLog(@"%@", [Languages_ description]);
+
     const char *lang;
     if (Languages_ == nil || [Languages_ count] == 0)
+        // XXX: consider just setting to C and then falling through?
         lang = NULL;
-    else
+    else {
         lang = [[Languages_ objectAtIndex:0] UTF8String];
-    setenv("LANG", lang, true);
+        setenv("LANG", lang, true);
+    }
+
     //std::setlocale(LC_ALL, lang);
     NSLog(@"Setting Language: %s", lang);
     /* }}} */

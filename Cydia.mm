@@ -1932,6 +1932,11 @@ CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
         CYString &rhi(PackageName(rhs, @selector(cyname)));
         CFStringRef lhn(lhi), rhn(rhi);
 
+        if (lhn == NULL)
+            return rhn == NULL ? NSOrderedSame : NSOrderedAscending;
+        else if (rhn == NULL)
+            return NSOrderedDescending;
+
         _profile(PackageNameCompare$NumbersLast)
             if (!lhi.empty() && !rhi.empty()) {
                 UniChar lhc(CFStringGetCharacterAtIndex(lhn, 0));

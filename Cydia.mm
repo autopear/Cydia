@@ -4821,6 +4821,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Section Cell {{{ */
 @interface SectionCell : UISimpleTableCell {
+    NSString *basic_;
     NSString *section_;
     NSString *name_;
     NSString *count_;
@@ -4837,6 +4838,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SectionCell
 
 - (void) clearSection {
+    if (basic_ != nil) {
+        [basic_ release]
+        basic_ = nil;
+    }
+
     if (section_ != nil) {
         [section_ release];
         section_ = nil;
@@ -4870,10 +4876,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) onSwitch:(id)sender {
-    NSMutableDictionary *metadata = [Sections_ objectForKey:section_];
+    NSMutableDictionary *metadata = [Sections_ objectForKey:basic_];
     if (metadata == nil) {
         metadata = [NSMutableDictionary dictionaryWithCapacity:2];
-        [Sections_ setObject:metadata forKey:section_];
+        [Sections_ setObject:metadata forKey:basic_];
     }
 
     Changed_ = true;
@@ -4895,14 +4901,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         name_ = [UCLocalize("ALL_PACKAGES") retain];
         count_ = nil;
     } else {
+        basic_ = [section name_];
+        if (basic_ != nil)
+            basic_ = [basic_ retain];
+
         section_ = [section localized];
         if (section_ != nil)
             section_ = [section_ retain];
+
         name_  = [(section_ == nil || [section_ length] == 0 ? UCLocalize("NO_SECTION") : section_) retain];
         count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
 
         if (editing_)
-            [switch_ setValue:(isSectionVisible(section_) ? 1 : 0) animated:NO];
+            [switch_ setValue:(isSectionVisible(basic_) ? 1 : 0) animated:NO];
     }
 }
 

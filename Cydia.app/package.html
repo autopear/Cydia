@@ -9,20 +9,6 @@
     <script type="text/javascript" src="localize.js"></script>
     <base target="_blank"/>
 
-<script type="text/javascript">
-    var onframe = function(id, name) {
-        var node = document.getElementById(id);
-        var frame = window.frames[name];
-
-            try {
-                node.height = frame.document.body.scrollHeight;
-            } catch (e) {
-                node.height = 370;
-                node.width = 320;
-            }
-    };
-</script>
-
     <!--script type="text/javascript">
         var count = -1;
         var loaded = function() {
@@ -203,6 +189,12 @@
         #rating-none,
         #rating-done {
             display: none;
+        }
+
+        #depiction-src,
+        #notice-src {
+            height: 1px;
+            width: 320px;
         }
     </style>
 </head><body class="pinstripe">

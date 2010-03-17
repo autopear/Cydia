@@ -72,6 +72,8 @@
 
 #include <ext/stdio_filebuf.h>
 
+#undef ABS
+
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/algorithms.h>
@@ -372,7 +374,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
@@ -4839,7 +4841,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) clearSection {
     if (basic_ != nil) {
-        [basic_ release]
+        [basic_ release];
         basic_ = nil;
     }
 
@@ -4901,7 +4903,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         name_ = [UCLocalize("ALL_PACKAGES") retain];
         count_ = nil;
     } else {
-        basic_ = [section name_];
+        basic_ = [section name];
         if (basic_ != nil)
             basic_ = [basic_ retain];
 

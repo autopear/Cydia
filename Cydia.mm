@@ -2642,9 +2642,9 @@ struct PackageNameOrdering :
     if (range.location != NSNotFound)
         return YES;
 
-    range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_];
+    /* range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
-        return YES;
+        return YES; */
 
     return NO;
 }

@@ -378,7 +378,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
-#define ForSaurik (1 && !ForRelease)
+#define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
 #define ManualRefresh (1 && !ForRelease)
@@ -386,7 +386,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
 #define RecyclePackageViews (1 && ForRelease)
-#define AlwaysReload (1 && !ForRelease)
+#define AlwaysReload (0 && !ForRelease)
 
 #if !TraceLogging
 #undef _trace

@@ -52,12 +52,13 @@
 
 * {
     border: 0;
+    -moz-border-radius: 0;
     -webkit-border-radius: 0;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -ms-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    font-family: inherit;
+    /*font-family: inherit;*/
     font-size: 100%;
     font-style: inherit;
     font-weight: inherit;
@@ -83,11 +84,17 @@ select {
     border: 1px solid #999999;
 }
 
-body {
+panel {
+    display: block;
     width: 320px;
-    font-family: Helvetica;
+}
+
+body {
+    font-family: Helvetica, Arial;
     -webkit-text-size-adjust: none;
     -webkit-user-select: none;
+    margin: 0 auto;
+    width: 320px;
 }
 
 body.white {
@@ -131,6 +138,10 @@ em {
 
 .default {
     color: #aaaabb;
+}
+
+.deleted {
+    display: none;
 }
 
 /* #toolbar {{{ */
@@ -190,11 +201,12 @@ panel > block {
     border-top: 1px solid #999999;
     border-left: 1px dotted #999999;
     border-right: 1px dotted #999999;
+    -moz-border-radius: 9px;
     -webkit-border-radius: 9px;
     //border: 1px solid #999999;
     display: block;
     font-size: 16px;
-    margin: 9px 10px;
+    margin: 9px;
     padding: 0 10px;
 }
 
@@ -206,6 +218,7 @@ panel > block > hr {
 panel > fieldset {
     background-color: #ffffff;
     border: 1px solid #999999;
+    -moz-border-radius: 9px;
     -webkit-border-radius: 9px;
     font-size: 16px;
     margin: 9px;
@@ -213,6 +226,7 @@ panel > fieldset {
 
 panel > input[type="submit"] {
     /*-webkit-border-image: url(whiteButton.png) 0 12 0 12;
+    -moz-border-radius: 0;
     -webkit-border-radius: 0;
     border-width: 0px 12px;*/
     border: none;
@@ -255,11 +269,9 @@ panel > fieldset > textarea {
     border-top: 1px solid #999999;
 }
 
-.deleted {
-    display: none;
-}
-
-panel > fieldset > a.right:nth-child(2),
+/* XXX: should be a.left:nth-last-child(2) */
+panel > fieldset > a.left,
+panel > fieldset > a.middle,
 panel > fieldset > a:first-child,
 panel > fieldset > div:first-child,
 panel > fieldset > textarea:first-child {
@@ -289,37 +301,39 @@ fieldset > a[type="ad"] {
     padding: 4px 4px 2px 5px;
 }
 
-panel > fieldset > a[type="ad"]:first-child > div:first-of-type,
-panel > fieldset > a[type="comment"]:first-child > div:first-of-type,
-panel > fieldset > a[type="profile"]:first-child > div:first-of-type,
-panel > fieldset > a[type="thumb"]:first-child > div:first-of-type {
+panel > fieldset > a[type="ad"]:first-child > div:first-child,
+panel > fieldset > a[type="comment"]:first-child > div:first-child,
+panel > fieldset > a[type="profile"]:first-child > div:first-child,
+panel > fieldset > a[type="thumb"]:first-child > div:first-child {
+    -moz-border-radius-topleft: 9px;
     -webkit-border-top-left-radius: 9px;
 }
 
-panel > fieldset > a[type="ad"]:last-child > div:first-of-type,
-panel > fieldset > a[type="comment"]:last-child > div:first-of-type,
-panel > fieldset > a[type="profile"]:last-child > div:first-of-type,
-panel > fieldset > a[type="thumb"]:last-child > div:first-of-type {
+panel > fieldset > a[type="ad"]:last-child > div:first-child,
+panel > fieldset > a[type="comment"]:last-child > div:first-child,
+panel > fieldset > a[type="profile"]:last-child > div:first-child,
+panel > fieldset > a[type="thumb"]:last-child > div:first-child {
+    -moz-border-radius-bottomleft: 9px;
     -webkit-border-bottom-left-radius: 9px;
 }
 
-fieldset > a[type="ad"] > div:first-of-type {
+fieldset > a[type="ad"] > div:first-child {
     border: 1px solid #999999;
 }
 
-list > fieldset > a[type="comment"] > div:first-of-type,
-list > fieldset > a[type="profile"] > div:first-of-type,
-list > fieldset > a[type="thumb"] > div:first-of-type {
+list > fieldset > a[type="comment"] > div:first-child,
+list > fieldset > a[type="profile"] > div:first-child,
+list > fieldset > a[type="thumb"] > div:first-child {
     border: 1px solid #e0e0e0;
 }
 
-panel > fieldset > a[type="comment"] > div:first-of-type {
+panel > fieldset > a[type="comment"] > div:first-child {
     border: 1px solid #999999;
     border-bottom-style: dashed;
 }
 
-panel > fieldset > a[type="profile"] > div:first-of-type,
-panel > fieldset:not(.header) > a[type="thumb"] > div:first-of-type {
+panel > fieldset > a[type="profile"] > div:first-child,
+panel > fieldset:not(.header) > a[type="thumb"] > div:first-child {
     border: 1px solid #999999;
 }
 
@@ -336,7 +350,7 @@ div[tile="media"] { background-image: url(http://cache.saurik.com/cydia/tile/med
 div[tile="music"] { background-image: url(http://cache.saurik.com/cydia/tile/video.png); }
 div[tile="site"]  { background-image: url(http://cache.saurik.com/cydia/tile/site.png);  }
 
-fieldset > a[type="ad"] > div:first-of-type {
+fieldset > a[type="ad"] > div:first-child {
     background-repeat: no-repeat;
     background-position: center center;
     border-right: none;
@@ -353,32 +367,32 @@ panel > fieldset > a[type="comment"] {
     border-bottom-style: dashed;
 }
 
-fieldset > a[type="comment"] > div:first-of-type {
+fieldset > a[type="comment"] > div:first-child {
     -webkit-background-size: 44px;
     height: 44px;
     width: 44px;
 }
 
-fieldset > a[type="header"] > div:first-of-type {
+fieldset > a[type="header"] > div:first-child {
     height: 64px;
     width: 64px;
 }
 
-fieldset > a[type="profile"] > div:first-of-type {
+fieldset > a[type="profile"] > div:first-child {
     -webkit-background-size: 50px;
     height: 50px;
     width: 50px;
 }
 
-fieldset > a[type="thumb"] > div:first-of-type  {
+fieldset > a[type="thumb"] > div:first-child  {
     height: 64px;
     width: 64px;
 }
 
-fieldset > a[type="comment"] > div:first-of-type,
-fieldset > a[type="header"] > div:first-of-type,
-fieldset > a[type="profile"] > div:first-of-type,
-fieldset > a[type="thumb"] > div:first-of-type {
+fieldset > a[type="comment"] > div:first-child,
+fieldset > a[type="header"] > div:first-child,
+fieldset > a[type="profile"] > div:first-child,
+fieldset > a[type="thumb"] > div:first-child {
     background-repeat: no-repeat;
     background-position: center center;
     display: inline-block;
@@ -397,11 +411,16 @@ fieldset > div > img.icon {
     width: 30px;
 }
 
+fieldset > a.sixth > img.icon {
+    position: relative;
+    left: 7px;
+}
+
 panel > block > p,
 fieldset > div > p,
 panel > block > ul,
 fieldset > div > ul {
-    margin: 11px 0;
+    margin: 10px 0;
 }
 
 panel > block > ul,
@@ -430,8 +449,9 @@ fieldset > a {
 }
 
 fieldset > textarea,
-fieldset > div > input,
-fieldset > div > select {
+fieldset > div > input:not([type="checkbox"]),
+fieldset > div > select,
+fieldset > div > div > select {
     background: none;
     -webkit-box-shadow: none;
     -webkit-appearance: none;
@@ -440,34 +460,44 @@ fieldset > div > select {
 /* Chevrons {{{ */
 
 fieldset > a[href]:not([type="ad"]),
-fieldset > div > select {
+fieldset > div > select,
+fieldset > div > div > select {
     background-repeat: no-repeat;
     background-image: url(chevron.png);
-    background-position-y: center;
 }
 
 /* Horizontal */
 
 list > fieldset > a[href] {
-    background-position-x: 295px;
+    background-position: 295px center;
 }
 
 panel > fieldset > a[href] {
-    background-position-x: 275px;
+    background-position: 275px center;
 }
 
 panel > fieldset > a[href].half {
-    background-position-x: 125px;
+    background-position: 125px center;
+}
+
+panel > fieldset > a[href].third {
+    background-position: 75px center;
+}
+
+panel > fieldset > a[href].sixth {
+    background: none;
 }
 
 list > fieldset > a:not([href]) > select,
-list > fieldset > div > select {
-    background-position-x: 183px;
+list > fieldset > div > select,
+list > fieldset > div > div > select {
+    background-position: 183px center;
 }
 
 panel > fieldset > a:not([href]) > select,
-panel > fieldset > div > select {
-    background-position-x: 163px;
+panel > fieldset > div > select,
+panel > fieldset > div > div > select {
+    background-position: 163px center;
 }
 
 /* }}} */
@@ -475,14 +505,16 @@ panel > fieldset > div > select {
 fieldset > textarea,
 fieldset > div > input,
 fieldset > div > select,
-fieldset > a > div > label:nth-of-type(2),
-fieldset > div > div > label:nth-of-type(2) {
+fieldset > div > div > select,
+fieldset > a > div > label + label,
+fieldset > div > div > label + label {
     color: #193250;
 }
 
 fieldset > textarea,
 fieldset > div > input,
-fieldset > div > select {
+fieldset > div > select,
+fieldset > div > div > select {
     font-size: 16px;
 }
 
@@ -491,8 +523,19 @@ fieldset > div > input {
     padding-right: 14px;
 }
 
+fieldset > div > input[type="checkbox"] {
+    border: 1px solid #999999;
+    -moz-border-radius: 7px;
+    -webkit-border-radius: 7px;
+    float: right;
+    margin: -7px -8px;
+    height: 30px;
+    width: 30px;
+}
+
 fieldset > div > select,
-fieldset > div > input {
+fieldset > div > div > select,
+fieldset > div > input:not([type="checkbox"]) {
     border: none;
     float: right;
     height: 40px;
@@ -500,12 +543,14 @@ fieldset > div > input {
 }
 
 panel > fieldset > div > select,
-panel > fieldset > div > input {
+panel > fieldset > div > div > select,
+panel > fieldset > div > input:not([type="checkbox"]) {
     width: 187px;
 }
 
 list > fieldset > div > select,
-list > fieldset > div > input {
+list > fieldset > div > div > select,
+list > fieldset > div > input:not([type="checkbox"]) {
     width: 207px;
 }
 
@@ -523,7 +568,7 @@ fieldset > div > div {
     width: 273px;
 }
 
-fieldset > a[type="ad"] > div:nth-of-type(2) {
+fieldset > a[type="ad"] > div:nth-child(2) {
     width: 218px;
 }
 
@@ -540,64 +585,64 @@ fieldset > a[href] > img.icon + div {
     width: 221px;
 }
 
-fieldset > a[type="profile"] > div:nth-of-type(2) > label:nth-of-type(1).unknown {
+fieldset > a[type="profile"] > div:nth-child(2) > label:nth-child(1).unknown {
     color: #aaaabb;
 }
 
-fieldset > a[type="profile"] > div:nth-of-type(2) > label:only-of-type {
+fieldset > a[type="profile"] > div:nth-child(2) > label:only-child {
     left: 4px;
     position: relative;
     top: 3px;
 }
 
-fieldset > a[type="thumb"] > div:nth-of-type(2) > label:only-of-type {
+fieldset > a[type="thumb"] > div:nth-child(2) > label:only-child {
     position: relative;
     top: 10px;
 }
 
-fieldset > a[type="profile"] > div:nth-of-type(2) > label:nth-of-type(2) {
+fieldset > a[type="profile"] > div:nth-child(2) > label + label {
     display: block;
     font-size: 13px;
     margin-top: 2px;
 }
 
-fieldset > a[type="thumb"] > div:nth-of-type(2) > label:nth-of-type(2) {
+fieldset > a[type="thumb"] > div:nth-child(2) > label + label {
     display: block;
     margin-top: 2px;
 }
 
-fieldset > a[type="profile"] > div:nth-of-type(2) {
+fieldset > a[type="profile"] > div:nth-child(2) {
     width: 207px;
 }
 
-fieldset > a[type="thumb"] > div:nth-of-type(2) {
+fieldset > a[type="thumb"] > div:nth-child(2) {
     width: 193px;
 }
 
-fieldset > a[type="profile"] > div:nth-of-type(2) {
+fieldset > a[type="profile"] > div:nth-child(2) {
     margin: -5px 0;
 }
 
-fieldset > a[type="profile"] > div:nth-of-type(2),
-fieldset > a[type="thumb"] > div:nth-of-type(2) {
+fieldset > a[type="profile"] > div:nth-child(2),
+fieldset > a[type="thumb"] > div:nth-child(2) {
     vertical-align: top;
 }
 
-fieldset > a > label:first-of-type,
-fieldset > a > div > label:first-of-type,
-fieldset > div > label:first-of-type,
-fieldset > div > div > label:first-of-type {
+fieldset > a > label:first-child,
+fieldset > a > div > label:first-child,
+fieldset > div > label:first-child,
+fieldset > div > div > label:first-child {
     font-weight: bold;
 }
 
 /* XXX: this doesn't handle icon offsets */
-list > fieldset > a:not([type]) > div > label:nth-of-type(2),
-list > fieldset > div > div > label:nth-of-type(2) {
+list > fieldset > a:not([type]) > div > label + label,
+list > fieldset > div > div > label + label {
     margin-left: 94px;
 }
 
-panel > fieldset > a:not([type]) > div > label:nth-of-type(2),
-panel > fieldset > div > div > label:nth-of-type(2) {
+panel > fieldset > a:not([type]) > div > label + label,
+panel > fieldset > div > div > label + label {
     float: right;
     text-align: right;
 }
@@ -612,19 +657,19 @@ panel > img {
 fieldset > a[type="ad"] {
 }
 
-fieldset > a[type="ad"] > div:nth-of-type(2) {
+fieldset > a[type="ad"] > div:nth-child(2) {
     position: relative;
     vertical-align: top;
 }
 
-fieldset > a[type="ad"] > div > label:nth-of-type(1) {
+fieldset > a[type="ad"] > div > label:first-child {
     color: #2d2d50;
     font-size: 13px;
     font-weight: bold;
     line-height: 15px;
 }
 
-fieldset > a[type="ad"] > div > label:nth-of-type(2) {
+fieldset > a[type="ad"] > div > label + label {
     position: absolute;
     top: 17px;
     left: 156px;
@@ -632,6 +677,7 @@ fieldset > a[type="ad"] > div > label:nth-of-type(2) {
     font-weight: normal;
 }
 
+panel > fieldset > a.middle,
 panel > fieldset > a.right {
     border-left: 1px solid #999999;
 }
@@ -641,9 +687,19 @@ panel > fieldset > a.half {
     width: 150px;
 }
 
+panel > fieldset > a.third {
+    display: inline-block;
+    width: 100px;
+}
+
+panel > fieldset > a.sixth {
+    display: inline-block;
+    width: 50px;
+}
+
 fieldset.half > a {
     background: none;
-    background-position-x: 120px;
+    background-position: 120px center;
 }
 
 fieldset.half > a > img.icon + div {
@@ -674,10 +730,12 @@ list > fieldset.dashed > textarea {
 }
 
 fieldset > a[type="thumb"]:first-child > back {
+    -moz-border-radius-topright: 9px;
     -webkit-border-top-right-radius: 9px;
 }
 
 fieldset > a[type="thumb"]:last-child > back {
+    -moz-border-radius-bottomright: 9px;
     -webkit-border-bottom-right-radius: 9px;
 }
 
@@ -695,6 +753,7 @@ fieldset > a[type="thumb"] > back {
 
 .mm {
     border: 1px solid #999999;
+    -moz-border-radius: 9px;
     -webkit-border-radius: 9px;
 }
 
@@ -729,6 +788,14 @@ fieldset > a.small.half > img.icon + div {
     width: 79px;
 }
 
+fieldset > a.small.third > img.icon + div {
+    width: 50px;
+}
+
+fieldset > a.small.sixth > img.icon + div {
+    width: 0px;
+}
+
 panel.centered > label {
     margin-left: 0px;
     margin-right: 0px;
@@ -739,6 +806,7 @@ panel > iframe {
     margin: -9px 0;
 }
 
+panel > iframe:first-child,
 panel > iframe + iframe {
     margin-top: 0;
 }
@@ -799,7 +867,7 @@ panel > iframe + iframe {
 panel > fieldset.header {
     background-color: transparent;
     border: none;
-    margin: -5px 0 -11px 0;
+    margin: -5px 9px -11px 9px;
 }
 
 panel > fieldset.header > a > div > label {

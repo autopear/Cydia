@@ -1001,6 +1001,7 @@ class CGColor {
 
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
+static const int ButtonBarWidth_ = 60;
 static const int ButtonBarHeight_ = 48;
 static const float KeyboardTime_ = 0.3f;
 
@@ -4357,55 +4358,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 4: [close_ setTitle:UCLocalize("REBOOT_DEVICE")]; break;
     }
 
-#define ListCache_ "/User/Library/Caches/com.apple.mobile.installation.plist"
-#define IconCache_ "/User/Library/Caches/com.apple.springboard-imagecache-icons.plist"
-
-    unlink(IconCache_);
-
-    if (NSMutableDictionary *cache = [[NSMutableDictionary alloc] initWithContentsOfFile:@ListCache_]) {
-        [cache autorelease];
-
-        NSFileManager *manager([NSFileManager defaultManager]);
-        NSError *error(nil);
-
-        id system([cache objectForKey:@"System"]);
-        if (system == nil)
-            goto error;
-
-        struct stat info;
-        if (stat(ListCache_, &info) == -1)
-            goto error;
-
-        [system removeAllObjects];
-
-        if (NSArray *apps = [manager contentsOfDirectoryAtPath:@"/Applications" error:&error]) {
-            for (NSString *app in apps)
-                if ([app hasSuffix:@".app"]) {
-                    NSString *path = [@"/Applications" stringByAppendingPathComponent:app];
-                    NSString *plist = [path stringByAppendingPathComponent:@"Info.plist"];
-                    if (NSMutableDictionary *info = [[NSMutableDictionary alloc] initWithContentsOfFile:plist]) {
-                        [info autorelease];
-                        if ([info objectForKey:@"CFBundleIdentifier"] != nil) {
-                            [info setObject:path forKey:@"Path"];
-                            [info setObject:@"System" forKey:@"ApplicationType"];
-                            [system addInfoDictionary:info];
-                        }
-                    }
-                }
-        } else goto error;
-
-        [cache writeToFile:@ListCache_ atomically:YES];
-
-        if (chown(ListCache_, info.st_uid, info.st_gid) == -1)
-            goto error;
-        if (chmod(ListCache_, info.st_mode) == -1)
-            goto error;
-
-        if (false) error:
-            lprintf("%s\n", error == nil ? strerror(errno) : [[error localizedDescription] UTF8String]);
-    }
-
-    notify_post("com.apple.mobile.application_installed");
+    system("su -c /usr/bin/uicache mobile");
 
     [delegate_ setStatusBarShowsProgress:NO];
 }
@@ -4871,7 +4824,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) init {
     if ((self = [super init]) != nil) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
-
         switch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventTouchUpInside];
     } return self;
@@ -4927,7 +4879,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!selected)
         UISetColor(Black_);
-    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(editing_ ? 164 : 250) withFont:Font22Bold_ ellipsis:2];
+
+    float width(rect.size.width + 23);
+    if (editing_)
+        width -= 86;
+
+    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 170) withFont:Font22Bold_ ellipsis:2];
 
     CGSize size = [count_ sizeWithFont:Font14_];
 
@@ -5237,7 +5194,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             frame.size.height = 0;
             [webview_ setFrame:frame];
 
-            [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+            if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
+                [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+            else
+                [scroller_ scrollRectToVisible:CGRectZero animated:NO];
 
             WebThreadLock();
             [[[webview_ webView] windowScriptObject] setValue:package_ forKey:@"package"];
@@ -8261,7 +8221,8 @@ static _finline void _setHomePage(Cydia *self) {
 
     for (int i = 0; i != 5; ++i)
         [[toolbar_ viewWithTag:(i + 1)] setFrame:CGRectMake(
-            i * 64 + 2, 1, 60, ButtonBarHeight_
+            i * (screenrect.size.width / 5) + (screenrect.size.width / 5 - ButtonBarWidth_) / 2, 1,
+            ButtonBarWidth_, ButtonBarHeight_
         )];
 
     [toolbar_ showSelectionForButton:1];

@@ -43,9 +43,9 @@ while (false)
 #define _label _label_(__LINE__)
 
 #define _packed \
-    __attribute__((packed))
-
-#define _finline inline __attribute__((always_inline))
+    __attribute__((__packed__))
+#define _finline \
+    inline __attribute__((__always_inline__))
 
 #define _assume(e) \
     _assert(e)

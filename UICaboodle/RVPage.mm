@@ -7,6 +7,10 @@
 
 @implementation RVPage
 
+- (bool) splitView {
+    return false;
+}
+
 - (NSString *) title {
     [self doesNotRecognizeSelector:_cmd];
     return nil;

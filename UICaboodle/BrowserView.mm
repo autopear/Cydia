@@ -10,10 +10,12 @@ extern NSString * const kCAFilterNearest;
 
 #include "substrate.h"
 
-#define ForSaurik 0
+#define ForSaurik 1
 
 static CFArrayRef (*$GSSystemCopyCapability)(CFStringRef);
 static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
+static Class $UIFormAssistant;
+static Class $UIWebBrowserView;
 
 @interface NSString (UIKit)
 - (NSString *) stringByAddingPercentEscapes;
@@ -144,7 +146,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
 @end
 
-#define ShowInternals 0
+#define ShowInternals 1
 #define LogBrowser 0
 
 #define lprintf(args...) fprintf(stderr, args)
@@ -166,6 +168,11 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
     $GSSystemCopyCapability = reinterpret_cast<CFArrayRef (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemCopyCapability"));
     $GSSystemGetCapability = reinterpret_cast<CFArrayRef (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemGetCapability"));
+    $UIFormAssistant = objc_getClass("UIFormAssistant");
+
+    $UIWebBrowserView = objc_getClass("UIWebBrowserView");
+    if ($UIWebBrowserView == nil)
+        $UIWebBrowserView = objc_getClass("UIWebDocumentView");
 }
 
 - (void) dealloc {
@@ -196,7 +203,10 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
     [webview_ setDelegate:nil];
     [webview_ setGestureDelegate:nil];
-    [webview_ setFormEditingDelegate:nil];
+
+    if ([webview_ respondsToSelector:@selector(setFormEditingDelegate:)])
+        [webview_ setFormEditingDelegate:nil];
+
     [webview_ setInteractionDelegate:nil];
 
     [indirect_ setDelegate:nil];
@@ -294,10 +304,11 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 /* XXX: WebThreadLock? */
 - (void) _fixScroller:(CGRect)bounds {
     float extra;
-    if (!editing_)
+
+    if (!editing_ || $UIFormAssistant == nil)
         extra = 0;
     else {
-        UIFormAssistant *assistant([UIFormAssistant sharedFormAssistant]);
+        UIFormAssistant *assistant([$UIFormAssistant sharedFormAssistant]);
         CGRect peripheral([assistant peripheralFrame]);
 #if LogBrowser
         NSLog(@"per:%f", peripheral.size.height);
@@ -307,16 +318,18 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
     CGRect subrect([scroller_ frame]);
     subrect.size.height -= extra;
-    [scroller_ setScrollerIndicatorSubrect:subrect];
 
-    NSSize visible(NSMakeSize(subrect.size.width, subrect.size.height));
-    [webview_ setValue:[NSValue valueWithSize:visible] forGestureAttribute:UIGestureAttributeVisibleSize];
+    if ([scroller_ respondsToSelector:@selector(setScrollerIndicatorSubrect:)])
+        [scroller_ setScrollerIndicatorSubrect:subrect];
+
+    [webview_ setValue:[NSValue valueWithSize:NSMakeSize(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
 
     CGSize size(size_);
     size.height += extra;
     [scroller_ setContentSize:size];
 
-    [scroller_ releaseRubberBandIfNecessary];
+    if ([scroller_ respondsToSelector:@selector(releaseRubberBandIfNecessary)])
+        [scroller_ releaseRubberBandIfNecessary];
 }
 
 - (void) fixScroller {
@@ -938,7 +951,14 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
         [book_ reloadTitleForPage:self];
 
-        [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+        CGRect webrect = [scroller_ bounds];
+        webrect.size.height = 1;
+        [webview_ setFrame:webrect];
+
+        if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
+            [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
+        else
+            [scroller_ scrollRectToVisible:CGRectZero animated:NO];
 
         if ([scroller_ respondsToSelector:@selector(setZoomScale:duration:)])
             [scroller_ setZoomScale:1 duration:0];
@@ -946,10 +966,6 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
             [scroller_ _setZoomScale:1 duration:0];
         /*else if ([scroller_ respondsToSelector:@selector(setZoomScale:animated:)])
             [scroller_ setZoomScale:1 animated:NO];*/
-
-        CGRect webrect = [scroller_ bounds];
-        webrect.size.height = 0;
-        [webview_ setFrame:webrect];
     }
 
     [self reloadButtons];
@@ -1071,6 +1087,8 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
 - (void) webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
     [self _didFailWithError:error forFrame:frame];
+    if ([webview_ respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
+        [webview_ webView:sender didFailLoadWithError:error forFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
@@ -1083,10 +1101,92 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 #endif
 }
 
+- (void) webView:(WebView *)sender didReceiveMessage:(NSDictionary *)dictionary {
+#if LogBrowser || ForSaurik
+    lprintf("Console:%s\n", [[dictionary description] UTF8String]);
+#endif
+    if ([webview_ respondsToSelector:@selector(webView:didReceiveMessage:)])
+        [webview_ webView:sender didReceiveMessage:dictionary];
+}
+
+- (void) webView:(id)sender willCloseFrame:(id)frame {
+    if ([webview_ respondsToSelector:@selector(webView:willCloseFrame:)])
+        [webview_ webView:sender willCloseFrame:frame];
+}
+
+- (void) webView:(id)sender didFinishDocumentLoadForFrame:(id)frame {
+    if ([webview_ respondsToSelector:@selector(webView:didFinishDocumentLoadForFrame:)])
+        [webview_ webView:sender didFinishDocumentLoadForFrame:frame];
+}
+
+- (void) webView:(id)sender didFirstLayoutInFrame:(id)frame {
+    if ([webview_ respondsToSelector:@selector(webView:didFirstLayoutInFrame:)])
+        [webview_ webView:sender didFirstLayoutInFrame:frame];
+}
+
+- (void) webViewFormEditedStatusHasChanged:(id)changed {
+    if ([webview_ respondsToSelector:@selector(webViewFormEditedStatusHasChanged:)])
+        [webview_ webViewFormEditedStatusHasChanged:changed];
+}
+
+- (void) webView:(id)sender formStateDidFocusNode:(id)formState {
+    if ([webview_ respondsToSelector:@selector(webView:formStateDidFocusNode:)])
+        [webview_ webView:sender formStateDidFocusNode:formState];
+}
+
+- (void) webView:(id)sender formStateDidBlurNode:(id)formState {
+    if ([webview_ respondsToSelector:@selector(webView:formStateDidBlurNode:)])
+        [webview_ webView:sender formStateDidBlurNode:formState];
+}
+
 /* XXX: fix this stupid include file
 - (void) webView:(WebView *)sender frame:(WebFrame *)frame exceededDatabaseQuotaForSecurityOrigin:(WebSecurityOrigin *)origin database:(NSString *)database {
     [origin setQuota:0x500000];
 }*/
+
+- (void) webViewDidLayout:(id)sender {
+    [webview_ webViewDidLayout:sender];
+}
+
+- (void) webView:(id)sender didFirstVisuallyNonEmptyLayoutInFrame:(id)frame {
+    [webview_ webView:sender didFirstVisuallyNonEmptyLayoutInFrame:frame];
+}
+
+- (void) webView:(id)sender saveStateToHistoryItem:(id)item forFrame:(id)frame {
+    [webview_ webView:sender saveStateToHistoryItem:item forFrame:frame];
+}
+
+- (void) webView:(id)sender restoreStateFromHistoryItem:(id)item forFrame:(id)frame force:(BOOL)force {
+    [webview_ webView:sender restoreStateFromHistoryItem:item forFrame:frame force:force];
+}
+
+- (void) webView:(id)sender attachRootLayer:(id)layer {
+    [webview_ webView:sender attachRootLayer:layer];
+}
+
+- (id) webView:(id)sender plugInViewWithArguments:(id)arguments fromPlugInPackage:(id)package {
+    return [webview_ webView:sender plugInViewWithArguments:arguments fromPlugInPackage:package];
+}
+
+- (void) webView:(id)sender willShowFullScreenForPlugInView:(id)view {
+    [webview_ webView:sender willShowFullScreenForPlugInView:view];
+}
+
+- (void) webView:(id)sender didHideFullScreenForPlugInView:(id)view {
+    [webview_ webView:sender didHideFullScreenForPlugInView:view];
+}
+
+- (void) webView:(id)sender willAddPlugInView:(id)view {
+    [webview_ webView:sender willAddPlugInView:view];
+}
+
+- (void) webView:(id)sender didObserveDeferredContentChange:(int)change forFrame:(id)frame {
+    [webview_ webView:sender didObserveDeferredContentChange:change forFrame:frame];
+}
+
+- (void) webViewDidPreventDefaultForEvent:(id)sender {
+    [webview_ webViewDidPreventDefaultForEvent:sender];
+}
 
 - (void) _setTileDrawingEnabled:(BOOL)enabled {
     //[webview_ setTileDrawingEnabled:enabled];
@@ -1126,7 +1226,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
         struct CGRect bounds = [self bounds];
 
-        scroller_ = [[UIScroller alloc] initWithFrame:bounds];
+        scroller_ = [[UIScrollView alloc] initWithFrame:bounds];
         [self addSubview:scroller_];
 
         [scroller_ setFixedBackgroundPattern:YES];
@@ -1134,18 +1234,26 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
         [scroller_ setScrollingEnabled:YES];
         [scroller_ setClipsSubviews:YES];
-        [scroller_ setAllowsRubberBanding:YES];
+
+        if (false)
+            [scroller_ setAllowsRubberBanding:YES];
 
         [scroller_ setDelegate:self];
         [scroller_ setBounces:YES];
-        [scroller_ setScrollHysteresis:8];
-        [scroller_ setThumbDetectionEnabled:NO];
-        [scroller_ setDirectionalScrolling:YES];
-        [scroller_ setScrollDecelerationFactor:0.99]; /* 0.989324 */
-        [scroller_ setEventMode:YES];
+
+        if (false) {
+            [scroller_ setScrollHysteresis:8];
+            [scroller_ setThumbDetectionEnabled:NO];
+            [scroller_ setDirectionalScrolling:YES];
+            [scroller_ setScrollDecelerationFactor:0.99]; /* 0.989324 */
+            [scroller_ setEventMode:YES];
+        }
+
         [scroller_ setShowBackgroundShadow:NO]; /* YES */
-        [scroller_ setAllowsRubberBanding:YES]; /* Vertical */
-        [scroller_ setAdjustForContentSizeChange:YES]; /* NO */
+        //[scroller_ setAllowsRubberBanding:YES]; /* Vertical */
+
+        if (false)
+            [scroller_ setAdjustForContentSizeChange:YES]; /* NO */
 
         CGRect webrect = [scroller_ bounds];
         webrect.size.height = 0;
@@ -1165,7 +1273,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 #else
         if (true) {
 #endif
-            webview_ = [[UIWebDocumentView alloc] initWithFrame:webrect];
+            webview_ = [[$UIWebBrowserView alloc] initWithFrame:webrect];
             webview = [webview_ webView];
 
             // XXX: this is terribly (too?) expensive
@@ -1176,9 +1284,8 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
             if ([webview_ respondsToSelector:@selector(enableReachability)])
                 [webview_ enableReachability];
-
-            [webview_ setAllowsMessaging:YES];
-
+            if ([webview_ respondsToSelector:@selector(setAllowsMessaging:)])
+                [webview_ setAllowsMessaging:YES];
             if ([webview_ respondsToSelector:@selector(useSelectionAssistantWithMode:)])
                 [webview_ useSelectionAssistantWithMode:0];
 
@@ -1208,7 +1315,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
             [webview_ _setDocumentType:0x4];
 
-            if ([webview_ respondsToSelector:@selector(UIWebDocumentView:)])
+            if ([webview_ respondsToSelector:@selector(setZoomsFocusedFormControl:)])
                 [webview_ setZoomsFocusedFormControl:YES];
             [webview_ setContentsPosition:7];
             [webview_ setEnabledGestures:0xa];
@@ -1233,7 +1340,10 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 
         [webview_ setDelegate:self];
         [webview_ setGestureDelegate:self];
-        [webview_ setFormEditingDelegate:self];
+
+        if ([webview_ respondsToSelector:@selector(setFormEditingDelegate:)])
+            [webview_ setFormEditingDelegate:self];
+
         [webview_ setInteractionDelegate:self];
 
         [scroller_ addSubview:webview_];
@@ -1253,7 +1363,7 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
         WebThreadUnlock();
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(281, 12, indsize.width, indsize.height)];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(bounds.size.width - 39, 12, indsize.width, indsize.height)];
         [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];

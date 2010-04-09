@@ -8547,7 +8547,8 @@ int main(int argc, char *argv[]) { _pooled
     if ($GSFontSetUseLegacyFontMetrics != NULL)
         $GSFontSetUseLegacyFontMetrics(YES);
 
-    UIKeyboardDisableAutomaticAppearance();
+    // XXX: I have a feeling this was important
+    //UIKeyboardDisableAutomaticAppearance();
     /* }}} */
 
     Colon_ = UCLocalize("COLON_DELIMITED");

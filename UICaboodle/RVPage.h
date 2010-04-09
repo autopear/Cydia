@@ -10,6 +10,8 @@
     _transient id delegate_;
 }
 
+- (bool) splitView;
+
 - (NSString *) title;
 - (NSString *) backButtonTitle;
 - (id) rightButtonTitle;

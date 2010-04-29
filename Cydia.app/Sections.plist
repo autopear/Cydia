@@ -51,6 +51,30 @@
         <string>Messaging</string>
     </dict>
 
+    <key>Themes_(Locksceen)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(LockScreen)</string>
+    </dict>
+
+    <key>Themes_(Lockscree)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(LockScreen)</string>
+    </dict>
+
+    <key>Themes_(Losckscreen)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(LockScreen)</string>
+    </dict>
+
+    <key>Themes_(Video)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(Videos)</string>
+    </dict>
+
     <key>Utilites</key>
     <dict>
         <key>Rename</key>

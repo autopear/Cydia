@@ -2097,7 +2097,7 @@ struct PackageNameOrdering :
 }
 
 - (void) setVisible {
-    visible_ = required_ && [self hasSupportingRole] && [self unfiltered];
+    visible_ = required_ && [self unfiltered];
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
@@ -2398,7 +2398,7 @@ struct PackageNameOrdering :
 
 - (BOOL) unfiltered {
     NSString *section([self section]);
-    return !obsolete_ && (section == nil || isSectionVisible(section));
+    return !obsolete_ && [self hasSupportingRole] && (section == nil || isSectionVisible(section));
 }
 
 - (BOOL) visible {
@@ -2781,6 +2781,9 @@ struct PackageNameOrdering :
 }
 
 - (bool) isUnfilteredAndSelectedForBy:(NSString *)search {
+    if ([search length] == 0)
+        return false;
+
     _profile(Package$isUnfilteredAndSelectedForBy)
         bool value(true);
 
@@ -3677,6 +3680,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return @"setPopupHook";
     else if (selector == @selector(setSpecial:))
         return @"setSpecial";
+    else if (selector == @selector(setToken:))
+        return @"setToken";
     else if (selector == @selector(setViewportWidth:))
         return @"setViewportWidth";
     else if (selector == @selector(supports:))
@@ -3793,6 +3798,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [indirect_ setSpecial:function];
 }
 
+- (void) setToken:(NSString *)token {
+    if (Token_ != nil)
+        [Token_ release];
+    Token_ = [token retain];
+
+    [Metadata_ setObject:Token_ forKey:@"Token"];
+    Changed_ = true;
+}
+
 - (void) setFinishHook:(id)function {
     [indirect_ setFinishHook:function];
 }
@@ -3859,7 +3873,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *host([url host]);
     [self setHeaders:headers forHost:host];
 
-    [window setValue:cydia_ forKey:@"cydia"];
+    if ([host isEqualToString:@"cydia.saurik.com"] || [scheme isEqualToString:@"file"])
+        [window setValue:cydia_ forKey:@"cydia"];
 }
 
 - (void) _setMoreHeaders:(NSMutableURLRequest *)request {
@@ -4718,7 +4733,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     icon_ = [[package icon] retain];
     name_ = [[package name] retain];
-    description_ = [IsWildcat_ ? [package shortDescription] : [package longDescription] retain];
+
+    if (IsWildcat_)
+        description_ = [package longDescription];
+    if (description_ == nil)
+        description_ = [package shortDescription];
+    if (description_ != nil)
+        description_ = [description_ retain];
+
     commercial_ = [package isCommercial];
 
     package_ = [package retain];
@@ -4759,7 +4781,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) drawContentRect:(CGRect)rect {
     bool selected([self isSelected]);
-    float width(rect.size.width);
+    float width([self bounds].size.width);
 
 #if 0
     CGContextRef context(UIGraphicsGetCurrentContext());
@@ -6142,14 +6164,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation HomeView
-
-- (void) setHeaders:(NSDictionary *)headers forHost:(NSString *)host {
-    if (NSString *token = [headers objectForKey:@"X-Cydia-Token"]) {
-        if (Token_ != nil)
-            [Token_ release];
-        Token_ = [token retain];
-    }
-}
 
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context([sheet context]);
@@ -8577,6 +8591,8 @@ int main(int argc, char *argv[]) { _pooled
         Packages_ = [Metadata_ objectForKey:@"Packages"];
         Sections_ = [Metadata_ objectForKey:@"Sections"];
         Sources_ = [Metadata_ objectForKey:@"Sources"];
+
+        Token_ = [Metadata_ objectForKey:@"Token"];
     }
 
     if (Settings_ != nil)

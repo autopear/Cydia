@@ -381,7 +381,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
-#define ManualRefresh (1 && !ForRelease)
+#define ManualRefresh (0 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
@@ -799,6 +799,8 @@ class CYString {
             if (size_ == 0)
                 return nil;
             cache_ = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<uint8_t *>(data_), size_, kCFStringEncodingUTF8, NO, kCFAllocatorNull);
+            if (cache_ == NULL)
+                cache_ = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<uint8_t *>(data_), size_, kCFStringEncodingISOLatin1, NO, kCFAllocatorNull);
         } return cache_;
     }
 
@@ -1042,6 +1044,7 @@ static const char *Machine_ = NULL;
 static const NSString *System_ = NULL;
 static const NSString *SerialNumber_ = nil;
 static const NSString *ChipID_ = nil;
+static const NSString *Token_ = nil;
 static const NSString *UniqueID_ = nil;
 static const NSString *Build_ = nil;
 static const NSString *Product_ = nil;
@@ -1062,6 +1065,8 @@ static _transient NSMutableDictionary *Sections_;
 static _transient NSMutableDictionary *Sources_;
 static bool Changed_;
 static NSDate *now_;
+
+static bool IsWildcat_;
 
 #if RecycleWebViews
 static NSMutableArray *Documents_;
@@ -1728,6 +1733,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     bool essential_;
     bool required_;
     bool visible_;
+    bool obsolete_;
 
     NSString *latest_;
     CYString installed_;
@@ -1837,6 +1843,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (void) remove;
 
 - (bool) isUnfilteredAndSearchedForBy:(NSString *)search;
+- (bool) isUnfilteredAndSelectedForBy:(NSString *)search;
 - (bool) isInstalledAndVisible:(NSNumber *)number;
 - (bool) isVisibleInSection:(NSString *)section;
 - (bool) isVisibleInSource:(Source *)source;
@@ -2189,13 +2196,12 @@ struct PackageNameOrdering :
                 if (version == nil) {
                     [metadata_ setObject:latest_ forKey:@"LastVersion"];
                     changed = true;
-                } else {
-                if (![version isEqualToString:latest_]) {
+                } else if (![version isEqualToString:latest_]) {
                     [metadata_ setObject:latest_ forKey:@"LastVersion"];
                     lastSeen_ = now_;
                     [metadata_ setObject:lastSeen_ forKey:@"LastSeen"];
                     changed = true;
-                } }
+                }
             }
 
             metadata_ = [metadata_ retain];
@@ -2210,6 +2216,7 @@ struct PackageNameOrdering :
             section_.set(pool_, iterator_.Section());
         _end
 
+        obsolete_ = [self hasTag:@"cydia::obsolete"];
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
         [self setVisible];
     } _end } return self;
@@ -2391,7 +2398,7 @@ struct PackageNameOrdering :
 
 - (BOOL) unfiltered {
     NSString *section([self section]);
-    return section == nil || isSectionVisible(section);
+    return !obsolete_ && (section == nil || isSectionVisible(section));
 }
 
 - (BOOL) visible {
@@ -2643,9 +2650,9 @@ struct PackageNameOrdering :
     if (range.location != NSNotFound)
         return YES;
 
-    /* range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_];
+    range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
-        return YES; */
+        return YES;
 
     return NO;
 }
@@ -2767,6 +2774,22 @@ struct PackageNameOrdering :
 
         _profile(Package$isUnfilteredAndSearchedForBy$Match)
             value &= [self matches:search];
+        _end
+
+        return value;
+    _end
+}
+
+- (bool) isUnfilteredAndSelectedForBy:(NSString *)search {
+    _profile(Package$isUnfilteredAndSelectedForBy)
+        bool value(true);
+
+        _profile(Package$isUnfilteredAndSelectedForBy$Unfiltered)
+            value &= [self unfiltered];
+        _end
+
+        _profile(Package$isUnfilteredAndSelectedForBy$Match)
+            value &= [[self name] compare:search options:MatchCompareOptions_ range:NSMakeRange(0, [search length])] == NSOrderedSame;
         _end
 
         return value;
@@ -3815,8 +3838,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) setHeaders:(NSDictionary *)headers forHost:(NSString *)host {
+}
+
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:sender didClearWindowObject:window forFrame:frame];
+
+    WebDataSource *source([frame dataSource]);
+    NSURLResponse *response([source response]);
+    NSURL *url([response URL]);
+    NSString *scheme([url scheme]);
+
+    NSHTTPURLResponse *http;
+    if (scheme != nil && ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]))
+        http = (NSHTTPURLResponse *) response;
+    else
+        http = nil;
+
+    NSDictionary *headers([http allHeaderFields]);
+    NSString *host([url host]);
+    [self setHeaders:headers forHost:host];
+
     [window setValue:cydia_ forKey:@"cydia"];
 }
 
@@ -3825,8 +3867,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [request setValue:System_ forHTTPHeaderField:@"X-System"];
     if (Machine_ != NULL)
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (UniqueID_ != nil)
-        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+    if (Token_ != nil)
+        [request setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
     if (Role_ != nil)
         [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
 }
@@ -4676,7 +4718,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     icon_ = [[package icon] retain];
     name_ = [[package name] retain];
-    description_ = [[package shortDescription] retain];
+    description_ = [IsWildcat_ ? [package shortDescription] : [package longDescription] retain];
     commercial_ = [package isCommercial];
 
     package_ = [package retain];
@@ -4717,6 +4759,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) drawContentRect:(CGRect)rect {
     bool selected([self isSelected]);
+    float width(rect.size.width);
 
 #if 0
     CGContextRef context(UIGraphicsGetCurrentContext());
@@ -4751,15 +4794,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!selected)
         UISetColor(commercial_ ? Purple_ : Black_);
-    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(placard_ == nil ? 240 : 214) withFont:Font18Bold_ ellipsis:2];
-    [source_ drawAtPoint:CGPointMake(58, 29) forWidth:225 withFont:Font12_ ellipsis:2];
+    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ ellipsis:2];
+    [source_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ ellipsis:2];
 
     if (!selected)
         UISetColor(commercial_ ? Purplish_ : Gray_);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:274 withFont:Font14_ ellipsis:2];
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 46) withFont:Font14_ ellipsis:2];
 
     if (placard_ != nil)
-        [placard_ drawAtPoint:CGPointMake(268, 9)];
+        [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
 }
 
 - (void) setSelected:(BOOL)selected animated:(BOOL)fade {
@@ -4884,7 +4927,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (editing_)
         width -= 86;
 
-    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 170) withFont:Font22Bold_ ellipsis:2];
+    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ ellipsis:2];
 
     CGSize size = [count_ sizeWithFont:Font14_];
 
@@ -5428,6 +5471,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setObject:(id)object;
+- (void) setObject:(id)object forFilter:(SEL)filter;
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
 
@@ -5441,6 +5485,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) setFilter:(SEL)filter {
+    filter_ = filter;
+
+    /* XXX: this is an unsafe optimization of doomy hell */
+    Method method(class_getInstanceMethod([Package class], filter));
+    _assert(method != NULL);
+    imp_ = method_getImplementation(method);
+    _assert(imp_ != NULL);
+}
+
 - (void) setObject:(id)object {
     if (object_ != nil)
         [object_ release];
@@ -5448,6 +5502,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         object_ = nil;
     else
         object_ = [object retain];
+}
+
+- (void) setObject:(id)object forFilter:(SEL)filter {
+    [self setFilter:filter];
+    [self setObject:object];
+
 }
 
 - (bool) hasPackage:(Package *)package {
@@ -5458,15 +5518,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
     if ((self = [super initWithBook:book database:database title:title]) != nil) {
-        filter_ = filter;
+        [self setFilter:filter];
         object_ = object == nil ? nil : [object retain];
-
-        /* XXX: this is an unsafe optimization of doomy hell */
-        Method method(class_getInstanceMethod([Package class], filter));
-        _assert(method != NULL);
-        imp_ = method_getImplementation(method);
-        _assert(imp_ != NULL);
-
         [self reloadData];
     } return self;
 }
@@ -5532,6 +5585,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
+    float width(rect.size.width);
+
     if (icon_ != nil)
         [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
 
@@ -5540,15 +5595,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!selected)
         UISetColor(Black_);
-    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:240 withFont:Font18Bold_ ellipsis:2];
+    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ ellipsis:2];
 
     if (!selected)
         UISetColor(Blue_);
-    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:225 withFont:Font12_ ellipsis:2];
+    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ ellipsis:2];
 
     if (!selected)
         UISetColor(Gray_);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:280 withFont:Font14_ ellipsis:2];
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 40) withFont:Font14_ ellipsis:2];
 
     [super drawContentInRect:rect selected:selected];
 }
@@ -5830,9 +5885,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (Machine_ != NULL)
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (UniqueID_ != nil)
-        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-
+    if (Token_ != nil)
+        [request setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
     if (Role_ != nil)
         [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
 
@@ -6089,6 +6143,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation HomeView
 
+- (void) setHeaders:(NSDictionary *)headers forHost:(NSString *)host {
+    if (NSString *token = [headers objectForKey:@"X-Cydia-Token"]) {
+        if (Token_ != nil)
+            [Token_ release];
+        Token_ = [token retain];
+    }
+}
+
 - (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
     NSString *context([sheet context]);
 
@@ -6102,6 +6164,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super _setMoreHeaders:request];
     if (ChipID_ != nil)
         [request setValue:ChipID_ forHTTPHeaderField:@"X-Chip-ID"];
+    if (UniqueID_ != nil)
+        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
 }
 
 - (void) _leftButtonClicked {
@@ -6191,11 +6255,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIProgressBar *progress_;
     UINavigationButton *cancel_;
     bool updating_;
+    bool dropped_;
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database;
 - (void) update;
 - (BOOL) updating;
+- (void) setUpdate:(NSDate *)date;
 
 @end
 
@@ -6218,7 +6284,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return updating_;
 }
 
-- (void) update {
+- (void) dropBar {
+    if (dropped_)
+        return;
+    dropped_ = true;
+
     [UIView beginAnimations:nil context:NULL];
 
     CGRect ovrframe = [overlay_ frame];
@@ -6235,6 +6305,37 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [transition_ setFrame:trnframe];
 
     [UIView endAnimations];
+}
+
+- (void) raiseBar {
+    if (!dropped_)
+        return;
+    dropped_ = false;
+
+    [UIView beginAnimations:nil context:NULL];
+
+    CGRect ovrframe = [overlay_ frame];
+    ovrframe.origin.y = -ovrframe.size.height;
+    [overlay_ setFrame:ovrframe];
+
+    CGRect barframe = [navbar_ frame];
+    barframe.origin.y -= ovrframe.size.height;
+    [navbar_ setFrame:barframe];
+
+    CGRect trnframe = [transition_ frame];
+    trnframe.origin.y -= ovrframe.size.height;
+    trnframe.size.height += ovrframe.size.height;
+    [transition_ setFrame:trnframe];
+
+    [UIView commitAnimations];
+}
+
+- (void) setUpdate:(NSDate *)date {
+    [self update];
+}
+
+- (void) update {
+    [self dropBar];
 
     [indicator_ startAnimation];
     [prompt_ setText:UCLocalize("UPDATING_DATABASE")];
@@ -6262,22 +6363,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [indicator_ stopAnimation];
 
-    [UIView beginAnimations:nil context:NULL];
-
-    CGRect ovrframe = [overlay_ frame];
-    ovrframe.origin.y = -ovrframe.size.height;
-    [overlay_ setFrame:ovrframe];
-
-    CGRect barframe = [navbar_ frame];
-    barframe.origin.y -= ovrframe.size.height;
-    [navbar_ setFrame:barframe];
-
-    CGRect trnframe = [transition_ frame];
-    trnframe.origin.y -= ovrframe.size.height;
-    trnframe.size.height += ovrframe.size.height;
-    [transition_ setFrame:trnframe];
-
-    [UIView commitAnimations];
+    [self raiseBar];
 
     [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
 }
@@ -7061,21 +7147,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (show)
         [animator performSelector:@selector(startAnimation:) withObject:animation afterDelay:delay];
 
-    [delegate_ showKeyboard:show];
+    //[delegate_ showKeyboard:show];
 }
 
 - (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
     [self _showKeyboard:YES];
+    [table_ setObject:[field_ text] forFilter:@selector(isUnfilteredAndSelectedForBy:)];
+    [self reloadData];
 }
 
 - (void) textFieldDidResignFirstResponder:(UITextField *)field {
     [self _showKeyboard:NO];
+    [table_ setObject:[field_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+    [self reloadData];
 }
 
 - (void) keyboardInputChanged:(UIFieldEditor *)editor {
     if (reload_) {
         NSString *text([field_ text]);
         [field_ setClearButtonStyle:(text == nil || [text length] == 0 ? 0 : 2)];
+        [table_ setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
         [self reloadData];
         reload_ = false;
     }
@@ -7161,7 +7252,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
-    [table_ setObject:[field_ text]];
     _profile(SearchView$reloadData)
         [table_ reloadData];
     _end
@@ -7468,6 +7558,10 @@ static _finline void _setHomePage(Cydia *self) {
 
 @implementation Cydia
 
+- (UIView *) rotatingContentViewForWindow:(UIWindow *)window {
+    return window_;
+}
+
 - (void) _loaded {
     if ([broken_ count] != 0) {
         int count = [broken_ count];
@@ -7595,13 +7689,15 @@ static _finline void _setHomePage(Cydia *self) {
     else {
         loaded = true;
 
-        if (NSDate *update = [Metadata_ objectForKey:@"LastUpdate"]) {
+        NSDate *update([Metadata_ objectForKey:@"LastUpdate"]);
+
+        if (update != nil) {
             NSTimeInterval interval([update timeIntervalSinceNow]);
             if (interval <= 0 && interval > -(15*60))
                 goto loaded;
         }
 
-        [book_ update];
+        [book_ setUpdate:update];
     }
 }
 
@@ -7777,6 +7873,27 @@ static _finline void _setHomePage(Cydia *self) {
     return sections_;
 }
 
+- (ChangesView *) changesView {
+    if (changes_ == nil)
+        changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
+    return changes_;
+}
+
+- (ManageView *) manageView {
+    if (manage_ == nil)
+        manage_ = (ManageView *) [[self
+            _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
+            withClass:[ManageView class]
+        ] retain];
+    return manage_;
+}
+
+- (SearchView *) searchView {
+    if (search_ == nil)
+        search_ = [[SearchView alloc] initWithBook:book_ database:database_];
+    return search_;
+}
+
 - (void) buttonBarItemTapped:(id)sender {
     unsigned tag = [sender tag];
     if (tag == tag_) {
@@ -7789,9 +7906,9 @@ static _finline void _setHomePage(Cydia *self) {
         case 1: _setHomePage(self); break;
 
         case 2: [self setPage:[self sectionsView]]; break;
-        case 3: [self setPage:changes_]; break;
-        case 4: [self setPage:manage_]; break;
-        case 5: [self setPage:search_]; break;
+        case 3: [self setPage:[self changesView]]; break;
+        case 4: [self setPage:[self manageView]]; break;
+        case 5: [self setPage:[self searchView]]; break;
 
         _nodefault
     }
@@ -8091,6 +8208,8 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
+    //[window_ setAutorotates:YES];
+    //[window_ setDelegate:self];
 
     database_ = [Database sharedInstance];
 
@@ -8229,23 +8348,14 @@ static _finline void _setHomePage(Cydia *self) {
     [overlay_ addSubview:toolbar_];
 
     [UIKeyboard initImplementationNow];
-    CGSize keysize = [UIKeyboard defaultSize];
+    /*CGSize keysize = [UIKeyboard defaultSize];
     CGRect keyrect = {{0, [overlay_ bounds].size.height}, keysize};
     keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
-    [overlay_ addSubview:keyboard_];
+    [overlay_ addSubview:keyboard_];*/
 
     [underlay_ addSubview:overlay_];
 
     [self reloadData];
-
-    [self sectionsView];
-    changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
-    search_ = [[SearchView alloc] initWithBook:book_ database:database_];
-
-    manage_ = (ManageView *) [[self
-        _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
-        withClass:[ManageView class]
-    ] retain];
 
 #if RecyclePackageViews
     details_ = [[NSMutableArray alloc] initWithCapacity:4];
@@ -8314,6 +8424,12 @@ MSHook(void, UIWebDocumentView$_setUIKitDelegate$, UIWebDocumentView *self, SEL 
 
 int main(int argc, char *argv[]) { _pooled
     _trace();
+
+    if (Class $UIDevice = objc_getClass("UIDevice")) {
+        UIDevice *device([$UIDevice currentDevice]);
+        IsWildcat_ = [device respondsToSelector:@selector(isWildcat)] && [device isWildcat];
+    } else
+        IsWildcat_ = false;
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
@@ -8488,15 +8604,19 @@ int main(int argc, char *argv[]) { _pooled
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
+    if (substrate && access("/Library/MobileSubstrate/DynamicLibraries/SimulatedKeyEvents.dylib", F_OK) == 0)
+        dlopen("/Library/MobileSubstrate/DynamicLibraries/SimulatedKeyEvents.dylib", RTLD_LAZY | RTLD_GLOBAL);
     if (substrate && access("/Applications/WinterBoard.app/WinterBoard.dylib", F_OK) == 0)
         dlopen("/Applications/WinterBoard.app/WinterBoard.dylib", RTLD_LAZY | RTLD_GLOBAL);
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 
+    int version([[NSString stringWithContentsOfFile:@"/var/lib/cydia/firmware.ver"] intValue]);
+
     if (access("/tmp/.cydia.fw", F_OK) == 0) {
         unlink("/tmp/.cydia.fw");
         goto firmware;
-    } else if (access("/User", F_OK) != 0) {
+    } else if (access("/User", F_OK) != 0 || version < 1) {
       firmware:
         _trace();
         system("/usr/libexec/cydia/firmware.sh");

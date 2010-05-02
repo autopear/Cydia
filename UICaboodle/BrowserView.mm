@@ -10,7 +10,7 @@ extern NSString * const kCAFilterNearest;
 
 #include "substrate.h"
 
-#define ForSaurik 1
+#define ForSaurik 0
 
 static bool Wildcat_;
 
@@ -148,7 +148,7 @@ static Class $UIWebBrowserView;
 
 @end
 
-#define ShowInternals 1
+#define ShowInternals 0
 #define LogBrowser 0
 
 #define lprintf(args...) fprintf(stderr, args)

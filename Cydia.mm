@@ -194,6 +194,8 @@ void PrintTimes() {
 
 #define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
 
+static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
+
 void NSLogPoint(const char *fix, const CGPoint &point) {
     NSLog(@"%s(%g,%g)", fix, point.x, point.y);
 }
@@ -361,10 +363,14 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 - (void) popSubview:(UIView *)view {
     UITransitionView *transition([[[PopTransitionView alloc] initWithFrame:[self bounds]] autorelease]);
-    [transition setDelegate:transition];
+    [transition setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [self addSubview:transition];
 
-    UIView *blank = [[[UIView alloc] initWithFrame:[transition bounds]] autorelease];
+    [transition setDelegate:transition];
+
+    UIView *blank([[[UIView alloc] initWithFrame:[transition bounds]] autorelease]);
+    [blank setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
     [transition transition:UITransitionNone toView:blank];
     [transition transition:UITransitionPushFromBottom toView:view];
 }
@@ -4043,6 +4049,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 context:@"remove"
             ];
 
+            [essential_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
             [essential_ setDestructiveButtonIndex:1];
             [essential_ setBodyText:UCLocalize("REMOVING_ESSENTIALS_EX")];
         } else {
@@ -4053,6 +4061,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 delegate:self
                 context:@"unable"
             ];
+
+            [essential_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
             [essential_ setBodyText:UCLocalize("UNABLE_TO_COMPLY_EX")];
         }
@@ -4076,6 +4086,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         nil];
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
+
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -4224,9 +4236,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         delegate_ = delegate;
 
         transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
+        [transition_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [transition_ setDelegate:self];
 
         overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
+        [overlay_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
 
         background_ = [[UIView alloc] initWithFrame:[self bounds]];
         [background_ setBackgroundColor:[UIColor blackColor]];
@@ -4238,6 +4252,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect navrect = {{0, 0}, navsize};
 
         navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
+        [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
         [overlay_ addSubview:navbar_];
 
         [navbar_ setBarStyle:1];
@@ -4255,6 +4270,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }, prgsize};
 
         progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
+        [progress_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
         [progress_ setStyle:0];
 
         status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(
@@ -4263,6 +4279,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             bounds.size.width - 20,
             24
         )];
+
+        [status_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
 
         [status_ setColor:[UIColor whiteColor]];
         [status_ setBackgroundColor:[UIColor clearColor]];
@@ -4277,6 +4295,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             bounds.size.height - navsize.height - 62 - navrect.size.height
         )];
 
+        [output_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [overlay_ addSubview:output_];
+
         //[output_ setTextFont:@"Courier New"];
         [output_ setFont:[[output_ font] fontWithSize:12]];
 
@@ -4287,14 +4308,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [output_ setAllowsRubberBanding:YES];
         [output_ setEditable:NO];
 
-        [overlay_ addSubview:output_];
-
         close_ = [[UIPushButton alloc] initWithFrame:CGRectMake(
             10,
             bounds.size.height - prgsize.height - 50,
             bounds.size.width - 20,
             32 + prgsize.height
         )];
+
+        [close_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
 
         [close_ setAutosizesToFit:NO];
         [close_ setDrawsShadow:YES];
@@ -4569,6 +4590,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         context:@"conffile"
     ] autorelease];
 
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
     [sheet setBodyText:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]];
     [sheet popupAlertAnimated:YES];
 }
@@ -4703,13 +4726,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithFrame:frame reuseIdentifier:@"Package"]) != nil) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
+
         content_ = [[ContentView alloc] initWithFrame:bounds];
-        [content_ setDelegate:self];
-        [content_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-        [content_ setOpaque:YES];
+        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content addSubview:content_];
+
+        [content_ setDelegate:self];
+        [content_ setOpaque:YES];
         if ([self respondsToSelector:@selector(selectionPercent)])
             faded_ = YES;
+
+        [self setNeedsDisplayOnBoundsChange:YES];
     } return self;
 }
 
@@ -4890,6 +4917,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
         switch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
+        [switch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventTouchUpInside];
     } return self;
 }
@@ -5396,13 +5424,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [self addSubview:list_];
+
         [list_ setDataSource:self];
         [list_ setDelegate:self];
 
-        [self addSubview:list_];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -5830,8 +5858,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     context:@"warning"
                 ] autorelease];
 
-                [sheet setNumberOfRows:1];
+                [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
+                [sheet setNumberOfRows:1];
                 [sheet setBodyText:warning];
                 [sheet popupAlertAnimated:YES];
             } else
@@ -5845,6 +5874,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 context:@"urlerror"
             ] autorelease];
 
+            [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
             [sheet setBodyText:[error_ localizedDescription]];
             [sheet popupAlertAnimated:YES];
         } else {
@@ -5855,6 +5886,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 delegate:self
                 context:@"trivial"
             ] autorelease];
+
+            [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
             [sheet setBodyText:UCLocalize("NOT_REPOSITORY_EX")];
             [sheet popupAlertAnimated:YES];
@@ -5979,9 +6012,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         //list_ = [[UITable alloc] initWithFrame:[self bounds]];
         list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:NO];
-        [list_ setShouldHideHeaderInShortLists:NO];
-
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self addSubview:list_];
+
+        [list_ setShouldHideHeaderInShortLists:NO];
         [list_ setDataSource:self];
 
         UITableColumn *column = [[UITableColumn alloc]
@@ -5997,8 +6031,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self reloadData];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -6041,8 +6074,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         context:@"source"
     ] autorelease];
 
-    [sheet setNumberOfRows:1];
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
+    [sheet setNumberOfRows:1];
     [sheet addTextFieldWithValue:@"http://" label:@""];
 
     UITextInputTraits *traits = [[sheet textField] textInputTraits];
@@ -6111,10 +6145,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             with:[NSNumber numberWithBool:YES]
         ];
 
+        [packages_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self addSubview:packages_];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [packages_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -6190,6 +6224,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         delegate:self
         context:@"about"
     ] autorelease];
+
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     [sheet setBodyText:
         @"Copyright (C) 2008-2009\n"
@@ -6391,12 +6427,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ovrrect.origin.y = -ovrrect.size.height;
 
         overlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
+        [overlay_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
         [self addSubview:overlay_];
 
         ovrrect.origin.y = frame.size.height;
         underlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
-        [underlay_ setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
+        [underlay_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
         [self addSubview:underlay_];
+
+        [underlay_ setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
 
         [overlay_ setBarStyle:1];
         [underlay_ setBarStyle:1];
@@ -6441,10 +6480,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         } , prgsize};
 
         progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
-        [progress_ setStyle:0];
+        [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
         [overlay_ addSubview:progress_];
 
+        [progress_ setStyle:0];
+
         cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
+        [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
 
         CGRect frame = [cancel_ frame];
@@ -6487,6 +6529,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         delegate:self
         context:@"refresh"
     ] autorelease];
+
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     [sheet setBodyText:error];
     [sheet popupAlertAnimated:YES];
@@ -6644,7 +6688,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
-    UITransitionView *transition_;
     UITable *list_;
     UIView *accessory_;
     BOOL editing_;
@@ -6664,7 +6707,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sections_ release];
     [filtered_ release];
-    [transition_ release];
     [list_ release];
     [accessory_ release];
     [super dealloc];
@@ -6742,11 +6784,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
         filtered_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [self addSubview:transition_];
-
-        list_ = [[UITable alloc] initWithFrame:[transition_ bounds]];
-        [transition_ transition:0 toView:list_];
+        list_ = [[UITable alloc] initWithFrame:[self bounds]];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [self addSubview:list_];
 
         UITableColumn *column = [[[UITableColumn alloc]
             initWithTitle:UCLocalize("NAME")
@@ -6762,8 +6802,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self reloadData];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -6982,6 +7021,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self addSubview:list_];
 
         //XXX:[list_ setShouldHideHeaderInShortLists:NO];
@@ -6991,8 +7031,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self reloadData];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -7110,7 +7149,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIView *accessory_;
     UISearchField *field_;
     FilteredPackageTable *table_;
-    UIView *dimmed_;
     bool reload_;
 }
 
@@ -7127,7 +7165,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [accessory_ release];
     [field_ release];
     [table_ release];
-    [dimmed_ release];
     [super dealloc];
 }
 
@@ -7208,10 +7245,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithBook:book]) != nil) {
         CGRect pageBounds = [book_ pageBounds];
 
-        dimmed_ = [[UIView alloc] initWithFrame:pageBounds];
-        CGColor dimmed(space_, 0, 0, 0, 0.5);
-        [dimmed_ setBackgroundColor:[UIColor colorWithCGColor:dimmed]];
-
         table_ = [[FilteredPackageTable alloc]
             initWithBook:book
             database:database
@@ -7220,8 +7253,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             with:nil
         ];
 
-        [table_ setShouldHideHeaderInShortLists:NO];
+        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self addSubview:table_];
+
+        [table_ setShouldHideHeaderInShortLists:NO];
 
         CGRect cnfrect = {{7, 38}, {17, 18}};
 
@@ -7234,6 +7269,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         area.size.height = [UISearchField defaultHeight];
 
         field_ = [[UISearchField alloc] initWithFrame:area];
+        [field_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 
         UIFont *font = [UIFont systemFontOfSize:16];
         [field_ setFont:font];
@@ -7251,10 +7287,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height}};
 
         accessory_ = [[UIView alloc] initWithFrame:accrect];
+        [accessory_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
         [accessory_ addSubview:field_];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -7525,6 +7561,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+@interface CydiaViewController : UIViewController {
+}
+
+@end
+
+@implementation CydiaViewController
+
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    return NO; // XXX: return YES;
+}
+
+@end
+
 @interface Cydia : UIApplication <
     ConfirmationViewDelegate,
     ProgressViewDelegate,
@@ -7532,6 +7581,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CydiaDelegate
 > {
     UIWindow *window_;
+    CydiaViewController *root_;
 
     UIView *underlay_;
     UIView *overlay_;
@@ -7591,6 +7641,8 @@ static _finline void _setHomePage(Cydia *self) {
             context:@"fixhalf"
         ] autorelease];
 
+        [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
         [sheet setBodyText:UCLocalize("HALFINSTALLED_PACKAGE_EX")];
         [sheet popupAlertAnimated:YES];
     } else if (!Ignored_ && [essential_ count] != 0) {
@@ -7607,6 +7659,8 @@ static _finline void _setHomePage(Cydia *self) {
             delegate:self
             context:@"upgrade"
         ] autorelease];
+
+        [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
         [sheet setBodyText:UCLocalize("ESSENTIAL_UPGRADE_EX")];
         [sheet popupAlertAnimated:YES];
@@ -7778,6 +7832,7 @@ static _finline void _setHomePage(Cydia *self) {
         return false;
 
     confirm_ = [[RVBook alloc] initWithFrame:[self popUpBounds]];
+    [confirm_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [confirm_ setDelegate:self];
 
     ConfirmationView *page([[[ConfirmationView alloc] initWithBook:confirm_ database:database_] autorelease]);
@@ -8119,6 +8174,8 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (UIProgressHUD *) addProgressHUD {
     UIProgressHUD *hud([[[UIProgressHUD alloc] initWithWindow:window_] autorelease]);
+    [hud setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+
     [window_ setUserInteractionEnabled:NO];
     [hud show:YES];
     [progress_ addSubview:hud];
@@ -8218,20 +8275,26 @@ static _finline void _setHomePage(Cydia *self) {
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
-    window_ = [[UIWindow alloc] initWithContentRect:[UIHardware fullScreenApplicationContentRect]];
+    UIScreen *screen([UIScreen mainScreen]);
+
+    window_ = [[UIWindow alloc] initWithFrame:[screen bounds]];
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
-    //[window_ setAutorotates:YES];
-    //[window_ setDelegate:self];
+
+    root_ = [[CydiaViewController alloc] init];
+    [window_ addSubview:[root_ view]];
 
     database_ = [Database sharedInstance];
 
-    progress_ = [[ProgressView alloc] initWithFrame:[window_ bounds] database:database_ delegate:self];
+    progress_ = [[ProgressView alloc] initWithFrame:[[root_ view] bounds] database:database_ delegate:self];
+    [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [[root_ view] addSubview:progress_];
+
     [database_ setDelegate:progress_];
-    [window_ setContentView:progress_];
 
     underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
+    [underlay_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [progress_ setContentView:underlay_];
 
     [progress_ resetView];
@@ -8273,15 +8336,18 @@ static _finline void _setHomePage(Cydia *self) {
 
     _trace();
     overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];
+    [overlay_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
 
     CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
+
     book_ = [[CYBook alloc] initWithFrame:CGRectMake(
         0, 0, screenrect.size.width, screenrect.size.height - 48
     ) database:database_];
 
-    [book_ setDelegate:self];
-
+    [book_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [overlay_ addSubview:book_];
+
+    [book_ setDelegate:self];
 
     NSArray *buttonitems = [NSArray arrayWithObjects:
         [NSDictionary dictionaryWithObjectsAndKeys:
@@ -8344,6 +8410,9 @@ static _finline void _setHomePage(Cydia *self) {
         withItemList:buttonitems
     ];
 
+    [toolbar_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
+    [overlay_ addSubview:toolbar_];
+
     [toolbar_ setDelegate:self];
     [toolbar_ setBarStyle:1];
     [toolbar_ setButtonBarTrackingMode:2];
@@ -8352,14 +8421,18 @@ static _finline void _setHomePage(Cydia *self) {
     [toolbar_ registerButtonGroup:0 withButtons:buttons withCount:5];
     [toolbar_ showButtonGroup:0 withDuration:0];
 
-    for (int i = 0; i != 5; ++i)
-        [[toolbar_ viewWithTag:(i + 1)] setFrame:CGRectMake(
+    for (int i = 0; i != 5; ++i) {
+        UIView *button([toolbar_ viewWithTag:(i + 1)]);
+
+        [button setFrame:CGRectMake(
             i * (screenrect.size.width / 5) + (screenrect.size.width / 5 - ButtonBarWidth_) / 2, 1,
             ButtonBarWidth_, ButtonBarHeight_
         )];
 
+        [button setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+    }
+
     [toolbar_ showSelectionForButton:1];
-    [overlay_ addSubview:toolbar_];
 
     [UIKeyboard initImplementationNow];
     /*CGSize keysize = [UIKeyboard defaultSize];
@@ -8409,6 +8482,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) slideUp:(UIActionSheet *)alert {
+    [alert setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [alert presentSheetInView:overlay_];
 }
 

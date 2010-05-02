@@ -104,9 +104,10 @@
 
         struct CGRect bounds = [self bounds];
         CGSize navsize = [UINavigationBar defaultSize];
-        CGRect navrect = {{0, 0}, navsize};
+        CGRect navrect = {{0, 0}, {bounds.size.width, navsize.height}};
 
         navbar_ = [[RVNavigationBar alloc] initWithFrame:navrect];
+        [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
         [self addSubview:navbar_];
 
         [navbar_ setBarStyle:0];
@@ -115,6 +116,8 @@
         transition_ = [[UITransitionView alloc] initWithFrame:CGRectMake(
             bounds.origin.x, bounds.origin.y + navsize.height, bounds.size.width, bounds.size.height - navsize.height
         )];
+
+        [transition_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
         [self addSubview:transition_];
     } return self;

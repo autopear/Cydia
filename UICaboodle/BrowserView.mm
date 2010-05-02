@@ -12,6 +12,8 @@ extern NSString * const kCAFilterNearest;
 
 #define ForSaurik 1
 
+static bool Wildcat_;
+
 static CFArrayRef (*$GSSystemCopyCapability)(CFStringRef);
 static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 static Class $UIFormAssistant;
@@ -171,8 +173,12 @@ static Class $UIWebBrowserView;
     $UIFormAssistant = objc_getClass("UIFormAssistant");
 
     $UIWebBrowserView = objc_getClass("UIWebBrowserView");
-    if ($UIWebBrowserView == nil)
+    if ($UIWebBrowserView == nil) {
+        Wildcat_ = false;
         $UIWebBrowserView = objc_getClass("UIWebDocumentView");
+    } else {
+        Wildcat_ = true;
+    }
 }
 
 - (void) dealloc {
@@ -287,6 +293,8 @@ static Class $UIWebBrowserView;
             delegate:self
             context:@"submit"
         ] autorelease];
+
+        [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
         [sheet setNumberOfRows:1];
         [sheet popupAlertAnimated:YES];
@@ -420,6 +428,8 @@ static Class $UIWebBrowserView;
         context:@"sensitive"
     ] autorelease];
 
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
     NSString *host(@"XXX");
 
     [sheet setNumberOfRows:1];
@@ -462,6 +472,8 @@ static Class $UIWebBrowserView;
         context:@"alert"
     ] autorelease];
 
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
     [sheet setBodyText:message];
     [sheet popupAlertAnimated:YES];
 }
@@ -478,6 +490,8 @@ static Class $UIWebBrowserView;
         delegate:indirect_
         context:@"confirm"
     ] autorelease];
+
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     [sheet setNumberOfRows:1];
     [sheet setBodyText:message];
@@ -824,6 +838,8 @@ static Class $UIWebBrowserView;
         delegate:self
         context:@"challenge"
     ] autorelease];
+
+    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     [sheet setNumberOfRows:1];
 
@@ -1226,7 +1242,7 @@ static Class $UIWebBrowserView;
 
         struct CGRect bounds = [self bounds];
 
-        scroller_ = [[UIScrollView alloc] initWithFrame:bounds];
+        scroller_ = [[objc_getClass(Wildcat_ ? "UIScrollView" : "UIScroller") alloc] initWithFrame:bounds];
         [self addSubview:scroller_];
 
         [scroller_ setFixedBackgroundPattern:YES];
@@ -1235,24 +1251,32 @@ static Class $UIWebBrowserView;
         [scroller_ setScrollingEnabled:YES];
         [scroller_ setClipsSubviews:YES];
 
-        if (false)
+        if (!Wildcat_)
             [scroller_ setAllowsRubberBanding:YES];
 
         [scroller_ setDelegate:self];
         [scroller_ setBounces:YES];
 
-        if (false) {
+        if (!Wildcat_) {
             [scroller_ setScrollHysteresis:8];
             [scroller_ setThumbDetectionEnabled:NO];
             [scroller_ setDirectionalScrolling:YES];
-            [scroller_ setScrollDecelerationFactor:0.99]; /* 0.989324 */
+            //[scroller_ setScrollDecelerationFactor:0.99]; /* 0.989324 */
             [scroller_ setEventMode:YES];
+        }
+
+        if (Wildcat_) {
+            UIScrollView *scroller((UIScrollView *)scroller_);
+            //[scroller setDirectionalLockEnabled:NO];
+            [scroller setDelaysContentTouches:NO];
+            //[scroller setScrollsToTop:NO];
+            //[scroller setCanCancelContentTouches:NO];
         }
 
         [scroller_ setShowBackgroundShadow:NO]; /* YES */
         //[scroller_ setAllowsRubberBanding:YES]; /* Vertical */
 
-        if (false)
+        if (!Wildcat_)
             [scroller_ setAdjustForContentSizeChange:YES]; /* NO */
 
         CGRect webrect = [scroller_ bounds];
@@ -1366,8 +1390,10 @@ static Class $UIWebBrowserView;
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(bounds.size.width - 39, 12, indsize.width, indsize.height)];
         [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-        [scroller_ setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+        [self setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+        [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
         /*UIWebView *test([[[UIWebView alloc] initWithFrame:[self bounds]] autorelease]);
         [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];

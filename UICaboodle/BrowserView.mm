@@ -262,7 +262,7 @@ static Class $UIWebBrowserView;
     [self loadRequest:[NSURLRequest
         requestWithURL:url
         cachePolicy:policy
-        timeoutInterval:30.0
+        timeoutInterval:120.0
     ]];
 }
 
@@ -967,9 +967,11 @@ static Class $UIWebBrowserView;
 
         [book_ reloadTitleForPage:self];
 
-        CGRect webrect = [scroller_ bounds];
-        webrect.size.height = 1;
-        [webview_ setFrame:webrect];
+        if (Wildcat_) {
+            CGRect webrect = [scroller_ bounds];
+            webrect.size.height = 1;
+            [webview_ setFrame:webrect];
+        }
 
         if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
             [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
@@ -982,6 +984,12 @@ static Class $UIWebBrowserView;
             [scroller_ _setZoomScale:1 duration:0];
         /*else if ([scroller_ respondsToSelector:@selector(setZoomScale:animated:)])
             [scroller_ setZoomScale:1 animated:NO];*/
+
+        if (!Wildcat_) {
+            CGRect webrect = [scroller_ bounds];
+            webrect.size.height = 0;
+            [webview_ setFrame:webrect];
+        }
     }
 
     [self reloadButtons];

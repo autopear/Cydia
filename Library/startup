@@ -1,6 +1,5 @@
 #!/bin/bash
 export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
-/usr/libexec/cydia/firmware.sh
 debs=(/var/root/Media/Cydia/AutoInstall/*.deb)
 if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
     dpkg -i "${debs[@]}"

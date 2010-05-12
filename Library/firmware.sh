@@ -96,4 +96,4 @@ if [[ ! -h /User && -d /User ]]; then
     cp -afT /User /var/"${user}"
 fi && rm -rf /User && ln -s "/var/${user}" /User
 
-echo 1 >/var/lib/cydia/firmware.ver
+echo 2 >/var/lib/cydia/firmware.ver

@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2009  Jay Freeman (saurik)
+ * Copyright (C) 2008-2010  Jay Freeman (saurik)
 */
 
 /* Modified BSD License {{{ */
@@ -625,6 +625,19 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 @end
 /* }}} */
 
+NSUInteger WebScriptObject$countByEnumeratingWithState$objects$count$(WebScriptObject *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
+    size_t length([self count] - state->state);
+    if (length <= 0)
+        return 0;
+    else if (length > count)
+        length = count;
+    for (size_t i(0); i != length; ++i)
+        objects[i] = [self objectAtIndex:state->state++];
+    state->itemsPtr = objects;
+    state->mutationsPtr = (unsigned long *) self;
+    return length;
+}
+
 NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
     size_t length([self length] - state->state);
     if (length <= 0)
@@ -701,7 +714,7 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 - (NSString *) stringByCachingURLWithCurrentCDN {
     return [self
         stringByReplacingOccurrencesOfString:@"://"
-        withString:@"://ne.edgecastcdn.net/8003A4/"
+        withString:@"://wpc.03A4.edgecastcdn.net/8003A4/"
         options:0
         /* XXX: this is somewhat inaccurate */
         range:NSMakeRange(0, 10)
@@ -1203,6 +1216,7 @@ bool isSectionVisible(NSString *section) {
 - (void) setPackageView:(PackageView *)view;
 - (void) clearPackage:(Package *)package;
 - (void) installPackage:(Package *)package;
+- (void) installPackages:(NSArray *)packages;
 - (void) removePackage:(Package *)package;
 - (void) slideUp:(UIActionSheet *)alert;
 - (void) distUpgrade;
@@ -3611,6 +3625,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Web Scripting {{{ */
 @interface CydiaObject : NSObject {
     id indirect_;
+    id delegate_;
 }
 
 - (id) initWithDelegate:(IndirectDelegate *)indirect;
@@ -3627,6 +3642,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         indirect_ = [indirect retain];
     } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
 }
 
 + (NSArray *) _attributeKeys {
@@ -3674,6 +3693,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return @"getInstalledPackages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
+    else if (selector == @selector(installPackages:))
+        return @"installPackages";
     else if (selector == @selector(setAutoPopup:))
         return @"setAutoPopup";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
@@ -3715,7 +3736,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (NSArray *) getInstalledPackages {
     NSArray *packages([[Database sharedInstance] packages]);
     NSMutableArray *installed([NSMutableArray arrayWithCapacity:[packages count]]);
-    for (Package *package in installed)
+    for (Package *package in packages)
         if ([package installed] != nil)
             [installed addObject:package];
     return installed;
@@ -3786,6 +3807,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) close {
     [indirect_ close];
+}
+
+- (void) installPackages:(NSArray *)packages {
+    [delegate_ performSelectorOnMainThread:@selector(installPackages:) withObject:packages waitUntilDone:NO];
 }
 
 - (void) setAutoPopup:(BOOL)popup {
@@ -3879,7 +3904,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *host([url host]);
     [self setHeaders:headers forHost:host];
 
-    if ([host isEqualToString:@"cydia.saurik.com"] || [scheme isEqualToString:@"file"])
+    if (
+        [host isEqualToString:@"cydia.saurik.com"] ||
+        [host hasSuffix:@".cydia.saurik.com"] ||
+        [scheme isEqualToString:@"file"]
+    )
         [window setValue:cydia_ forKey:@"cydia"];
 }
 
@@ -3898,6 +3927,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableURLRequest *copy = [request mutableCopy];
     [self _setMoreHeaders:copy];
     return copy;
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [cydia_ setDelegate:delegate];
 }
 
 - (id) initWithBook:(RVBook *)book forWidth:(float)width {
@@ -4917,7 +4951,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
         switch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
-        [switch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventTouchUpInside];
     } return self;
 }
@@ -4964,6 +4997,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (void) setFrame:(CGRect)frame {
+    [super setFrame:frame];
+    CGRect rect([switch_ frame]);
+    [switch_ setFrame:CGRectMake(frame.size.width - 102, 9, rect.size.width, rect.size.height)];
+}
+
 - (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
     [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
 
@@ -4975,7 +5014,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     float width(rect.size.width + 23);
     if (editing_)
-        width -= 86;
+        width -= 110;
 
     [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ ellipsis:2];
 
@@ -5933,15 +5972,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableURLRequest *request = [NSMutableURLRequest
         requestWithURL:[NSURL URLWithString:href]
         cachePolicy:NSURLRequestUseProtocolCachePolicy
-        timeoutInterval:20.0
+        timeoutInterval:120.0
     ];
 
     [request setHTTPMethod:method];
 
     if (Machine_ != NULL)
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (Token_ != nil)
-        [request setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
+    if (UniqueID_ != nil)
+        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
     if (Role_ != nil)
         [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
 
@@ -6228,7 +6267,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     [sheet setBodyText:
-        @"Copyright (C) 2008-2009\n"
+        @"Copyright (C) 2008-2010\n"
         "Jay Freeman (saurik)\n"
         "saurik@saurik.com\n"
         "http://www.saurik.com/\n"
@@ -6942,7 +6981,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     unsigned upgrades_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithBook:(RVBook *)book database:(Database *)database delegate:(id)delegate;
 - (void) reloadData;
 
 @end
@@ -7013,7 +7052,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ distUpgrade];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
+- (id) initWithBook:(RVBook *)book database:(Database *)database delegate:(id)delegate {
     if ((self = [super initWithBook:book]) != nil) {
         database_ = database;
 
@@ -7029,18 +7068,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [list_ setDelegate:self];
         //[list_ setSectionListStyle:1];
 
+        delegate_ = delegate;
         [self reloadData];
 
         [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
-- (void) reloadData {
-    NSArray *packages = [database_ packages];
-
-    [packages_ removeAllObjects];
-    [sections_ removeAllObjects];
-
+- (void) _reloadPackages:(NSArray *)packages {
     _trace();
     for (Package *package in packages)
         if (
@@ -7052,6 +7087,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
     [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
     _trace();
+}
+
+- (void) reloadData {
+    NSArray *packages = [database_ packages];
+
+    [packages_ removeAllObjects];
+    [sections_ removeAllObjects];
+
+    UIProgressHUD *hud([delegate_ addProgressHUD]);
+    // XXX: localize
+    [hud setText:@"Loading Changes"];
+    NSLog(@"HUD:%@::%@", delegate_, hud);
+    [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
+    [delegate_ removeProgressHUD:hud];
 
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
     Section *ignored = [[[Section alloc] initWithName:UCLocalize("IGNORED_UPGRADES") localize:NO] autorelease];
@@ -7858,6 +7907,15 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
+- (void) installPackages:(NSArray *)packages {
+    @synchronized (self) {
+        for (Package *package in packages)
+            [package install];
+        [self resolve];
+        [self perform];
+    }
+}
+
 - (void) installPackage:(Package *)package {
     @synchronized (self) {
         [package install];
@@ -7944,7 +8002,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (ChangesView *) changesView {
     if (changes_ == nil)
-        changes_ = [[ChangesView alloc] initWithBook:book_ database:database_];
+        changes_ = [[ChangesView alloc] initWithBook:book_ database:database_ delegate:self];
     return changes_;
 }
 
@@ -8522,6 +8580,7 @@ int main(int argc, char *argv[]) { _pooled
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
     /* Library Hacks {{{ */
+    class_addMethod(objc_getClass("WebScriptObject"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &WebScriptObject$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
 
     $WebDefaultUIKitDelegate = objc_getClass("WebDefaultUIKitDelegate");
@@ -8706,7 +8765,7 @@ int main(int argc, char *argv[]) { _pooled
     if (access("/tmp/.cydia.fw", F_OK) == 0) {
         unlink("/tmp/.cydia.fw");
         goto firmware;
-    } else if (access("/User", F_OK) != 0 || version < 1) {
+    } else if (access("/User", F_OK) != 0 || version < 2) {
       firmware:
         _trace();
         system("/usr/libexec/cydia/firmware.sh");

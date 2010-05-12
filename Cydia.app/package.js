@@ -34,7 +34,7 @@ function space(selector, html, max) {
 }
 
 function cache(url) {
-    return url.replace('://', '://ne.edgecastcdn.net/8003A4/');
+    return url.replace('://', '://wpc.03A4.edgecastcdn.net/8003A4/');
 }
 
 var swap_, swap = function (on, off, time) {

@@ -6270,15 +6270,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         @"Copyright (C) 2008-2010\n"
         "Jay Freeman (saurik)\n"
         "saurik@saurik.com\n"
-        "http://www.saurik.com/\n"
-        "\n"
-        "The Okori Group\n"
-        "http://www.theokorigroup.com/\n"
-        "\n"
-        "College of Creative Studies,\n"
-        "University of California,\n"
-        "Santa Barbara\n"
-        "http://www.ccs.ucsb.edu/"
+        "http://www.saurik.com/"
     ];
 
     [sheet popupAlertAnimated:YES];

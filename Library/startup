@@ -1,7 +1,12 @@
 #!/bin/bash
 export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
+sbdidlaunch
+/usr/libexec/cydia/firmware.sh
 debs=(/var/root/Media/Cydia/AutoInstall/*.deb)
 if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
     dpkg -i "${debs[@]}"
     rm -f "${debs[@]}"
+    su -c uicache mobile
+elif ! grep Cydia /var/mobile/Library/Caches/com.apple.mobile.installation.plist &>/dev/null; then
+    su -c uicache mobile
 fi

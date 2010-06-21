@@ -33,10 +33,6 @@ function space(selector, html, max) {
     }
 }
 
-function cache(url) {
-    return url.replace('://', '://wpc.03A4.edgecastcdn.net/8003A4/');
-}
-
 var swap_, swap = function (on, off, time) {
     setTimeout(swap_(on, off, time), time);
 };
@@ -57,7 +53,9 @@ var special_ = function () {
     var idc = encodeURIComponent(id);
     var name = package.name;
     var icon = 'cydia://package-icon/' + idc;
+
     var api = 'http://cydia.saurik.com/api/';
+    var capi = 'http://cache.cydia.saurik.com/api/';
 
     var support = package.support;
 
@@ -71,7 +69,7 @@ var special_ = function () {
     $("#name").html(name);
     space("#latest", package.latest, 96);
 
-    $.xhr(cache(api + 'package/' + idc), 'GET', {}, null, {
+    $.xhr(capi + 'package/' + idc, 'GET', {}, null, {
         success: function (value) {
             value = eval(value);
 

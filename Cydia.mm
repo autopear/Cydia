@@ -713,11 +713,8 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
 - (NSString *) stringByCachingURLWithCurrentCDN {
     return [self
-        stringByReplacingOccurrencesOfString:@"://"
-        withString:@"://wpc.03A4.edgecastcdn.net/8003A4/"
-        options:0
-        /* XXX: this is somewhat inaccurate */
-        range:NSMakeRange(0, 10)
+        stringByReplacingOccurrencesOfString:@"://cydia.saurik.com/"
+        withString:@"://cache.cydia.saurik.com/"
     ];
 }
 
@@ -6256,24 +6253,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _leftButtonClicked {
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:UCLocalize("ABOUT_CYDIA")
-        buttons:[NSArray arrayWithObjects:UCLocalize("CLOSE"), nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:@"about"
-    ] autorelease];
+    UIAlertView *alert = [[[UIAlertView alloc] init] autorelease];
+    [alert setTitle:UCLocalize("ABOUT_CYDIA")];
+    [alert addButtonWithTitle:UCLocalize("CLOSE")];
+    [alert setCancelButtonIndex:0];
 
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-    [sheet setBodyText:
+    [alert setMessage:
         @"Copyright (C) 2008-2010\n"
         "Jay Freeman (saurik)\n"
         "saurik@saurik.com\n"
         "http://www.saurik.com/"
     ];
 
-    [sheet popupAlertAnimated:YES];
+    [alert show];
 }
 
 - (NSString *) leftButtonTitle {

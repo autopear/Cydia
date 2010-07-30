@@ -47,7 +47,7 @@
     RVBookHook
 > {
     UIScroller *scroller_;
-    UIWebDocumentView *webview_;
+    UIWebDocumentView *document_;
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
     NSURLAuthenticationChallenge *challenge_;

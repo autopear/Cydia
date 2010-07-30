@@ -191,7 +191,7 @@ static Class $UIWebBrowserView;
 
     WebThreadLock();
 
-    WebView *webview = [webview_ webView];
+    WebView *webview = [document_ webView];
     [webview setFrameLoadDelegate:nil];
     [webview setResourceLoadDelegate:nil];
     [webview setUIDelegate:nil];
@@ -207,13 +207,13 @@ static Class $UIWebBrowserView;
     /* XXX: no one sets this, ever
     [webview setWebMailDelegate:nil];*/
 
-    [webview_ setDelegate:nil];
-    [webview_ setGestureDelegate:nil];
+    [document_ setDelegate:nil];
+    [document_ setGestureDelegate:nil];
 
-    if ([webview_ respondsToSelector:@selector(setFormEditingDelegate:)])
-        [webview_ setFormEditingDelegate:nil];
+    if ([document_ respondsToSelector:@selector(setFormEditingDelegate:)])
+        [document_ setFormEditingDelegate:nil];
 
-    [webview_ setInteractionDelegate:nil];
+    [document_ setInteractionDelegate:nil];
 
     [indirect_ setDelegate:nil];
 
@@ -222,10 +222,10 @@ static Class $UIWebBrowserView;
     [webview close];
 
 #if RecycleWebViews
-    [webview_ removeFromSuperview];
-    [Documents_ addObject:[webview_ autorelease]];
+    [document_ removeFromSuperview];
+    [Documents_ addObject:[document_ autorelease]];
 #else
-    [webview_ release];
+    [document_ release];
 #endif
 
     [indirect_ release];
@@ -275,7 +275,7 @@ static Class $UIWebBrowserView;
     error_ = false;
 
     WebThreadLock();
-    [webview_ loadRequest:request];
+    [document_ loadRequest:request];
     WebThreadUnlock();
 }
 
@@ -302,11 +302,11 @@ static Class $UIWebBrowserView;
 }
 
 - (WebView *) webView {
-    return [webview_ webView];
+    return [document_ webView];
 }
 
 - (UIWebDocumentView *) documentView {
-    return webview_;
+    return document_;
 }
 
 /* XXX: WebThreadLock? */
@@ -330,7 +330,7 @@ static Class $UIWebBrowserView;
     if ([scroller_ respondsToSelector:@selector(setScrollerIndicatorSubrect:)])
         [scroller_ setScrollerIndicatorSubrect:subrect];
 
-    [webview_ setValue:[NSValue valueWithSize:NSMakeSize(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
+    [document_ setValue:[NSValue valueWithSize:NSMakeSize(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
 
     CGSize size(size_);
     size.height += extra;
@@ -341,7 +341,7 @@ static Class $UIWebBrowserView;
 }
 
 - (void) fixScroller {
-    CGRect bounds([webview_ documentBounds]);
+    CGRect bounds([document_ documentBounds]);
 #if TrackResize
     NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
 #endif
@@ -649,7 +649,7 @@ static Class $UIWebBrowserView;
         // XXX: handle more mime types!
         [listener ignore];
 
-        WebView *webview([webview_ webView]);
+        WebView *webview([document_ webView]);
         if (frame == [webview mainFrame])
             [UIApp openURL:[request URL]];
     }
@@ -676,7 +676,7 @@ static Class $UIWebBrowserView;
 
         [listener use];
 
-        WebView *webview([webview_ webView]);
+        WebView *webview([document_ webView]);
         if (frame == [webview mainFrame])
             [self _pushPage];
         return;
@@ -811,7 +811,7 @@ static Class $UIWebBrowserView;
             case 2:
                 if (request_ != nil) {
                     WebThreadLock();
-                    [webview_ loadRequest:request_];
+                    [document_ loadRequest:request_];
                     WebThreadUnlock();
                 }
             break;
@@ -926,7 +926,7 @@ static Class $UIWebBrowserView;
     [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
-        [webview_ resignFirstResponder];
+        [document_ resignFirstResponder];
 
         reloading_ = false;
 
@@ -970,7 +970,7 @@ static Class $UIWebBrowserView;
         if (Wildcat_) {
             CGRect webrect = [scroller_ bounds];
             webrect.size.height = 1;
-            [webview_ setFrame:webrect];
+            [document_ setFrame:webrect];
         }
 
         if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
@@ -988,7 +988,7 @@ static Class $UIWebBrowserView;
         if (!Wildcat_) {
             CGRect webrect = [scroller_ bounds];
             webrect.size.height = 0;
-            [webview_ setFrame:webrect];
+            [document_ setFrame:webrect];
         }
     }
 
@@ -1019,24 +1019,24 @@ static Class $UIWebBrowserView;
 }
 
 - (BOOL) webView:(WebView *)sender shouldScrollToPoint:(struct CGPoint)point forFrame:(WebFrame *)frame {
-    return [webview_ webView:sender shouldScrollToPoint:point forFrame:frame];
+    return [document_ webView:sender shouldScrollToPoint:point forFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didReceiveViewportArguments:(id)arguments forFrame:(WebFrame *)frame {
-    return [webview_ webView:sender didReceiveViewportArguments:arguments forFrame:frame];
+    return [document_ webView:sender didReceiveViewportArguments:arguments forFrame:frame];
 }
 
 - (void) webView:(WebView *)sender needsScrollNotifications:(id)notifications forFrame:(WebFrame *)frame {
-    return [webview_ webView:sender needsScrollNotifications:notifications forFrame:frame];
+    return [document_ webView:sender needsScrollNotifications:notifications forFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didCommitLoadForFrame:(WebFrame *)frame {
     [self _pushPage];
-    return [webview_ webView:sender didCommitLoadForFrame:frame];
+    return [document_ webView:sender didCommitLoadForFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didReceiveDocTypeForFrame:(WebFrame *)frame {
-    return [webview_ webView:sender didReceiveDocTypeForFrame:frame];
+    return [document_ webView:sender didReceiveDocTypeForFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
@@ -1085,7 +1085,7 @@ static Class $UIWebBrowserView;
                 }
     }
 
-    return [webview_ webView:sender didFinishLoadForFrame:frame];
+    return [document_ webView:sender didFinishLoadForFrame:frame];
 }
 
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
@@ -1111,8 +1111,8 @@ static Class $UIWebBrowserView;
 
 - (void) webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
     [self _didFailWithError:error forFrame:frame];
-    if ([webview_ respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
-        [webview_ webView:sender didFailLoadWithError:error forFrame:frame];
+    if ([document_ respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
+        [document_ webView:sender didFailLoadWithError:error forFrame:frame];
 }
 
 - (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
@@ -1129,38 +1129,38 @@ static Class $UIWebBrowserView;
 #if LogBrowser || ForSaurik
     lprintf("Console:%s\n", [[dictionary description] UTF8String]);
 #endif
-    if ([webview_ respondsToSelector:@selector(webView:didReceiveMessage:)])
-        [webview_ webView:sender didReceiveMessage:dictionary];
+    if ([document_ respondsToSelector:@selector(webView:didReceiveMessage:)])
+        [document_ webView:sender didReceiveMessage:dictionary];
 }
 
 - (void) webView:(id)sender willCloseFrame:(id)frame {
-    if ([webview_ respondsToSelector:@selector(webView:willCloseFrame:)])
-        [webview_ webView:sender willCloseFrame:frame];
+    if ([document_ respondsToSelector:@selector(webView:willCloseFrame:)])
+        [document_ webView:sender willCloseFrame:frame];
 }
 
 - (void) webView:(id)sender didFinishDocumentLoadForFrame:(id)frame {
-    if ([webview_ respondsToSelector:@selector(webView:didFinishDocumentLoadForFrame:)])
-        [webview_ webView:sender didFinishDocumentLoadForFrame:frame];
+    if ([document_ respondsToSelector:@selector(webView:didFinishDocumentLoadForFrame:)])
+        [document_ webView:sender didFinishDocumentLoadForFrame:frame];
 }
 
 - (void) webView:(id)sender didFirstLayoutInFrame:(id)frame {
-    if ([webview_ respondsToSelector:@selector(webView:didFirstLayoutInFrame:)])
-        [webview_ webView:sender didFirstLayoutInFrame:frame];
+    if ([document_ respondsToSelector:@selector(webView:didFirstLayoutInFrame:)])
+        [document_ webView:sender didFirstLayoutInFrame:frame];
 }
 
 - (void) webViewFormEditedStatusHasChanged:(id)changed {
-    if ([webview_ respondsToSelector:@selector(webViewFormEditedStatusHasChanged:)])
-        [webview_ webViewFormEditedStatusHasChanged:changed];
+    if ([document_ respondsToSelector:@selector(webViewFormEditedStatusHasChanged:)])
+        [document_ webViewFormEditedStatusHasChanged:changed];
 }
 
 - (void) webView:(id)sender formStateDidFocusNode:(id)formState {
-    if ([webview_ respondsToSelector:@selector(webView:formStateDidFocusNode:)])
-        [webview_ webView:sender formStateDidFocusNode:formState];
+    if ([document_ respondsToSelector:@selector(webView:formStateDidFocusNode:)])
+        [document_ webView:sender formStateDidFocusNode:formState];
 }
 
 - (void) webView:(id)sender formStateDidBlurNode:(id)formState {
-    if ([webview_ respondsToSelector:@selector(webView:formStateDidBlurNode:)])
-        [webview_ webView:sender formStateDidBlurNode:formState];
+    if ([document_ respondsToSelector:@selector(webView:formStateDidBlurNode:)])
+        [document_ webView:sender formStateDidBlurNode:formState];
 }
 
 /* XXX: fix this stupid include file
@@ -1169,56 +1169,56 @@ static Class $UIWebBrowserView;
 }*/
 
 - (void) webViewDidLayout:(id)sender {
-    [webview_ webViewDidLayout:sender];
+    [document_ webViewDidLayout:sender];
 }
 
 - (void) webView:(id)sender didFirstVisuallyNonEmptyLayoutInFrame:(id)frame {
-    [webview_ webView:sender didFirstVisuallyNonEmptyLayoutInFrame:frame];
+    [document_ webView:sender didFirstVisuallyNonEmptyLayoutInFrame:frame];
 }
 
 - (void) webView:(id)sender saveStateToHistoryItem:(id)item forFrame:(id)frame {
-    [webview_ webView:sender saveStateToHistoryItem:item forFrame:frame];
+    [document_ webView:sender saveStateToHistoryItem:item forFrame:frame];
 }
 
 - (void) webView:(id)sender restoreStateFromHistoryItem:(id)item forFrame:(id)frame force:(BOOL)force {
-    [webview_ webView:sender restoreStateFromHistoryItem:item forFrame:frame force:force];
+    [document_ webView:sender restoreStateFromHistoryItem:item forFrame:frame force:force];
 }
 
 - (void) webView:(id)sender attachRootLayer:(id)layer {
-    [webview_ webView:sender attachRootLayer:layer];
+    [document_ webView:sender attachRootLayer:layer];
 }
 
 - (id) webView:(id)sender plugInViewWithArguments:(id)arguments fromPlugInPackage:(id)package {
-    return [webview_ webView:sender plugInViewWithArguments:arguments fromPlugInPackage:package];
+    return [document_ webView:sender plugInViewWithArguments:arguments fromPlugInPackage:package];
 }
 
 - (void) webView:(id)sender willShowFullScreenForPlugInView:(id)view {
-    [webview_ webView:sender willShowFullScreenForPlugInView:view];
+    [document_ webView:sender willShowFullScreenForPlugInView:view];
 }
 
 - (void) webView:(id)sender didHideFullScreenForPlugInView:(id)view {
-    [webview_ webView:sender didHideFullScreenForPlugInView:view];
+    [document_ webView:sender didHideFullScreenForPlugInView:view];
 }
 
 - (void) webView:(id)sender willAddPlugInView:(id)view {
-    [webview_ webView:sender willAddPlugInView:view];
+    [document_ webView:sender willAddPlugInView:view];
 }
 
 - (void) webView:(id)sender didObserveDeferredContentChange:(int)change forFrame:(id)frame {
-    [webview_ webView:sender didObserveDeferredContentChange:change forFrame:frame];
+    [document_ webView:sender didObserveDeferredContentChange:change forFrame:frame];
 }
 
 - (void) webViewDidPreventDefaultForEvent:(id)sender {
-    [webview_ webViewDidPreventDefaultForEvent:sender];
+    [document_ webViewDidPreventDefaultForEvent:sender];
 }
 
 - (void) _setTileDrawingEnabled:(BOOL)enabled {
-    //[webview_ setTileDrawingEnabled:enabled];
+    //[document_ setTileDrawingEnabled:enabled];
 }
 
 - (void) setViewportWidth:(float)width {
     width_ = width != 0 ? width : [[self class] defaultWidth];
-    [webview_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+    [document_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 }
 
 - (void) willStartGesturesInView:(UIView *)view forEvent:(GSEventRef)event {
@@ -1227,7 +1227,7 @@ static Class $UIWebBrowserView;
 
 - (void) didFinishGesturesInView:(UIView *)view forEvent:(GSEventRef)event {
     [self _setTileDrawingEnabled:YES];
-    [webview_ redrawScaledDocument];
+    [document_ redrawScaledDocument];
 }
 
 - (void) scrollerWillStartDragging:(UIScroller *)scroller {
@@ -1295,67 +1295,67 @@ static Class $UIWebBrowserView;
         WebThreadLock();
 
 #if RecycleWebViews
-        webview_ = [Documents_ lastObject];
-        if (webview_ != nil) {
-            webview_ = [webview_ retain];
-            webview = [webview_ webView];
+        document_ = [Documents_ lastObject];
+        if (document_ != nil) {
+            document_ = [document_ retain];
+            webview = [document_ webView];
             [Documents_ removeLastObject];
-            [webview_ setFrame:webrect];
+            [document_ setFrame:webrect];
         } else {
 #else
         if (true) {
 #endif
-            webview_ = [[$UIWebBrowserView alloc] initWithFrame:webrect];
-            webview = [webview_ webView];
+            document_ = [[$UIWebBrowserView alloc] initWithFrame:webrect];
+            webview = [document_ webView];
 
             // XXX: this is terribly (too?) expensive
-            //[webview_ setDrawsBackground:NO];
+            //[document_ setDrawsBackground:NO];
             [webview setPreferencesIdentifier:@"Cydia"];
 
-            [webview_ setTileSize:CGSizeMake(webrect.size.width, 500)];
+            [document_ setTileSize:CGSizeMake(webrect.size.width, 500)];
 
-            if ([webview_ respondsToSelector:@selector(enableReachability)])
-                [webview_ enableReachability];
-            if ([webview_ respondsToSelector:@selector(setAllowsMessaging:)])
-                [webview_ setAllowsMessaging:YES];
-            if ([webview_ respondsToSelector:@selector(useSelectionAssistantWithMode:)])
-                [webview_ useSelectionAssistantWithMode:0];
+            if ([document_ respondsToSelector:@selector(enableReachability)])
+                [document_ enableReachability];
+            if ([document_ respondsToSelector:@selector(setAllowsMessaging:)])
+                [document_ setAllowsMessaging:YES];
+            if ([document_ respondsToSelector:@selector(useSelectionAssistantWithMode:)])
+                [document_ useSelectionAssistantWithMode:0];
 
-            [webview_ setTilingEnabled:YES];
-            [webview_ setDrawsGrid:NO];
-            [webview_ setLogsTilingChanges:NO];
-            [webview_ setTileMinificationFilter:kCAFilterNearest];
+            [document_ setTilingEnabled:YES];
+            [document_ setDrawsGrid:NO];
+            [document_ setLogsTilingChanges:NO];
+            [document_ setTileMinificationFilter:kCAFilterNearest];
 
-            if ([webview_ respondsToSelector:@selector(setDataDetectorTypes:)])
+            if ([document_ respondsToSelector:@selector(setDataDetectorTypes:)])
                 /* XXX: abstractify */
-                [webview_ setDataDetectorTypes:0x80000000];
+                [document_ setDataDetectorTypes:0x80000000];
             else
-                [webview_ setDetectsPhoneNumbers:NO];
+                [document_ setDetectsPhoneNumbers:NO];
 
-            [webview_ setAutoresizes:YES];
+            [document_ setAutoresizes:YES];
 
-            [webview_ setMinimumScale:0.25f forDocumentTypes:0x10];
-            [webview_ setMaximumScale:5.00f forDocumentTypes:0x10];
-            [webview_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x10];
-            //[webview_ setViewportSize:CGSizeMake(980, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+            [document_ setMinimumScale:0.25f forDocumentTypes:0x10];
+            [document_ setMaximumScale:5.00f forDocumentTypes:0x10];
+            [document_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x10];
+            //[document_ setViewportSize:CGSizeMake(980, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 
-            [webview_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x2];
+            [document_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x2];
 
-            [webview_ setMinimumScale:1.00f forDocumentTypes:0x8];
-            [webview_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x8];
-            [webview_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x8];
+            [document_ setMinimumScale:1.00f forDocumentTypes:0x8];
+            [document_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x8];
+            [document_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x8];
 
-            [webview_ _setDocumentType:0x4];
+            [document_ _setDocumentType:0x4];
 
-            if ([webview_ respondsToSelector:@selector(setZoomsFocusedFormControl:)])
-                [webview_ setZoomsFocusedFormControl:YES];
-            [webview_ setContentsPosition:7];
-            [webview_ setEnabledGestures:0xa];
-            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeIsZoomRubberBandEnabled];
-            [webview_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeUpdatesScroller];
+            if ([document_ respondsToSelector:@selector(setZoomsFocusedFormControl:)])
+                [document_ setZoomsFocusedFormControl:YES];
+            [document_ setContentsPosition:7];
+            [document_ setEnabledGestures:0xa];
+            [document_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeIsZoomRubberBandEnabled];
+            [document_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeUpdatesScroller];
 
-            [webview_ setSmoothsFonts:YES];
-            [webview_ setAllowsImageSheet:YES];
+            [document_ setSmoothsFonts:YES];
+            [document_ setAllowsImageSheet:YES];
             [webview _setUsesLoaderCache:YES];
 
             [webview setGroupName:@"CydiaGroup"];
@@ -1370,15 +1370,15 @@ static Class $UIWebBrowserView;
 
         [self setViewportWidth:width];
 
-        [webview_ setDelegate:self];
-        [webview_ setGestureDelegate:self];
+        [document_ setDelegate:self];
+        [document_ setGestureDelegate:self];
 
-        if ([webview_ respondsToSelector:@selector(setFormEditingDelegate:)])
-            [webview_ setFormEditingDelegate:self];
+        if ([document_ respondsToSelector:@selector(setFormEditingDelegate:)])
+            [document_ setFormEditingDelegate:self];
 
-        [webview_ setInteractionDelegate:self];
+        [document_ setInteractionDelegate:self];
 
-        [scroller_ addSubview:webview_];
+        [scroller_ addSubview:document_];
 
         //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
@@ -1401,7 +1401,7 @@ static Class $UIWebBrowserView;
         [self setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-        [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [document_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
         /*UIWebView *test([[[UIWebView alloc] initWithFrame:[self bounds]] autorelease]);
         [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];
@@ -1419,7 +1419,7 @@ static Class $UIWebBrowserView;
 
 - (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script {
     WebThreadLock();
-    WebView *webview([webview_ webView]);
+    WebView *webview([document_ webView]);
     NSString *string([webview stringByEvaluatingJavaScriptFromString:script]);
     WebThreadUnlock();
     return string;
@@ -1428,7 +1428,7 @@ static Class $UIWebBrowserView;
 - (void) callFunction:(WebScriptObject *)function {
     WebThreadLock();
 
-    WebView *webview([webview_ webView]);
+    WebView *webview([document_ webView]);
     WebFrame *frame([webview mainFrame]);
 
     id _private(MSHookIvar<id>(webview, "_private"));

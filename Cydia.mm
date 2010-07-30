@@ -380,7 +380,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 1
+#define ForRelease 0
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
@@ -392,7 +392,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
 #define RecyclePackageViews (1 && ForRelease)
-#define AlwaysReload (0 && !ForRelease)
+#define AlwaysReload (1 && !ForRelease)
 
 #if !TraceLogging
 #undef _trace
@@ -3935,7 +3935,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithBook:book forWidth:width ofClass:[CydiaBrowserView class]]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
-        WebView *webview([webview_ webView]);
+        WebView *webview([document_ webView]);
 
         Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
 
@@ -5318,10 +5318,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [buttons_ addObject:UCLocalize("REMOVE")];
 
         if (special_ != NULL) {
-            CGRect frame([webview_ frame]);
+            CGRect frame([document_ frame]);
             frame.size.width = 320;
             frame.size.height = 0;
-            [webview_ setFrame:frame];
+            [document_ setFrame:frame];
 
             if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
                 [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
@@ -5329,7 +5329,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [scroller_ scrollRectToVisible:CGRectZero animated:NO];
 
             WebThreadLock();
-            [[[webview_ webView] windowScriptObject] setValue:package_ forKey:@"package"];
+            [[[document_ webView] windowScriptObject] setValue:package_ forKey:@"package"];
 
             [self setButtonTitle:nil withStyle:nil toFunction:nil];
 
@@ -7619,7 +7619,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIView *underlay_;
     UIView *overlay_;
     CYBook *book_;
-    UIToolbar *toolbar_;
+
+    NSArray *items_;
+    UITabBar *toolbar_;
 
     RVBook *confirm_;
 
@@ -7629,7 +7631,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Database *database_;
     ProgressView *progress_;
 
-    unsigned tag_;
+    int tag_;
 
     UIKeyboard *keyboard_;
     UIProgressHUD *hud_;
@@ -7723,11 +7725,11 @@ static _finline void _setHomePage(Cydia *self) {
     [self _saveConfig];
 
     /* XXX: this is just stupid */
-    if (tag_ != 2 && sections_ != nil)
+    if (tag_ != 1 && sections_ != nil)
         [sections_ reloadData];
-    if (tag_ != 3 && changes_ != nil)
+    if (tag_ != 2 && changes_ != nil)
         [changes_ reloadData];
-    if (tag_ != 5 && search_ != nil)
+    if (tag_ != 4 && search_ != nil)
         [search_ reloadData];
 
     [book_ reloadData];
@@ -8005,21 +8007,21 @@ static _finline void _setHomePage(Cydia *self) {
     return search_;
 }
 
-- (void) buttonBarItemTapped:(id)sender {
-    unsigned tag = [sender tag];
+- (void) tabBar:(UITabBar *)sender didSelectItem:(UITabBarItem *)item {
+    int tag = [item tag];
     if (tag == tag_) {
         [book_ resetViewAnimated:YES];
         return;
-    } else if (tag_ == 2)
+    } else if (tag_ == 1)
         [[self sectionsView] resetView];
 
     switch (tag) {
-        case 1: _setHomePage(self); break;
+        case 0: _setHomePage(self); break;
 
-        case 2: [self setPage:[self sectionsView]]; break;
-        case 3: [self setPage:[self changesView]]; break;
-        case 4: [self setPage:[self manageView]]; break;
-        case 5: [self setPage:[self searchView]]; break;
+        case 1: [self setPage:[self sectionsView]]; break;
+        case 2: [self setPage:[self changesView]]; break;
+        case 3: [self setPage:[self manageView]]; break;
+        case 4: [self setPage:[self searchView]]; break;
 
         _nodefault
     }
@@ -8244,7 +8246,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
     if (tag != NULL)
-        tag = 0;
+        *tag = -1;
 
     NSString *href([url absoluteString]);
     if ([href hasPrefix:@"apptapp://package/"])
@@ -8296,8 +8298,8 @@ static _finline void _setHomePage(Cydia *self) {
     int tag;
     if (RVPage *page = [self pageForURL:url hasTag:&tag]) {
         [self setPage:page];
-        [toolbar_ showSelectionForButton:tag];
         tag_ = tag;
+        [toolbar_ setSelectedItem:(tag_ == -1 ? nil : [items_ objectAtIndex:tag_])];
     }
 }
 
@@ -8312,7 +8314,7 @@ static _finline void _setHomePage(Cydia *self) {
     Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
     Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
 
-    tag_ = 1;
+    tag_ = 0;
 
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
@@ -8391,75 +8393,29 @@ static _finline void _setHomePage(Cydia *self) {
 
     [book_ setDelegate:self];
 
-    NSArray *buttonitems = [NSArray arrayWithObjects:
-        [NSDictionary dictionaryWithObjectsAndKeys:
-            @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"home-up.png", kUIButtonBarButtonInfo,
-            @"home-dn.png", kUIButtonBarButtonSelectedInfo,
-            [NSNumber numberWithInt:1], kUIButtonBarButtonTag,
-            self, kUIButtonBarButtonTarget,
-            @"Cydia", kUIButtonBarButtonTitle,
-            @"0", kUIButtonBarButtonType,
-        nil],
+    items_ = [[NSArray arrayWithObjects:
+        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:1] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:2] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:3] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:4] autorelease],
+    nil] retain];
 
-        [NSDictionary dictionaryWithObjectsAndKeys:
-            @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"install-up.png", kUIButtonBarButtonInfo,
-            @"install-dn.png", kUIButtonBarButtonSelectedInfo,
-            [NSNumber numberWithInt:2], kUIButtonBarButtonTag,
-            self, kUIButtonBarButtonTarget,
-            UCLocalize("SECTIONS"), kUIButtonBarButtonTitle,
-            @"0", kUIButtonBarButtonType,
-        nil],
-
-        [NSDictionary dictionaryWithObjectsAndKeys:
-            @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"changes-up.png", kUIButtonBarButtonInfo,
-            @"changes-dn.png", kUIButtonBarButtonSelectedInfo,
-            [NSNumber numberWithInt:3], kUIButtonBarButtonTag,
-            self, kUIButtonBarButtonTarget,
-            UCLocalize("CHANGES"), kUIButtonBarButtonTitle,
-            @"0", kUIButtonBarButtonType,
-        nil],
-
-        [NSDictionary dictionaryWithObjectsAndKeys:
-            @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"manage-up.png", kUIButtonBarButtonInfo,
-            @"manage-dn.png", kUIButtonBarButtonSelectedInfo,
-            [NSNumber numberWithInt:4], kUIButtonBarButtonTag,
-            self, kUIButtonBarButtonTarget,
-            UCLocalize("MANAGE"), kUIButtonBarButtonTitle,
-            @"0", kUIButtonBarButtonType,
-        nil],
-
-        [NSDictionary dictionaryWithObjectsAndKeys:
-            @"buttonBarItemTapped:", kUIButtonBarButtonAction,
-            @"search-up.png", kUIButtonBarButtonInfo,
-            @"search-dn.png", kUIButtonBarButtonSelectedInfo,
-            [NSNumber numberWithInt:5], kUIButtonBarButtonTag,
-            self, kUIButtonBarButtonTarget,
-            UCLocalize("SEARCH"), kUIButtonBarButtonTitle,
-            @"0", kUIButtonBarButtonType,
-        nil],
-    nil];
-
-    toolbar_ = [[UIToolbar alloc]
-        initInView:overlay_
-        withFrame:CGRectMake(
+    toolbar_ = [[UITabBar alloc]
+        initWithFrame:CGRectMake(
             0, screenrect.size.height - ButtonBarHeight_,
             screenrect.size.width, ButtonBarHeight_
         )
-        withItemList:buttonitems
     ];
+
+    [toolbar_ setItems:items_];
 
     [toolbar_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
     [overlay_ addSubview:toolbar_];
 
     [toolbar_ setDelegate:self];
-    [toolbar_ setBarStyle:1];
-    [toolbar_ setButtonBarTrackingMode:2];
 
-    int buttons[5] = {1, 2, 3, 4, 5};
+    /*int buttons[5] = {1, 2, 3, 4, 5};
     [toolbar_ registerButtonGroup:0 withButtons:buttons withCount:5];
     [toolbar_ showButtonGroup:0 withDuration:0];
 
@@ -8472,9 +8428,9 @@ static _finline void _setHomePage(Cydia *self) {
         )];
 
         [button setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-    }
+    }*/
 
-    [toolbar_ showSelectionForButton:1];
+    [toolbar_ setSelectedItem:[items_ objectAtIndex:0]];
 
     [UIKeyboard initImplementationNow];
     /*CGSize keysize = [UIKeyboard defaultSize];

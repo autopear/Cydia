@@ -467,6 +467,14 @@ fieldset > div > div > select {
     background-image: url(chevron.png);
 }
 
+@media screen and (-webkit-min-device-pixel-ratio: 2) {
+fieldset > a[href]:not([type="ad"]),
+fieldset > div > select,
+fieldset > div > div > select {
+    background-image: url(chevron@2x.png);
+    background-size: 10px 13px;
+} }
+
 /* Horizontal */
 
 list > fieldset > a[href] {

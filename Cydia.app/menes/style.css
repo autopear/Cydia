@@ -103,6 +103,7 @@ body.white {
 
 body.pinstripe {
     background: #c7ced5 url(cydia://uikit-image/UIPinstripe.png);
+    background-size: 7px 1px;
 }
 
 dialog {

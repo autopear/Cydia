@@ -70,6 +70,19 @@
         <string>audio</string>
         <string>continuous</string>
     </array>
+
+    <key>CFBundleIconFile</key>
+    <string>iconClassic.png</string>
+
+    <key>CFBundleIconFiles</key>
+    <array>
+        <string>icon.png</string>
+        <string>icon-72.png</string>
+        <string>icon@2x.png</string>
+        <string>Icon-Small.png</string>
+        <string>Icon-Small-50.png</string>
+        <string>Icon-Small@2x.png</string>
+    </array>
 </dict>
 
 </plist>

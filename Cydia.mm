@@ -281,7 +281,7 @@ static _finline NSString *CydiaURL(NSString *path) {
 @end
 /* }}} */
 
-@interface CYActionSheet : UIActionSheet {
+@interface CYActionSheet : UIAlertView {
     unsigned button_;
 }
 
@@ -291,12 +291,15 @@ static _finline NSString *CydiaURL(NSString *path) {
 @implementation CYActionSheet
 
 - (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
-    if ((self = [super initWithTitle:title buttons:buttons defaultButtonIndex:index delegate:self context:nil]) != nil) {
+    if ((self = [super init])) {
+		[self setDelegate:self];
+		for (NSString *button in buttons) [self addButtonWithTitle:button];
+		[self setCancelButtonIndex:index];
     } return self;
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    button_ = button;
+- (void) alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    button_ = buttonIndex + 1;
 }
 
 - (int) yieldToPopupAlertAnimated:(BOOL)animated {

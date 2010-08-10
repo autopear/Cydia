@@ -4700,6 +4700,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     delegate_ = delegate;
 }
 
+/* Fix landscape: redraw when frame changes. */
+- (void) setFrame:(CGRect)frame {
+	[super setFrame:frame];
+	[self setNeedsDisplay];
+}
+
 - (void) drawRect:(CGRect)rect {
     [super drawRect:rect];
     [delegate_ drawContentRect:rect];

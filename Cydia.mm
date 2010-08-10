@@ -5879,47 +5879,41 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
                 defer = true;
 
-                UIActionSheet *sheet = [[[UIActionSheet alloc]
+                UIAlertView *alert = [[[UIAlertView alloc]
                     initWithTitle:UCLocalize("SOURCE_WARNING")
-                    buttons:[NSArray arrayWithObjects:UCLocalize("ADD_ANYWAY"), UCLocalize("CANCEL"), nil]
-                    defaultButtonIndex:0
-                    delegate:self
-                    context:@"warning"
+					message:warning
+					delegate:self
+					cancelButtonTitle:UCLocalize("CANCEL")
+                    otherButtonTitles:UCLocalize("ADD_ANYWAY"), nil
                 ] autorelease];
 
-                [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-                [sheet setNumberOfRows:1];
-                [sheet setBodyText:warning];
-                [sheet popupAlertAnimated:YES];
+				[alert setContext:@"warning"];
+                [alert setNumberOfRows:1];
+                [alert show];
             } else
                 [self complete];
         } else if (error_ != nil) {
-            UIActionSheet *sheet = [[[UIActionSheet alloc]
+            UIAlertView *alert = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("VERIFICATION_ERROR")
-                buttons:[NSArray arrayWithObjects:UCLocalize("OK"), nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:@"urlerror"
+				message:[error_ localizedDescription]
+				delegate:self
+				cancelButtonTitle:UCLocalize("OK")
+                otherButtonTitles:nil
             ] autorelease];
 
-            [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-            [sheet setBodyText:[error_ localizedDescription]];
-            [sheet popupAlertAnimated:YES];
+			[alert setContext:@"urlerror"];
+            [alert show];
         } else {
-            UIActionSheet *sheet = [[[UIActionSheet alloc]
+            UIAlertView *alert = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("NOT_REPOSITORY")
-                buttons:[NSArray arrayWithObjects:UCLocalize("OK"), nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:@"trivial"
+				message:UCLocalize("NOT_REPOSITORY_EX")
+				delegate:self
+				cancelButtonTitle:UCLocalize("OK")
+                otherButtonTitles:nil
             ] autorelease];
 
-            [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-            [sheet setBodyText:UCLocalize("NOT_REPOSITORY_EX")];
-            [sheet popupAlertAnimated:YES];
+			[alert setContext:@"trivial"];
+            [alert show];
         }
 
         [delegate_ setStatusBarShowsProgress:NO];
@@ -5977,13 +5971,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
+- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
 
     if ([context isEqualToString:@"source"]) {
         switch (button) {
             case 1: {
-                NSString *href = [[sheet textField] text];
+                NSString *href = [[alert textField] text];
 
                 //installer_ = [[self _requestHRef:href method:@"GET"] retain];
 
@@ -6004,24 +5998,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [hud_ setText:UCLocalize("VERIFYING_URL")];
             } break;
 
-            case 2:
+            case 0:
             break;
 
             _nodefault
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"trivial"])
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     else if ([context isEqualToString:@"urlerror"])
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     else if ([context isEqualToString:@"warning"]) {
         switch (button) {
             case 1:
                 [self complete];
             break;
 
-            case 2:
+            case 0:
             break;
 
             _nodefault
@@ -6030,7 +6024,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [href_ release];
         href_ = nil;
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
 
@@ -6095,27 +6089,28 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database:database_
     ] autorelease]];*/
 
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
+    UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:UCLocalize("ENTER_APT_URL")
-        buttons:[NSArray arrayWithObjects:UCLocalize("ADD_SOURCE"), UCLocalize("CANCEL"), nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:@"source"
+		message:nil
+		delegate:self
+		cancelButtonTitle:UCLocalize("CANCEL")
+		otherButtonTitles:UCLocalize("ADD_SOURCE"), nil
     ] autorelease];
 
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+	[alert setContext:@"source"];
+	[alert setTransform:CGAffineTransformTranslate([alert transform], 0.0, 100.0)];
 
-    [sheet setNumberOfRows:1];
-    [sheet addTextFieldWithValue:@"http://" label:@""];
+    [alert setNumberOfRows:1];
+    [alert addTextFieldWithValue:@"http://" label:@""];
 
-    UITextInputTraits *traits = [[sheet textField] textInputTraits];
+    UITextInputTraits *traits = [[alert textField] textInputTraits];
     [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
     [traits setKeyboardType:UIKeyboardTypeURL];
     // XXX: UIReturnKeyDone
     [traits setReturnKeyType:UIReturnKeyNext];
 
-    [sheet popupAlertAnimated:YES];
+    [alert show];
 }
 
 - (void) _rightButtonClicked {

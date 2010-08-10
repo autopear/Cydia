@@ -4373,25 +4373,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [transition_ transition:6 toView:view_];
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
+- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
 
     if ([context isEqualToString:@"conffile"]) {
-        FILE *input = [database_ input];
-
-        switch (button) {
-            case 1:
-                fprintf(input, "N\n");
-                fflush(input);
-                break;
-            case 2:
-                fprintf(input, "Y\n");
-                fflush(input);
-                break;
-            _nodefault
-        }
-
-        [sheet dismiss];
+		FILE *input = [database_ input];
+        if (button == [alert cancelButtonIndex]) fprintf(input, "N\n");
+        else if (button == [alert firstOtherButtonIndex]) fprintf(input, "Y\n");
+		fflush(input);
+		
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
 
@@ -4612,22 +4603,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *ofile = conffile_r[1];
     //NSString *nfile = conffile_r[2];
 
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
+    UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:UCLocalize("CONFIGURATION_UPGRADE")
-        buttons:[NSArray arrayWithObjects:
-            UCLocalize("KEEP_OLD_COPY"),
-            UCLocalize("ACCEPT_NEW_COPY"),
-            // XXX: UCLocalize("SEE_WHAT_CHANGED"),
-        nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:@"conffile"
-    ] autorelease];
+		message:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]
+		delegate:self
+		cancelButtonTitle:UCLocalize("KEEP_OLD_COPY")
+		otherButtonTitles:UCLocalize("ACCEPT_NEW_COPY"),
+        // XXX: UCLocalize("SEE_WHAT_CHANGED"),
+		nil
+	] autorelease];
 
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-    [sheet setBodyText:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]];
-    [sheet popupAlertAnimated:YES];
+	[alert setContext:@"conffile"];
+    [alert show];
 }
 
 - (void) _setProgressTitle:(NSString *)title {

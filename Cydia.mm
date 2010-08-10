@@ -6247,15 +6247,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation HomeView
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
-
-    if ([context isEqualToString:@"about"])
-        [sheet dismiss];
-    else
-        [super alertSheet:sheet buttonClicked:button];
-}
-
 - (void) _setMoreHeaders:(NSMutableURLRequest *)request {
     [super _setMoreHeaders:request];
     if (ChipID_ != nil)

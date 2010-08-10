@@ -7644,40 +7644,29 @@ static _finline void _setHomePage(Cydia *self) {
     if ([broken_ count] != 0) {
         int count = [broken_ count];
 
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
+        UIAlertView *alert = [[[UIAlertView alloc]
             initWithTitle:(count == 1 ? UCLocalize("HALFINSTALLED_PACKAGE") : [NSString stringWithFormat:UCLocalize("HALFINSTALLED_PACKAGES"), count])
-            buttons:[NSArray arrayWithObjects:
-                UCLocalize("FORCIBLY_CLEAR"),
-                UCLocalize("TEMPORARY_IGNORE"),
-            nil]
-            defaultButtonIndex:0
-            delegate:self
-            context:@"fixhalf"
+			message:UCLocalize("HALFINSTALLED_PACKAGE_EX")
+			delegate:self
+			cancelButtonTitle:UCLocalize("FORCIBLY_CLEAR")
+			otherButtonTitles:UCLocalize("TEMPORARY_IGNORE"), nil
         ] autorelease];
 
-        [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-        [sheet setBodyText:UCLocalize("HALFINSTALLED_PACKAGE_EX")];
-        [sheet popupAlertAnimated:YES];
+        [alert setContext:@"fixhalf"];
+        [alert show];
     } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];
 
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
+        UIAlertView *alert = [[[UIAlertView alloc]
             initWithTitle:(count == 1 ? UCLocalize("ESSENTIAL_UPGRADE") : [NSString stringWithFormat:UCLocalize("ESSENTIAL_UPGRADES"), count])
-            buttons:[NSArray arrayWithObjects:
-                UCLocalize("UPGRADE_ESSENTIAL"),
-                UCLocalize("COMPLETE_UPGRADE"),
-                UCLocalize("TEMPORARY_IGNORE"),
-            nil]
-            defaultButtonIndex:0
-            delegate:self
-            context:@"upgrade"
+			message:UCLocalize("ESSENTIAL_UPGRADE_EX")
+			delegate:self
+			cancelButtonTitle:UCLocalize("TEMPORARY_IGNORE")
+            otherButtonTitles:UCLocalize("UPGRADE_ESSENTIAL"), UCLocalize("COMPLETE_UPGRADE"), nil
         ] autorelease];
 
-        [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-        [sheet setBodyText:UCLocalize("ESSENTIAL_UPGRADE_EX")];
-        [sheet popupAlertAnimated:YES];
+        [alert setContext:@"upgrade"];
+        [alert show];
     }
 }
 
@@ -8116,58 +8105,50 @@ static _finline void _setHomePage(Cydia *self) {
                 confirm_ = nil;
             }
         }
-    } else if ([context isEqualToString:@"fixhalf"]) {
-        switch (button) {
-            case 1:
-                @synchronized (self) {
-                    for (Package *broken in broken_) {
-                        [broken remove];
+    } 
+}
 
-                        NSString *id = [broken id];
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
-                    }
+- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+	NSString *context([alert context]);
+	
+	if ([context isEqualToString:@"fixhalf"]) {
+		if (button == [alert firstOtherButtonIndex]) {
+            @synchronized (self) {
+                for (Package *broken in broken_) {
+                    [broken remove];
 
-                    [self resolve];
-                    [self perform];
+                    NSString *id = [broken id];
+                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
+                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
+                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
+                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
                 }
-            break;
 
-            case 2:
-                [broken_ removeAllObjects];
-                [self _loaded];
-            break;
-
-            _nodefault
+                [self resolve];
+                [self perform];
+            }
+		} else if (button == [alert cancelButtonIndex]) {
+            [broken_ removeAllObjects];
+            [self _loaded];
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"upgrade"]) {
-        switch (button) {
-            case 1:
-                @synchronized (self) {
-                    for (Package *essential in essential_)
-                        [essential install];
+        if (button == [alert firstOtherButtonIndex]) {
+            @synchronized (self) {
+                for (Package *essential in essential_)
+                    [essential install];
 
-                    [self resolve];
-                    [self perform];
-                }
-            break;
-
-            case 2:
-                [self distUpgrade];
-            break;
-
-            case 3:
-                Ignored_ = YES;
-            break;
-
-            _nodefault
+                [self resolve];
+                [self perform];
+            }
+        } else if (button == [alert firstOtherButtonIndex] + 1) {
+            [self distUpgrade];
+        } else if (button == [alert cancelButtonIndex]) {
+            Ignored_ = YES;
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
 

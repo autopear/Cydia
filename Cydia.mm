@@ -3968,7 +3968,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @interface ConfirmationView : CydiaBrowserView {
     _transient Database *database_;
-    UIActionSheet *essential_;
+    UIAlertView *essential_;
     NSArray *changes_;
     NSArray *issues_;
     NSArray *sizes_;
@@ -3996,28 +3996,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [book_ popFromSuperviewAnimated:YES];
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
+- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
 
     if ([context isEqualToString:@"remove"]) {
-        switch (button) {
-            case 1:
+		if (button == [alert cancelButtonIndex]) {
                 [self cancel];
-                break;
-            case 2:
+        } else if (button == [alert firstOtherButtonIndex]) {
                 if (substrate_)
                     Finish_ = 2;
                 [delegate_ confirm];
-                break;
-            _nodefault
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"unable"]) {
         [self cancel];
-        [sheet dismiss];
-    } else
-        [super alertSheet:sheet buttonClicked:button];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    } else {
+		[super alertView:alert clickedButtonAtIndex:button];
+	}
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
@@ -4072,33 +4069,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         else if (Advanced_) {
             NSString *parenthetical(UCLocalize("PARENTHETICAL"));
 
-            essential_ = [[UIActionSheet alloc]
+            essential_ = [[UIAlertView alloc]
                 initWithTitle:UCLocalize("REMOVING_ESSENTIALS")
-                buttons:[NSArray arrayWithObjects:
-                    [NSString stringWithFormat:parenthetical, UCLocalize("CANCEL_OPERATION"), UCLocalize("SAFE")],
-                    [NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")],
-                nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:@"remove"
-            ];
+				message:UCLocalize("REMOVING_ESSENTIALS_EX")
+				delegate:self
+				cancelButtonTitle:[NSString stringWithFormat:parenthetical, UCLocalize("CANCEL_OPERATION"), UCLocalize("SAFE")]
+				otherButtonTitles:[NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")], nil
+			];
 
-            [essential_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-            [essential_ setDestructiveButtonIndex:1];
-            [essential_ setBodyText:UCLocalize("REMOVING_ESSENTIALS_EX")];
+            [essential_ setContext:@"remove"];
         } else {
-            essential_ = [[UIActionSheet alloc]
+            essential_ = [[UIAlertView alloc]
                 initWithTitle:UCLocalize("UNABLE_TO_COMPLY")
-                buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
-                defaultButtonIndex:0
-                delegate:self
-                context:@"unable"
+				message:UCLocalize("UNABLE_TO_COMPLY_EX")
+				delegate:self
+				cancelButtonTitle:UCLocalize("OKAY")
+				otherButtonTitles:nil
             ];
 
-            [essential_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-            [essential_ setBodyText:UCLocalize("UNABLE_TO_COMPLY_EX")];
+			[essential_ setContext:@"unable"];
         }
 
         changes_ = [[NSArray alloc] initWithObjects:

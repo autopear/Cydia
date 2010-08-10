@@ -5098,6 +5098,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [list_ addTableColumn:column];
         [list_ setDelegate:self];
         [list_ setReusesTableCells:YES];
+
+		[list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 

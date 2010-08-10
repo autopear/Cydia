@@ -292,6 +292,7 @@ static _finline NSString *CydiaURL(NSString *path) {
 
 - (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
     if ((self = [super init])) {
+		[self setTitle:title];
 		[self setDelegate:self];
 		for (NSString *button in buttons) [self addButtonWithTitle:button];
 		[self setCancelButtonIndex:index];
@@ -302,9 +303,13 @@ static _finline NSString *CydiaURL(NSString *path) {
     button_ = buttonIndex + 1;
 }
 
+- (void) dismiss {
+	[self dismissWithClickedButtonIndex:-1 animated:YES];
+}
+
 - (int) yieldToPopupAlertAnimated:(BOOL)animated {
     button_ = 0;
-    [self popupAlertAnimated:animated];
+    [self show];
     NSRunLoop *loop([NSRunLoop currentRunLoop]);
     NSDate *future([NSDate distantFuture]);
     while (button_ == 0 && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
@@ -4545,7 +4550,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         defaultButtonIndex:0
     ] autorelease]);
 
-    [sheet setBodyText:error];
+    [sheet setMessage:error];
     [sheet yieldToPopupAlertAnimated:YES];
     [sheet dismiss];
 }
@@ -8010,7 +8015,7 @@ static _finline void _setHomePage(Cydia *self) {
         defaultButtonIndex:-1
     ] autorelease]);
 
-    [role setBodyText:UCLocalize("ROLE_EX")];
+    [role setMessage:UCLocalize("ROLE_EX")];
 
     int button([role yieldToPopupAlertAnimated:YES]);
 

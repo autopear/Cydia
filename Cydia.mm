@@ -7768,17 +7768,17 @@ static _finline void _setHomePage(Cydia *self) {
 
     if (changes != 0) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
-        [toolbar_ setBadgeValue:badge forButton:3];
+		[[[toolbar_ items] objectAtIndex:2] setBadgeValue:badge];
         if ([toolbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-            [toolbar_ setBadgeAnimated:([essential_ count] != 0) forButton:3];
+			[[[toolbar_ items] objectAtIndex:2] setAnimatedBadge:YES];
         if ([self respondsToSelector:@selector(setApplicationBadge:)])
             [self setApplicationBadge:badge];
         else
             [self setApplicationBadgeString:badge];
     } else {
-        [toolbar_ setBadgeValue:nil forButton:3];
+		[[[toolbar_ items] objectAtIndex:2] setBadgeValue:nil];
         if ([toolbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-            [toolbar_ setBadgeAnimated:NO forButton:3];
+            [[[toolbar_ items] objectAtIndex:2] setAnimatedBadge:NO];
         if ([self respondsToSelector:@selector(removeApplicationBadge)])
             [self removeApplicationBadge];
         else // XXX: maybe use setApplicationBadgeString also?
@@ -7786,7 +7786,7 @@ static _finline void _setHomePage(Cydia *self) {
     }
 
     Queuing_ = false;
-    [toolbar_ setBadgeValue:nil forButton:4];
+    [[[toolbar_ items] objectAtIndex:3] setBadgeValue:nil];
 
     [self _updateData];
 
@@ -8131,7 +8131,7 @@ static _finline void _setHomePage(Cydia *self) {
                 [self _reloadData];
             else {
                 Queuing_ = true;
-                [toolbar_ setBadgeValue:UCLocalize("Q_D") forButton:4];
+                [[[toolbar_ items] objectAtIndex:3] setBadgeValue:UCLocalize("Q_D")];
                 [book_ reloadData];
             }
 

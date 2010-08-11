@@ -1223,7 +1223,7 @@ bool isSectionVisible(NSString *section) {
 - (void) installPackage:(Package *)package;
 - (void) installPackages:(NSArray *)packages;
 - (void) removePackage:(Package *)package;
-- (void) slideUp:(UIActionSheet *)alert;
+- (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIButton *)item; 
 - (void) distUpgrade;
 - (void) updateData;
 - (void) syncData;
@@ -3966,7 +3966,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @protocol ConfirmationViewDelegate
-- (void) cancel;
+- (void) cancelAndClear:(bool)clear;
 - (void) confirm;
 - (void) queue;
 @end
@@ -3996,9 +3996,37 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) actionSheet:(UIActionSheet *)sheet clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([sheet context]);
+
+    if ([context isEqualToString:@"cancel"]) {
+        bool clear;
+
+        if      (button == [sheet cancelButtonIndex])      return;
+        else if (button == [sheet destructiveButtonIndex]) clear = true;
+        else                                               clear = false;
+
+        [sheet dismissWithClickedButtonIndex:0xDEADBEEF animated:YES];
+        [book_ popFromSuperviewAnimated:YES];
+        [delegate_ cancelAndClear:clear];
+    }
+}
+
 - (void) cancel {
-    [delegate_ cancel];
-    [book_ popFromSuperviewAnimated:YES];
+    UIActionSheet *sheet = [[UIActionSheet alloc]
+        initWithTitle:nil
+        delegate:self
+        cancelButtonTitle:nil
+        destructiveButtonTitle:nil
+        otherButtonTitles:nil
+    ];
+
+    [sheet addButtonWithTitle:UCLocalize("CANCEL_CLEAR")];
+    [sheet setDestructiveButtonIndex:[sheet numberOfButtons] - 1];
+    [sheet addButtonWithTitle:UCLocalize("CONTINUE_QUEUING")];
+    [sheet setContext:@"cancel"];
+
+    [delegate_ showActionSheet:[sheet autorelease] fromItem:[[book_ navigationBar] currentLeftView]];
 }
 
 - (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
@@ -5201,20 +5229,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     else _assert(false);
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
+- (void) actionSheet:(UIActionSheet *)sheet clickedButtonAtIndex:(NSInteger)button {
     NSString *context([sheet context]);
 
     if ([context isEqualToString:@"modify"]) {
-        int count = [buttons_ count];
-        _assert(count != 0);
-        _assert(button <= count + 1);
+        if (button != [sheet cancelButtonIndex]) {
+            NSString *buttonName = [buttons_ objectAtIndex:button];
+            [self _clickButtonWithName:buttonName];
+        }
 
-        if (count != button - 1)
-            [self _clickButtonWithName:[buttons_ objectAtIndex:(button - 1)]];
-
-        [sheet dismiss];
-    } else
-        [super alertSheet:sheet buttonClicked:button];
+        [sheet dismissWithClickedButtonIndex:-1 animated:YES];
+    } else {
+        [super alertSheet:sheet clickedButtonAtIndex:button];
+    }
 }
 
 - (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
@@ -5239,17 +5266,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (count == 1)
         [self _clickButtonWithName:[buttons_ objectAtIndex:0]];
     else {
-        NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:(count + 1)];
+        NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:count];
         [buttons addObjectsFromArray:buttons_];
-        [buttons addObject:UCLocalize("CANCEL")];
 
-        [delegate_ slideUp:[[[UIActionSheet alloc]
+        UIActionSheet *sheet = [[[UIActionSheet alloc]
             initWithTitle:nil
-            buttons:buttons
-            defaultButtonIndex:([buttons count] - 1)
             delegate:self
-            context:@"modify"
-        ] autorelease]];
+            cancelButtonTitle:nil
+            destructiveButtonTitle:nil
+            otherButtonTitles:nil
+        ] autorelease];
+
+        for (NSString *button in buttons) [sheet addButtonWithTitle:button];
+        if (!IsWildcat_) {
+           [sheet addButtonWithTitle:UCLocalize("CANCEL")];
+           [sheet setCancelButtonIndex:[sheet numberOfButtons] - 1];
+        }
+        [sheet setContext:@"modify"];
+
+        [delegate_ showActionSheet:sheet fromItem:[[book_ navigationBar] currentRightView]];
     }
 }
 
@@ -5694,7 +5729,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     UISectionList *list_;
     NSMutableArray *sources_;
-    UIActionSheet *alert_;
     int offset_;
 
     NSString *href_;
@@ -7894,16 +7928,6 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
-- (void) cancel {
-    [self slideUp:[[[UIActionSheet alloc]
-        initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:UCLocalize("CONTINUE_QUEUING"), UCLocalize("CANCEL_CLEAR"), nil]
-        defaultButtonIndex:1
-        delegate:self
-        context:@"cancel"
-    ] autorelease]];
-}
-
 - (void) complete {
     @synchronized (self) {
         [self _reloadData];
@@ -8069,43 +8093,16 @@ static _finline void _setHomePage(Cydia *self) {
 #endif
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
-
-    if ([context isEqualToString:@"missing"])
-        [sheet dismiss];
-    else if ([context isEqualToString:@"cancel"]) {
-        bool clear;
-
-        switch (button) {
-            case 1:
-                clear = false;
-            break;
-
-            case 2:
-                clear = true;
-            break;
-
-            _nodefault
+- (void) cancelAndClear:(bool)clear {
+    @synchronized (self) {
+        if (clear) {
+           [self _reloadData];
+        } else {
+           Queuing_ = true;
+           [[[toolbar_ items] objectAtIndex:3] setBadgeValue:UCLocalize("Q_D")];
+           [book_ reloadData];
         }
-
-        [sheet dismiss];
-
-        @synchronized (self) {
-            if (clear)
-                [self _reloadData];
-            else {
-                Queuing_ = true;
-                [[[toolbar_ items] objectAtIndex:3] setBadgeValue:UCLocalize("Q_D")];
-                [book_ reloadData];
-            }
-
-            if (confirm_ != nil) {
-                [confirm_ release];
-                confirm_ = nil;
-            }
-        }
-    } 
+    }
 }
 
 - (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
@@ -8439,9 +8436,12 @@ static _finline void _setHomePage(Cydia *self) {
     ];
 }
 
-- (void) slideUp:(UIActionSheet *)alert {
-    [alert setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-    [alert presentSheetInView:overlay_];
+- (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIButton *)item {
+    if (item != nil && IsWildcat_) {
+        [sheet showFromRect:[[item superview] convertRect:[item frame] toView:window_] inView:window_ animated:YES];
+    } else {
+        [sheet showInView:window_];
+    }
 }
 
 @end

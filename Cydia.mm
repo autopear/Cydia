@@ -4668,13 +4668,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Package Cell {{{ */
+/* Cell Content View {{{ */
 @interface ContentView : UIView {
     _transient id delegate_;
 }
 
 @end
 
+@implementation ContentView
+- (id) initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame]) != nil) {
+        /* Fix landscape stretching. */
+        [self setNeedsDisplayOnBoundsChange:YES];
+    } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (void) drawRect:(CGRect)rect {
+    [super drawRect:rect];
+    [delegate_ drawContentRect:rect];
+}
+@end
+/* }}} */
+/* Package Cell {{{ */
 @interface PackageCell : UITableViewCell {
     UIImage *icon_;
     NSString *name_;
@@ -4695,30 +4714,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 + (int) heightForPackage:(Package *)package;
 - (void) drawContentRect:(CGRect)rect;
-
-@end
-
-@implementation ContentView
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
-    } return self;
-}
-
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
-/* Fix landscape: redraw when frame changes. */
-- (void) setFrame:(CGRect)frame {
-	[super setFrame:frame];
-	[self setNeedsDisplay];
-}
-
-- (void) drawRect:(CGRect)rect {
-    [super drawRect:rect];
-    [delegate_ drawContentRect:rect];
-}
 
 @end
 
@@ -4784,8 +4779,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [content_ setOpaque:YES];
         if ([self respondsToSelector:@selector(selectionPercent)])
             faded_ = YES;
-
-        [self setNeedsDisplayOnBoundsChange:YES];
     } return self;
 }
 
@@ -4916,13 +4909,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Section Cell {{{ */
-@interface SectionCell : UISimpleTableCell {
+@interface SectionCell : UITableViewCell {
     NSString *basic_;
     NSString *section_;
     NSString *name_;
     NSString *count_;
     UIImage *icon_;
-    _UISwitchSlider *switch_;
+    ContentView *content_;
+    id switch_;
     BOOL editing_;
 }
 
@@ -4959,14 +4953,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self clearSection];
     [icon_ release];
     [switch_ release];
+    [content_ release];
+
     [super dealloc];
 }
 
-- (id) init {
-    if ((self = [super init]) != nil) {
+- (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
-        switch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
-        [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventTouchUpInside];
+        switch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
+        [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
+
+        UIView *content([self contentView]);
+        CGRect bounds([content bounds]);
+
+        content_ = [[ContentView alloc] initWithFrame:bounds];
+        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [content addSubview:content_];
+        [content_ setBackgroundColor:[UIColor whiteColor]];
+
+        [content_ setDelegate:self];
     } return self;
 }
 
@@ -4978,7 +4984,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     Changed_ = true;
-    [metadata setObject:[NSNumber numberWithBool:([switch_ value] == 0)] forKey:@"Hidden"];
+    [metadata setObject:[NSNumber numberWithBool:([switch_ isOn] == NO)] forKey:@"Hidden"];
 }
 
 - (void) setSection:(Section *)section editing:(BOOL)editing {
@@ -5008,17 +5014,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
 
         if (editing_)
-            [switch_ setValue:(isSectionVisible(basic_) ? 1 : 0) animated:NO];
+            [switch_ setOn:(isSectionVisible(basic_) ? 1 : 0) animated:NO];
     }
+
+    [content_ setNeedsDisplay];
 }
 
 - (void) setFrame:(CGRect)frame {
     [super setFrame:frame];
+
     CGRect rect([switch_ frame]);
     [switch_ setFrame:CGRectMake(frame.size.width - 102, 9, rect.size.width, rect.size.height)];
 }
 
-- (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
+- (void) drawContentRect:(CGRect)rect {
+    BOOL selected = [self isSelected];
+    
     [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
 
     if (selected)
@@ -5027,9 +5038,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!selected)
         UISetColor(Black_);
 
-    float width(rect.size.width + 23);
+    float width(rect.size.width);
     if (editing_)
-        width -= 110;
+        width -= 87;
 
     [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ ellipsis:2];
 
@@ -5038,8 +5049,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UISetColor(White_);
     if (count_ != nil)
         [count_ drawAtPoint:CGPointMake(13 + (29 - size.width) / 2, 16) withFont:Font12Bold_];
-
-    [super drawContentInRect:rect selected:selected];
 }
 
 @end
@@ -5051,7 +5060,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Package *package_;
     NSString *name_;
     NSMutableArray *files_;
-    UITable *list_;
+    UITableView *list_;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database;
@@ -5071,26 +5080,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (int) numberOfRowsInTable:(UITable *)table {
+- (int) tableView:(UITableView *)tableView numberOfRowsInSection:(int)section {
     return files_ == nil ? 0 : [files_ count];
 }
 
-- (float) table:(UITable *)table heightForRow:(int)row {
+- (float) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 24;
 }
 
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
-    if (reusing == nil) {
-        reusing = [[[UIImageAndTextTableCell alloc] init] autorelease];
-        UIFont *font = [UIFont systemFontOfSize:16];
-        [[(UIImageAndTextTableCell *)reusing titleTextLabel] setFont:font];
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *reuseIdentifier = @"SourceCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:reuseIdentifier];
+    if (cell == nil) {
+        cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
+        [cell setFont:[UIFont systemFontOfSize:16]];
     }
-    [(UIImageAndTextTableCell *)reusing setTitle:[files_ objectAtIndex:row]];
-    return reusing;
-}
 
-- (BOOL) table:(UITable *)table canSelectRow:(int)row {
-    return NO;
+    [cell setText:[files_ objectAtIndex:indexPath.row]];
+    [cell setSelectionStyle:0 /*UITableViewCellSelectionStyleNone*/];
+    return cell;
 }
 
 - (id) initWithBook:(RVBook *)book database:(Database *)database {
@@ -5099,22 +5107,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         files_ = [[NSMutableArray arrayWithCapacity:32] retain];
 
-        list_ = [[UITable alloc] initWithFrame:[self bounds]];
+        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
         [self addSubview:list_];
 
-        UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:UCLocalize("NAME")
-            identifier:@"name"
-            width:[self frame].size.width
-        ] autorelease];
-
         [list_ setDataSource:self];
-        [list_ setSeparatorStyle:1];
-        [list_ addTableColumn:column];
         [list_ setDelegate:self];
-        [list_ setReusesTableCells:YES];
-
-		[list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
@@ -5661,44 +5660,76 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Source Cell {{{ */
-@interface SourceCell : UITableCell {
+@interface SourceCell : UITableViewCell {
     UIImage *icon_;
     NSString *origin_;
     NSString *description_;
     NSString *label_;
+    ContentView *content_;
 }
 
-- (void) dealloc;
-
-- (SourceCell *) initWithSource:(Source *)source;
+- (void) setSource:(Source *)source;
 
 @end
 
 @implementation SourceCell
 
-- (void) dealloc {
+- (void) clearSource {
     [icon_ release];
     [origin_ release];
     [description_ release];
     [label_ release];
+
+    icon_ = nil;
+    origin_ = nil;
+    description_ = nil;
+    label_ = nil;
+}
+
+- (void) setSource:(Source *)source {
+    [self clearSource];
+    
+    if (icon_ == nil)
+        icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
+    if (icon_ == nil)
+        icon_ = [UIImage applicationImageNamed:@"unknown.png"];
+    icon_ = [icon_ retain];
+
+    origin_ = [[source name] retain];
+    label_ = [[source uri] retain];
+    description_ = [[source description] retain];
+
+    [content_ setNeedsDisplay];
+}
+
+- (void) dealloc {
+    [self clearSource];
+    [content_ release];
     [super dealloc];
 }
 
-- (SourceCell *) initWithSource:(Source *)source {
-    if ((self = [super init]) != nil) {
-        if (icon_ == nil)
-            icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
-        if (icon_ == nil)
-            icon_ = [UIImage applicationImageNamed:@"unknown.png"];
-        icon_ = [icon_ retain];
+- (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
+        UIView *content([self contentView]);
+        CGRect bounds([content bounds]);
 
-        origin_ = [[source name] retain];
-        label_ = [[source uri] retain];
-        description_ = [[source description] retain];
+        content_ = [[ContentView alloc] initWithFrame:bounds];
+        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [content_ setBackgroundColor:[UIColor whiteColor]];
+        [content addSubview:content_];
+
+        [content_ setDelegate:self];
+        [content_ setOpaque:YES];
     } return self;
 }
 
-- (void) drawContentInRect:(CGRect)rect selected:(BOOL)selected {
+- (void) setSelected:(BOOL)selected animated:(BOOL)animated {
+    [super setSelected:selected animated:animated];
+    [content_ setNeedsDisplay];
+}
+
+- (void) drawContentRect:(CGRect)rect {
+    bool selected([self isSelected]);
     float width(rect.size.width);
 
     if (icon_ != nil)
@@ -5718,8 +5749,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!selected)
         UISetColor(Gray_);
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 40) withFont:Font14_ ellipsis:2];
-
-    [super drawContentInRect:rect selected:selected];
 }
 
 @end
@@ -5727,7 +5756,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Source Table {{{ */
 @interface SourceTable : RVPage {
     _transient Database *database_;
-    UISectionList *list_;
+    UITableView *list_;
     NSMutableArray *sources_;
     int offset_;
 
@@ -5759,9 +5788,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) dealloc {
-    [[list_ table] setDelegate:nil];
-    [list_ setDataSource:nil];
-
     if (href_ != nil)
         [href_ release];
     if (hud_ != nil)
@@ -5777,14 +5803,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sources_ release];
     [list_ release];
+
     [super dealloc];
 }
 
-- (int) numberOfSectionsInSectionList:(UISectionList *)list {
+- (int) numberOfSectionsInTableView:(UITableView *)tableView {
     return offset_ == 0 ? 1 : 2;
 }
 
-- (NSString *) sectionList:(UISectionList *)list titleForSection:(int)section {
+- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(int)section {
     switch (section + (offset_ == 0 ? 1 : 0)) {
         case 0: return UCLocalize("ENTERED_BY_USER");
         case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
@@ -5793,45 +5820,51 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (int) sectionList:(UISectionList *)list rowForSection:(int)section {
-    switch (section + (offset_ == 0 ? 1 : 0)) {
-        case 0: return 0;
-        case 1: return offset_;
+- (int) tableView:(UITableView *)tableView numberOfRowsInSection:(int)section {
+    int count = [sources_ count];
+    switch (section) {
+        case 0: return (offset_ == 0 ? count : offset_);
+        case 1: return count - offset_;
 
-        _nodefault
+         _nodefault
     }
 }
 
-- (int) numberOfRowsInTable:(UITable *)table {
-    return [sources_ count];
+- (Source *) sourceAtIndexPath:(NSIndexPath *)indexPath {
+    unsigned idx = 0;
+    switch (indexPath.section) {
+        case 0: idx = indexPath.row; break;
+        case 1: idx = indexPath.row + offset_; break;
+
+            _nodefault
+    }
+    return [sources_ objectAtIndex:idx];
 }
 
-- (float) table:(UITable *)table heightForRow:(int)row {
-    Source *source = [sources_ objectAtIndex:row];
+- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
     return [source description] == nil ? 56 : 73;
 }
 
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col {
-    Source *source = [sources_ objectAtIndex:row];
-    // XXX: weird warning, stupid selectors ;P
-    return [[[SourceCell alloc] initWithSource:(id)source] autorelease];
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
+
+    static NSString *cellIdentifier = @"Source";
+    SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    if(cell == nil) {
+        cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
+    }
+        
+    [cell setSource:source];
+    return cell;
 }
 
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
-    return YES;
+- (int) tableView:(UITableView *)tableView accessoryTypeForRowWithIndexPath:(NSIndexPath *)indexPath {
+    return 1; //UITableViewCellAccessoryDisclosureIndicator?
 }
 
-- (BOOL) table:(UITable *)table canSelectRow:(int)row {
-    return YES;
-}
-
-- (void) tableRowSelected:(NSNotification*)notification {
-    UITable *table([list_ table]);
-    int row([table selectedRow]);
-    if (row == INT_MAX)
-        return;
-
-    Source *source = [sources_ objectAtIndex:row];
+- (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
 
     PackageTable *packages = [[[FilteredPackageTable alloc]
         initWithBook:book_
@@ -5846,17 +5879,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [book_ pushPage:packages];
 }
 
-- (BOOL) table:(UITable *)table canDeleteRow:(int)row {
-    Source *source = [sources_ objectAtIndex:row];
+- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
     return [source record] != nil;
 }
 
-- (void) table:(UITable *)table willSwipeToDeleteRow:(int)row {
-    [[list_ table] setDeleteConfirmationRow:row];
-}
-
-- (void) table:(UITable *)table deleteRow:(int)row {
-    Source *source = [sources_ objectAtIndex:row];
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
     [Sources_ removeObjectForKey:[source key]];
     [delegate_ syncData];
 }
@@ -6067,24 +6096,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
         sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        //list_ = [[UITable alloc] initWithFrame:[self bounds]];
-        list_ = [[UISectionList alloc] initWithFrame:[self bounds] showSectionIndex:NO];
+        list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self addSubview:list_];
 
-        [list_ setShouldHideHeaderInShortLists:NO];
         [list_ setDataSource:self];
-
-        UITableColumn *column = [[UITableColumn alloc]
-            initWithTitle:UCLocalize("NAME")
-            identifier:@"name"
-            width:[self frame].size.width
-        ];
-
-        UITable *table = [list_ table];
-        [table setSeparatorStyle:1];
-        [table addTableColumn:column];
-        [table setDelegate:self];
+        [list_ setDelegate:self];
 
         [self reloadData];
 
@@ -6104,12 +6121,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
 
     int count([sources_ count]);
-    for (offset_ = 0; offset_ != count; ++offset_) {
-        Source *source = [sources_ objectAtIndex:offset_];
-        if ([source record] == nil)
-            break;
+    offset_ = 0;
+    for (int i = 0; i != count; i++) {
+         if ([[sources_ objectAtIndex:i] record] == nil) break;
+         else offset_++;
     }
 
+    [list_ setEditing:NO];
     [list_ reloadData];
 }
 
@@ -6148,9 +6166,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _rightButtonClicked {
-    UITable *table = [list_ table];
-    BOOL editing = [table isRowDeletionEnabled];
-    [table enableRowDeletion:!editing animated:YES];
+    [list_ setEditing:![list_ isEditing]];
     [book_ reloadButtonsForPage:self];
 }
 
@@ -6159,15 +6175,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) leftButtonTitle {
-    return [[list_ table] isRowDeletionEnabled] ? UCLocalize("ADD") : nil;
+    return [list_ isEditing] ? UCLocalize("ADD") : nil;
 }
 
 - (id) rightButtonTitle {
-    return [[list_ table] isRowDeletionEnabled] ? UCLocalize("DONE") : UCLocalize("EDIT");
+    return [list_ isEditing] ? UCLocalize("DONE") : UCLocalize("EDIT");
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {
-    return [[list_ table] isRowDeletionEnabled] ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
+    return [list_ isEditing] ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
 }
 
 @end
@@ -6724,7 +6740,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
-    UITable *list_;
+    UITableView *list_;
     UIView *accessory_;
     BOOL editing_;
 }
@@ -6748,49 +6764,38 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (int) numberOfRowsInTable:(UITable *)table {
+- (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {
+    Section *section = (editing_ ? [sections_ objectAtIndex:[indexPath row]] : ([indexPath row] == 0 ? nil : [filtered_ objectAtIndex:([indexPath row] - 1)]));
+    return section;
+}
+
+- (int) tableView:(UITableView *)tableView numberOfRowsInSection:(int)section {
     return editing_ ? [sections_ count] : [filtered_ count] + 1;
 }
 
-- (float) table:(UITable *)table heightForRow:(int)row {
+- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 45;
 }
 
-- (UITableCell *) table:(UITable *)table cellForRow:(int)row column:(UITableColumn *)col reusing:(UITableCell *)reusing {
-    if (reusing == nil)
-        reusing = [[[SectionCell alloc] init] autorelease];
-    [(SectionCell *)reusing setSection:(editing_ ?
-        [sections_ objectAtIndex:row] :
-        (row == 0 ? nil : [filtered_ objectAtIndex:(row - 1)])
-    ) editing:editing_];
-    return reusing;
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *cellIdentifier = @"SectionCell";
+    SectionCell *cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
+    [cell setSection:[self sectionAtIndexPath:indexPath] editing:editing_];
+
+    return cell;
 }
 
-- (BOOL) table:(UITable *)table showDisclosureForRow:(int)row {
-    return !editing_;
-}
 
-- (BOOL) table:(UITable *)table canSelectRow:(int)row {
-    return !editing_;
-}
-
-- (void) tableRowSelected:(NSNotification *)notification {
-    int row = [[notification object] selectedRow];
-    if (row == INT_MAX)
-        return;
-
-    Section *section;
-    NSString *name;
+- (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    Section *section = [self sectionAtIndexPath:indexPath];
+    NSString *name = [section name];
     NSString *title;
 
-    if (row == 0) {
+    if ([indexPath row] == 0) {
         section = nil;
         name = nil;
         title = UCLocalize("ALL_PACKAGES");
     } else {
-        section = [filtered_ objectAtIndex:(row - 1)];
-        name = [section name];
-
         if (name != nil) {
             name = [NSString stringWithString:name];
             title = [[NSBundle mainBundle] localizedStringForKey:Simplify(name) value:nil table:@"Sections"];
@@ -6820,21 +6825,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
         filtered_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITable alloc] initWithFrame:[self bounds]];
+        list_ = [[UITableView alloc] initWithFrame:[self bounds]];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self addSubview:list_];
 
-        UITableColumn *column = [[[UITableColumn alloc]
-            initWithTitle:UCLocalize("NAME")
-            identifier:@"name"
-            width:[self frame].size.width
-        ] autorelease];
-
-        [list_ setDataSource:self];
-        [list_ setSeparatorStyle:1];
-        [list_ addTableColumn:column];
         [list_ setDelegate:self];
-        [list_ setReusesTableCells:YES];
+        [list_ setDataSource:self];
 
         [self reloadData];
 

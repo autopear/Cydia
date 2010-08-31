@@ -5017,6 +5017,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [switch_ setOn:(isSectionVisible(basic_) ? 1 : 0) animated:NO];
     }
 
+    [self setAccessoryType:editing ? 0 : 1 /*UITableViewCellAccessoryDisclosureIndicator*/];
     [content_ setNeedsDisplay];
 }
 

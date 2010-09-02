@@ -52,6 +52,8 @@ EOF
 {
 
 # Delete Old Packages {{{
+    firmware=
+
     while IFS= read -r line; do
         #echo "#${firmware+@}/${blank+@} ${line}" 1>&2
 

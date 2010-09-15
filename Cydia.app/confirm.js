@@ -13,19 +13,6 @@ $(function () {
             $(".resuming").remove();
         else
         $("#resuming").html($.xml(resuming));
-
-        var size = sizes[2];
-        var negative;
-
-        if (size.charAt(0) != '-')
-            negative = false;
-        else {
-            negative = true;
-            size = size.substr(1);
-        }
-
-        $("#disk-key").html(cydia.localize(negative ? "DISK_FREEING" : "DISK_USING"));
-        $("#disk-value").html($.xml(size));
     } else for (var i = 0; i != issues.length; ++i) {
         document.title = cydia.localize("CANNOT_COMPLY");
 

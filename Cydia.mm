@@ -4138,7 +4138,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         sizes_ = [[NSArray alloc] initWithObjects:
             SizeString([database_ fetcher].FetchNeeded()),
             SizeString([database_ fetcher].PartialPresent()),
-            SizeString([database_ cache]->UsrSize()),
         nil];
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];

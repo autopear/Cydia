@@ -122,6 +122,46 @@ extern "C" {
 #import "substrate.h"
 /* }}} */
 
+/* Header Fixes and Updates {{{ */
+typedef enum {
+   UIModalPresentationFullScreen = 0,
+   UIModalPresentationPageSheet,
+   UIModalPresentationFormSheet,
+   UIModalPresentationCurrentContext,
+} UIModalPresentationStyle;
+
+@interface UIAlertView (Private)
+- (void)setNumberOfRows:(int)rows;
+- (void)setContext:(id)context;
+- (id)context;
+@end
+
+@interface UIViewController (UIKit)
+- (id)navigationItem;
+- (id)navigationController;
+- (id)tabBarItem;
+@end
+
+@interface UITabBarController : UIViewController {
+    id _tabBar;
+    id _containerView;
+    id _viewControllerTransitionView;
+    id _viewControllers;
+    id _tabBarItemsToViewControllers;
+    id _selectedViewController;
+    id _moreNavigationController;
+    id _customizableViewControllers;
+    id _delegate;
+    id _selectedViewControllerDuringWillAppear;
+    id _transientViewController;
+    unsigned int isShowingMoreItem:1;
+    unsigned int needsToRebuildItems:1;
+    unsigned int isBarHidden:1;
+    unsigned int editButtonOnLeft:1;
+}
+@end
+/* }}} */
+
 /* Profiler {{{ */
 struct timeval _ltv;
 bool _itv;
@@ -292,10 +332,10 @@ static _finline NSString *CydiaURL(NSString *path) {
 
 - (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
     if ((self = [super init])) {
-		[self setTitle:title];
-		[self setDelegate:self];
-		for (NSString *button in buttons) [self addButtonWithTitle:button];
-		[self setCancelButtonIndex:index];
+        [self setTitle:title];
+        [self setDelegate:self];
+        for (NSString *button in buttons) [self addButtonWithTitle:button];
+        [self setCancelButtonIndex:index];
     } return self;
 }
 
@@ -304,7 +344,7 @@ static _finline NSString *CydiaURL(NSString *path) {
 }
 
 - (void) dismiss {
-	[self dismissWithClickedButtonIndex:-1 animated:YES];
+    [self dismissWithClickedButtonIndex:-1 animated:YES];
 }
 
 - (int) yieldToPopupAlertAnimated:(BOOL)animated {
@@ -344,43 +384,6 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 - (void) addInfoDictionary:(NSDictionary *)info {
     [self setObject:info forKey:[info objectForKey:@"CFBundleIdentifier"]];
-}
-
-@end
-/* }}} */
-/* Pop Transitions {{{ */
-@interface PopTransitionView : UITransitionView {
-}
-
-@end
-
-@implementation PopTransitionView
-
-- (void) transitionViewDidComplete:(UITransitionView *)view fromView:(UIView *)from toView:(UIView *)to {
-    if (from != nil && to == nil)
-        [self removeFromSuperview];
-}
-
-@end
-
-@implementation UIView (PopUpView)
-
-- (void) popFromSuperviewAnimated:(BOOL)animated {
-    [[self superview] transition:(animated ? UITransitionPushFromTop : UITransitionNone) toView:nil];
-}
-
-- (void) popSubview:(UIView *)view {
-    UITransitionView *transition([[[PopTransitionView alloc] initWithFrame:[self bounds]] autorelease]);
-    [transition setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-    [self addSubview:transition];
-
-    [transition setDelegate:transition];
-
-    UIView *blank([[[UIView alloc] initWithFrame:[transition bounds]] autorelease]);
-    [blank setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-    [transition transition:UITransitionNone toView:blank];
-    [transition transition:UITransitionPushFromBottom toView:view];
 }
 
 @end
@@ -541,7 +544,7 @@ CFIndex SKBSearch_(const void *element, CFIndex elementSize, const void *list, C
         CFIndex half = count / 2;
         const char *probe = ptr + elementSize * half;
         CFComparisonResult cr = comparator(element, probe, context);
-	if (0 == cr) return (probe - (const char *)list) / elementSize;
+    if (0 == cr) return (probe - (const char *)list) / elementSize;
         ptr = (cr < 0) ? ptr : probe + elementSize;
         count = (cr < 0) ? half : (half + (count & 1) - 1);
     }
@@ -554,7 +557,7 @@ CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, C
         CFIndex half = count / 2;
         const char *probe = ptr + elementSize * half;
         CFComparisonResult cr = comparator(element, probe, context);
-	if (0 == cr) return (probe - (const char *)list) / elementSize;
+    if (0 == cr) return (probe - (const char *)list) / elementSize;
         ptr = (cr < 0) ? ptr : probe + elementSize;
         count = (cr < 0) ? half : (half + (count & 1) - 1);
     }
@@ -1078,8 +1081,6 @@ static CFLocaleRef Locale_;
 static NSArray *Languages_;
 static CGColorSpaceRef space_;
 
-static bool reload_;
-
 static NSDictionary *SectionMap_;
 static NSMutableDictionary *Metadata_;
 static _transient NSMutableDictionary *Settings_;
@@ -1223,14 +1224,13 @@ bool isSectionVisible(NSString *section) {
 - (void) installPackage:(Package *)package;
 - (void) installPackages:(NSArray *)packages;
 - (void) removePackage:(Package *)package;
-- (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIButton *)item; 
 - (void) distUpgrade;
 - (void) updateData;
 - (void) syncData;
 - (void) askForSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
-- (RVPage *) pageForPackage:(NSString *)name;
+- (UIViewController *) pageForPackage:(NSString *)name;
 - (PackageView *) packageView;
 @end
 /* }}} */
@@ -1448,7 +1448,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
     Package *package = id == nil ? nil : [[Database sharedInstance] packageWithName:id];
     // XXX: holy typecast batman!
-    [(id<ProgressDelegate>)self setProgressError:error withTitle:(package == nil ? id : [package name])];
+    [self setProgressError:error withTitle:(package == nil ? id : [package name])];
 }
 
 @end
@@ -3626,6 +3626,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     return false;
 }
+/* }}} */
 
 /* Web Scripting {{{ */
 @interface CydiaObject : NSObject {
@@ -3875,13 +3876,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-@interface CydiaBrowserView : BrowserView {
+/* Cydia View Controller {{{ */
+@interface CYViewController : UCViewController { }
+@end
+
+@implementation CYViewController
+@end
+/* }}} */
+
+@interface CYBrowserController : BrowserView {
     CydiaObject *cydia_;
 }
 
 @end
 
-@implementation CydiaBrowserView
+@implementation CYBrowserController
 
 - (void) dealloc {
     [cydia_ release];
@@ -3939,8 +3948,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [cydia_ setDelegate:delegate];
 }
 
-- (id) initWithBook:(RVBook *)book forWidth:(float)width {
-    if ((self = [super initWithBook:book forWidth:width ofClass:[CydiaBrowserView class]]) != nil) {
+- (id) init {
+    if ((self = [super initWithWidth:[[self view] bounds].size.width ofClass:[CYBrowserController class]]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         WebView *webview([document_ webView]);
@@ -3967,11 +3976,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @protocol ConfirmationViewDelegate
 - (void) cancelAndClear:(bool)clear;
-- (void) confirm;
+- (void) confirmWithNavigationController:(UINavigationController *)navigation;
 - (void) queue;
 @end
 
-@interface ConfirmationView : CydiaBrowserView {
+@interface ConfirmationView : CYBrowserController {
     _transient Database *database_;
     UIAlertView *essential_;
     NSArray *changes_;
@@ -3980,7 +3989,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL substrate_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 
 @end
 
@@ -4005,49 +4014,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if      (button == [sheet cancelButtonIndex])      return;
         else if (button == [sheet destructiveButtonIndex]) clear = true;
         else                                               clear = false;
-
+        
         [sheet dismissWithClickedButtonIndex:0xDEADBEEF animated:YES];
-        [book_ popFromSuperviewAnimated:YES];
+        [self dismissModalViewControllerAnimated:YES];
         [delegate_ cancelAndClear:clear];
     }
 }
 
-- (void) cancel {
-    UIActionSheet *sheet = [[UIActionSheet alloc]
-        initWithTitle:nil
-        delegate:self
-        cancelButtonTitle:nil
-        destructiveButtonTitle:nil
-        otherButtonTitles:nil
-    ];
-
-    [sheet addButtonWithTitle:UCLocalize("CANCEL_CLEAR")];
-    [sheet setDestructiveButtonIndex:[sheet numberOfButtons] - 1];
-    [sheet addButtonWithTitle:UCLocalize("CONTINUE_QUEUING")];
-    [sheet setContext:@"cancel"];
-
-    [delegate_ showActionSheet:[sheet autorelease] fromItem:[[book_ navigationBar] currentLeftView]];
-}
-
-- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
 
     if ([context isEqualToString:@"remove"]) {
-		if (button == [alert cancelButtonIndex]) {
-                [self cancel];
+        if (button == [alert cancelButtonIndex]) {
+            [self dismissModalViewControllerAnimated:YES];
         } else if (button == [alert firstOtherButtonIndex]) {
-                if (substrate_)
-                    Finish_ = 2;
-                [delegate_ confirm];
+            if (substrate_)
+                Finish_ = 2;
+            [delegate_ confirmWithNavigationController:[self navigationController]];
         }
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"unable"]) {
-        [self cancel];
+        [self dismissModalViewControllerAnimated:YES];
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else {
-		[super alertView:alert clickedButtonAtIndex:button];
-	}
+        [super alertView:alert clickedButtonAtIndex:button];
+    }
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
@@ -4057,9 +4049,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window setValue:sizes_ forKey:@"sizes"];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
         database_ = database;
+
+        [[self navigationItem] setTitle:UCLocalize("CONFIRM")];
 
         NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
         NSMutableArray *reinstalling = [NSMutableArray arrayWithCapacity:16];
@@ -4104,23 +4098,23 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             essential_ = [[UIAlertView alloc]
                 initWithTitle:UCLocalize("REMOVING_ESSENTIALS")
-				message:UCLocalize("REMOVING_ESSENTIALS_EX")
-				delegate:self
-				cancelButtonTitle:[NSString stringWithFormat:parenthetical, UCLocalize("CANCEL_OPERATION"), UCLocalize("SAFE")]
-				otherButtonTitles:[NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")], nil
-			];
+                message:UCLocalize("REMOVING_ESSENTIALS_EX")
+                delegate:self
+                cancelButtonTitle:[NSString stringWithFormat:parenthetical, UCLocalize("CANCEL_OPERATION"), UCLocalize("SAFE")]
+                otherButtonTitles:[NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")], nil
+            ];
 
             [essential_ setContext:@"remove"];
         } else {
             essential_ = [[UIAlertView alloc]
                 initWithTitle:UCLocalize("UNABLE_TO_COMPLY")
-				message:UCLocalize("UNABLE_TO_COMPLY_EX")
-				delegate:self
-				cancelButtonTitle:UCLocalize("OKAY")
-				otherButtonTitles:nil
+                message:UCLocalize("UNABLE_TO_COMPLY_EX")
+                delegate:self
+                cancelButtonTitle:UCLocalize("OKAY")
+                otherButtonTitles:nil
             ];
 
-			[essential_ setContext:@"unable"];
+            [essential_ setContext:@"unable"];
         }
 
         changes_ = [[NSArray alloc] initWithObjects:
@@ -4142,45 +4136,59 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
 
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
+            initWithTitle:[NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(cancelButtonClicked)
+        ];
+        [[self navigationItem] setLeftBarButtonItem:leftItem];
+        [leftItem release];
     } return self;
 }
 
-- (NSString *) backButtonTitle {
-    return UCLocalize("CONFIRM");
-}
-
-- (NSString *) leftButtonTitle {
-    return [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")];
-}
-
-- (id) rightButtonTitle {
-    return issues_ != nil ? nil : [super rightButtonTitle];
-}
-
-- (id) _rightButtonTitle {
-#if AlwaysReload || IgnoreInstall
-    return [super _rightButtonTitle];
-#else
-    return UCLocalize("CONFIRM");
+- (void) didFinishLoading {
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("CONFIRM")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(confirmButtonClicked)
+    ];
+#if !AlwaysReload && !IgnoreInstall
+    if (issues_ == nil) [[self navigationItem] setRightBarButtonItem:rightItem];
+    else [[self navigationItem] setRightBarButtonItem:nil];
 #endif
+    [rightItem release];
 }
 
-- (void) _leftButtonClicked {
-    [self cancel];
+- (void) cancelButtonClicked {
+    UIActionSheet *sheet = [[UIActionSheet alloc]
+        initWithTitle:nil
+        delegate:self
+        cancelButtonTitle:nil
+        destructiveButtonTitle:nil
+        otherButtonTitles:nil
+    ];
+
+    [sheet addButtonWithTitle:UCLocalize("CANCEL_CLEAR")];
+    [sheet setDestructiveButtonIndex:[sheet numberOfButtons] - 1];
+    [sheet addButtonWithTitle:UCLocalize("CONTINUE_QUEUING")];
+    [sheet setContext:@"cancel"];
+
+    [delegate_ showActionSheet:[sheet autorelease] fromItem:[[self navigationItem] leftBarButtonItem]];
 }
 
 #if !AlwaysReload
-- (void) _rightButtonClicked {
+- (void) confirmButtonClicked {
 #if IgnoreInstall
-    return [super _rightButtonClicked];
+    return;
 #endif
     if (essential_ != nil)
-        [essential_ popupAlertAnimated:YES];
+        [essential_ show];
     else {
         if (substrate_)
             Finish_ = 2;
-        [delegate_ confirm];
+        [delegate_ confirmWithNavigationController:[self navigationController]];
     }
 }
 #endif
@@ -4227,30 +4235,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Progress View {{{ */
-@interface ProgressView : UIView <
+@interface ProgressView : CYViewController <
     ConfigurationDelegate,
     ProgressDelegate
 > {
     _transient Database *database_;
-    UIView *view_;
-    UIView *background_;
-    UITransitionView *transition_;
-    UIView *overlay_;
-    UINavigationBar *navbar_;
     UIProgressBar *progress_;
     UITextView *output_;
     UITextLabel *status_;
     UIPushButton *close_;
-    id delegate_;
     BOOL running_;
     SHA1SumValue springlist_;
     SHA1SumValue notifyconf_;
     NSString *title_;
 }
 
-- (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate;
-- (void) setContentView:(UIView *)view;
-- (void) resetView;
+- (id) initWithDatabase:(Database *)database delegate:(id)delegate;
 
 - (void) _retachThread;
 - (void) _detachNewThreadData:(ProgressData *)data;
@@ -4267,15 +4267,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation ProgressView
 
 - (void) dealloc {
-    [transition_ setDelegate:nil];
-    [navbar_ setDelegate:nil];
-
-    [view_ release];
-    if (background_ != nil)
-        [background_ release];
-    [transition_ release];
-    [overlay_ release];
-    [navbar_ release];
+    [database_ setDelegate:nil];
     [progress_ release];
     [output_ release];
     [status_ release];
@@ -4285,125 +4277,103 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (id) initWithFrame:(struct CGRect)frame database:(Database *)database delegate:(id)delegate {
-    if ((self = [super initWithFrame:frame]) != nil) {
+- (id) initWithDatabase:(Database *)database delegate:(id)delegate {
+    if ((self = [super init]) != nil) {
         database_ = database;
+        [database_ setDelegate:self];
         delegate_ = delegate;
 
-        transition_ = [[UITransitionView alloc] initWithFrame:[self bounds]];
-        [transition_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [transition_ setDelegate:self];
+        [[self view] setBackgroundColor:(CGColor *)[UIColor colorWithRed:0.0f green:0.0f blue:0.0f alpha:1.0f]];
 
-        overlay_ = [[UIView alloc] initWithFrame:[transition_ bounds]];
-        [overlay_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-
-        background_ = [[UIView alloc] initWithFrame:[self bounds]];
-        [background_ setBackgroundColor:[UIColor blackColor]];
-        [self addSubview:background_];
-
-        [self addSubview:transition_];
-
-        CGSize navsize = [UINavigationBar defaultSize];
-        CGRect navrect = {{0, 0}, navsize};
-
-        navbar_ = [[UINavigationBar alloc] initWithFrame:navrect];
-        [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [overlay_ addSubview:navbar_];
-
-        [navbar_ setBarStyle:1];
-        [navbar_ setDelegate:self];
-
-        UINavigationItem *navitem = [[[UINavigationItem alloc] initWithTitle:nil] autorelease];
-        [navbar_ pushNavigationItem:navitem];
-
-        CGRect bounds = [overlay_ bounds];
-        CGSize prgsize = [UIProgressBar defaultSize];
-
-        CGRect prgrect = {{
-            (bounds.size.width - prgsize.width) / 2,
-            bounds.size.height - prgsize.height - 20
-        }, prgsize};
-
-        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
+        progress_ = [[UIProgressBar alloc] init];
         [progress_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
         [progress_ setStyle:0];
 
-        status_ = [[UITextLabel alloc] initWithFrame:CGRectMake(
-            10,
-            bounds.size.height - prgsize.height - 50,
-            bounds.size.width - 20,
-            24
-        )];
-
+        status_ = [[UITextLabel alloc] init];
         [status_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
-
         [status_ setColor:[UIColor whiteColor]];
         [status_ setBackgroundColor:[UIColor clearColor]];
-
         [status_ setCentersHorizontally:YES];
         //[status_ setFont:font];
 
-        output_ = [[UITextView alloc] initWithFrame:CGRectMake(
-            10,
-            navrect.size.height + 20,
-            bounds.size.width - 20,
-            bounds.size.height - navsize.height - 62 - navrect.size.height
-        )];
+        output_ = [[UITextView alloc] init];
 
         [output_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [overlay_ addSubview:output_];
-
         //[output_ setTextFont:@"Courier New"];
         [output_ setFont:[[output_ font] fontWithSize:12]];
-
         [output_ setTextColor:[UIColor whiteColor]];
         [output_ setBackgroundColor:[UIColor clearColor]];
-
         [output_ setMarginTop:0];
         [output_ setAllowsRubberBanding:YES];
         [output_ setEditable:NO];
+        [[self view] addSubview:output_];
 
-        close_ = [[UIPushButton alloc] initWithFrame:CGRectMake(
-            10,
-            bounds.size.height - prgsize.height - 50,
-            bounds.size.width - 20,
-            32 + prgsize.height
-        )];
-
+        close_ = [[UIPushButton alloc] init];
         [close_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
-
         [close_ setAutosizesToFit:NO];
         [close_ setDrawsShadow:YES];
         [close_ setStretchBackground:YES];
         [close_ setEnabled:YES];
-
-        UIFont *bold = [UIFont boldSystemFontOfSize:22];
-        [close_ setTitleFont:bold];
-
+        [close_ setTitleFont:[UIFont boldSystemFontOfSize:22]];
         [close_ addTarget:self action:@selector(closeButtonPushed) forEvents:UIControlEventTouchUpInside];
         [close_ setBackground:[UIImage applicationImageNamed:@"green-up.png"] forState:0];
         [close_ setBackground:[UIImage applicationImageNamed:@"green-dn.png"] forState:1];
     } return self;
 }
 
-- (void) setContentView:(UIView *)view {
-    view_ = [view retain];
+- (void) positionViews {
+    CGRect bounds = [[self view] bounds];
+    CGSize prgsize = [UIProgressBar defaultSize];
+
+    CGRect prgrect = {{
+        (bounds.size.width - prgsize.width) / 2,
+        bounds.size.height - prgsize.height - 64
+    }, prgsize};
+    
+    float closewidth = bounds.size.width - 20;
+    if (closewidth > 300) closewidth = 300;
+
+    [progress_ setFrame:prgrect];
+    [status_ setFrame:CGRectMake(
+        10,
+        bounds.size.height - prgsize.height - 94,
+        bounds.size.width - 20,
+        24
+    )];
+    [output_ setFrame:CGRectMake(
+        10,
+        20,
+        bounds.size.width - 20,
+        bounds.size.height - 106
+    )];
+    [close_ setFrame:CGRectMake(
+        (bounds.size.width - closewidth) / 2,
+        bounds.size.height - prgsize.height - 94,
+        closewidth,
+        32 + prgsize.height
+    )];
 }
 
-- (void) resetView {
-    [transition_ transition:6 toView:view_];
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [[self navigationItem] setHidesBackButton:YES];
+    [[[self navigationController] navigationBar] setBarStyle:1];
+    
+    [self positionViews];
 }
 
-- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self positionViews];
+}
+
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
 
     if ([context isEqualToString:@"conffile"]) {
-		FILE *input = [database_ input];
+        FILE *input = [database_ input];
         if (button == [alert cancelButtonIndex]) fprintf(input, "N\n");
         else if (button == [alert firstOtherButtonIndex]) fprintf(input, "Y\n");
-		fflush(input);
-		
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+        fflush(input);
     }
 }
 
@@ -4412,7 +4382,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     switch (Finish_) {
         case 0:
-            [self resetView];
+            [self dismissModalViewControllerAnimated:YES];
         break;
 
         case 1:
@@ -4438,10 +4408,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _retachThread {
-    UINavigationItem *item([navbar_ topItem]);
-    [item setTitle:UCLocalize("COMPLETE")];
+    [[self navigationItem] setTitle:UCLocalize("COMPLETE")];
 
-    [overlay_ addSubview:close_];
+    [[self view] addSubview:close_];
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
 
@@ -4475,7 +4444,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     switch (Finish_) {
-        case 0: [close_ setTitle:UCLocalize("RETURN_TO_CYDIA")]; break;
+        case 0: [close_ setTitle:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */
         case 1: [close_ setTitle:UCLocalize("CLOSE_CYDIA")]; break;
         case 2: [close_ setTitle:UCLocalize("RESTART_SPRINGBOARD")]; break;
         case 3: [close_ setTitle:UCLocalize("RELOAD_SPRINGBOARD")]; break;
@@ -4502,16 +4471,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     else
         title_ = [title retain];
 
-    UINavigationItem *item([navbar_ topItem]);
-    [item setTitle:title_];
+    [[self navigationItem] setTitle:title_];
 
     [status_ setText:nil];
     [output_ setText:@""];
     [progress_ setProgress:0];
 
     [close_ removeFromSuperview];
-    [overlay_ addSubview:progress_];
-    [overlay_ addSubview:status_];
+    [[self view] addSubview:progress_];
+    [[self view] addSubview:status_];
 
     [delegate_ setStatusBarShowsProgress:YES];
     running_ = YES;
@@ -4539,8 +4507,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             springlist_ = sha1.Result();
         }
     }
-
-    [transition_ transition:6 toView:overlay_];
 
     [NSThread
         detachNewThreadSelector:@selector(_detachNewThreadData:)
@@ -4626,15 +4592,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:UCLocalize("CONFIGURATION_UPGRADE")
-		message:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]
-		delegate:self
-		cancelButtonTitle:UCLocalize("KEEP_OLD_COPY")
-		otherButtonTitles:UCLocalize("ACCEPT_NEW_COPY"),
+        message:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]
+        delegate:self
+        cancelButtonTitle:UCLocalize("KEEP_OLD_COPY")
+        otherButtonTitles:UCLocalize("ACCEPT_NEW_COPY"),
         // XXX: UCLocalize("SEE_WHAT_CHANGED"),
-		nil
-	] autorelease];
+        nil
+    ] autorelease];
 
-	[alert setContext:@"conffile"];
+    [alert setContext:@"conffile"];
     [alert show];
 }
 
@@ -5055,7 +5021,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* File Table {{{ */
-@interface FileTable : RVPage {
+@interface FileTable : CYViewController {
     _transient Database *database_;
     Package *package_;
     NSString *name_;
@@ -5063,7 +5029,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableView *list_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 - (void) setPackage:(Package *)package;
 
 @end
@@ -5089,32 +5055,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *reuseIdentifier = @"SourceCell";
+    static NSString *reuseIdentifier = @"Cell";
+
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:reuseIdentifier];
     if (cell == nil) {
         cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
         [cell setFont:[UIFont systemFontOfSize:16]];
     }
-
     [cell setText:[files_ objectAtIndex:indexPath.row]];
     [cell setSelectionStyle:0 /*UITableViewCellSelectionStyleNone*/];
+
     return cell;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
         database_ = database;
+
+        [[self navigationItem] setTitle:UCLocalize("INSTALLED_FILES")];
 
         files_ = [[NSMutableArray arrayWithCapacity:32] retain];
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
-        [self addSubview:list_];
+        [[self view] addSubview:list_];
 
         [list_ setDataSource:self];
         [list_ setDelegate:self];
-        
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -5163,27 +5129,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ reloadData];
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [list_ resetViewAnimated:animated];
-}
-
 - (void) reloadData {
     [self setPackage:[database_ packageWithName:name_]];
-    [self reloadButtons];
-}
-
-- (NSString *) title {
-    return UCLocalize("INSTALLED_FILES");
-}
-
-- (NSString *) backButtonTitle {
-    return UCLocalize("FILES");
 }
 
 @end
 /* }}} */
 /* Package View {{{ */
-@interface PackageView : CydiaBrowserView {
+@interface PackageView : CYBrowserController {
     _transient Database *database_;
     Package *package_;
     NSString *name_;
@@ -5191,7 +5144,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *buttons_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 - (void) setPackage:(Package *)package;
 
 @end
@@ -5236,7 +5189,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             NSString *buttonName = [buttons_ objectAtIndex:button];
             [self _clickButtonWithName:buttonName];
         }
-
+        
         [sheet dismissWithClickedButtonIndex:-1 animated:YES];
     } else {
         [super alertSheet:sheet clickedButtonAtIndex:button];
@@ -5257,7 +5210,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 #if !AlwaysReload
-- (void) __rightButtonClicked {
+- (void) _actionButtonClicked {
     int count([buttons_ count]);
     if (count == 0)
         return;
@@ -5282,30 +5235,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
            [sheet setCancelButtonIndex:[sheet numberOfButtons] - 1];
         }
         [sheet setContext:@"modify"];
-
-        [delegate_ showActionSheet:sheet fromItem:[[book_ navigationBar] currentRightView]];
+    
+        [delegate_ showActionSheet:sheet fromItem:[[self navigationItem] rightBarButtonItem]];
     }
 }
 
-- (void) _rightButtonClicked {
-    if (commercial_)
+- (void) actionButtonClicked {
+    if (commercial_ && [self isLoading])
         [super _rightButtonClicked];
     else
-        [self __rightButtonClicked];
+        [self _actionButtonClicked];
 }
 #endif
 
-- (id) _rightButtonTitle {
-    int count = [buttons_ count];
-    return count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0];
-}
-
-- (NSString *) backButtonTitle {
-    return @"Details";
-}
-
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"package" ofType:@"html"]]];
@@ -5368,8 +5312,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [super callFunction:special_];
         }
     }
+}
 
-    [self reloadButtons];
+- (void) didFinishLoading {
+    int count = [buttons_ count];
+    UIBarButtonItem *actionItem = [[UIBarButtonItem alloc]
+        initWithTitle:count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0]
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(actionButtonClicked)
+    ];
+    [[self navigationItem] setRightBarButtonItem:actionItem];
+    [actionItem release];
 }
 
 - (bool) isLoading {
@@ -5383,17 +5337,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Package Table {{{ */
-@interface PackageTable : RVPage {
+@interface PackageTable : UIView {
     _transient Database *database_;
-    NSString *title_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
     UITableView *list_;
     NSMutableArray *index_;
     NSMutableDictionary *indices_;
+    id target_;
+    SEL action_;
+    id delegate_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title;
+- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action;
 
 - (void) setDelegate:(id)delegate;
 
@@ -5404,19 +5360,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setShouldHideHeaderInShortLists:(BOOL)hide;
 
+- (void) deselectWithAnimation:(BOOL)animated;
+
 @end
 
 @implementation PackageTable
 
 - (void) dealloc {
-    [list_ setDataSource:nil];
-
-    [title_ release];
     [packages_ release];
     [sections_ release];
     [list_ release];
     [index_ release];
     [indices_ release];
+
     [super dealloc];
 }
 
@@ -5452,6 +5408,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return cell;
 }
 
+- (void) deselectWithAnimation:(BOOL)animated {
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+}
+
 - (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
     return 73;
     return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
@@ -5460,10 +5420,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
     package = [database_ packageWithName:[package id]];
-    PackageView *view([delegate_ packageView]);
-    [view setPackage:package];
-    [view setDelegate:delegate_];
-    [book_ pushPage:view];
+    [target_ performSelector:action_ withObject:package];
     return path;
 }
 
@@ -5475,10 +5432,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return index;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action {
+    if ((self = [super initWithFrame:frame]) != nil) {
         database_ = database;
-        title_ = [title retain];
+
+        target_ = target;
+        action_ = action;
 
         index_ = [[NSMutableArray alloc] initWithCapacity:32];
         indices_ = [[NSMutableDictionary alloc] initWithCapacity:32];
@@ -5492,8 +5451,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [list_ setDataSource:self];
         [list_ setDelegate:self];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -5554,14 +5511,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _end
 }
 
-- (NSString *) title {
-    return title_;
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [list_ resetViewAnimated:animated];
-}
-
 - (void) resetCursor {
     [list_ scrollRectToVisible:CGRectMake(0, 0, 0, 0) animated:NO];
 }
@@ -5586,7 +5535,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setObject:(id)object;
 - (void) setObject:(id)object forFilter:(SEL)filter;
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
+- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action filter:(SEL)filter with:(id)object;
 
 @end
 
@@ -5620,7 +5569,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setObject:(id)object forFilter:(SEL)filter {
     [self setFilter:filter];
     [self setObject:object];
-
 }
 
 - (bool) hasPackage:(Package *)package {
@@ -5629,10 +5577,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _end
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
-    if ((self = [super initWithBook:book database:database title:title]) != nil) {
+- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action filter:(SEL)filter with:(id)object {
+    if ((self = [super initWithFrame:frame database:database target:target action:action]) != nil) {
         [self setFilter:filter];
-        object_ = object == nil ? nil : [object retain];
+        object_ = [object retain];
         [self reloadData];
     } return self;
 }
@@ -5640,19 +5588,86 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* Filtered Package View {{{ */
+@interface FilteredPackageView : CYViewController {
+    _transient Database *database_;
+    FilteredPackageTable *packages_;
+    NSString *title_;
+}
+
+- (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
+
+@end
+    
+@implementation FilteredPackageView
+
+- (void) dealloc {
+    [packages_ release];
+    [title_ release];
+    
+    [super dealloc];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [packages_ deselectWithAnimation:animated];
+}
+
+- (void) didSelectPackage:(Package *)package {
+    PackageView *view([delegate_ packageView]);
+    [view setPackage:package];
+    [view setDelegate:delegate_];
+    [[self navigationController] pushViewController:view animated:YES];
+}
+
+- (id) title { return title_; }
+
+- (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
+    if ((self = [super init]) != nil) {
+        database_ = database;
+        title_ = [title copy];
+        [[self navigationItem] setTitle:title_];
+
+        packages_ = [[FilteredPackageTable alloc]
+            initWithFrame:[[self view] bounds]
+            database:database
+            target:self
+            action:@selector(didSelectPackage:)
+            filter:filter
+            with:object
+        ];
+
+        [packages_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [[self view] addSubview:packages_];
+    } return self;
+}
+
+- (void) reloadData {
+    [packages_ reloadData];
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [packages_ setDelegate:delegate];
+}
+
+@end
+    
+/* }}} */
+
 /* Add Source View {{{ */
-@interface AddSourceView : RVPage {
+@interface AddSourceView : CYViewController {
     _transient Database *database_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 
 @end
 
 @implementation AddSourceView
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
         database_ = database;
     } return self;
 }
@@ -5754,7 +5769,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Source Table {{{ */
-@interface SourceTable : RVPage {
+@interface SourceTable : CYViewController {
     _transient Database *database_;
     UITableView *list_;
     NSMutableArray *sources_;
@@ -5773,7 +5788,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL cydia_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 
 @end
 
@@ -5803,8 +5818,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sources_ release];
     [list_ release];
-
     [super dealloc];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
 
 - (int) numberOfSectionsInTableView:(UITableView *)tableView {
@@ -5826,7 +5845,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: return (offset_ == 0 ? count : offset_);
         case 1: return count - offset_;
 
-         _nodefault
+        _nodefault
     }
 }
 
@@ -5836,7 +5855,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 0: idx = indexPath.row; break;
         case 1: idx = indexPath.row + offset_; break;
 
-            _nodefault
+        _nodefault
     }
     return [sources_ objectAtIndex:idx];
 }
@@ -5847,15 +5866,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source = [self sourceAtIndexPath:indexPath];
+    static NSString *cellIdentifier = @"SourceCell";
 
-    static NSString *cellIdentifier = @"Source";
     SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
-    if(cell == nil) {
-        cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
-    }
-        
-    [cell setSource:source];
+    if(cell == nil) cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
+    [cell setSource:[self sourceAtIndexPath:indexPath]];
+    
     return cell;
 }
 
@@ -5866,9 +5882,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     Source *source = [self sourceAtIndexPath:indexPath];
 
-    PackageTable *packages = [[[FilteredPackageTable alloc]
-        initWithBook:book_
-        database:database_
+    FilteredPackageView *packages = [[[FilteredPackageView alloc]
+        initWithDatabase:database_
         title:[source label]
         filter:@selector(isVisibleInSource:)
         with:source
@@ -5876,7 +5891,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [packages setDelegate:delegate_];
 
-    [book_ pushPage:packages];
+    [[self navigationController] pushViewController:packages animated:YES];
 }
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -5944,13 +5959,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
                 UIAlertView *alert = [[[UIAlertView alloc]
                     initWithTitle:UCLocalize("SOURCE_WARNING")
-					message:warning
-					delegate:self
-					cancelButtonTitle:UCLocalize("CANCEL")
+                    message:warning
+                    delegate:self
+                    cancelButtonTitle:UCLocalize("CANCEL")
                     otherButtonTitles:UCLocalize("ADD_ANYWAY"), nil
                 ] autorelease];
 
-				[alert setContext:@"warning"];
+                [alert setContext:@"warning"];
                 [alert setNumberOfRows:1];
                 [alert show];
             } else
@@ -5958,24 +5973,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         } else if (error_ != nil) {
             UIAlertView *alert = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("VERIFICATION_ERROR")
-				message:[error_ localizedDescription]
-				delegate:self
-				cancelButtonTitle:UCLocalize("OK")
+                message:[error_ localizedDescription]
+                delegate:self
+                cancelButtonTitle:UCLocalize("OK")
                 otherButtonTitles:nil
             ] autorelease];
 
-			[alert setContext:@"urlerror"];
+            [alert setContext:@"urlerror"];
             [alert show];
         } else {
             UIAlertView *alert = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("NOT_REPOSITORY")
-				message:UCLocalize("NOT_REPOSITORY_EX")
-				delegate:self
-				cancelButtonTitle:UCLocalize("OK")
+                message:UCLocalize("NOT_REPOSITORY_EX")
+                delegate:self
+                cancelButtonTitle:UCLocalize("OK")
                 otherButtonTitles:nil
             ] autorelease];
 
-			[alert setContext:@"trivial"];
+            [alert setContext:@"trivial"];
             [alert show];
         }
 
@@ -6014,6 +6029,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) connectionDidFinishLoading:(NSURLConnection *)connection {
     [self _endConnection:connection];
 }
+
+- (id)title { return UCLocalize("SOURCES"); }
 
 - (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
     NSMutableURLRequest *request = [NSMutableURLRequest
@@ -6091,21 +6108,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
+        [[self navigationItem] setTitle:UCLocalize("SOURCES")];
+        [self updateButtonsForEditingStatus:NO animated:NO];
+    
         database_ = database;
         sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
+        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [self addSubview:list_];
+        [[self view] addSubview:list_];
 
         [list_ setDataSource:self];
         [list_ setDelegate:self];
 
         [self reloadData];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -6120,22 +6138,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
     _trace();
 
-    int count([sources_ count]);
+     int count([sources_ count]);
     offset_ = 0;
     for (int i = 0; i != count; i++) {
-         if ([[sources_ objectAtIndex:i] record] == nil) break;
-         else offset_++;
+        if ([[sources_ objectAtIndex:i] record] == nil) break;
+        else offset_++;
     }
 
     [list_ setEditing:NO];
+    [self updateButtonsForEditingStatus:NO animated:NO];
     [list_ reloadData];
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [list_ resetViewAnimated:animated];
-}
-
-- (void) _leftButtonClicked {
+- (void) addButtonClicked {
     /*[book_ pushPage:[[[AddSourceView alloc]
         initWithBook:book_
         database:database_
@@ -6143,14 +6158,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:UCLocalize("ENTER_APT_URL")
-		message:nil
-		delegate:self
-		cancelButtonTitle:UCLocalize("CANCEL")
-		otherButtonTitles:UCLocalize("ADD_SOURCE"), nil
+        message:nil
+        delegate:self
+        cancelButtonTitle:UCLocalize("CANCEL")
+        otherButtonTitles:UCLocalize("ADD_SOURCE"), nil
     ] autorelease];
 
-	[alert setContext:@"source"];
-	[alert setTransform:CGAffineTransformTranslate([alert transform], 0.0, 100.0)];
+    [alert setContext:@"source"];
+    [alert setTransform:CGAffineTransformTranslate([alert transform], 0.0, 100.0)];
 
     [alert setNumberOfRows:1];
     [alert addTextFieldWithValue:@"http://" label:@""];
@@ -6165,96 +6180,102 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert show];
 }
 
-- (void) _rightButtonClicked {
-    [list_ setEditing:![list_ isEditing]];
-    [book_ reloadButtonsForPage:self];
+- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated {
+    UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("ADD")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(addButtonClicked)
+    ];
+    [[self navigationItem] setLeftBarButtonItem:editing ? leftItem : [[self navigationItem] backBarButtonItem] animated:animated];
+    [leftItem release];
+
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+        initWithTitle:editing ? UCLocalize("DONE") : UCLocalize("EDIT")
+        style:editing ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain
+        target:self
+        action:@selector(editButtonClicked)
+    ];
+    [[self navigationItem] setRightBarButtonItem:rightItem animated:animated];
+    [rightItem release];
 }
 
-- (NSString *) title {
-    return UCLocalize("SOURCES");
-}
-
-- (NSString *) leftButtonTitle {
-    return [list_ isEditing] ? UCLocalize("ADD") : nil;
-}
-
-- (id) rightButtonTitle {
-    return [list_ isEditing] ? UCLocalize("DONE") : UCLocalize("EDIT");
-}
-
-- (UINavigationButtonStyle) rightButtonStyle {
-    return [list_ isEditing] ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
+- (void) editButtonClicked {
+    [list_ setEditing:![list_ isEditing] animated:YES];
+    
+    [self updateButtonsForEditingStatus:[list_ isEditing] animated:YES];
 }
 
 @end
 /* }}} */
 
 /* Installed View {{{ */
-@interface InstalledView : RVPage {
-    _transient Database *database_;
-    FilteredPackageTable *packages_;
+@interface InstalledView : FilteredPackageView {
     BOOL expert_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 
 @end
 
 @implementation InstalledView
 
 - (void) dealloc {
-    [packages_ release];
     [super dealloc];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
-        database_ = database;
+- (id) title { return UCLocalize("INSTALLED"); }
 
-        packages_ = [[FilteredPackageTable alloc]
-            initWithBook:book
-            database:database
-            title:nil
-            filter:@selector(isInstalledAndVisible:)
-            with:[NSNumber numberWithBool:YES]
-        ];
-
-        [packages_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [self addSubview:packages_];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndVisible:) with:[NSNumber numberWithBool:YES]]) != nil) {
+        [self updateRoleButton];
+        [self queueStatusDidChange];
     } return self;
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [packages_ resetViewAnimated:animated];
+#if !AlwaysReload
+- (void) queueButtonClicked {
+    [delegate_ queue];
+}
+#endif
+
+- (void) queueStatusDidChange {
+#if !AlwaysReload
+    if (IsWildcat_) {
+        UIBarButtonItem *queueItem = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("QUEUE")
+            style:UIBarButtonItemStyleDone
+            target:self
+            action:@selector(queueButtonClicked)
+        ];
+        if (Queuing_) [[self navigationItem] setLeftBarButtonItem:queueItem];
+        else [[self navigationItem] setLeftBarButtonItem:nil];
+        [queueItem release];
+    }
+#endif
 }
 
 - (void) reloadData {
     [packages_ reloadData];
 }
 
-- (void) _rightButtonClicked {
+- (void) updateRoleButton {
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+        initWithTitle:expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE")
+        style:expert_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain
+        target:self
+        action:@selector(roleButtonClicked)
+    ];
+    if (Role_ != nil && ![Role_ isEqualToString:@"Developer"]) [[self navigationItem] setRightBarButtonItem:rightItem];
+    [rightItem release];
+}
+
+- (void) roleButtonClicked {
     [packages_ setObject:[NSNumber numberWithBool:expert_]];
     [packages_ reloadData];
     expert_ = !expert_;
-    [book_ reloadButtonsForPage:self];
-}
 
-- (NSString *) title {
-    return UCLocalize("INSTALLED");
-}
-
-- (NSString *) backButtonTitle {
-    return UCLocalize("PACKAGES");
-}
-
-- (id) rightButtonTitle {
-    return Role_ != nil && [Role_ isEqualToString:@"Developer"] ? nil : expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE");
-}
-
-- (UINavigationButtonStyle) rightButtonStyle {
-    return expert_ ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
+    [self updateRoleButton];
 }
 
 - (void) setDelegate:(id)delegate {
@@ -6266,7 +6287,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Home View {{{ */
-@interface HomeView : CydiaBrowserView {
+@interface HomeView : CYBrowserController {
 }
 
 @end
@@ -6281,7 +6302,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
 }
 
-- (void) _leftButtonClicked {
+- (void) aboutButtonClicked {
     UIAlertView *alert = [[[UIAlertView alloc] init] autorelease];
     [alert setTitle:UCLocalize("ABOUT_CYDIA")];
     [alert addButtonWithTitle:UCLocalize("CLOSE")];
@@ -6297,46 +6318,88 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert show];
 }
 
-- (NSString *) leftButtonTitle {
-    return UCLocalize("ABOUT");
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [[self navigationController] setNavigationBarHidden:YES animated:animated];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [[self navigationController] setNavigationBarHidden:NO animated:animated];
+}
+
+- (id) init {
+    if ((self = [super init]) != nil) {
+        UIBarButtonItem *aboutItem = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("ABOUT")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(aboutButtonClicked)
+        ];
+        [[self navigationItem] setLeftBarButtonItem:aboutItem];
+        [aboutItem release];
+    } return self;
 }
 
 @end
 /* }}} */
 /* Manage View {{{ */
-@interface ManageView : CydiaBrowserView {
+@interface ManageView : CYBrowserController {
 }
 
 @end
 
 @implementation ManageView
 
-- (NSString *) title {
-    return UCLocalize("MANAGE");
+- (id) init {
+    if ((self = [super init]) != nil) {
+        [[self navigationItem] setTitle:UCLocalize("MANAGE")];
+    
+        UIBarButtonItem *settingsItem = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("SETTINGS")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(settingsButtonClicked)
+        ];
+        [[self navigationItem] setLeftBarButtonItem:settingsItem];
+        [settingsItem release];
+    
+        [self queueStatusDidChange];
+    } return self;
 }
 
-- (void) _leftButtonClicked {
+- (void) settingsButtonClicked {
     [delegate_ askForSettings];
     [delegate_ updateData];
 }
 
-- (NSString *) leftButtonTitle {
-    return UCLocalize("SETTINGS");
-}
-
 #if !AlwaysReload
-- (id) _rightButtonTitle {
-    return Queuing_ ? UCLocalize("QUEUE") : nil;
-}
-
-- (UINavigationButtonStyle) rightButtonStyle {
-    return Queuing_ ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
-}
-
-- (void) _rightButtonClicked {
+- (void) queueButtonClicked {
     [delegate_ queue];
 }
 #endif
+
+- (void) didFinishLoading {
+    [self queueStatusDidChange];
+}
+
+- (void) queueStatusDidChange {
+#if !AlwaysReload
+    if (!IsWildcat_ && Queuing_) {
+        UIBarButtonItem *queueItem = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("QUEUE")
+            style:UIBarButtonItemStyleDone
+            target:self
+            action:@selector(queueButtonClicked)
+        ];
+        [[self navigationItem] setRightBarButtonItem:queueItem];
+        
+        [queueItem release];
+    } else {
+        [[self navigationItem] setRightBarButtonItem:nil];
+    }
+#endif
+}
 
 - (bool) isLoading {
     return false;
@@ -6345,154 +6408,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Cydia Book {{{ */
-@interface CYBook : RVBook <
-    ProgressDelegate
-> {
-    _transient Database *database_;
-    UINavigationBar *overlay_;
-    UINavigationBar *underlay_;
+/* Refresh Bar {{{ */
+@interface RefreshBar : UINavigationBar {
     UIProgressIndicator *indicator_;
     UITextLabel *prompt_;
     UIProgressBar *progress_;
     UINavigationButton *cancel_;
-    bool updating_;
-    bool dropped_;
 }
-
-- (id) initWithFrame:(CGRect)frame database:(Database *)database;
-- (void) update;
-- (BOOL) updating;
-- (void) setUpdate:(NSDate *)date;
 
 @end
 
-@implementation CYBook
+@implementation RefreshBar
 
-- (void) dealloc {
-    [overlay_ release];
-    [indicator_ release];
-    [prompt_ release];
-    [progress_ release];
-    [cancel_ release];
-    [super dealloc];
-}
+- (id) initWithFrame:(CGRect)frame delegate:(id)delegate {
+    if ((self = [super initWithFrame:frame])) {
+        [self setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 
-- (NSString *) getTitleForPage:(RVPage *)page {
-    return [super getTitleForPage:page];
-}
+        [self setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
+        [self setBarStyle:1];
 
-- (BOOL) updating {
-    return updating_;
-}
-
-- (void) dropBar {
-    if (dropped_)
-        return;
-    dropped_ = true;
-
-    [UIView beginAnimations:nil context:NULL];
-
-    CGRect ovrframe = [overlay_ frame];
-    ovrframe.origin.y = 0;
-    [overlay_ setFrame:ovrframe];
-
-    CGRect barframe = [navbar_ frame];
-    barframe.origin.y += ovrframe.size.height;
-    [navbar_ setFrame:barframe];
-
-    CGRect trnframe = [transition_ frame];
-    trnframe.origin.y += ovrframe.size.height;
-    trnframe.size.height -= ovrframe.size.height;
-    [transition_ setFrame:trnframe];
-
-    [UIView endAnimations];
-}
-
-- (void) raiseBar {
-    if (!dropped_)
-        return;
-    dropped_ = false;
-
-    [UIView beginAnimations:nil context:NULL];
-
-    CGRect ovrframe = [overlay_ frame];
-    ovrframe.origin.y = -ovrframe.size.height;
-    [overlay_ setFrame:ovrframe];
-
-    CGRect barframe = [navbar_ frame];
-    barframe.origin.y -= ovrframe.size.height;
-    [navbar_ setFrame:barframe];
-
-    CGRect trnframe = [transition_ frame];
-    trnframe.origin.y -= ovrframe.size.height;
-    trnframe.size.height += ovrframe.size.height;
-    [transition_ setFrame:trnframe];
-
-    [UIView commitAnimations];
-}
-
-- (void) setUpdate:(NSDate *)date {
-    [self update];
-}
-
-- (void) update {
-    [self dropBar];
-
-    [indicator_ startAnimation];
-    [prompt_ setText:UCLocalize("UPDATING_DATABASE")];
-    [progress_ setProgress:0];
-
-    updating_ = true;
-    [overlay_ addSubview:cancel_];
-
-    [NSThread
-        detachNewThreadSelector:@selector(_update)
-        toTarget:self
-        withObject:nil
-    ];
-}
-
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
-
-    if ([context isEqualToString:@"refresh"])
-        [sheet dismiss];
-}
-
-- (void) _update_ {
-    updating_ = false;
-
-    [indicator_ stopAnimation];
-
-    [self raiseBar];
-
-    [delegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
-}
-
-- (id) initWithFrame:(CGRect)frame database:(Database *)database {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        database_ = database;
-
-        CGRect ovrrect([navbar_ bounds]);
-        ovrrect.size.height = [UINavigationBar defaultSize].height;
-        ovrrect.origin.y = -ovrrect.size.height;
-
-        overlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
-        [overlay_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [self addSubview:overlay_];
-
-        ovrrect.origin.y = frame.size.height;
-        underlay_ = [[UINavigationBar alloc] initWithFrame:ovrrect];
-        [underlay_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [self addSubview:underlay_];
-
-        [underlay_ setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
-
-        [overlay_ setBarStyle:1];
-        [underlay_ setBarStyle:1];
-
-        int barstyle([overlay_ _barStyle:NO]);
+        int barstyle([self _barStyle:NO]);
         bool ugly(barstyle == 0);
 
         UIProgressIndicatorStyle style = ugly ?
@@ -6500,18 +6435,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             UIProgressIndicatorStyleMediumWhite;
 
         CGSize indsize([UIProgressIndicator defaultSizeForStyle:style]);
-        unsigned indoffset = (ovrrect.size.height - indsize.height) / 2;
+        unsigned indoffset = ([self frame].size.height - indsize.height) / 2;
         CGRect indrect = {{indoffset, indoffset}, indsize};
 
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
         [indicator_ setStyle:style];
-        [overlay_ addSubview:indicator_];
+        [self addSubview:indicator_];
 
         CGSize prmsize = {215, indsize.height + 4};
 
         CGRect prmrect = {{
             indoffset * 2 + indsize.width,
-            unsigned(ovrrect.size.height - prmsize.height) / 2 - 1
+            unsigned([self frame].size.height - prmsize.height) / 2 - 1
         }, prmsize};
 
         UIFont *font([UIFont systemFontOfSize:15]);
@@ -6522,73 +6457,148 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [prompt_ setBackgroundColor:[UIColor clearColor]];
         [prompt_ setFont:font];
 
-        [overlay_ addSubview:prompt_];
+        [self addSubview:prompt_];
 
         CGSize prgsize = {75, 100};
 
         CGRect prgrect = {{
-            ovrrect.size.width - prgsize.width - 10,
-            (ovrrect.size.height - prgsize.height) / 2
+            [self frame].size.width - prgsize.width - 10,
+            ([self frame].size.height - prgsize.height) / 2
         } , prgsize};
 
         progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
         [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [overlay_ addSubview:progress_];
+        [self addSubview:progress_];
 
         [progress_ setStyle:0];
 
         cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
         [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-        [cancel_ addTarget:self action:@selector(_onCancel) forControlEvents:UIControlEventTouchUpInside];
+        [cancel_ addTarget:delegate action:@selector(cancelPressed) forControlEvents:UIControlEventTouchUpInside];
 
         CGRect frame = [cancel_ frame];
-        frame.origin.x = ovrrect.size.width - frame.size.width - 5;
-        frame.origin.y = (ovrrect.size.height - frame.size.height) / 2;
+        frame.origin.x = [self frame].size.width - frame.size.width - 5;
+        frame.origin.y = ([self frame].size.height - frame.size.height) / 2;
         [cancel_ setFrame:frame];
 
-        [cancel_ setBarStyle:barstyle];
+        [cancel_ setBarStyle:barstyle];    
+
+        [indicator_ startAnimation];
     } return self;
 }
 
-- (void) _onCancel {
-    updating_ = false;
+- (void) cancel {
     [cancel_ removeFromSuperview];
 }
 
-- (void) _update { _pooled
+- (void) start {
+    [prompt_ setText:UCLocalize("UPDATING_DATABASE")];
+    [progress_ setProgress:0];
+    [self addSubview:cancel_];
+}
+
+- (void) stop {
+    [cancel_ removeFromSuperview];
+}
+
+- (void) setPrompt:(NSString *)prompt {
+    [prompt_ setText:prompt];
+}
+
+- (void) setProgress:(float)progress {
+    [progress_ setProgress:progress];
+}
+
+@end
+/* }}} */
+
+/* Cydia Tab Bar Controller {{{ */
+@interface CYTabBarController : UITabBarController <
+    ProgressDelegate
+> {
+    _transient Database *database_;
+    RefreshBar *refreshbar_;
+
+    bool dropped_;
+    bool updating_;
+    id updatedelegate_;
+}
+
+- (id) initWithDatabase:(Database *)database;
+- (void) setDelegate:(id)delegate;
+
+@end    
+
+@implementation CYTabBarController
+
+- (void) viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+        
+    if (updating_) [self raiseBar:NO];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    
+    if (updating_) [self dropBar:NO];
+}
+
+- (void) setUpdate:(NSDate *)date {
+    [self beginUpdate];
+}
+
+- (void) beginUpdate {
+    [self dropBar:YES];
+    [refreshbar_ start];
+    
+    updating_ = true;
+    
+    [NSThread
+        detachNewThreadSelector:@selector(performUpdate)
+        toTarget:self
+        withObject:nil
+    ];
+}
+
+- (void) performUpdate { _pooled
     Status status;
     status.setDelegate(self);
     [database_ updateWithStatus:status];
 
     [self
-        performSelectorOnMainThread:@selector(_update_)
+        performSelectorOnMainThread:@selector(completeUpdate)
         withObject:nil
         waitUntilDone:NO
     ];
 }
 
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    [prompt_ setText:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
+- (void) completeUpdate {
+    updating_ = false;
+    
+    [self raiseBar:YES];
+    [refreshbar_ stop];
+    [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
 }
 
-/*
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
-        initWithTitle:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), UCLocalize("REFRESH")]
-        buttons:[NSArray arrayWithObjects:
-            UCLocalize("OK"),
-        nil]
-        defaultButtonIndex:0
-        delegate:self
-        context:@"refresh"
-    ] autorelease];
+- (void) cancelUpdate {
+    [refreshbar_ cancel];
+    [self completeUpdate];
+}
 
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+- (void) cancelPressed {
+    [self cancelUpdate];
+}
 
-    [sheet setBodyText:error];
-    [sheet popupAlertAnimated:YES];
+- (BOOL) updating {
+    return updating_;
+}
 
-    [self reloadButtons];
-*/
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
+    [refreshbar_ setPrompt:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
+}
+
+- (void) startProgress {
+}
 
 - (void) setProgressTitle:(NSString *)title {
     [self
@@ -6596,6 +6606,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withObject:title
         waitUntilDone:YES
     ];
+}
+
+- (bool) isCancelling:(size_t)received {
+    return !updating_;
 }
 
 - (void) setProgressPercent:(float)percent {
@@ -6606,9 +6620,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) startProgress {
-}
-
 - (void) addProgressOutput:(NSString *)output {
     [self
         performSelectorOnMainThread:@selector(_addProgressOutput:)
@@ -6617,19 +6628,119 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (bool) isCancelling:(size_t)received {
-    return !updating_;
-}
-
 - (void) _setProgressTitle:(NSString *)title {
-    [prompt_ setText:title];
+    [refreshbar_ setPrompt:title];
 }
 
 - (void) _setProgressPercent:(NSNumber *)percent {
-    [progress_ setProgress:[percent floatValue]];
+    [refreshbar_ setProgress:[percent floatValue]];
 }
 
 - (void) _addProgressOutput:(NSString *)output {
+}
+
+- (void) reloadData {
+    size_t count([[self viewControllers] count]);
+    for (size_t i(0); i != count; ++i) {
+        UIViewController *page([[self viewControllers] objectAtIndex:(count - i - 1)]);
+        [page reloadData];
+    }
+}
+
+- (void) setUpdateDelegate:(id)delegate {
+    updatedelegate_ = delegate;
+}
+
+- (void) dropBar:(BOOL)animated {
+    if (dropped_)
+        return;
+    dropped_ = true;
+
+    [[[self view] superview] addSubview:refreshbar_];
+
+    if (animated) [UIView beginAnimations:nil context:NULL];
+    CGRect barframe = [refreshbar_ frame];
+    CGRect viewframe = [[self view] frame];
+    viewframe.origin.y += barframe.size.height + 20.0f;
+    viewframe.size.height -= barframe.size.height + 20.0f;
+    [[self view] setFrame:viewframe];
+    if (animated) [UIView commitAnimations];
+
+    // XXX: fix Apple's layout bug
+    [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void) raiseBar:(BOOL)animated {
+    if (!dropped_)
+        return;
+    dropped_ = false;
+
+    [refreshbar_ removeFromSuperview];
+
+    if (animated) [UIView beginAnimations:nil context:NULL];
+    CGRect barframe = [refreshbar_ frame];
+    CGRect viewframe = [[self view] frame];
+    viewframe.origin.y -= barframe.size.height + 20.0f;
+    viewframe.size.height += barframe.size.height + 20.0f;
+    [[self view] setFrame:viewframe];
+    if (animated) [UIView commitAnimations];
+
+    // XXX: fix Apple's layout bug
+    [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void) dealloc {
+    [refreshbar_ release];
+    [super dealloc];
+}
+
+- (id) initWithDatabase: (Database *)database {
+    if ((self = [super init]) != nil) {
+        database_ = database;
+
+        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 20.0f, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
+    } return self;
+}
+
+@end
+/* }}} */
+
+/* Cydia Navigation Controller {{{ */
+@interface CYNavigationController : UINavigationController <
+    ProgressDelegate
+> {
+    _transient Database *database_;
+    id delegate_;
+}
+
+- (id) initWithDatabase:(Database *)database;
+- (void) reloadData;
+
+@end
+
+
+@implementation CYNavigationController
+
+- (void) dealloc {
+    [super dealloc];
+}
+
+- (void) reloadData {
+    size_t count([[self viewControllers] count]);
+    for (size_t i(0); i != count; ++i) {
+        UIViewController *page([[self viewControllers] objectAtIndex:(count - i - 1)]);
+        [page reloadData];
+    }
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
+        database_ = database;
+    } return self;
 }
 
 @end
@@ -6736,7 +6847,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Sections View {{{ */
-@interface SectionsView : RVPage {
+@interface SectionsView : CYViewController {
     _transient Database *database_;
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
@@ -6745,7 +6856,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL editing_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 - (void) reloadData;
 - (void) resetView;
 
@@ -6764,6 +6875,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+}
+
 - (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {
     Section *section = (editing_ ? [sections_ objectAtIndex:[indexPath row]] : ([indexPath row] == 0 ? nil : [filtered_ objectAtIndex:([indexPath row] - 1)]));
     return section;
@@ -6778,13 +6894,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *cellIdentifier = @"SectionCell";
-    SectionCell *cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
+    static NSString *reuseIdentifier = @"SectionCell";
+
+    SectionCell *cell = (SectionCell *) [tableView dequeueReusableCellWithIdentifier:reuseIdentifier];
+    if (cell == nil) cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
     [cell setSection:[self sectionAtIndexPath:indexPath] editing:editing_];
 
     return cell;
 }
-
 
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     Section *section = [self sectionAtIndexPath:indexPath];
@@ -6805,9 +6922,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
     }
 
-    PackageTable *table = [[[FilteredPackageTable alloc]
-        initWithBook:book_
-        database:database_
+    FilteredPackageView *table = [[[FilteredPackageView alloc]
+        initWithDatabase:database_
         title:title
         filter:@selector(isVisibleInSection:)
         with:name
@@ -6815,26 +6931,28 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [table setDelegate:delegate_];
 
-    [book_ pushPage:table];
+    [[self navigationController] pushViewController:table animated:YES];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) title { return UCLocalize("SECTIONS"); }
+
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
         database_ = database;
+
+        [[self navigationItem] setTitle:UCLocalize("SECTIONS")];
 
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
         filtered_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITableView alloc] initWithFrame:[self bounds]];
+        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [self addSubview:list_];
+        [[self view] addSubview:list_];
 
-        [list_ setDelegate:self];
         [list_ setDataSource:self];
+        [list_ setDelegate:self];
 
         [self reloadData];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -6921,42 +7039,33 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [filtered_ addObject:section];
     }
 
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+        initWithTitle:[sections_ count] == 0 ? nil : UCLocalize("EDIT")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(editButtonClicked)
+    ];
+    [[self navigationItem] setRightBarButtonItem:rightItem];
+    [rightItem release];
+
     [list_ reloadData];
     _trace();
 }
 
 - (void) resetView {
     if (editing_)
-        [self _rightButtonClicked];
+        [self editButtonClicked];
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [list_ resetViewAnimated:animated];
-}
-
-- (void) _rightButtonClicked {
+- (void) editButtonClicked {
     if ((editing_ = !editing_))
         [list_ reloadData];
     else
         [delegate_ updateData];
-    [book_ reloadTitleForPage:self];
-    [book_ reloadButtonsForPage:self];
-}
-
-- (NSString *) title {
-    return editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS");
-}
-
-- (NSString *) backButtonTitle {
-    return UCLocalize("SECTIONS");
-}
-
-- (id) rightButtonTitle {
-    return [sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT");
-}
-
-- (UINavigationButtonStyle) rightButtonStyle {
-    return editing_ ? UINavigationButtonStyleHighlighted : UINavigationButtonStyleNormal;
+    
+    [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
+    [[[self navigationItem] rightBarButtonItem] setTitle:[sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT")];
+    [[[self navigationItem] rightBarButtonItem] setStyle:editing_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain];
 }
 
 - (UIView *) accessoryView {
@@ -6966,7 +7075,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Changes View {{{ */
-@interface ChangesView : RVPage {
+@interface ChangesView : CYViewController {
     _transient Database *database_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
@@ -6974,7 +7083,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     unsigned upgrades_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database delegate:(id)delegate;
+- (id) initWithDatabase:(Database *)database delegate:(id)delegate;
 - (void) reloadData;
 
 @end
@@ -6989,6 +7098,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sections_ release];
     [list_ release];
     [super dealloc];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
@@ -7032,39 +7146,38 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     PackageView *view([delegate_ packageView]);
     [view setDelegate:delegate_];
     [view setPackage:package];
-    [book_ pushPage:view];
+    [[self navigationController] pushViewController:view animated:YES];
     return path;
 }
 
-- (void) _leftButtonClicked {
-    [(CYBook *)book_ update];
-    [self reloadButtons];
+- (void) refreshButtonClicked {
+    [[UIApplication sharedApplication] beginUpdate];
+    [[self navigationItem] setLeftBarButtonItem:nil];
 }
 
-- (void) _rightButtonClicked {
+- (void) upgradeButtonClicked {
     [delegate_ distUpgrade];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database delegate:(id)delegate {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) title { return UCLocalize("CHANGES"); }
+
+- (id) initWithDatabase:(Database *)database delegate:(id)delegate {
+    if ((self = [super init]) != nil) {
         database_ = database;
+        [[self navigationItem] setTitle:UCLocalize("CHANGES")];
 
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
+        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [self addSubview:list_];
+        [[self view] addSubview:list_];
 
-        //XXX:[list_ setShouldHideHeaderInShortLists:NO];
         [list_ setDataSource:self];
         [list_ setDelegate:self];
-        //[list_ setSectionListStyle:1];
 
         delegate_ = delegate;
         [self reloadData];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
 }
 
@@ -7161,40 +7274,34 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [sections_ insertObject:upgradable atIndex:0];
 
     [list_ reloadData];
-    [self reloadButtons];
-}
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [list_ resetViewAnimated:animated];
-}
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+        initWithTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]]
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(upgradeButtonClicked)
+    ];
+    if (upgrades_ > 0) [[self navigationItem] setRightBarButtonItem:rightItem];
+    [rightItem release];
 
-- (NSString *) leftButtonTitle {
-    return [(CYBook *)book_ updating] ? nil : UCLocalize("REFRESH");
-}
-
-- (id) rightButtonTitle {
-    return upgrades_ == 0 ? nil : [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]];
-}
-
-- (NSString *) title {
-    return UCLocalize("CHANGES");
+    UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("REFRESH")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(refreshButtonClicked)
+    ];
+    if (![[UIApplication sharedApplication] updating]) [[self navigationItem] setLeftBarButtonItem:leftItem];
+    [leftItem release];
 }
 
 @end
 /* }}} */
 /* Search View {{{ */
-@protocol SearchViewDelegate
-- (void) showKeyboard:(BOOL)show;
-@end
-
-@interface SearchView : RVPage {
-    UIView *accessory_;
-    UISearchField *field_;
-    FilteredPackageTable *table_;
-    bool reload_;
+@interface SearchView : FilteredPackageView {
+    id search_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database;
+- (id) initWithDatabase:(Database *)database;
 - (void) reloadData;
 
 @end
@@ -7202,142 +7309,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SearchView
 
 - (void) dealloc {
-    [field_ setDelegate:nil];
-
-    [accessory_ release];
-    [field_ release];
-    [table_ release];
+    [search_ release];
     [super dealloc];
 }
 
-- (void) _showKeyboard:(BOOL)show {
-    CGSize keysize = [UIKeyboard defaultSize];
-    CGRect keydown = [book_ pageBounds];
-    CGRect keyup = keydown;
-    keyup.size.height -= keysize.height - ButtonBarHeight_;
-
-    float delay = KeyboardTime_ * ButtonBarHeight_ / keysize.height;
-
-    UIFrameAnimation *animation = [[[UIFrameAnimation alloc] initWithTarget:[table_ list]] autorelease];
-    [animation setSignificantRectFields:8];
-
-    if (show) {
-        [animation setStartFrame:keydown];
-        [animation setEndFrame:keyup];
-    } else {
-        [animation setStartFrame:keyup];
-        [animation setEndFrame:keydown];
-    }
-
-    UIAnimator *animator = [UIAnimator sharedAnimator];
-
-    [animator
-        addAnimations:[NSArray arrayWithObjects:animation, nil]
-        withDuration:(KeyboardTime_ - delay)
-        start:!show
-    ];
-
-    if (show)
-        [animator performSelector:@selector(startAnimation:) withObject:animation afterDelay:delay];
-
-    //[delegate_ showKeyboard:show];
-}
-
-- (void) textFieldDidBecomeFirstResponder:(UITextField *)field {
-    [self _showKeyboard:YES];
-    [table_ setObject:[field_ text] forFilter:@selector(isUnfilteredAndSelectedForBy:)];
+- (void) searchBarSearchButtonClicked:(id)searchBar {
+    [packages_ setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+    [search_ resignFirstResponder];
     [self reloadData];
 }
 
-- (void) textFieldDidResignFirstResponder:(UITextField *)field {
-    [self _showKeyboard:NO];
-    [table_ setObject:[field_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+- (void) searchBar:(id)searchBar textDidChange:(NSString *)text {
+    [packages_ setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
     [self reloadData];
 }
 
-- (void) keyboardInputChanged:(UIFieldEditor *)editor {
-    if (reload_) {
-        NSString *text([field_ text]);
-        [field_ setClearButtonStyle:(text == nil || [text length] == 0 ? 0 : 2)];
-        [table_ setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
-        [self reloadData];
-        reload_ = false;
-    }
-}
+- (id) title { return nil; }
 
-- (void) textFieldClearButtonPressed:(UITextField *)field {
-    reload_ = true;
-}
-
-- (void) keyboardInputShouldDelete:(id)input {
-    reload_ = true;
-}
-
-- (BOOL) keyboardInput:(id)input shouldInsertText:(NSString *)text isMarkedText:(int)marked {
-    if ([text length] != 1 || [text characterAtIndex:0] != '\n') {
-        reload_ = true;
-        return YES;
-    } else {
-        [field_ resignFirstResponder];
-        return NO;
-    }
-}
-
-- (id) initWithBook:(RVBook *)book database:(Database *)database {
-    if ((self = [super initWithBook:book]) != nil) {
-        CGRect pageBounds = [book_ pageBounds];
-
-        table_ = [[FilteredPackageTable alloc]
-            initWithBook:book
-            database:database
-            title:nil
-            filter:@selector(isUnfilteredAndSearchedForBy:)
-            with:nil
-        ];
-
-        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [self addSubview:table_];
-
-        [table_ setShouldHideHeaderInShortLists:NO];
-
-        CGRect cnfrect = {{7, 38}, {17, 18}};
-
-        CGRect area;
-
-        area.origin.x = 10;
-        area.origin.y = 1;
-
-        area.size.width = [self bounds].size.width - area.origin.x * 2;
-        area.size.height = [UISearchField defaultHeight];
-
-        field_ = [[UISearchField alloc] initWithFrame:area];
-        [field_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-
-        UIFont *font = [UIFont systemFontOfSize:16];
-        [field_ setFont:font];
-
-        [field_ setPlaceholder:UCLocalize("SEARCH_EX")];
-        [field_ setDelegate:self];
-
-        [field_ setPaddingTop:5];
-
-        UITextInputTraits *traits([field_ textInputTraits]);
-        [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-        [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
-        [traits setReturnKeyType:UIReturnKeySearch];
-
-        CGRect accrect = {{0, 6}, {6 + cnfrect.size.width + 6 + area.size.width + 6, area.size.height}};
-
-        accessory_ = [[UIView alloc] initWithFrame:accrect];
-        [accessory_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [accessory_ addSubview:field_];
-
-        [self setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil]) != nil) {
+        search_ = [[objc_getClass("UISearchBar") alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
+        [search_ setPlaceholder:UCLocalize("SEARCH_EX")];
+        [search_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
+        [search_ setDelegate:self];
+        [[search_ searchField] setEnablesReturnKeyAutomatically:NO];
+        [[self navigationItem] setTitleView:search_];
     } return self;
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [table_ resetViewAnimated:animated];
 }
 
 - (void) _reloadData {
@@ -7345,33 +7342,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     _profile(SearchView$reloadData)
-        [table_ reloadData];
+        [packages_ reloadData];
     _end
     PrintTimes();
-    [table_ resetCursor];
-}
-
-- (UIView *) accessoryView {
-    return accessory_;
-}
-
-- (NSString *) title {
-    return nil;
-}
-
-- (NSString *) backButtonTitle {
-    return UCLocalize("SEARCH");
-}
-
-- (void) setDelegate:(id)delegate {
-    [table_ setDelegate:delegate];
-    [super setDelegate:delegate];
+    [packages_ resetCursor];
 }
 
 @end
 /* }}} */
 /* Settings View {{{ */
-@interface SettingsView : RVPage {
+@interface SettingsView : CYViewController {
     _transient Database *database_;
     NSString *name_;
     Package *package_;
@@ -7382,7 +7362,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIPreferencesControlTableCell *ignoredCell_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package;
+- (id) initWithDatabase:(Database *)database package:(NSString *)package;
 
 @end
 
@@ -7510,13 +7490,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return nil;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package {
-    if ((self = [super initWithBook:book])) {
+- (id) title { return UCLocalize("SETTINGS"); }
+
+- (id) initWithDatabase:(Database *)database package:(NSString *)package {
+    if ((self = [super init])) {
         database_ = database;
         name_ = [package retain];
 
-        table_ = [[UIPreferencesTable alloc] initWithFrame:[self bounds]];
-        [self addSubview:table_];
+        [[self navigationItem] setTitle:UCLocalize("SETTINGS")];
+
+        table_ = [[UIPreferencesTable alloc] initWithFrame:[[self view] bounds]];
+        [[self view] addSubview:table_];
 
         subscribedSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
         [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventTouchUpInside];
@@ -7539,10 +7523,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-    [table_ resetViewAnimated:animated];
-}
-
 - (void) reloadData {
     if (package_ != nil)
         [package_ autorelease];
@@ -7556,20 +7536,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [table_ reloadData];
 }
 
-- (NSString *) title {
-    return UCLocalize("SETTINGS");
-}
-
 @end
 /* }}} */
 
 /* Signature View {{{ */
-@interface SignatureView : CydiaBrowserView {
+@interface SignatureView : CYBrowserController {
     _transient Database *database_;
     NSString *package_;
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package;
+- (id) initWithDatabase:(Database *)database package:(NSString *)package;
 
 @end
 
@@ -7585,15 +7561,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super webView:sender didClearWindowObject:window forFrame:frame];
 }
 
-- (id) initWithBook:(RVBook *)book database:(Database *)database package:(NSString *)package {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithDatabase:(Database *)database package:(NSString *)package {
+    if ((self = [super init]) != nil) {
         database_ = database;
         package_ = [package retain];
         [self reloadData];
     } return self;
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
 }
 
 - (void) reloadData {
@@ -7603,42 +7576,29 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-@interface CydiaViewController : UIViewController {
-}
-
-@end
-
-@implementation CydiaViewController
-
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return NO; // XXX: return YES;
-}
-
-@end
+typedef enum {
+    kCydiaTag = 0,
+    kSectionsTag = 1,
+    kChangesTag = 2,
+    kManageTag = 3,
+    kInstalledTag = 4,
+    kSourcesTag = 5,
+    kSearchTag = 6
+} CYTabTag;
 
 @interface Cydia : UIApplication <
     ConfirmationViewDelegate,
     ProgressViewDelegate,
-    SearchViewDelegate,
     CydiaDelegate
 > {
     UIWindow *window_;
-    CydiaViewController *root_;
 
-    UIView *underlay_;
-    UIView *overlay_;
-    CYBook *book_;
-
-    NSArray *items_;
-    UITabBar *toolbar_;
-
-    RVBook *confirm_;
+    id tabbar_;
 
     NSMutableArray *essential_;
     NSMutableArray *broken_;
 
     Database *database_;
-    ProgressView *progress_;
 
     int tag_;
 
@@ -7649,14 +7609,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ChangesView *changes_;
     ManageView *manage_;
     SearchView *search_;
+    SourceTable *sources_;
+    InstalledView *installed_;
+    id queueDelegate_;
 
 #if RecyclePackageViews
     NSMutableArray *details_;
 #endif
 }
 
-- (RVPage *) _pageForURL:(NSURL *)url withClass:(Class)_class;
-- (void) setPage:(RVPage *)page;
+- (UIViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
+- (void) setPage:(UIViewController *)page;
 
 @end
 
@@ -7665,6 +7628,14 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 @implementation Cydia
+
+- (void) beginUpdate {
+    [tabbar_ beginUpdate];
+}
+
+- (BOOL) updating {
+    return [tabbar_ updating];
+}
 
 - (UIView *) rotatingContentViewForWindow:(UIWindow *)window {
     return window_;
@@ -7676,10 +7647,10 @@ static _finline void _setHomePage(Cydia *self) {
 
         UIAlertView *alert = [[[UIAlertView alloc]
             initWithTitle:(count == 1 ? UCLocalize("HALFINSTALLED_PACKAGE") : [NSString stringWithFormat:UCLocalize("HALFINSTALLED_PACKAGES"), count])
-			message:UCLocalize("HALFINSTALLED_PACKAGE_EX")
-			delegate:self
-			cancelButtonTitle:UCLocalize("FORCIBLY_CLEAR")
-			otherButtonTitles:UCLocalize("TEMPORARY_IGNORE"), nil
+            message:UCLocalize("HALFINSTALLED_PACKAGE_EX")
+            delegate:self
+            cancelButtonTitle:UCLocalize("FORCIBLY_CLEAR")
+            otherButtonTitles:UCLocalize("TEMPORARY_IGNORE"), nil
         ] autorelease];
 
         [alert setContext:@"fixhalf"];
@@ -7689,9 +7660,9 @@ static _finline void _setHomePage(Cydia *self) {
 
         UIAlertView *alert = [[[UIAlertView alloc]
             initWithTitle:(count == 1 ? UCLocalize("ESSENTIAL_UPGRADE") : [NSString stringWithFormat:UCLocalize("ESSENTIAL_UPGRADES"), count])
-			message:UCLocalize("ESSENTIAL_UPGRADE_EX")
-			delegate:self
-			cancelButtonTitle:UCLocalize("TEMPORARY_IGNORE")
+            message:UCLocalize("ESSENTIAL_UPGRADE_EX")
+            delegate:self
+            cancelButtonTitle:UCLocalize("TEMPORARY_IGNORE")
             otherButtonTitles:UCLocalize("UPGRADE_ESSENTIAL"), UCLocalize("COMPLETE_UPGRADE"), nil
         ] autorelease];
 
@@ -7730,7 +7701,17 @@ static _finline void _setHomePage(Cydia *self) {
     if (tag_ != 4 && search_ != nil)
         [search_ reloadData];
 
-    [book_ reloadData];
+    [[tabbar_ selectedViewController] reloadData];
+}
+
+- (int)indexOfTabWithTag:(int)tag {
+    int i = 0;
+    for (UINavigationController *controller in [tabbar_ viewControllers]) {
+        if ([[controller tabBarItem] tag] == tag) return i;
+        i += 1;
+    }
+    
+    return -1;
 }
 
 - (void) _reloadData {
@@ -7763,25 +7744,22 @@ static _finline void _setHomePage(Cydia *self) {
 
     if (changes != 0) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
-		[[[toolbar_ items] objectAtIndex:2] setBadgeValue:badge];
-        if ([toolbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-			[[[toolbar_ items] objectAtIndex:2] setAnimatedBadge:YES];
+        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setBadgeValue:badge];
+        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setAnimatedBadge:YES];
+    
         if ([self respondsToSelector:@selector(setApplicationBadge:)])
             [self setApplicationBadge:badge];
         else
             [self setApplicationBadgeString:badge];
     } else {
-		[[[toolbar_ items] objectAtIndex:2] setBadgeValue:nil];
-        if ([toolbar_ respondsToSelector:@selector(setBadgeAnimated:forButton:)])
-            [[[toolbar_ items] objectAtIndex:2] setAnimatedBadge:NO];
+        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setBadgeValue:nil];
+        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setAnimatedBadge:NO];
+    
         if ([self respondsToSelector:@selector(removeApplicationBadge)])
             [self removeApplicationBadge];
         else // XXX: maybe use setApplicationBadgeString also?
             [self setApplicationIconBadgeNumber:0];
     }
-
-    Queuing_ = false;
-    [[[toolbar_ items] objectAtIndex:3] setBadgeValue:nil];
 
     [self _updateData];
 
@@ -7798,7 +7776,7 @@ static _finline void _setHomePage(Cydia *self) {
                 goto loaded;
         }
 
-        [book_ setUpdate:update];
+        [tabbar_ setUpdate:update];
     }
 }
 
@@ -7829,7 +7807,12 @@ static _finline void _setHomePage(Cydia *self) {
 
     [self _saveConfig];
 
-    [progress_
+    ProgressView *progress = [[[ProgressView alloc] initWithDatabase:database_ delegate:self] autorelease];
+    UINavigationController *navigation = [[[UINavigationController alloc] initWithRootViewController:progress] autorelease];
+    if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
+    [[tabbar_ selectedViewController] presentModalViewController:navigation animated:YES];
+
+    [progress
         detachNewThreadSelector:@selector(update_)
         toTarget:self
         withObject:nil
@@ -7839,8 +7822,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) reloadData {
     @synchronized (self) {
-        if (confirm_ == nil)
-            [self _reloadData];
+        [self _reloadData];
     }
 }
 
@@ -7852,27 +7834,21 @@ static _finline void _setHomePage(Cydia *self) {
         _error->Discard();
 }
 
-- (void) popUpBook:(RVBook *)book {
-    [underlay_ popSubview:book];
-}
-
 - (CGRect) popUpBounds {
-    return [underlay_ bounds];
+    return [[tabbar_ view] bounds];
 }
 
 - (bool) perform {
     if (![database_ prepare])
         return false;
 
-    confirm_ = [[RVBook alloc] initWithFrame:[self popUpBounds]];
-    [confirm_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    ConfirmationView *page([[[ConfirmationView alloc] initWithDatabase:database_] autorelease]);
+    [page setDelegate:self];
+    id confirm_ = [[UINavigationController alloc] initWithRootViewController:page];
     [confirm_ setDelegate:self];
 
-    ConfirmationView *page([[[ConfirmationView alloc] initWithBook:confirm_ database:database_] autorelease]);
-    [page setDelegate:self];
-
-    [confirm_ setPage:page];
-    [self popUpBook:confirm_];
+    if (IsWildcat_) [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
+    [[tabbar_ selectedViewController] presentModalViewController:confirm_ animated:YES];
 
     return true;
 }
@@ -7927,19 +7903,21 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) complete {
     @synchronized (self) {
         [self _reloadData];
-
-        if (confirm_ != nil) {
-            [confirm_ release];
-            confirm_ = nil;
-        }
     }
 }
 
-- (void) confirm {
-    [overlay_ removeFromSuperview];
-    reload_ = true;
-
-    [progress_
+- (void) confirmWithNavigationController:(UINavigationController *)navigation {
+    ProgressView *progress = [[[ProgressView alloc] initWithDatabase:database_ delegate:self] autorelease];
+    
+    if (navigation != nil) {
+        [navigation pushViewController:progress animated:YES];
+    } else {
+        navigation = [[[UINavigationController alloc] initWithRootViewController:progress] autorelease];
+        if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
+        [[tabbar_ selectedViewController] presentModalViewController:navigation animated:YES];
+    }
+    
+    [progress
         detachNewThreadSelector:@selector(perform)
         toTarget:database_
         withObject:nil
@@ -7948,68 +7926,86 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) progressViewIsComplete:(ProgressView *)progress {
-    if (confirm_ != nil) {
-        [underlay_ addSubview:overlay_];
-        [confirm_ popFromSuperviewAnimated:NO];
-    }
-
     [self complete];
 }
 
-- (void) setPage:(RVPage *)page {
-    [page resetViewAnimated:NO];
+- (void) setPage:(UIViewController *)page {
     [page setDelegate:self];
-    [book_ setPage:page];
+
+    UINavigationController *navController = [tabbar_ selectedViewController];
+    [navController setViewControllers:[NSArray arrayWithObject:page] animated:NO];
+    for (UIViewController *page in [tabbar_ viewControllers]) {
+        if (page != navController) [page setViewControllers:nil];
+    }
 }
 
-- (RVPage *) _pageForURL:(NSURL *)url withClass:(Class)_class {
-    CydiaBrowserView *browser = [[[_class alloc] initWithBook:book_] autorelease];
+- (UIViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class {
+    CYBrowserController *browser = [[[_class alloc] init] autorelease];
     [browser loadURL:url];
     return browser;
 }
 
 - (SectionsView *) sectionsView {
     if (sections_ == nil)
-        sections_ = [[SectionsView alloc] initWithBook:book_ database:database_];
+        sections_ = [[SectionsView alloc] initWithDatabase:database_];
     return sections_;
 }
 
 - (ChangesView *) changesView {
     if (changes_ == nil)
-        changes_ = [[ChangesView alloc] initWithBook:book_ database:database_ delegate:self];
+        changes_ = [[ChangesView alloc] initWithDatabase:database_ delegate:self];
     return changes_;
 }
 
 - (ManageView *) manageView {
-    if (manage_ == nil)
+    if (manage_ == nil) {
         manage_ = (ManageView *) [[self
             _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
             withClass:[ManageView class]
         ] retain];
+        if (!IsWildcat_) queueDelegate_ = manage_;
+    }
     return manage_;
 }
 
 - (SearchView *) searchView {
     if (search_ == nil)
-        search_ = [[SearchView alloc] initWithBook:book_ database:database_];
+        search_ = [[SearchView alloc] initWithDatabase:database_];
     return search_;
 }
 
-- (void) tabBar:(UITabBar *)sender didSelectItem:(UITabBarItem *)item {
-    int tag = [item tag];
+- (SourceTable *) sourcesView {
+    if (sources_ == nil)
+        sources_ = [[SourceTable alloc] initWithDatabase:database_];
+    return sources_;
+}
+
+- (InstalledView *) installedView {
+    if (installed_ == nil) {
+        installed_ = [[InstalledView alloc] initWithDatabase:database_];
+        if (IsWildcat_) queueDelegate_ = installed_;
+    }
+    return installed_;
+}
+
+- (void) tabBarController:(id)tabBarController didSelectViewController:(UIViewController *)viewController {    
+    int tag = [[viewController tabBarItem] tag];
     if (tag == tag_) {
-        [book_ resetViewAnimated:YES];
+        [[tabbar_ selectedViewController] popToRootViewControllerAnimated:YES];
         return;
-    } else if (tag_ == 1)
+    } else if (tag_ == 1) {
         [[self sectionsView] resetView];
+    }
 
     switch (tag) {
-        case 0: _setHomePage(self); break;
+        case kCydiaTag: _setHomePage(self); break;
 
-        case 1: [self setPage:[self sectionsView]]; break;
-        case 2: [self setPage:[self changesView]]; break;
-        case 3: [self setPage:[self manageView]]; break;
-        case 4: [self setPage:[self searchView]]; break;
+        case kSectionsTag: [self setPage:[self sectionsView]]; break;
+        case kChangesTag: [self setPage:[self changesView]]; break;
+        case kManageTag: [self setPage:[self manageView]]; break;
+        case kInstalledTag: [self setPage:[self installedView]]; break;
+        case kSourcesTag: [self setPage:[self sourcesView]]; break;
+        case kSearchTag: [self setPage:[self searchView]]; break;
 
         _nodefault
     }
@@ -8064,7 +8060,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (PackageView *) _packageView {
-    return [[[PackageView alloc] initWithBook:book_ database:database_] autorelease];
+    return [[[PackageView alloc] initWithDatabase:database_] autorelease];
 }
 
 - (PackageView *) packageView {
@@ -8092,20 +8088,34 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) cancelAndClear:(bool)clear {
     @synchronized (self) {
         if (clear) {
-           [self _reloadData];
+            /* XXX: clear marks instead of reloading data */
+            /*pkgCacheFile &cache([database_ cache]);
+            for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
+                if (!cache[iterator].Keep()) cache->MarkKeep(iterator, false, false);
+            }
+
+            [self updateData];
+            
+            Queuing_ = false;
+            [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:nil];
+            [queueDelegate_ queueStatusDidChange];*/
+            [self reloadData];
         } else {
-           Queuing_ = true;
-           [[[toolbar_ items] objectAtIndex:3] setBadgeValue:UCLocalize("Q_D")];
-           [book_ reloadData];
+            Queuing_ = true;
+
+            [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
+            [[tabbar_ selectedViewController] reloadData];
+            
+            [queueDelegate_ queueStatusDidChange];
         }
     }
 }
 
-- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
-	NSString *context([alert context]);
-	
-	if ([context isEqualToString:@"fixhalf"]) {
-		if (button == [alert firstOtherButtonIndex]) {
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
+    
+    if ([context isEqualToString:@"fixhalf"]) {
+        if (button == [alert firstOtherButtonIndex]) {
             @synchronized (self) {
                 for (Package *broken in broken_) {
                     [broken remove];
@@ -8120,7 +8130,7 @@ static _finline void _setHomePage(Cydia *self) {
                 [self resolve];
                 [self perform];
             }
-		} else if (button == [alert cancelButtonIndex]) {
+        } else if (button == [alert cancelButtonIndex]) {
             [broken_ removeAllObjects];
             [self _loaded];
         }
@@ -8155,7 +8165,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) applicationSuspend:(__GSEvent *)event {
-    if (hud_ == nil && ![progress_ isRunning])
+    if (hud_ == nil)// && ![progress_ isRunning])
         [super applicationSuspend:event];
 }
 
@@ -8175,7 +8185,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     [window_ setUserInteractionEnabled:NO];
     [hud show:YES];
-    [progress_ addSubview:hud];
+    [window_ addSubview:hud];
     return hud;
 }
 
@@ -8185,7 +8195,7 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ setUserInteractionEnabled:YES];
 }
 
-- (RVPage *) pageForPackage:(NSString *)name {
+- (UIViewController *) pageForPackage:(NSString *)name {
     if (Package *package = [database_ packageWithName:name]) {
         PackageView *view([self packageView]);
         [view setPackage:package];
@@ -8193,11 +8203,11 @@ static _finline void _setHomePage(Cydia *self) {
     } else {
         NSURL *url([NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"unknown" ofType:@"html"]]);
         url = [NSURL URLWithString:[[url absoluteString] stringByAppendingString:[NSString stringWithFormat:@"?%@", name]]];
-        return [self _pageForURL:url withClass:[CydiaBrowserView class]];
+        return [self _pageForURL:url withClass:[CYBrowserController class]];
     }
 }
 
-- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag {
+- (UIViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag {
     if (tag != NULL)
         *tag = -1;
 
@@ -8216,28 +8226,28 @@ static _finline void _setHomePage(Cydia *self) {
         path = [@"/" stringByAppendingString:path];
 
     if ([path isEqualToString:@"/add-source"])
-        return [[[AddSourceView alloc] initWithBook:book_ database:database_] autorelease];
+        return [[[AddSourceView alloc] initWithDatabase:database_] autorelease];
     else if ([path isEqualToString:@"/storage"])
-        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CydiaBrowserView class]];
+        return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CYBrowserController class]];
     else if ([path isEqualToString:@"/sources"])
-        return [[[SourceTable alloc] initWithBook:book_ database:database_] autorelease];
+        return [[[SourceTable alloc] initWithDatabase:database_] autorelease];
     else if ([path isEqualToString:@"/packages"])
-        return [[[InstalledView alloc] initWithBook:book_ database:database_] autorelease];
+        return [[[InstalledView alloc] initWithDatabase:database_] autorelease];
     else if ([path hasPrefix:@"/url/"])
-        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[CydiaBrowserView class]];
+        return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[CYBrowserController class]];
     else if ([path hasPrefix:@"/launch/"])
         [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
     else if ([path hasPrefix:@"/package-settings/"])
-        return [[[SettingsView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:18]] autorelease];
+        return [[[SettingsView alloc] initWithDatabase:database_ package:[path substringFromIndex:18]] autorelease];
     else if ([path hasPrefix:@"/package-signature/"])
-        return [[[SignatureView alloc] initWithBook:book_ database:database_ package:[path substringFromIndex:19]] autorelease];
+        return [[[SignatureView alloc] initWithDatabase:database_ package:[path substringFromIndex:19]] autorelease];
     else if ([path hasPrefix:@"/package/"])
         return [self pageForPackage:[path substringFromIndex:9]];
     else if ([path hasPrefix:@"/files/"]) {
         NSString *name = [path substringFromIndex:7];
 
         if (Package *package = [database_ packageWithName:name]) {
-            FileTable *files = [[[FileTable alloc] initWithBook:book_ database:database_] autorelease];
+            FileTable *files = [[[FileTable alloc] initWithDatabase:database_] autorelease];
             [files setPackage:package];
             return files;
         }
@@ -8249,15 +8259,15 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
     int tag;
-    if (RVPage *page = [self pageForURL:url hasTag:&tag]) {
+    if (UIViewController *page = [self pageForURL:url hasTag:&tag]) {
         [self setPage:page];
         tag_ = tag;
-        [toolbar_ setSelectedItem:(tag_ == -1 ? nil : [items_ objectAtIndex:tag_])];
+        [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
     }
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
-    [BrowserView _initialize];
+    [CYBrowserController _initialize];
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];
 
@@ -8279,22 +8289,7 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ makeKey:self];
     [window_ setHidden:NO];
 
-    root_ = [[CydiaViewController alloc] init];
-    [window_ addSubview:[root_ view]];
-
     database_ = [Database sharedInstance];
-
-    progress_ = [[ProgressView alloc] initWithFrame:[[root_ view] bounds] database:database_ delegate:self];
-    [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [[root_ view] addSubview:progress_];
-
-    [database_ setDelegate:progress_];
-
-    underlay_ = [[UIView alloc] initWithFrame:[progress_ bounds]];
-    [underlay_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [progress_ setContentView:underlay_];
-
-    [progress_ resetView];
 
     if (
         readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
@@ -8311,7 +8306,7 @@ static _finline void _setHomePage(Cydia *self) {
         [self setIdleTimerDisabled:YES];
 
         hud_ = [self addProgressHUD];
-        [hud_ setText:@"Reorganizing\n\nWill Automatically\nClose When Done"];
+        [hud_ setText:@"Reorganizing:\n\nWill Automatically\nClose When Done"];
         [self setStatusBarShowsProgress:YES];
 
         [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
@@ -8332,66 +8327,42 @@ static _finline void _setHomePage(Cydia *self) {
         [self askForSettings];
 
     _trace();
-    overlay_ = [[UIView alloc] initWithFrame:[underlay_ bounds]];
-    [overlay_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
 
-    CGRect screenrect = [UIHardware fullScreenApplicationContentRect];
+    NSMutableArray *controllers = [NSMutableArray array];
+    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
+    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
+    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
+    if (IsWildcat_) [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
+    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
+    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
 
-    book_ = [[CYBook alloc] initWithFrame:CGRectMake(
-        0, 0, screenrect.size.width, screenrect.size.height - 48
-    ) database:database_];
-
-    [book_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [overlay_ addSubview:book_];
-
-    [book_ setDelegate:self];
-
-    items_ = [[NSArray arrayWithObjects:
-        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:1] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:2] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:3] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:4] autorelease],
-    nil] retain];
-
-    toolbar_ = [[UITabBar alloc]
-        initWithFrame:CGRectMake(
-            0, screenrect.size.height - ButtonBarHeight_,
-            screenrect.size.width, ButtonBarHeight_
-        )
+    NSMutableArray *items = [NSMutableArray arrayWithObjects:
+        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:kChangesTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
+        nil
     ];
-
-    [toolbar_ setItems:items_];
-
-    [toolbar_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
-    [overlay_ addSubview:toolbar_];
-
-    [toolbar_ setDelegate:self];
-
-    /*int buttons[5] = {1, 2, 3, 4, 5};
-    [toolbar_ registerButtonGroup:0 withButtons:buttons withCount:5];
-    [toolbar_ showButtonGroup:0 withDuration:0];
-
-    for (int i = 0; i != 5; ++i) {
-        UIView *button([toolbar_ viewWithTag:(i + 1)]);
-
-        [button setFrame:CGRectMake(
-            i * (screenrect.size.width / 5) + (screenrect.size.width / 5 - ButtonBarWidth_) / 2, 1,
-            ButtonBarWidth_, ButtonBarHeight_
-        )];
-
-        [button setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-    }*/
-
-    [toolbar_ setSelectedItem:[items_ objectAtIndex:0]];
+    
+    if (IsWildcat_) {
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:kInstalledTag] autorelease] atIndex:3];
+    } else {
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
+    }
+    
+    for (int i = 0; i < [items count]; i++) {
+        [[controllers objectAtIndex:i] setTabBarItem:[items objectAtIndex:i]];
+    }
+    
+    tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
+    [tabbar_ setUpdateDelegate:self];
+    [tabbar_ setViewControllers:controllers];
+    [tabbar_ setDelegate:self];
+    [tabbar_ setSelectedIndex:0];
+    [window_ addSubview:[tabbar_ view]];
 
     [UIKeyboard initImplementationNow];
-    /*CGSize keysize = [UIKeyboard defaultSize];
-    CGRect keyrect = {{0, [overlay_ bounds].size.height}, keysize};
-    keyboard_ = [[UIKeyboard alloc] initWithFrame:keyrect];
-    [overlay_ addSubview:keyboard_];*/
-
-    [underlay_ addSubview:overlay_];
 
     [self reloadData];
 
@@ -8406,35 +8377,9 @@ static _finline void _setHomePage(Cydia *self) {
     _setHomePage(self);
 }
 
-- (void) showKeyboard:(BOOL)show {
-    CGSize keysize([UIKeyboard defaultSize]);
-    CGRect keydown = {{0, [overlay_ bounds].size.height}, keysize};
-    CGRect keyup(keydown);
-    keyup.origin.y -= keysize.height;
-
-    UIFrameAnimation *animation([[[UIFrameAnimation alloc] initWithTarget:keyboard_] autorelease]);
-    [animation setSignificantRectFields:2];
-
-    if (show) {
-        [animation setStartFrame:keydown];
-        [animation setEndFrame:keyup];
-        [keyboard_ activate];
-    } else {
-        [animation setStartFrame:keyup];
-        [animation setEndFrame:keydown];
-        [keyboard_ deactivate];
-    }
-
-    [[UIAnimator sharedAnimator]
-        addAnimations:[NSArray arrayWithObjects:animation, nil]
-        withDuration:KeyboardTime_
-        start:YES
-    ];
-}
-
-- (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIButton *)item {
+- (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {
     if (item != nil && IsWildcat_) {
-        [sheet showFromRect:[[item superview] convertRect:[item frame] toView:window_] inView:window_ animated:YES];
+        [sheet showFromBarButtonItem:item animated:YES];
     } else {
         [sheet showInView:window_];
     }

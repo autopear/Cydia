@@ -149,7 +149,7 @@ static Class $UIWebBrowserView;
 @end
 
 #define ShowInternals 0
-#define LogBrowser 0
+#define LogBrowser 1
 
 #define lprintf(args...) fprintf(stderr, args)
 
@@ -160,7 +160,7 @@ static Class $UIWebBrowserView;
 #endif
 
 + (void) _initialize {
-    [WebView enableWebThread];
+    //[WebView enableWebThread];
 
     WebPreferences *preferences([WebPreferences standardPreferences]);
     [preferences setCacheModel:WebCacheModelDocumentBrowser];
@@ -311,7 +311,7 @@ static Class $UIWebBrowserView;
 
 /* XXX: WebThreadLock? */
 - (void) _fixScroller:(CGRect)bounds {
-    float extra;
+	float extra;
 
     if (!editing_ || $UIFormAssistant == nil)
         extra = 0;
@@ -360,10 +360,10 @@ static Class $UIWebBrowserView;
     [self view:sender didSetFrame:frame];
 }
 
-- (void) pushPage:(RVPage *)page {
+- (void) pushPage:(UCViewController *)page {
     [page setDelegate:delegate_];
-    [self setBackButtonTitle:title_];
-    [book_ pushPage:page];
+    [[self navigationItem] setTitle:title_];
+    [[self navigationController] pushViewController:page animated:YES];
 }
 
 - (void) _pushPage {
@@ -371,15 +371,14 @@ static Class $UIWebBrowserView;
         return;
     // WTR: [self autorelease];
     pushed_ = true;
-    [book_ pushPage:self];
+    [[self navigationController] pushViewController:self animated:YES];
 }
 
-- (void) swapPage:(RVPage *)page {
+- (void) swapPage:(UCViewController *)page {
     [page setDelegate:delegate_];
-    if (pushed_)
-        [book_ swapPage:page];
-    else
-        [book_ pushPage:page];
+    if (pushed_) [[self navigationController] popViewControllerAnimated:NO];
+		
+	[[self navigationController] pushViewController:page animated:NO];
 }
 
 - (BOOL) getSpecial:(NSURL *)url swap:(BOOL)swap {
@@ -387,7 +386,7 @@ static Class $UIWebBrowserView;
     NSLog(@"getSpecial:%@", url);
 #endif
 
-    if (RVPage *page = [delegate_ pageForURL:url hasTag:NULL]) {
+    if (UCViewController *page = [delegate_ pageForURL:url hasTag:NULL]) {
         if (swap)
             [self swapPage:page];
         else
@@ -532,7 +531,7 @@ static Class $UIWebBrowserView;
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 
-    [self reloadButtons];
+	[self reloadButtons];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -548,7 +547,7 @@ static Class $UIWebBrowserView;
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 
-    [self reloadButtons];
+	[self reloadButtons];
 }
 
 - (void) setFinishHook:(id)function {
@@ -581,11 +580,11 @@ static Class $UIWebBrowserView;
 }
 
 - (void) webViewClose:(WebView *)sender {
-    [book_ close];
+	[self close];
 }
 
 - (void) close {
-    [book_ close];
+    [[self navigationController] dismissModalViewControllerAnimated:YES];
 }
 
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
@@ -615,25 +614,32 @@ static Class $UIWebBrowserView;
             if ([scheme isEqualToString:@"mailto"])
                 [self _openMailToURL:url];
             else {
-                RVBook *book([[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
-                [book setHook:indirect_];
+                UCNavigationController *navigation([[[UCNavigationController alloc] init] autorelease]);
+                [navigation setHook:indirect_];
 
-                RVPage *page([delegate_ pageForURL:url hasTag:NULL]);
+                UCViewController *page([delegate_ pageForURL:url hasTag:NULL]);
                 if (page == nil) {
                     /* XXX: call createWebViewWithRequest instead? */
 
-                    [self setBackButtonTitle:title_];
-
-                    BrowserView *browser([[[class_ alloc] initWithBook:book] autorelease]);
+                    BrowserView *browser([[[class_ alloc] init] autorelease]);
                     [browser loadURL:url];
                     page = browser;
                 }
 
-                [book setDelegate:delegate_];
+                [navigation setDelegate:delegate_];
                 [page setDelegate:delegate_];
 
-                [book setPage:page];
-                [book_ pushBook:book];
+                [navigation setViewControllers:[NSArray arrayWithObject:page]];
+				UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
+			        initWithTitle:UCLocalize("CLOSE")
+					style:UIBarButtonItemStylePlain
+			        target:page
+			        action:@selector(close)
+			    ];
+			    [[page navigationItem] setLeftBarButtonItem:closeItem];
+			    [closeItem release];
+			
+                [[self navigationController] presentModalViewController:navigation animated:YES];
             }
         } else goto unknown;
 
@@ -881,25 +887,34 @@ static Class $UIWebBrowserView;
     NSNumber *value([features objectForKey:@"width"]);
     float width(value == nil ? 0 : [value floatValue]);
 
-    RVBook *book(!popup_ ? book_ : [[[RVPopUpBook alloc] initWithFrame:[delegate_ popUpBounds]] autorelease]);
+    UCNavigationController *navigation(!popup_ ? [self navigationController] : [[[UCNavigationController alloc] init] autorelease]);
 
     /* XXX: deal with cydia:// pages */
-    BrowserView *browser([[[class_ alloc] initWithBook:book forWidth:width] autorelease]);
+    BrowserView *browser([[[class_ alloc] initWithWidth:width] autorelease]);
 
     if (features != nil && popup_) {
-        [book setDelegate:delegate_];
-        [book setHook:indirect_];
+        [navigation setDelegate:delegate_];
+        [navigation setHook:indirect_];
         [browser setDelegate:delegate_];
 
         [browser loadRequest:request];
 
-        [book setPage:browser];
-        [book_ pushBook:book];
-    } else if (request == nil) {
-        [self setBackButtonTitle:title_];
+        [navigation setViewControllers:[NSArray arrayWithObject:browser]];
+		UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
+	        initWithTitle:UCLocalize("CLOSE")
+			style:UIBarButtonItemStylePlain
+	        target:browser
+	        action:@selector(close)
+	    ];
+	    [[browser navigationItem] setLeftBarButtonItem:closeItem];
+	    [closeItem release];
+	
+        [[self navigationController] presentModalViewController:navigation animated:YES];
+    } /*else if (request == nil) {
+        [[self navigationItem] setTitle:title_];
         [browser setDelegate:delegate_];
         [browser retain];
-    } else {
+    }*/ else {
         [self pushPage:browser];
         [browser loadRequest:request];
     }
@@ -917,7 +932,7 @@ static Class $UIWebBrowserView;
         return;
 
     title_ = [title retain];
-    [book_ reloadTitleForPage:self];
+    [[self navigationItem] setTitle:title_];
 }
 
 - (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
@@ -965,7 +980,7 @@ static Class $UIWebBrowserView;
             special_ = nil;
         }
 
-        [book_ reloadTitleForPage:self];
+        [[self navigationItem] setTitle:title_];
 
         if (Wildcat_) {
             CGRect webrect = [scroller_ bounds];
@@ -992,8 +1007,10 @@ static Class $UIWebBrowserView;
         }
     }
 
-    [self reloadButtons];
+	[self reloadButtons];
 }
+
+- (void) didFinishLoading { }
 
 - (void) _finishLoading {
     size_t count([loading_ count]);
@@ -1003,19 +1020,12 @@ static Class $UIWebBrowserView;
         return;
     if (finish_ != nil)
         [self callFunction:finish_];
-    [self reloadButtons];
+
+	[self reloadButtons];
 }
 
 - (bool) isLoading {
     return [loading_ count] != 0;
-}
-
-- (void) reloadButtons {
-    if ([self isLoading])
-        [indicator_ startAnimation];
-    else
-        [indicator_ stopAnimation];
-    [super reloadButtons];
 }
 
 - (BOOL) webView:(WebView *)sender shouldScrollToPoint:(struct CGPoint)point forFrame:(WebFrame *)frame {
@@ -1242,16 +1252,16 @@ static Class $UIWebBrowserView;
     [self _setTileDrawingEnabled:YES];
 }
 
-- (id) initWithBook:(RVBook *)book forWidth:(float)width ofClass:(Class)_class {
-    if ((self = [super initWithBook:book]) != nil) {
+- (id) initWithWidth:(float)width ofClass:(Class)_class {
+    if ((self = [super init]) != nil) {
         class_ = _class;
         loading_ = [[NSMutableSet alloc] initWithCapacity:3];
         popup_ = false;
 
-        struct CGRect bounds = [self bounds];
+        struct CGRect bounds = [[self view] bounds];
 
         scroller_ = [[objc_getClass(Wildcat_ ? "UIScrollView" : "UIScroller") alloc] initWithFrame:bounds];
-        [self addSubview:scroller_];
+        [[self view] addSubview:scroller_];
 
         [scroller_ setFixedBackgroundPattern:YES];
         [scroller_ setBackgroundColor:[UIColor pinStripeColor]];
@@ -1395,26 +1405,26 @@ static Class $UIWebBrowserView;
         WebThreadUnlock();
 
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(bounds.size.width - 39, 12, indsize.width, indsize.height)];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(15, 5, indsize.width, indsize.height)];
         [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
+		[indicator_ startAnimation];
 
-        [self setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [document_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
-        /*UIWebView *test([[[UIWebView alloc] initWithFrame:[self bounds]] autorelease]);
+        /*UIWebView *test([[[UIWebView alloc] initWithFrame:[[self view] bounds]] autorelease]);
         [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];
-        [self addSubview:test];*/
+        [[self view] addSubview:test];*/
     } return self;
 }
 
-- (id) initWithBook:(RVBook *)book forWidth:(float)width {
-    return [self initWithBook:book forWidth:width ofClass:[self class]];
+- (id) initWithWidth:(float)width {
+    return [self initWithWidth:width ofClass:[self class]];
 }
 
-- (id) initWithBook:(RVBook *)book {
-    return [self initWithBook:book forWidth:0];
+- (id) init {
+    return [self initWithWidth:0];
 }
 
 - (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script {
@@ -1443,7 +1453,7 @@ static Class $UIWebBrowserView;
         settings->setJavaScriptCanOpenWindowsAutomatically(true);
     }
 
-    if (UIWindow *window = [self window])
+    if (UIWindow *window = [[self view] window])
         if (UIResponder *responder = [window firstResponder])
             [responder resignFirstResponder];
 
@@ -1457,7 +1467,7 @@ static Class $UIWebBrowserView;
     WebThreadUnlock();
 }
 
-- (void) didCloseBook:(RVBook *)book {
+- (void) didDismissModalViewController {
     if (closer_ != nil)
         [self callFunction:closer_];
 }
@@ -1476,14 +1486,6 @@ static Class $UIWebBrowserView;
         [self __rightButtonClicked];
 }
 
-- (id) _rightButtonTitle {
-    return UCLocalize("RELOAD");
-}
-
-- (id) rightButtonTitle {
-    return [self isLoading] ? @"" : button_ != nil ? button_ : [self _rightButtonTitle];
-}
-
 - (UINavigationButtonStyle) rightButtonStyle {
     if (style_ == nil) normal:
         return UINavigationButtonStyleNormal;
@@ -1498,19 +1500,38 @@ static Class $UIWebBrowserView;
     else goto normal;
 }
 
-- (NSString *) title {
-    return title_ == nil ? UCLocalize("LOADING") : title_;
-}
-
-- (NSString *) backButtonTitle {
-    return UCLocalize("BROWSER");
+- (void) reloadButtons {
+    if ([self isLoading]) {
+        UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
+	        initWithTitle:@" "
+	        style:UIBarButtonItemStylePlain
+	        target:self
+	        action:@selector(_rightButtonClicked)
+	    ];
+	    [[self navigationItem] setRightBarButtonItem:reloadItem];
+		[[reloadItem view] addSubview:indicator_];
+		[[self navigationItem] setTitle:UCLocalize("LOADING")];
+	    [reloadItem release];
+    } else {
+        UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
+	        initWithTitle:button_ ?: UCLocalize("RELOAD")
+			style:[self rightButtonStyle]
+	        target:self
+	        action:@selector(_rightButtonClicked)
+	    ];
+	    [[self navigationItem] setRightBarButtonItem:reloadItem animated:YES];
+		[[self navigationItem] setTitle:title_];
+	    [reloadItem release];
+	
+		if (function_ == nil) [self didFinishLoading];
+    }
 }
 
 - (void) setPageActive:(BOOL)active {
     if (!active)
         [indicator_ removeFromSuperview];
     else
-        [[book_ navigationBar] addSubview:indicator_];
+		[[[[self navigationItem] rightBarButtonItem] view] addSubview:indicator_];
 }
 
 - (void) resetViewAnimated:(BOOL)animated {

@@ -40,12 +40,10 @@
 @end
 
 @protocol BrowserViewDelegate
-- (RVPage *) pageForURL:(NSURL *)url hasTag:(int *)tag;
+- (UCViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 @end
 
-@interface BrowserView : RVPage <
-    RVBookHook
-> {
+@interface BrowserView : UCViewController {
     UIScroller *scroller_;
     UIWebDocumentView *document_;
     UIProgressIndicator *indicator_;
@@ -96,9 +94,9 @@
 - (WebView *) webView;
 - (UIWebDocumentView *) documentView;
 
-- (id) initWithBook:(RVBook *)book;
-- (id) initWithBook:(RVBook *)book forWidth:(float)width;
-- (id) initWithBook:(RVBook *)book forWidth:(float)width ofClass:(Class)_class;
+- (id) init;
+- (id) initWithWidth:(float)width;
+- (id) initWithWidth:(float)width ofClass:(Class)_class;
 
 - (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script;
 - (void) callFunction:(WebScriptObject *)function;

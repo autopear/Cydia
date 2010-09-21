@@ -5,83 +5,13 @@
 
 #import "RVBook.h"
 
-@implementation RVPage
-
-- (bool) splitView {
-    return false;
+@implementation UCViewController 
+- (void)setDelegate:(id)delegate {
+	delegate_ = delegate;
 }
-
-- (NSString *) title {
-    [self doesNotRecognizeSelector:_cmd];
-    return nil;
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+	return NO; /* XXX: return YES; */
 }
-
-- (NSString *) backButtonTitle {
-    return nil;
-}
-
-- (NSString *) leftButtonTitle {
-    return nil;
-}
-
-- (id) rightButtonTitle {
-    return nil;
-}
-
-- (UINavigationButtonStyle) leftButtonStyle {
-    return [self leftButtonTitle] == nil ? UINavigationButtonStyleBack : UINavigationButtonStyleNormal;
-}
-
-- (UINavigationButtonStyle) rightButtonStyle {
-    return UINavigationButtonStyleNormal;
-}
-
-- (void) _rightButtonClicked {
-    [self doesNotRecognizeSelector:_cmd];
-}
-
-- (void) _leftButtonClicked {
-    [self doesNotRecognizeSelector:_cmd];
-}
-
-- (UIView *) accessoryView {
-    return nil;
-}
-
-- (UIImage *) rightButtonImage {
-    return nil;
-}
-
-- (void) setPageActive:(BOOL)active {
-}
-
-- (void) resetViewAnimated:(BOOL)animated {
-    [self doesNotRecognizeSelector:_cmd];
-}
-
-- (void) setBackButtonTitle:(NSString *)title {
-    [book_ setBackButtonTitle:title forPage:self];
-}
-
-- (void) reloadButtons {
-    [book_ reloadButtonsForPage:self];
-}
-
 - (void) reloadData {
 }
-
-- (id) initWithBook:(RVBook *)book {
-    if ((self = [super initWithFrame:[book pageBounds]]) != nil) {
-        book_ = book;
-    } return self;
-}
-
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
-- (void) setBook:(RVBook *)book {
-    book_ = book;
-}
-
 @end

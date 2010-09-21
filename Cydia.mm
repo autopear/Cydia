@@ -120,6 +120,9 @@ extern "C" {
 #import "UICaboodle/ResetView.h"
 
 #import "substrate.h"
+
+// Apple's sample Reachability code, ASPL licensed.
+#import "Reachability.h"
 /* }}} */
 
 /* Header Fixes and Updates {{{ */
@@ -7616,6 +7619,8 @@ typedef enum {
 #if RecyclePackageViews
     NSMutableArray *details_;
 #endif
+
+	bool loaded_;
 }
 
 - (UIViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
@@ -7714,12 +7719,40 @@ static _finline void _setHomePage(Cydia *self) {
     return -1;
 }
 
+- (void) _refreshIfPossible {
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	
+	Reachability* reachability = [Reachability reachabilityWithHostName:@"cydia.saurik.com"];
+	NetworkStatus remoteHostStatus = [reachability currentReachabilityStatus];
+	
+	if (loaded_ || ManualRefresh || remoteHostStatus == NotReachable) loaded:
+        [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
+    else {
+        loaded_ = true;
+
+        NSDate *update([Metadata_ objectForKey:@"LastUpdate"]);
+
+        if (update != nil) {
+            NSTimeInterval interval([update timeIntervalSinceNow]);
+            if (interval <= 0 && interval > -(15*60))
+                goto loaded;
+        }
+
+        [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
+    }
+
+	[pool release];
+}
+
+- (void) refreshIfPossible {
+	[NSThread detachNewThreadSelector:@selector(_refreshIfPossible) toTarget:self withObject:nil];
+}
+
 - (void) _reloadData {
     UIView *block();
 
-    static bool loaded(false);
     UIProgressHUD *hud([self addProgressHUD]);
-    [hud setText:(loaded ? UCLocalize("RELOADING_DATA") : UCLocalize("LOADING_DATA"))];
+    [hud setText:(loaded_ ? UCLocalize("RELOADING_DATA") : UCLocalize("LOADING_DATA"))];
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
     _trace();
@@ -7763,21 +7796,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     [self _updateData];
 
-    if (loaded || ManualRefresh) loaded:
-        [self _loaded];
-    else {
-        loaded = true;
-
-        NSDate *update([Metadata_ objectForKey:@"LastUpdate"]);
-
-        if (update != nil) {
-            NSTimeInterval interval([update timeIntervalSinceNow]);
-            if (interval <= 0 && interval > -(15*60))
-                goto loaded;
-        }
-
-        [tabbar_ setUpdate:update];
-    }
+	[self refreshIfPossible];
 }
 
 - (void) updateData {

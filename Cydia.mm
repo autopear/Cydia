@@ -1198,6 +1198,8 @@ bool isSectionVisible(NSString *section) {
     return hidden == nil || ![hidden boolValue];
 }
 
+@class Cydia;
+
 /* Delegate Prototypes {{{ */
 @class Package;
 @class Source;
@@ -6561,6 +6563,15 @@ freeing the view controllers on tab change */
 
 @implementation CYNavigationController
 
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    // Inherit autorotation settings for modal parents.
+    if ([self parentViewController] && [[self parentViewController] modalViewController] == self) {
+        return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
+    } else {
+        return [super shouldAutorotateToInterfaceOrientation:orientation];
+    }
+}
+
 - (void) dealloc {
     [super dealloc];
 }
@@ -7424,12 +7435,35 @@ freeing the view controllers on tab change */
     bool dropped_;
     bool updating_;
     id updatedelegate_;
-    id root_;
+    UIViewController *root_;
 }
 
 @end
 
 @implementation CYContainer
+
+// NOTE: UIWindow only sends the top controller these messages,
+//       So we have to forward them on.
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [root_ viewDidAppear:animated];
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [root_ viewWillAppear:animated];
+}
+
+- (void) viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    [root_ viewDidDisappear:animated];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [root_ viewWillDisappear:animated];
+}
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
     return YES; /* XXX: return YES; */
@@ -7549,10 +7583,14 @@ freeing the view controllers on tab change */
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y += barframe.size.height + 20.0f;
-    viewframe.size.height -= barframe.size.height + 20.0f;
+    viewframe.origin.y += barframe.size.height;
+    viewframe.size.height -= barframe.size.height;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
+
+    // Ensure bar has the proper width for our view, it might have changed
+    barframe.size.width = viewframe.size.width;
+    [refreshbar_ setFrame:barframe];
 
     // XXX: fix Apple's layout bug
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
@@ -7567,8 +7605,8 @@ freeing the view controllers on tab change */
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y -= barframe.size.height + 20.0f;
-    viewframe.size.height += barframe.size.height + 20.0f;
+    viewframe.origin.y -= barframe.size.height;
+    viewframe.size.height += barframe.size.height;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 
@@ -7576,16 +7614,19 @@ freeing the view controllers on tab change */
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
 
-- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     if (dropped_) {
         [self raiseBar:NO];
         [self dropBar:NO];
     }
     
-    [[self view] setFrame:[[[self view] superview] bounds]];
-    
     // XXX: fix Apple's layout bug
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+
+    // Resize refresh bar to fit the new size
+    CGRect barframe = [refreshbar_ frame];
+    barframe.size.width = [[self view] frame].size.width;
+    [refreshbar_ setFrame:barframe];
 }
 
 - (void) dealloc {
@@ -7597,7 +7638,9 @@ freeing the view controllers on tab change */
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 20.0f, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
+        [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+
+        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
     } return self;
 }
 
@@ -7853,7 +7896,7 @@ static _finline void _setHomePage(Cydia *self) {
     [self _saveConfig];
 
     ProgressView *progress = [[[ProgressView alloc] initWithDatabase:database_ delegate:self] autorelease];
-    UINavigationController *navigation = [[[UINavigationController alloc] initWithRootViewController:progress] autorelease];
+    UINavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
     if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:navigation animated:YES];
 
@@ -7889,7 +7932,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     ConfirmationView *page([[[ConfirmationView alloc] initWithDatabase:database_] autorelease]);
     [page setDelegate:self];
-    id confirm_ = [[UINavigationController alloc] initWithRootViewController:page];
+    id confirm_ = [[CYNavigationController alloc] initWithRootViewController:page];
     [confirm_ setDelegate:self];
 
     if (IsWildcat_) [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
@@ -7957,7 +8000,7 @@ static _finline void _setHomePage(Cydia *self) {
     if (navigation != nil) {
         [navigation pushViewController:progress animated:YES];
     } else {
-        navigation = [[[UINavigationController alloc] initWithRootViewController:progress] autorelease];
+        navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
         if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
         [container_ presentModalViewController:navigation animated:YES];
     }

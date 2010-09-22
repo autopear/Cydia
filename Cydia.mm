@@ -6477,6 +6477,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
         [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+        [cancel_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ addTarget:delegate action:@selector(cancelPressed) forControlEvents:UIControlEventTouchUpInside];
 
         CGRect frame = [cancel_ frame];
@@ -6516,131 +6517,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Cydia Tab Bar Controller {{{ */
-@interface CYTabBarController : UITabBarController <
-    ProgressDelegate
-> {
-    _transient Database *database_;
-    RefreshBar *refreshbar_;
-
-    bool dropped_;
-    bool updating_;
-    id updatedelegate_;
+@interface CYTabBarController : UITabBarController {
+    Database *database_;
 }
-
-- (id) initWithDatabase:(Database *)database;
-- (void) setDelegate:(id)delegate;
 
 @end    
 
 @implementation CYTabBarController
 
-- (void) viewDidDisappear:(BOOL)animated {
-    [super viewDidDisappear:animated];
-        
-    if (updating_) [self raiseBar:NO];
-}
-
-- (void) viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    
-    if (updating_) [self dropBar:NO];
-}
-
-- (void) setUpdate:(NSDate *)date {
-    [self beginUpdate];
-}
-
-- (void) beginUpdate {
-    [self dropBar:YES];
-    [refreshbar_ start];
-    
-    updating_ = true;
-    
-    [NSThread
-        detachNewThreadSelector:@selector(performUpdate)
-        toTarget:self
-        withObject:nil
-    ];
-}
-
-- (void) performUpdate { _pooled
-    Status status;
-    status.setDelegate(self);
-    [database_ updateWithStatus:status];
-
-    [self
-        performSelectorOnMainThread:@selector(completeUpdate)
-        withObject:nil
-        waitUntilDone:NO
-    ];
-}
-
-- (void) completeUpdate {
-    updating_ = false;
-    
-    [self raiseBar:YES];
-    [refreshbar_ stop];
-    [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
-}
-
-- (void) cancelUpdate {
-    [refreshbar_ cancel];
-    [self completeUpdate];
-}
-
-- (void) cancelPressed {
-    [self cancelUpdate];
-}
-
-- (BOOL) updating {
-    return updating_;
-}
-
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    [refreshbar_ setPrompt:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
-}
-
-- (void) startProgress {
-}
-
-- (void) setProgressTitle:(NSString *)title {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressTitle:)
-        withObject:title
-        waitUntilDone:YES
-    ];
-}
-
-- (bool) isCancelling:(size_t)received {
-    return !updating_;
-}
-
-- (void) setProgressPercent:(float)percent {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressPercent:)
-        withObject:[NSNumber numberWithFloat:percent]
-        waitUntilDone:YES
-    ];
-}
-
-- (void) addProgressOutput:(NSString *)output {
-    [self
-        performSelectorOnMainThread:@selector(_addProgressOutput:)
-        withObject:output
-        waitUntilDone:YES
-    ];
-}
-
-- (void) _setProgressTitle:(NSString *)title {
-    [refreshbar_ setPrompt:title];
-}
-
-- (void) _setProgressPercent:(NSNumber *)percent {
-    [refreshbar_ setProgress:[percent floatValue]];
-}
-
-- (void) _addProgressOutput:(NSString *)output {
-}
+/* XXX: some logic should probably go here related to
+freeing the view controllers on tab change */
 
 - (void) reloadData {
     size_t count([[self viewControllers] count]);
@@ -6650,58 +6536,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) setUpdateDelegate:(id)delegate {
-    updatedelegate_ = delegate;
-}
-
-- (void) dropBar:(BOOL)animated {
-    if (dropped_)
-        return;
-    dropped_ = true;
-
-    [[[self view] superview] addSubview:refreshbar_];
-
-    if (animated) [UIView beginAnimations:nil context:NULL];
-    CGRect barframe = [refreshbar_ frame];
-    CGRect viewframe = [[self view] frame];
-    viewframe.origin.y += barframe.size.height + 20.0f;
-    viewframe.size.height -= barframe.size.height + 20.0f;
-    [[self view] setFrame:viewframe];
-    if (animated) [UIView commitAnimations];
-
-    // XXX: fix Apple's layout bug
-    [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-
-- (void) raiseBar:(BOOL)animated {
-    if (!dropped_)
-        return;
-    dropped_ = false;
-
-    [refreshbar_ removeFromSuperview];
-
-    if (animated) [UIView beginAnimations:nil context:NULL];
-    CGRect barframe = [refreshbar_ frame];
-    CGRect viewframe = [[self view] frame];
-    viewframe.origin.y -= barframe.size.height + 20.0f;
-    viewframe.size.height += barframe.size.height + 20.0f;
-    [[self view] setFrame:viewframe];
-    if (animated) [UIView commitAnimations];
-
-    // XXX: fix Apple's layout bug
-    [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-
-- (void) dealloc {
-    [refreshbar_ release];
-    [super dealloc];
-}
-
 - (id) initWithDatabase: (Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-
-        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 20.0f, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
     } return self;
 }
 
@@ -7579,6 +7416,194 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* Cydia Container {{{ */
+@interface CYContainer : UIViewController <ProgressDelegate> {
+    _transient Database *database_;
+    RefreshBar *refreshbar_;
+
+    bool dropped_;
+    bool updating_;
+    id updatedelegate_;
+    id root_;
+}
+
+@end
+
+@implementation CYContainer
+
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    return YES; /* XXX: return YES; */
+}
+
+- (void) setRootController:(UIViewController *)controller {
+    root_ = controller;
+    [[self view] addSubview:[root_ view]];
+}
+
+- (void) setUpdate:(NSDate *)date {
+    [self beginUpdate];
+}
+
+- (void) beginUpdate {
+    [self dropBar:YES];
+    [refreshbar_ start];
+    
+    updating_ = true;
+    
+    [NSThread
+        detachNewThreadSelector:@selector(performUpdate)
+        toTarget:self
+        withObject:nil
+    ];
+}
+
+- (void) performUpdate { _pooled
+    Status status;
+    status.setDelegate(self);
+    [database_ updateWithStatus:status];
+
+    [self
+        performSelectorOnMainThread:@selector(completeUpdate)
+        withObject:nil
+        waitUntilDone:NO
+    ];
+}
+
+- (void) completeUpdate {
+    updating_ = false;
+    
+    [self raiseBar:YES];
+    [refreshbar_ stop];
+    [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+}
+
+- (void) cancelUpdate {
+    [refreshbar_ cancel];
+    [self completeUpdate];
+}
+
+- (void) cancelPressed {
+    [self cancelUpdate];
+}
+
+- (BOOL) updating {
+    return updating_;
+}
+
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
+    [refreshbar_ setPrompt:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
+}
+
+- (void) startProgress {
+}
+
+- (void) setProgressTitle:(NSString *)title {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressTitle:)
+        withObject:title
+        waitUntilDone:YES
+    ];
+}
+
+- (bool) isCancelling:(size_t)received {
+    return !updating_;
+}
+
+- (void) setProgressPercent:(float)percent {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressPercent:)
+        withObject:[NSNumber numberWithFloat:percent]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) addProgressOutput:(NSString *)output {
+    [self
+        performSelectorOnMainThread:@selector(_addProgressOutput:)
+        withObject:output
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _setProgressTitle:(NSString *)title {
+    [refreshbar_ setPrompt:title];
+}
+
+- (void) _setProgressPercent:(NSNumber *)percent {
+    [refreshbar_ setProgress:[percent floatValue]];
+}
+
+- (void) _addProgressOutput:(NSString *)output {
+}
+
+- (void) setUpdateDelegate:(id)delegate {
+    updatedelegate_ = delegate;
+}
+
+- (void) dropBar:(BOOL)animated {
+    if (dropped_) return;
+    dropped_ = true;
+
+    [[self view] addSubview:refreshbar_];
+
+    if (animated) [UIView beginAnimations:nil context:NULL];
+    CGRect barframe = [refreshbar_ frame];
+    CGRect viewframe = [[root_ view] frame];
+    viewframe.origin.y += barframe.size.height + 20.0f;
+    viewframe.size.height -= barframe.size.height + 20.0f;
+    [[root_ view] setFrame:viewframe];
+    if (animated) [UIView commitAnimations];
+
+    // XXX: fix Apple's layout bug
+    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void) raiseBar:(BOOL)animated {
+    if (!dropped_) return;
+    dropped_ = false;
+
+    [refreshbar_ removeFromSuperview];
+
+    if (animated) [UIView beginAnimations:nil context:NULL];
+    CGRect barframe = [refreshbar_ frame];
+    CGRect viewframe = [[root_ view] frame];
+    viewframe.origin.y -= barframe.size.height + 20.0f;
+    viewframe.size.height += barframe.size.height + 20.0f;
+    [[root_ view] setFrame:viewframe];
+    if (animated) [UIView commitAnimations];
+
+    // XXX: fix Apple's layout bug
+    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    if (dropped_) {
+        [self raiseBar:NO];
+        [self dropBar:NO];
+    }
+    
+    [[self view] setFrame:[[[self view] superview] bounds]];
+    
+    // XXX: fix Apple's layout bug
+    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void) dealloc {
+    [refreshbar_ release];
+    [super dealloc];
+}
+
+- (id) initWithDatabase: (Database *)database {
+    if ((self = [super init]) != nil) {
+        database_ = database;
+
+        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 20.0f, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
+    } return self;
+}
+
+@end
+/* }}} */
+
 typedef enum {
     kCydiaTag = 0,
     kSectionsTag = 1,
@@ -7595,6 +7620,7 @@ typedef enum {
     CydiaDelegate
 > {
     UIWindow *window_;
+    CYContainer *container_;
 
     id tabbar_;
 
@@ -7620,7 +7646,7 @@ typedef enum {
     NSMutableArray *details_;
 #endif
 
-	bool loaded_;
+    bool loaded_;
 }
 
 - (UIViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
@@ -7635,11 +7661,11 @@ static _finline void _setHomePage(Cydia *self) {
 @implementation Cydia
 
 - (void) beginUpdate {
-    [tabbar_ beginUpdate];
+    [container_ beginUpdate];
 }
 
 - (BOOL) updating {
-    return [tabbar_ updating];
+    return [container_ updating];
 }
 
 - (UIView *) rotatingContentViewForWindow:(UIWindow *)window {
@@ -7720,12 +7746,12 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) _refreshIfPossible {
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	
-	Reachability* reachability = [Reachability reachabilityWithHostName:@"cydia.saurik.com"];
-	NetworkStatus remoteHostStatus = [reachability currentReachabilityStatus];
-	
-	if (loaded_ || ManualRefresh || remoteHostStatus == NotReachable) loaded:
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    
+    Reachability* reachability = [Reachability reachabilityWithHostName:@"cydia.saurik.com"];
+    NetworkStatus remoteHostStatus = [reachability currentReachabilityStatus];
+    
+    if (loaded_ || ManualRefresh || remoteHostStatus == NotReachable) loaded:
         [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
     else {
         loaded_ = true;
@@ -7738,14 +7764,14 @@ static _finline void _setHomePage(Cydia *self) {
                 goto loaded;
         }
 
-        [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
+        [container_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
     }
 
-	[pool release];
+    [pool release];
 }
 
 - (void) refreshIfPossible {
-	[NSThread detachNewThreadSelector:@selector(_refreshIfPossible) toTarget:self withObject:nil];
+    [NSThread detachNewThreadSelector:@selector(_refreshIfPossible) toTarget:self withObject:nil];
 }
 
 - (void) _reloadData {
@@ -7796,7 +7822,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     [self _updateData];
 
-	[self refreshIfPossible];
+    [self refreshIfPossible];
 }
 
 - (void) updateData {
@@ -7829,7 +7855,7 @@ static _finline void _setHomePage(Cydia *self) {
     ProgressView *progress = [[[ProgressView alloc] initWithDatabase:database_ delegate:self] autorelease];
     UINavigationController *navigation = [[[UINavigationController alloc] initWithRootViewController:progress] autorelease];
     if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-    [[tabbar_ selectedViewController] presentModalViewController:navigation animated:YES];
+    [container_ presentModalViewController:navigation animated:YES];
 
     [progress
         detachNewThreadSelector:@selector(update_)
@@ -7867,7 +7893,7 @@ static _finline void _setHomePage(Cydia *self) {
     [confirm_ setDelegate:self];
 
     if (IsWildcat_) [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
-    [[tabbar_ selectedViewController] presentModalViewController:confirm_ animated:YES];
+    [container_ presentModalViewController:confirm_ animated:YES];
 
     return true;
 }
@@ -7933,7 +7959,7 @@ static _finline void _setHomePage(Cydia *self) {
     } else {
         navigation = [[[UINavigationController alloc] initWithRootViewController:progress] autorelease];
         if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-        [[tabbar_ selectedViewController] presentModalViewController:navigation animated:YES];
+        [container_ presentModalViewController:navigation animated:YES];
     }
     
     [progress
@@ -8373,13 +8399,17 @@ static _finline void _setHomePage(Cydia *self) {
     for (int i = 0; i < [items count]; i++) {
         [[controllers objectAtIndex:i] setTabBarItem:[items objectAtIndex:i]];
     }
-    
+
     tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
-    [tabbar_ setUpdateDelegate:self];
     [tabbar_ setViewControllers:controllers];
     [tabbar_ setDelegate:self];
     [tabbar_ setSelectedIndex:0];
-    [window_ addSubview:[tabbar_ view]];
+
+    container_ = [[CYContainer alloc] initWithDatabase:database_];
+    [[container_ view] setFrame:[window_ bounds]];
+    [container_ setUpdateDelegate:self];
+    [container_ setRootController:tabbar_];
+    [window_ addSubview:[container_ view]];
 
     [UIKeyboard initImplementationNow];
 

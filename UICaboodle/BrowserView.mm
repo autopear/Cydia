@@ -1064,10 +1064,14 @@ static Class $UIWebBrowserView;
     return [customItem autorelease];
 }
 
+- (void) applyLoadingTitle {
+    [[self navigationItem] setTitle:UCLocalize("LOADING")];
+}
+
 - (void) applyRightButton {
 	if ([self isLoading]) {
 	    [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
-	    [[self navigationItem] setTitle:UCLocalize("LOADING")];
+        [self applyLoadingTitle];
     } else if (button_) {
         [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
     } else {

@@ -5264,7 +5264,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadButtonClicked {
-    // You don't reload a package view by clicking the button.
+    // Don't reload a package view by clicking the button.
+}
+
+- (void) applyLoadingTitle {
+    // Don't show "Loading" as the title. Ever.
 }
 #endif
 

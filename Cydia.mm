@@ -351,11 +351,9 @@ static _finline NSString *CydiaURL(NSString *path) {
 }
 
 - (int) yieldToPopupAlertAnimated:(BOOL)animated {
+    [self setRunsModal:YES];
     button_ = 0;
     [self show];
-    NSRunLoop *loop([NSRunLoop currentRunLoop]);
-    NSDate *future([NSDate distantFuture]);
-    while (button_ == 0 && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
     return button_;
 }
 

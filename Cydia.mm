@@ -7180,14 +7180,21 @@ freeing the view controllers on tab change */
 - (id) title { return nil; }
 
 - (id) initWithDatabase:(Database *)database {
-    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil]) != nil) {
-        search_ = [[objc_getClass("UISearchBar") alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
+    return [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+	[super viewDidAppear:animated];
+	if (!search_) {
+        search_ = [[objc_getClass("UISearchBar") alloc] initWithFrame:CGRectMake(0, 0, [[self view] bounds].size.width, 44.0f)];
+        [search_ layoutSubviews];
         [search_ setPlaceholder:UCLocalize("SEARCH_EX")];
-        [search_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
+        UITextField *textField = [search_ searchField];
+        [textField setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [search_ setDelegate:self];
-        [[search_ searchField] setEnablesReturnKeyAutomatically:NO];
-        [[self navigationItem] setTitleView:search_];
-    } return self;
+        [textField setEnablesReturnKeyAutomatically:NO];
+        [[self navigationItem] setTitleView:textField];
+    }
 }
 
 - (void) _reloadData {

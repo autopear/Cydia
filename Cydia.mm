@@ -6934,6 +6934,7 @@ freeing the view controllers on tab change */
     NSMutableArray *sections_;
     UITableView *list_;
     unsigned upgrades_;
+    BOOL hasSentFirstLoad_;
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate;
@@ -6955,7 +6956,12 @@ freeing the view controllers on tab change */
 
 - (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+    if (!hasSentFirstLoad_) {
+        hasSentFirstLoad_ = YES;
+        [self performSelector:@selector(reloadData) withObject:nil afterDelay:0.0];
+    } else {
+        [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+    }
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
@@ -7030,7 +7036,6 @@ freeing the view controllers on tab change */
         [list_ setDelegate:self];
 
         delegate_ = delegate;
-        [self reloadData];
     } return self;
 }
 

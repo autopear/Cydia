@@ -3899,7 +3899,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-@interface CYBrowserController : BrowserView {
+@interface CYBrowserController : BrowserController {
     CydiaObject *cydia_;
 }
 
@@ -4162,7 +4162,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) didFinishLoading {
+- (void) applyRightButton {
     UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("CONFIRM")
         style:UIBarButtonItemStylePlain
@@ -4170,8 +4170,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         action:@selector(confirmButtonClicked)
     ];
 #if !AlwaysReload && !IgnoreInstall
-    if (issues_ == nil) [[self navigationItem] setRightBarButtonItem:rightItem];
-    else [[self navigationItem] setRightBarButtonItem:nil];
+    if (issues_ == nil && ![self isLoading]) [[self navigationItem] setRightBarButtonItem:rightItem];
+    else [super applyRightButton];
+#else
+	[[self navigationItem] setRightBarButtonItem:nil];
 #endif
     [rightItem release];
 }
@@ -5256,9 +5258,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) actionButtonClicked {
-    if (commercial_ && [self isLoading])
-        [super _rightButtonClicked];
-    else
+	// Never reload, that's bad. However, do nothing unless we are loaded.
+	// (Because free packages are never loading, their button will always work.)
+    if (![self isLoading])
         [self _actionButtonClicked];
 }
 #endif
@@ -5328,7 +5330,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) didFinishLoading {
+- (void) applyRightButton {
     int count = [buttons_ count];
     UIBarButtonItem *actionItem = [[UIBarButtonItem alloc]
         initWithTitle:count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0]
@@ -5336,7 +5338,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target:self
         action:@selector(actionButtonClicked)
     ];
-    [[self navigationItem] setRightBarButtonItem:actionItem];
+    if (![self isLoading]) [[self navigationItem] setRightBarButtonItem:actionItem];
+	else [super applyRightButton];
     [actionItem release];
 }
 

@@ -6898,7 +6898,7 @@ freeing the view controllers on tab change */
         target:self
         action:@selector(editButtonClicked)
     ];
-    [[self navigationItem] setRightBarButtonItem:rightItem];
+    [[self navigationItem] setRightBarButtonItem:rightItem animated:[[self navigationItem] rightBarButtonItem] != nil];
     [rightItem release];
 
     [list_ reloadData];

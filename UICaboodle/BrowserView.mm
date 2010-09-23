@@ -148,6 +148,30 @@ static Class $UIWebBrowserView;
 
 @end
 
+@interface BrowserViewActualView : UIView {
+@private
+    UIWebDocumentView *documentView;
+}
+@property (nonatomic, retain) UIWebDocumentView *documentView;
+@end
+
+@implementation BrowserViewActualView
+
+@synthesize documentView;
+
+- (void)dealloc {
+    [documentView release];
+    [super dealloc];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if ([documentView respondsToSelector:@selector(setMinimumSize:)])
+        [documentView setMinimumSize:documentView.bounds.size];
+}
+
+@end
+
 #define ShowInternals 0
 #define LogBrowser 1
 
@@ -1258,6 +1282,9 @@ static Class $UIWebBrowserView;
         loading_ = [[NSMutableSet alloc] initWithCapacity:3];
         popup_ = false;
 
+        BrowserViewActualView *actualView = [[BrowserViewActualView alloc] initWithFrame:CGRectZero];
+        [self setView:actualView];
+        
         struct CGRect bounds = [[self view] bounds];
 
         scroller_ = [[objc_getClass(Wildcat_ ? "UIScrollView" : "UIScroller") alloc] initWithFrame:bounds];
@@ -1377,6 +1404,9 @@ static Class $UIWebBrowserView;
             else
                 [preferences _setLayoutInterval:0];
         }
+        
+        actualView.documentView = document_;
+        [actualView release];
 
         [self setViewportWidth:width];
 
@@ -1411,7 +1441,7 @@ static Class $UIWebBrowserView;
 
         [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-        [document_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [document_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 
         /*UIWebView *test([[[UIWebView alloc] initWithFrame:[[self view] bounds]] autorelease]);
         [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];

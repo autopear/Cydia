@@ -5295,7 +5295,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         if (special_ != NULL) {
             CGRect frame([document_ frame]);
-            frame.size.width = 320;
             frame.size.height = 0;
             [document_ setFrame:frame];
 

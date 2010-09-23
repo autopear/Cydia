@@ -6424,6 +6424,38 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation RefreshBar
 
+- (void) positionViews {
+    CGRect frame = [cancel_ frame];
+    frame.origin.x = [self frame].size.width - frame.size.width - 5;
+    frame.origin.y = ([self frame].size.height - frame.size.height) / 2;
+    [cancel_ setFrame:frame];
+    
+    CGSize prgsize = {75, 100};
+    CGRect prgrect = {{
+        [self frame].size.width - prgsize.width - 10,
+        ([self frame].size.height - prgsize.height) / 2
+    } , prgsize};
+    [progress_ setFrame:prgrect];
+    
+    CGSize indsize([UIProgressIndicator defaultSizeForStyle:[indicator_ activityIndicatorViewStyle]]);
+    unsigned indoffset = ([self frame].size.height - indsize.height) / 2;
+    CGRect indrect = {{indoffset, indoffset}, indsize};
+    [indicator_ setFrame:indrect];
+    
+    CGSize prmsize = {215, indsize.height + 4};
+    CGRect prmrect = {{
+        indoffset * 2 + indsize.width,
+        unsigned([self frame].size.height - prmsize.height) / 2 - 1
+    }, prmsize};
+    [prompt_ setFrame:prmrect];
+}
+
+- (void)setFrame:(CGRect)frame {
+    [super setFrame:frame];
+    
+    [self positionViews];
+}
+
 - (id) initWithFrame:(CGRect)frame delegate:(id)delegate {
     if ((self = [super initWithFrame:frame])) {
         [self setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
@@ -6438,57 +6470,28 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             UIProgressIndicatorStyleMediumBrown :
             UIProgressIndicatorStyleMediumWhite;
 
-        CGSize indsize([UIProgressIndicator defaultSizeForStyle:style]);
-        unsigned indoffset = ([self frame].size.height - indsize.height) / 2;
-        CGRect indrect = {{indoffset, indoffset}, indsize};
-
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:indrect];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectZero];
         [indicator_ setStyle:style];
+        [indicator_ startAnimation];
         [self addSubview:indicator_];
 
-        CGSize prmsize = {215, indsize.height + 4};
-
-        CGRect prmrect = {{
-            indoffset * 2 + indsize.width,
-            unsigned([self frame].size.height - prmsize.height) / 2 - 1
-        }, prmsize};
-
-        UIFont *font([UIFont systemFontOfSize:15]);
-
-        prompt_ = [[UITextLabel alloc] initWithFrame:prmrect];
-
+        prompt_ = [[UITextLabel alloc] initWithFrame:CGRectZero];
         [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : Off_)]];
         [prompt_ setBackgroundColor:[UIColor clearColor]];
-        [prompt_ setFont:font];
-
+        [prompt_ setFont:[UIFont systemFontOfSize:15]];
         [self addSubview:prompt_];
 
-        CGSize prgsize = {75, 100};
-
-        CGRect prgrect = {{
-            [self frame].size.width - prgsize.width - 10,
-            ([self frame].size.height - prgsize.height) / 2
-        } , prgsize};
-
-        progress_ = [[UIProgressBar alloc] initWithFrame:prgrect];
-        [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [self addSubview:progress_];
-
+        progress_ = [[UIProgressBar alloc] initWithFrame:CGRectZero];
+        [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin];
         [progress_ setStyle:0];
-
+        [self addSubview:progress_];
+        
         cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
-        [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ addTarget:delegate action:@selector(cancelPressed) forControlEvents:UIControlEventTouchUpInside];
-
-        CGRect frame = [cancel_ frame];
-        frame.origin.x = [self frame].size.width - frame.size.width - 5;
-        frame.origin.y = ([self frame].size.height - frame.size.height) / 2;
-        [cancel_ setFrame:frame];
-
-        [cancel_ setBarStyle:barstyle];    
-
-        [indicator_ startAnimation];
+        [cancel_ setBarStyle:barstyle];
+        
+        [self positionViews];
     } return self;
 }
 
@@ -7582,8 +7585,8 @@ freeing the view controllers on tab change */
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y += barframe.size.height;
-    viewframe.size.height -= barframe.size.height;
+    viewframe.origin.y += barframe.size.height + 20.0f;
+    viewframe.size.height -= barframe.size.height + 20.0f;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 
@@ -7604,8 +7607,8 @@ freeing the view controllers on tab change */
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y -= barframe.size.height;
-    viewframe.size.height += barframe.size.height;
+    viewframe.origin.y -= barframe.size.height + 20.0f;
+    viewframe.size.height += barframe.size.height + 20.0f;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 
@@ -7621,11 +7624,6 @@ freeing the view controllers on tab change */
     
     // XXX: fix Apple's layout bug
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-
-    // Resize refresh bar to fit the new size
-    CGRect barframe = [refreshbar_ frame];
-    barframe.size.width = [[self view] frame].size.width;
-    [refreshbar_ setFrame:barframe];
 }
 
 - (void) dealloc {
@@ -8012,7 +8010,7 @@ static _finline void _setHomePage(Cydia *self) {
     ];
 }
 
-- (void) progressViewIsComplete:(ProgressController *)progress {
+- (void) progressControllerIsComplete:(ProgressController *)progress {
     [self complete];
 }
 
@@ -8448,10 +8446,10 @@ static _finline void _setHomePage(Cydia *self) {
     [tabbar_ setSelectedIndex:0];
 
     container_ = [[CYContainer alloc] initWithDatabase:database_];
-    [[container_ view] setFrame:[window_ bounds]];
     [container_ setUpdateDelegate:self];
     [container_ setRootController:tabbar_];
     [window_ addSubview:[container_ view]];
+    [[tabbar_ view] setFrame:CGRectMake(0, -20.0f, [window_ bounds].size.width, [window_ bounds].size.height)];
 
     [UIKeyboard initImplementationNow];
 

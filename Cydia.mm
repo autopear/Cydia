@@ -8250,6 +8250,8 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) applicationSuspend:(__GSEvent *)event {
+    // FIXME: This needs to be fixed, but we no longer have a progress_.
+    //        What's the best solution?
     if (hud_ == nil)// && ![progress_ isRunning])
         [super applicationSuspend:event];
 }

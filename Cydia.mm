@@ -8518,6 +8518,26 @@ MSHook(void, UIWebDocumentView$_setUIKitDelegate$, UIWebDocumentView *self, SEL 
     return _UIWebDocumentView$_setUIKitDelegate$(self, _cmd, delegate);
 }
 
+static NSNumber *shouldPlayKeyboardSounds;
+
+Class $UIHardware;
+
+MSHook(void, UIHardware$_playSystemSound$, Class self, SEL _cmd, int soundIndex) {
+    switch (soundIndex) {
+        case 1104: // Keyboard Button Clicked
+        case 1105: // Keyboard Delete Repeated
+            if (!shouldPlayKeyboardSounds) {
+                NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.apple.preferences.sounds.plist"];
+                shouldPlayKeyboardSounds = [[dict objectForKey:@"keyboard"] ?: (id)kCFBooleanTrue retain];
+                [dict release];
+            }
+            if (![shouldPlayKeyboardSounds boolValue])
+                break;
+        default:
+            _UIHardware$_playSystemSound$(self, _cmd, soundIndex);
+    }
+}
+
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
@@ -8538,6 +8558,13 @@ int main(int argc, char *argv[]) { _pooled
     if (UIWebDocumentView$_setUIKitDelegate$ != NULL) {
         _UIWebDocumentView$_setUIKitDelegate$ = reinterpret_cast<void (*)(UIWebDocumentView *, SEL, id)>(method_getImplementation(UIWebDocumentView$_setUIKitDelegate$));
         method_setImplementation(UIWebDocumentView$_setUIKitDelegate$, reinterpret_cast<IMP>(&$UIWebDocumentView$_setUIKitDelegate$));
+    }
+
+    $UIHardware = objc_getClass("UIHardware");
+    Method UIHardware$_playSystemSound$(class_getClassMethod($UIHardware, @selector(_playSystemSound:)));
+    if (UIHardware$_playSystemSound$ != NULL) {
+        _UIHardware$_playSystemSound$ = reinterpret_cast<void (*)(Class, SEL, int)>(method_getImplementation(UIHardware$_playSystemSound$));
+        method_setImplementation(UIHardware$_playSystemSound$, reinterpret_cast<IMP>(&$UIHardware$_playSystemSound$));
     }
     /* }}} */
     /* Set Locale {{{ */

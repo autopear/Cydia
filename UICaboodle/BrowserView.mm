@@ -1071,6 +1071,7 @@ static Class $UIWebBrowserView;
 - (void) applyRightButton {
 	if ([self isLoading]) {
 	    [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
+	    [[loadingitem_ view] addSubview:indicator_];
         [self applyLoadingTitle];
     } else if (button_) {
         [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];

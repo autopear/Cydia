@@ -7213,6 +7213,11 @@ freeing the view controllers on tab change */
     [packages_ resetCursor];
 }
 
+- (void) didSelectPackage:(Package *)package {
+    [search_ resignFirstResponder];
+    [super didSelectPackage:package];
+}
+
 @end
 /* }}} */
 /* Settings Controller {{{ */

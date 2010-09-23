@@ -1221,10 +1221,10 @@ bool isSectionVisible(NSString *section) {
 - (void) setConfigurationData:(NSString *)data;
 @end
 
-@class PackageView;
+@class PackageController;
 
 @protocol CydiaDelegate
-- (void) setPackageView:(PackageView *)view;
+- (void) setPackageController:(PackageController *)view;
 - (void) clearPackage:(Package *)package;
 - (void) installPackage:(Package *)package;
 - (void) installPackages:(NSArray *)packages;
@@ -1236,7 +1236,7 @@ bool isSectionVisible(NSString *section) {
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (UIViewController *) pageForPackage:(NSString *)name;
-- (PackageView *) packageView;
+- (PackageController *) packageController;
 @end
 /* }}} */
 
@@ -3616,7 +3616,7 @@ static NSString *Warning_;
 @end
 /* }}} */
 
-/* Confirmation View {{{ */
+/* Confirmation Controller {{{ */
 bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!iterator.end())
         for (pkgCache::DepIterator dep(iterator.DependsList()); !dep.end(); ++dep) {
@@ -3979,13 +3979,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@protocol ConfirmationViewDelegate
+@protocol ConfirmationControllerDelegate
 - (void) cancelAndClear:(bool)clear;
 - (void) confirmWithNavigationController:(UINavigationController *)navigation;
 - (void) queue;
 @end
 
-@interface ConfirmationView : CYBrowserController {
+@interface ConfirmationController : CYBrowserController {
     _transient Database *database_;
     UIAlertView *essential_;
     NSArray *changes_;
@@ -3998,7 +3998,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation ConfirmationView
+@implementation ConfirmationController
 
 - (void) dealloc {
     [changes_ release];
@@ -4239,8 +4239,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Progress View {{{ */
-@interface ProgressView : CYViewController <
+/* Progress Controller {{{ */
+@interface ProgressController : CYViewController <
     ConfigurationDelegate,
     ProgressDelegate
 > {
@@ -4265,11 +4265,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@protocol ProgressViewDelegate
-- (void) progressViewIsComplete:(ProgressView *)sender;
+@protocol ProgressControllerDelegate
+- (void) progressControllerIsComplete:(ProgressController *)sender;
 @end
 
-@implementation ProgressView
+@implementation ProgressController
 
 - (void) dealloc {
     [database_ setDelegate:nil];
@@ -4420,7 +4420,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [status_ removeFromSuperview];
 
     [database_ popErrorWithTitle:title_];
-    [delegate_ progressViewIsComplete:self];
+    [delegate_ progressControllerIsComplete:self];
 
     if (Finish_ < 4) {
         FileFd file;
@@ -5140,8 +5140,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Package View {{{ */
-@interface PackageView : CYBrowserController {
+/* Package Controller {{{ */
+@interface PackageController : CYBrowserController {
     _transient Database *database_;
     Package *package_;
     NSString *name_;
@@ -5154,7 +5154,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation PackageView
+@implementation PackageController
 
 - (void) dealloc {
     if (package_ != nil)
@@ -5167,7 +5167,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) release {
     if ([self retainCount] == 1)
-        [delegate_ setPackageView:self];
+        [delegate_ setPackageController:self];
     [super release];
 }
 
@@ -5592,8 +5592,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Filtered Package View {{{ */
-@interface FilteredPackageView : CYViewController {
+/* Filtered Package Controller {{{ */
+@interface FilteredPackageController : CYViewController {
     _transient Database *database_;
     FilteredPackageTable *packages_;
     NSString *title_;
@@ -5603,7 +5603,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
     
-@implementation FilteredPackageView
+@implementation FilteredPackageController
 
 - (void) dealloc {
     [packages_ release];
@@ -5618,7 +5618,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) didSelectPackage:(Package *)package {
-    PackageView *view([delegate_ packageView]);
+    PackageController *view([delegate_ packageController]);
     [view setPackage:package];
     [view setDelegate:delegate_];
     [[self navigationController] pushViewController:view animated:YES];
@@ -5659,8 +5659,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     
 /* }}} */
 
-/* Add Source View {{{ */
-@interface AddSourceView : CYViewController {
+/* Add Source Controller {{{ */
+@interface AddSourceController : CYViewController {
     _transient Database *database_;
 }
 
@@ -5668,7 +5668,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation AddSourceView
+@implementation AddSourceController
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
@@ -5886,7 +5886,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     Source *source = [self sourceAtIndexPath:indexPath];
 
-    FilteredPackageView *packages = [[[FilteredPackageView alloc]
+    FilteredPackageController *packages = [[[FilteredPackageController alloc]
         initWithDatabase:database_
         title:[source label]
         filter:@selector(isVisibleInSource:)
@@ -6155,7 +6155,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) addButtonClicked {
-    /*[book_ pushPage:[[[AddSourceView alloc]
+    /*[book_ pushPage:[[[AddSourceController alloc]
         initWithBook:book_
         database:database_
     ] autorelease]];*/
@@ -6213,8 +6213,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Installed View {{{ */
-@interface InstalledView : FilteredPackageView {
+/* Installed Controller {{{ */
+@interface InstalledController : FilteredPackageController {
     BOOL expert_;
 }
 
@@ -6222,7 +6222,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation InstalledView
+@implementation InstalledController
 
 - (void) dealloc {
     [super dealloc];
@@ -6290,13 +6290,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Home View {{{ */
-@interface HomeView : CYBrowserController {
+/* Home Controller {{{ */
+@interface HomeController : CYBrowserController {
 }
 
 @end
 
-@implementation HomeView
+@implementation HomeController
 
 - (void) _setMoreHeaders:(NSMutableURLRequest *)request {
     [super _setMoreHeaders:request];
@@ -6347,13 +6347,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Manage View {{{ */
-@interface ManageView : CYBrowserController {
+/* Manage Controller {{{ */
+@interface ManageController : CYBrowserController {
 }
 
 @end
 
-@implementation ManageView
+@implementation ManageController
 
 - (id) init {
     if ((self = [super init]) != nil) {
@@ -6696,8 +6696,8 @@ freeing the view controllers on tab change */
 @end
 /* }}} */
 
-/* Sections View {{{ */
-@interface SectionsView : CYViewController {
+/* Sections Controller {{{ */
+@interface SectionsController : CYViewController {
     _transient Database *database_;
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
@@ -6712,7 +6712,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation SectionsView
+@implementation SectionsController
 
 - (void) dealloc {
     [list_ setDataSource:nil];
@@ -6772,7 +6772,7 @@ freeing the view controllers on tab change */
         }
     }
 
-    FilteredPackageView *table = [[[FilteredPackageView alloc]
+    FilteredPackageController *table = [[[FilteredPackageController alloc]
         initWithDatabase:database_
         title:title
         filter:@selector(isVisibleInSection:)
@@ -6924,8 +6924,8 @@ freeing the view controllers on tab change */
 
 @end
 /* }}} */
-/* Changes View {{{ */
-@interface ChangesView : CYViewController {
+/* Changes Controller {{{ */
+@interface ChangesController : CYViewController {
     _transient Database *database_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
@@ -6938,7 +6938,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation ChangesView
+@implementation ChangesController
 
 - (void) dealloc {
     [list_ setDelegate:nil];
@@ -6993,7 +6993,7 @@ freeing the view controllers on tab change */
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
-    PackageView *view([delegate_ packageView]);
+    PackageController *view([delegate_ packageController]);
     [view setDelegate:delegate_];
     [view setPackage:package];
     [[self navigationController] pushViewController:view animated:YES];
@@ -7077,7 +7077,7 @@ freeing the view controllers on tab change */
             unseens = true;
             NSDate *seen;
 
-            _profile(ChangesView$reloadData$Remember)
+            _profile(ChangesController$reloadData$Remember)
                 seen = [package seen];
             _end
 
@@ -7092,7 +7092,7 @@ freeing the view controllers on tab change */
                     [name autorelease];
                 }
 
-                _profile(ChangesView$reloadData$Allocate)
+                _profile(ChangesController$reloadData$Allocate)
                     name = [NSString stringWithFormat:UCLocalize("NEW_AT"), name];
                     section = [[[Section alloc] initWithName:name row:offset localize:NO] autorelease];
                     [sections_ addObject:section];
@@ -7146,8 +7146,8 @@ freeing the view controllers on tab change */
 
 @end
 /* }}} */
-/* Search View {{{ */
-@interface SearchView : FilteredPackageView {
+/* Search Controller {{{ */
+@interface SearchController : FilteredPackageController {
     id search_;
 }
 
@@ -7156,7 +7156,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation SearchView
+@implementation SearchController
 
 - (void) dealloc {
     [search_ release];
@@ -7191,7 +7191,7 @@ freeing the view controllers on tab change */
 }
 
 - (void) reloadData {
-    _profile(SearchView$reloadData)
+    _profile(SearchController$reloadData)
         [packages_ reloadData];
     _end
     PrintTimes();
@@ -7200,8 +7200,8 @@ freeing the view controllers on tab change */
 
 @end
 /* }}} */
-/* Settings View {{{ */
-@interface SettingsView : CYViewController {
+/* Settings Controller {{{ */
+@interface SettingsController : CYViewController {
     _transient Database *database_;
     NSString *name_;
     Package *package_;
@@ -7216,7 +7216,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation SettingsView
+@implementation SettingsController
 
 - (void) dealloc {
     [table_ setDataSource:nil];
@@ -7389,8 +7389,8 @@ freeing the view controllers on tab change */
 @end
 /* }}} */
 
-/* Signature View {{{ */
-@interface SignatureView : CYBrowserController {
+/* Signature Controller {{{ */
+@interface SignatureController : CYBrowserController {
     _transient Database *database_;
     NSString *package_;
 }
@@ -7399,7 +7399,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation SignatureView
+@implementation SignatureController
 
 - (void) dealloc {
     [package_ release];
@@ -7657,8 +7657,8 @@ typedef enum {
 } CYTabTag;
 
 @interface Cydia : UIApplication <
-    ConfirmationViewDelegate,
-    ProgressViewDelegate,
+    ConfirmationControllerDelegate,
+    ProgressControllerDelegate,
     CydiaDelegate
 > {
     UIWindow *window_;
@@ -7676,12 +7676,12 @@ typedef enum {
     UIKeyboard *keyboard_;
     UIProgressHUD *hud_;
 
-    SectionsView *sections_;
-    ChangesView *changes_;
-    ManageView *manage_;
-    SearchView *search_;
+    SectionsController *sections_;
+    ChangesController *changes_;
+    ManageController *manage_;
+    SearchController *search_;
     SourceTable *sources_;
-    InstalledView *installed_;
+    InstalledController *installed_;
     id queueDelegate_;
 
 #if RecyclePackageViews
@@ -7697,7 +7697,7 @@ typedef enum {
 @end
 
 static _finline void _setHomePage(Cydia *self) {
-    [self setPage:[self _pageForURL:[NSURL URLWithString:CydiaURL(@"")] withClass:[HomeView class]]];
+    [self setPage:[self _pageForURL:[NSURL URLWithString:CydiaURL(@"")] withClass:[HomeController class]]];
 }
 
 @implementation Cydia
@@ -7894,7 +7894,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     [self _saveConfig];
 
-    ProgressView *progress = [[[ProgressView alloc] initWithDatabase:database_ delegate:self] autorelease];
+    ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
     UINavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
     if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:navigation animated:YES];
@@ -7929,7 +7929,7 @@ static _finline void _setHomePage(Cydia *self) {
     if (![database_ prepare])
         return false;
 
-    ConfirmationView *page([[[ConfirmationView alloc] initWithDatabase:database_] autorelease]);
+    ConfirmationController *page([[[ConfirmationController alloc] initWithDatabase:database_] autorelease]);
     [page setDelegate:self];
     id confirm_ = [[CYNavigationController alloc] initWithRootViewController:page];
     [confirm_ setDelegate:self];
@@ -7994,7 +7994,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
-    ProgressView *progress = [[[ProgressView alloc] initWithDatabase:database_ delegate:self] autorelease];
+    ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
     
     if (navigation != nil) {
         [navigation pushViewController:progress animated:YES];
@@ -8012,7 +8012,7 @@ static _finline void _setHomePage(Cydia *self) {
     ];
 }
 
-- (void) progressViewIsComplete:(ProgressView *)progress {
+- (void) progressViewIsComplete:(ProgressController *)progress {
     [self complete];
 }
 
@@ -8032,44 +8032,44 @@ static _finline void _setHomePage(Cydia *self) {
     return browser;
 }
 
-- (SectionsView *) sectionsView {
+- (SectionsController *) sectionsController {
     if (sections_ == nil)
-        sections_ = [[SectionsView alloc] initWithDatabase:database_];
+        sections_ = [[SectionsController alloc] initWithDatabase:database_];
     return sections_;
 }
 
-- (ChangesView *) changesView {
+- (ChangesController *) changesController {
     if (changes_ == nil)
-        changes_ = [[ChangesView alloc] initWithDatabase:database_ delegate:self];
+        changes_ = [[ChangesController alloc] initWithDatabase:database_ delegate:self];
     return changes_;
 }
 
-- (ManageView *) manageView {
+- (ManageController *) manageController {
     if (manage_ == nil) {
-        manage_ = (ManageView *) [[self
+        manage_ = (ManageController *) [[self
             _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
-            withClass:[ManageView class]
+            withClass:[ManageController class]
         ] retain];
         if (!IsWildcat_) queueDelegate_ = manage_;
     }
     return manage_;
 }
 
-- (SearchView *) searchView {
+- (SearchController *) searchController {
     if (search_ == nil)
-        search_ = [[SearchView alloc] initWithDatabase:database_];
+        search_ = [[SearchController alloc] initWithDatabase:database_];
     return search_;
 }
 
-- (SourceTable *) sourcesView {
+- (SourceTable *) sourcesController {
     if (sources_ == nil)
         sources_ = [[SourceTable alloc] initWithDatabase:database_];
     return sources_;
 }
 
-- (InstalledView *) installedView {
+- (InstalledController *) installedController {
     if (installed_ == nil) {
-        installed_ = [[InstalledView alloc] initWithDatabase:database_];
+        installed_ = [[InstalledController alloc] initWithDatabase:database_];
         if (IsWildcat_) queueDelegate_ = installed_;
     }
     return installed_;
@@ -8081,18 +8081,18 @@ static _finline void _setHomePage(Cydia *self) {
         [[tabbar_ selectedViewController] popToRootViewControllerAnimated:YES];
         return;
     } else if (tag_ == 1) {
-        [[self sectionsView] resetView];
+        [[self sectionsController] resetView];
     }
 
     switch (tag) {
         case kCydiaTag: _setHomePage(self); break;
 
-        case kSectionsTag: [self setPage:[self sectionsView]]; break;
-        case kChangesTag: [self setPage:[self changesView]]; break;
-        case kManageTag: [self setPage:[self manageView]]; break;
-        case kInstalledTag: [self setPage:[self installedView]]; break;
-        case kSourcesTag: [self setPage:[self sourcesView]]; break;
-        case kSearchTag: [self setPage:[self searchView]]; break;
+        case kSectionsTag: [self setPage:[self sectionsController]]; break;
+        case kChangesTag: [self setPage:[self changesController]]; break;
+        case kManageTag: [self setPage:[self manageController]]; break;
+        case kInstalledTag: [self setPage:[self installedController]]; break;
+        case kSourcesTag: [self setPage:[self sourcesController]]; break;
+        case kSearchTag: [self setPage:[self searchController]]; break;
 
         _nodefault
     }
@@ -8136,7 +8136,7 @@ static _finline void _setHomePage(Cydia *self) {
     [role dismiss];
 }
 
-- (void) setPackageView:(PackageView *)view {
+- (void) setPackageController:(PackageController *)view {
     WebThreadLock();
     [view setPackage:nil];
 #if RecyclePackageViews
@@ -8146,19 +8146,19 @@ static _finline void _setHomePage(Cydia *self) {
     WebThreadUnlock();
 }
 
-- (PackageView *) _packageView {
-    return [[[PackageView alloc] initWithDatabase:database_] autorelease];
+- (PackageController *) _packageController {
+    return [[[PackageController alloc] initWithDatabase:database_] autorelease];
 }
 
-- (PackageView *) packageView {
+- (PackageController *) packageController {
 #if RecyclePackageViews
-    PackageView *view;
+    PackageController *view;
     size_t count([details_ count]);
 
     if (count == 0) {
-        view = [self _packageView];
+        view = [self _packageController];
       renew:
-        [details_ addObject:[self _packageView]];
+        [details_ addObject:[self _packageController]];
     } else {
         view = [[[details_ lastObject] retain] autorelease];
         [details_ removeLastObject];
@@ -8168,7 +8168,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     return view;
 #else
-    return [self _packageView];
+    return [self _packageController];
 #endif
 }
 
@@ -8284,7 +8284,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (UIViewController *) pageForPackage:(NSString *)name {
     if (Package *package = [database_ packageWithName:name]) {
-        PackageView *view([self packageView]);
+        PackageController *view([self packageController]);
         [view setPackage:package];
         return view;
     } else {
@@ -8313,21 +8313,21 @@ static _finline void _setHomePage(Cydia *self) {
         path = [@"/" stringByAppendingString:path];
 
     if ([path isEqualToString:@"/add-source"])
-        return [[[AddSourceView alloc] initWithDatabase:database_] autorelease];
+        return [[[AddSourceController alloc] initWithDatabase:database_] autorelease];
     else if ([path isEqualToString:@"/storage"])
         return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CYBrowserController class]];
     else if ([path isEqualToString:@"/sources"])
         return [[[SourceTable alloc] initWithDatabase:database_] autorelease];
     else if ([path isEqualToString:@"/packages"])
-        return [[[InstalledView alloc] initWithDatabase:database_] autorelease];
+        return [[[InstalledController alloc] initWithDatabase:database_] autorelease];
     else if ([path hasPrefix:@"/url/"])
         return [self _pageForURL:[NSURL URLWithString:[path substringFromIndex:5]] withClass:[CYBrowserController class]];
     else if ([path hasPrefix:@"/launch/"])
         [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
     else if ([path hasPrefix:@"/package-settings/"])
-        return [[[SettingsView alloc] initWithDatabase:database_ package:[path substringFromIndex:18]] autorelease];
+        return [[[SettingsController alloc] initWithDatabase:database_ package:[path substringFromIndex:18]] autorelease];
     else if ([path hasPrefix:@"/package-signature/"])
-        return [[[SignatureView alloc] initWithDatabase:database_ package:[path substringFromIndex:19]] autorelease];
+        return [[[SignatureController alloc] initWithDatabase:database_ package:[path substringFromIndex:19]] autorelease];
     else if ([path hasPrefix:@"/package/"])
         return [self pageForPackage:[path substringFromIndex:9]];
     else if ([path hasPrefix:@"/files/"]) {
@@ -8459,8 +8459,8 @@ static _finline void _setHomePage(Cydia *self) {
 
 #if RecyclePackageViews
     details_ = [[NSMutableArray alloc] initWithCapacity:4];
-    [details_ addObject:[self _packageView]];
-    [details_ addObject:[self _packageView]];
+    [details_ addObject:[self _packageController]];
+    [details_ addObject:[self _packageController]];
 #endif
 
     PrintTimes();

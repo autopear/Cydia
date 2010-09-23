@@ -7616,6 +7616,12 @@ freeing the view controllers on tab change */
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
 
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration
+{
+    // XXX: fix Apple's layout bug
+    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
 - (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     if (dropped_) {
         [self raiseBar:NO];

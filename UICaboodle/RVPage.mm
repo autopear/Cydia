@@ -9,9 +9,6 @@
 - (void)setDelegate:(id)delegate {
 	delegate_ = delegate;
 }
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-	return NO; /* XXX: return YES; */
-}
 - (void) reloadData {
 }
 @end

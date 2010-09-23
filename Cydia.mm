@@ -8270,7 +8270,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     [window_ setUserInteractionEnabled:NO];
     [hud show:YES];
-    [window_ addSubview:hud];
+    [[container_ view] addSubview:hud];
     return hud;
 }
 

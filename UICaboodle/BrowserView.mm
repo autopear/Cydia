@@ -148,14 +148,14 @@ static Class $UIWebBrowserView;
 
 @end
 
-@interface BrowserViewActualView : UIView {
+@interface BrowserView : UIView {
 @private
     UIWebDocumentView *documentView;
 }
 @property (nonatomic, retain) UIWebDocumentView *documentView;
 @end
 
-@implementation BrowserViewActualView
+@implementation BrowserView
 
 @synthesize documentView;
 
@@ -177,7 +177,7 @@ static Class $UIWebBrowserView;
 
 #define lprintf(args...) fprintf(stderr, args)
 
-@implementation BrowserView
+@implementation BrowserController
 
 #if ShowInternals
 #include "UICaboodle/UCInternal.h"
@@ -207,7 +207,7 @@ static Class $UIWebBrowserView;
 
 - (void) dealloc {
 #if LogBrowser
-    NSLog(@"[BrowserView dealloc]");
+    NSLog(@"[BrowserController dealloc]");
 #endif
 
     if (challenge_ != nil)
@@ -555,7 +555,7 @@ static Class $UIWebBrowserView;
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 
-	[self reloadButtons];
+	[self applyRightButton];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -571,7 +571,7 @@ static Class $UIWebBrowserView;
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 
-	[self reloadButtons];
+	[self applyRightButton];
 }
 
 - (void) setFinishHook:(id)function {
@@ -645,7 +645,7 @@ static Class $UIWebBrowserView;
                 if (page == nil) {
                     /* XXX: call createWebViewWithRequest instead? */
 
-                    BrowserView *browser([[[class_ alloc] init] autorelease]);
+                    BrowserController *browser([[[class_ alloc] init] autorelease]);
                     [browser loadURL:url];
                     page = browser;
                 }
@@ -914,7 +914,7 @@ static Class $UIWebBrowserView;
     UCNavigationController *navigation(!popup_ ? [self navigationController] : [[[UCNavigationController alloc] init] autorelease]);
 
     /* XXX: deal with cydia:// pages */
-    BrowserView *browser([[[class_ alloc] initWithWidth:width] autorelease]);
+    BrowserController *browser([[[class_ alloc] initWithWidth:width] autorelease]);
 
     if (features != nil && popup_) {
         [navigation setDelegate:delegate_];
@@ -1031,10 +1031,37 @@ static Class $UIWebBrowserView;
         }
     }
 
-	[self reloadButtons];
+	[self _startLoading];
 }
 
-- (void) didFinishLoading { }
+- (void) applyRightButton {
+	if ([self isLoading]) {
+        UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
+	        initWithTitle:@" "
+	        style:UIBarButtonItemStylePlain
+	        target:self
+	        action:@selector(reloadButtonClicked)
+	    ];
+	    [[self navigationItem] setRightBarButtonItem:reloadItem];
+		[[reloadItem view] addSubview:indicator_];
+		[[self navigationItem] setTitle:UCLocalize("LOADING")];
+	    [reloadItem release];
+    } else {
+		UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
+			initWithTitle:button_ ?: UCLocalize("RELOAD")
+			style:[self rightButtonStyle]
+			target:self
+			action:button_ ? @selector(customButtonClicked) : @selector(reloadButtonClicked)
+		];
+		[[self navigationItem] setRightBarButtonItem:reloadItem animated:YES];
+		[[self navigationItem] setTitle:title_];
+		[reloadItem release];
+	}
+}
+
+- (void) _startLoading {
+    [self applyRightButton];
+}
 
 - (void) _finishLoading {
     size_t count([loading_ count]);
@@ -1045,7 +1072,7 @@ static Class $UIWebBrowserView;
     if (finish_ != nil)
         [self callFunction:finish_];
 
-	[self reloadButtons];
+	[self applyRightButton];
 }
 
 - (bool) isLoading {
@@ -1282,7 +1309,7 @@ static Class $UIWebBrowserView;
         loading_ = [[NSMutableSet alloc] initWithCapacity:3];
         popup_ = false;
 
-        BrowserViewActualView *actualView = [[BrowserViewActualView alloc] initWithFrame:CGRectZero];
+        BrowserView *actualView = [[BrowserView alloc] initWithFrame:CGRectZero];
         [self setView:actualView];
         
         struct CGRect bounds = [[self view] bounds];
@@ -1502,18 +1529,18 @@ static Class $UIWebBrowserView;
         [self callFunction:closer_];
 }
 
-- (void) __rightButtonClicked {
+- (void) reloadButtonClicked {
     reloading_ = true;
     [self reloadURL];
 }
 
-- (void) _rightButtonClicked {
+- (void) customButtonClicked {
 #if !AlwaysReload
     if (function_ != nil)
         [self callFunction:function_];
     else
 #endif
-        [self __rightButtonClicked];
+		[self reloadButtonClicked];
 }
 
 - (UINavigationButtonStyle) rightButtonStyle {
@@ -1528,33 +1555,6 @@ static Class $UIWebBrowserView;
     else if ([style_ isEqualToString:@"Destructive"])
         return UINavigationButtonStyleDestructive;
     else goto normal;
-}
-
-- (void) reloadButtons {
-    if ([self isLoading]) {
-        UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
-	        initWithTitle:@" "
-	        style:UIBarButtonItemStylePlain
-	        target:self
-	        action:@selector(_rightButtonClicked)
-	    ];
-	    [[self navigationItem] setRightBarButtonItem:reloadItem];
-		[[reloadItem view] addSubview:indicator_];
-		[[self navigationItem] setTitle:UCLocalize("LOADING")];
-	    [reloadItem release];
-    } else {
-        UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
-	        initWithTitle:button_ ?: UCLocalize("RELOAD")
-			style:[self rightButtonStyle]
-	        target:self
-	        action:@selector(_rightButtonClicked)
-	    ];
-	    [[self navigationItem] setRightBarButtonItem:reloadItem animated:YES];
-		[[self navigationItem] setTitle:title_];
-	    [reloadItem release];
-	
-		if (function_ == nil) [self didFinishLoading];
-    }
 }
 
 - (void) setPageActive:(BOOL)active {

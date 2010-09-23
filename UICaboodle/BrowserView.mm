@@ -1054,7 +1054,6 @@ static Class $UIWebBrowserView;
 			action:button_ ? @selector(customButtonClicked) : @selector(reloadButtonClicked)
 		];
 		[[self navigationItem] setRightBarButtonItem:reloadItem animated:YES];
-		[[self navigationItem] setTitle:title_];
 		[reloadItem release];
 	}
 }
@@ -1073,6 +1072,7 @@ static Class $UIWebBrowserView;
         [self callFunction:finish_];
 
 	[self applyRightButton];
+	if (![self isLoading]) [[self navigationItem] setTitle:title_];
 }
 
 - (bool) isLoading {

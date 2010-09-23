@@ -342,6 +342,18 @@ static _finline NSString *CydiaURL(NSString *path) {
     } return self;
 }
 
+- (void)_updateFrameForDisplay {
+    [super _updateFrameForDisplay];
+    if ([self cancelButtonIndex] == -1) {
+        NSArray *buttons = [self buttons];
+        if ([buttons count]) {
+            UIImage *background = [[buttons objectAtIndex:0] backgroundForState:0];
+            for (UIThreePartButton *button in buttons)
+                [button setBackground:background forState:0];
+        }
+    }
+}
+
 - (void) alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     button_ = buttonIndex + 1;
 }

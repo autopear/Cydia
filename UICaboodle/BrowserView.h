@@ -39,11 +39,11 @@
 - (id) objectAtIndex:(unsigned)index;
 @end
 
-@protocol BrowserViewDelegate
+@protocol BrowserControllerDelegate
 - (UCViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 @end
 
-@interface BrowserView : UCViewController {
+@interface BrowserController : UCViewController {
     UIScroller *scroller_;
     UIWebDocumentView *document_;
     UIProgressIndicator *indicator_;
@@ -76,6 +76,9 @@
     bool editing_;
 
     Class class_;
+    
+    id reloaditem_;
+    id loadingitem_;
 }
 
 + (void) _initialize;
@@ -113,8 +116,6 @@
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
 - (void) setFinishHook:(id)function;
 - (void) setPopupHook:(id)function;
-
-- (id) _rightButtonTitle;
 
 - (bool) promptForSensitive:(NSString *)name;
 - (bool) allowSensitiveRequests;

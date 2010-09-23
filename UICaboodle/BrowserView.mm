@@ -279,6 +279,11 @@ static Class $UIWebBrowserView;
         [sensitive_ release];
     if (title_ != nil)
         [title_ release];
+    if (reloaditem_ != nil)
+        [reloaditem_ release];
+    if (loadingitem_ != nil)
+        [loadingitem_ release];
+        
     [super dealloc];
 }
 
@@ -1034,27 +1039,39 @@ static Class $UIWebBrowserView;
 	[self _startLoading];
 }
 
+- (UINavigationButtonStyle) rightButtonStyle {
+    if (style_ == nil) normal:
+        return UINavigationButtonStyleNormal;
+    else if ([style_ isEqualToString:@"Normal"])
+        return UINavigationButtonStyleNormal;
+    else if ([style_ isEqualToString:@"Back"])
+        return UINavigationButtonStyleBack;
+    else if ([style_ isEqualToString:@"Highlighted"])
+        return UINavigationButtonStyleHighlighted;
+    else if ([style_ isEqualToString:@"Destructive"])
+        return UINavigationButtonStyleDestructive;
+    else goto normal;
+}
+
+- (UIBarButtonItem *) customButton {
+    UIBarButtonItem *customItem = [[UIBarButtonItem alloc]
+		initWithTitle:button_
+		style:[self rightButtonStyle]
+		target:self
+		action:@selector(customButtonClicked)
+	];
+	
+    return [customItem autorelease];
+}
+
 - (void) applyRightButton {
 	if ([self isLoading]) {
-        UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
-	        initWithTitle:@" "
-	        style:UIBarButtonItemStylePlain
-	        target:self
-	        action:@selector(reloadButtonClicked)
-	    ];
-	    [[self navigationItem] setRightBarButtonItem:reloadItem];
-		[[reloadItem view] addSubview:indicator_];
-		[[self navigationItem] setTitle:UCLocalize("LOADING")];
-	    [reloadItem release];
+	    [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
+	    [[self navigationItem] setTitle:UCLocalize("LOADING")];
+    } else if (button_) {
+        [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
     } else {
-		UIBarButtonItem *reloadItem = [[UIBarButtonItem alloc]
-			initWithTitle:button_ ?: UCLocalize("RELOAD")
-			style:[self rightButtonStyle]
-			target:self
-			action:button_ ? @selector(customButtonClicked) : @selector(reloadButtonClicked)
-		];
-		[[self navigationItem] setRightBarButtonItem:reloadItem animated:YES];
-		[reloadItem release];
+        [[self navigationItem] setRightBarButtonItem:reloaditem_ animated:YES];
 	}
 }
 
@@ -1465,6 +1482,21 @@ static Class $UIWebBrowserView;
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(15, 5, indsize.width, indsize.height)];
         [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
 		[indicator_ startAnimation];
+		
+		reloaditem_ = [[UIBarButtonItem alloc]
+			initWithTitle:UCLocalize("RELOAD")
+			style:[self rightButtonStyle]
+			target:self
+			action:@selector(reloadButtonClicked)
+		];
+		
+	    loadingitem_ = [[UIBarButtonItem alloc]
+	        initWithTitle:@" "
+	        style:UIBarButtonItemStylePlain
+	        target:self
+	        action:@selector(reloadButtonClicked)
+	    ];
+		[[loadingitem_ view] addSubview:indicator_];
 
         [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
@@ -1541,20 +1573,6 @@ static Class $UIWebBrowserView;
     else
 #endif
 		[self reloadButtonClicked];
-}
-
-- (UINavigationButtonStyle) rightButtonStyle {
-    if (style_ == nil) normal:
-        return UINavigationButtonStyleNormal;
-    else if ([style_ isEqualToString:@"Normal"])
-        return UINavigationButtonStyleNormal;
-    else if ([style_ isEqualToString:@"Back"])
-        return UINavigationButtonStyleBack;
-    else if ([style_ isEqualToString:@"Highlighted"])
-        return UINavigationButtonStyleHighlighted;
-    else if ([style_ isEqualToString:@"Destructive"])
-        return UINavigationButtonStyleDestructive;
-    else goto normal;
 }
 
 - (void) setPageActive:(BOOL)active {

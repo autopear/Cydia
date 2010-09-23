@@ -5258,10 +5258,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) actionButtonClicked {
-	// Never reload, that's bad. However, do nothing unless we are loaded.
-	// (Because free packages are never loading, their button will always work.)
+	// Wait until it's done loading.
     if (![self isLoading])
         [self _actionButtonClicked];
+}
+
+- (void) reloadButtonClicked {
+    // You don't reload a package view by clicking the button.
 }
 #endif
 

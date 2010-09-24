@@ -6401,11 +6401,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) queueButtonClicked {
     [delegate_ queue];
 }
-#endif
 
-- (void) didFinishLoading {
-    [self queueStatusDidChange];
+- (void) applyLoadingTitle {
+    // No "Loading" title.
 }
+
+- (void) applyRightButton {
+    // No right button.
+}
+#endif
 
 - (void) queueStatusDidChange {
 #if !AlwaysReload

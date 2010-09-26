@@ -4020,22 +4020,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (void) actionSheet:(UIActionSheet *)sheet clickedButtonAtIndex:(NSInteger)button {
-    NSString *context([sheet context]);
-
-    if ([context isEqualToString:@"cancel"]) {
-        bool clear;
-
-        if      (button == [sheet cancelButtonIndex])      return;
-        else if (button == [sheet destructiveButtonIndex]) clear = true;
-        else                                               clear = false;
-        
-        [sheet dismissWithClickedButtonIndex:0xDEADBEEF animated:YES];
-        [self dismissModalViewControllerAnimated:YES];
-        [delegate_ cancelAndClear:clear];
-    }
-}
-
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
 
@@ -4187,20 +4171,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) cancelButtonClicked {
-    /*UIActionSheet *sheet = [[UIActionSheet alloc]
-        initWithTitle:nil
-        delegate:self
-        cancelButtonTitle:nil
-        destructiveButtonTitle:nil
-        otherButtonTitles:nil
-    ];
-
-    [sheet addButtonWithTitle:UCLocalize("CANCEL_CLEAR")];
-    [sheet setDestructiveButtonIndex:[sheet numberOfButtons] - 1];
-    [sheet addButtonWithTitle:UCLocalize("CONTINUE_QUEUING")];
-    [sheet setContext:@"cancel"];
-
-    [delegate_ showActionSheet:[sheet autorelease] fromItem:[[self navigationItem] leftBarButtonItem]];*/
     [self dismissModalViewControllerAnimated:YES];
     [delegate_ cancelAndClear:YES];
 }

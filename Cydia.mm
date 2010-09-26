@@ -116,6 +116,8 @@ extern "C" {
 
 #include <ext/hash_map>
 
+#include <notify.h>
+
 #import "UICaboodle/BrowserView.h"
 #import "UICaboodle/ResetView.h"
 
@@ -255,6 +257,15 @@ static _finline NSString *CydiaURL(NSString *path) {
     page[15] = 'u'; page[16] = 'r'; page[17] = 'i'; page[18] = 'k'; page[19] = '.';
     page[20] = 'c'; page[21] = 'o'; page[22] = 'm'; page[23] = '/'; page[24] = '\0';
     return [[NSString stringWithUTF8String:page] stringByAppendingString:path];
+}
+
+static _finline void UpdateExternalStatus(uint64_t newStatus) {
+    int notify_token;
+    if (notify_register_check("com.saurik.Cydia.status", &notify_token) == NOTIFY_STATUS_OK) {
+        notify_set_state(notify_token, newStatus);
+        notify_cancel(notify_token);
+    }
+    notify_post("com.saurik.Cydia.status");
 }
 
 /* [NSObject yieldToSelector:(withObject:)] {{{*/
@@ -4377,6 +4388,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) closeButtonPushed {
     running_ = NO;
 
+    UpdateExternalStatus(0);
+
     switch (Finish_) {
         case 0:
             [self dismissModalViewControllerAnimated:YES];
@@ -4450,6 +4463,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     system("su -c /usr/bin/uicache mobile");
 
+    UpdateExternalStatus(Finish_ == 0 ? 2 : 0);
+
     [delegate_ setStatusBarShowsProgress:NO];
 }
 
@@ -4461,6 +4476,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title {
+    UpdateExternalStatus(1);
+
     if (title_ != nil)
         [title_ release];
     if (title == nil)

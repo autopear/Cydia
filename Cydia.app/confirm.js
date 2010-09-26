@@ -15,6 +15,8 @@ $(function () {
         $("#resuming").html($.xml(resuming));
     } else for (var i = 0; i != issues.length; ++i) {
         document.title = cydia.localize("CANNOT_COMPLY");
+        
+        $(".queue").remove();
 
         $("._issues").remove();
 

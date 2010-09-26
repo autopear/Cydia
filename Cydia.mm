@@ -4057,11 +4057,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (id) invokeDefaultMethodWithArguments:(NSArray *)args {
+    [self dismissModalViewControllerAnimated:YES];
+    [delegate_ cancelAndClear:NO];
+    
+    return nil;
+}
+
 - (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:sender didClearWindowObject:window forFrame:frame];
     [window setValue:changes_ forKey:@"changes"];
     [window setValue:issues_ forKey:@"issues"];
     [window setValue:sizes_ forKey:@"sizes"];
+    [window setValue:self forKey:@"queue"];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -4152,7 +4160,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
 
         UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
-            initWithTitle:[NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
+            initWithTitle:UCLocalize("CANCEL")//[NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(cancelButtonClicked)
@@ -4179,7 +4187,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) cancelButtonClicked {
-    UIActionSheet *sheet = [[UIActionSheet alloc]
+    /*UIActionSheet *sheet = [[UIActionSheet alloc]
         initWithTitle:nil
         delegate:self
         cancelButtonTitle:nil
@@ -4192,7 +4200,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sheet addButtonWithTitle:UCLocalize("CONTINUE_QUEUING")];
     [sheet setContext:@"cancel"];
 
-    [delegate_ showActionSheet:[sheet autorelease] fromItem:[[self navigationItem] leftBarButtonItem]];
+    [delegate_ showActionSheet:[sheet autorelease] fromItem:[[self navigationItem] leftBarButtonItem]];*/
+    [self dismissModalViewControllerAnimated:YES];
+    [delegate_ cancelAndClear:YES];
 }
 
 #if !AlwaysReload
@@ -5067,9 +5077,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return files_ == nil ? 0 : [files_ count];
 }
 
-- (float) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 24;
-}
+/*- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 24.0f;
+}*/
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *reuseIdentifier = @"Cell";
@@ -5094,6 +5104,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         files_ = [[NSMutableArray arrayWithCapacity:32] retain];
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [list_ setRowHeight:24.0f];
         [[self view] addSubview:list_];
 
         [list_ setDataSource:self];
@@ -5436,10 +5448,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
 
-- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
-    return 73;
+/*- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
     return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
-}
+}*/
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
@@ -5471,6 +5482,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [list_ setRowHeight:73.0f];
         [self addSubview:list_];
 
         [list_ setDataSource:self];
@@ -6766,9 +6778,9 @@ freeing the view controllers on tab change */
     return editing_ ? [sections_ count] : [filtered_ count] + 1;
 }
 
-- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 45;
-}
+/*- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 45.0f;
+}*/
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *reuseIdentifier = @"SectionCell";
@@ -6824,6 +6836,7 @@ freeing the view controllers on tab change */
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [list_ setRowHeight:45.0f];
         [[self view] addSubview:list_];
 
         [list_ setDataSource:self];
@@ -7019,10 +7032,9 @@ freeing the view controllers on tab change */
     return cell;
 }
 
-- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
-    return 73;
+/*- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
     return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
-}
+}*/
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
@@ -7054,6 +7066,7 @@ freeing the view controllers on tab change */
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [list_ setRowHeight:73.0f];
         [[self view] addSubview:list_];
 
         [list_ setDataSource:self];

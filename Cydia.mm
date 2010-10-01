@@ -8400,6 +8400,13 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
+- (void) applicationWillResignActive:(UIApplication *)application {
+    // Stop refreshing if you get a phone call or lock the device.
+    if ([container_ updating]) [container_ cancelUpdate];
+    
+    [super applicationWillResignActive:application];
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
     [CYBrowserController _initialize];
 

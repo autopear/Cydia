@@ -26,6 +26,12 @@
         <key>Rename</key>
         <string>Themes_(SpringBoard)</string>
     </dict>
+    
+    <key>Themes_(Systen)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(System)</string>
+    </dict>
 
     <key>Intelliborn</key>
     <dict>
@@ -92,6 +98,12 @@
         <key>Rename</key>
         <string>Themes_(Complete)</string>
     </dict>
+    
+    <key>Themes_(Widgets)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(Addons)</string>
+    </dict>
 
     <key>Wallpapers</key>
     <dict>
@@ -109,6 +121,12 @@
     <dict>
         <key>Rename</key>
         <string>Networking</string>
+    </dict>
+    
+    <key>Ringtone</key>
+    <dict>
+        <key>Rename</key>
+        <string>Ringtones</string>
     </dict>
 
     <key>Tweak</key>
@@ -139,6 +157,30 @@
     <dict>
         <key>Rename</key>
         <string>Tweaks_(3.0)</string>
+    </dict>
+    
+    <key>SBSettings_Addons</key>
+    <dict>
+        <key>Rename</key>
+        <string>Addons_(SBSettings)</string>
+    </dict>
+    
+    <key>LockInfo_Addons</key>
+    <dict>
+        <key>Rename</key>
+        <string>Addons_(LockInfo)</string>
+    </dict>
+    
+    <key>App_Addons</key>
+    <dict>
+        <key>Rename</key>
+        <string>Addons</string>
+    </dict>
+    
+    <key>App_Addons_(Iconoclasm)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Addons_Iconoclasm)</string>
     </dict>
 </dict>
 

@@ -182,6 +182,12 @@
         <key>Rename</key>
         <string>Addons_(Iconoclasm)</string>
     </dict>
+    
+    <key>BossPaper_Addons</key>
+    <dict>
+        <key>Rename</key>
+        <string>Addons_(BossPaper)</string>
+    </dict>
 </dict>
 
 </plist>

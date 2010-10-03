@@ -7547,23 +7547,29 @@ freeing the view controllers on tab change */
 }
 
 - (void) save {
+    NSString *role = nil;
+    
     switch ([segment_ selectedSegmentIndex]) {
-        case 0: Role_ = @"User"; break;
-        case 1: Role_ = @"Hacker"; break;
-        case 2: Role_ = @"Developer"; break;
+        case 0: role = @"User"; break;
+        case 1: role = @"Hacker"; break;
+        case 2: role = @"Developer"; break;
 
         _nodefault
     }
 
-    Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        Role_, @"Role",
-    nil];
+    if (![role isEqualToString:Role_]) {
+        Role_ = role;
+        
+        Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+            Role_, @"Role",
+        nil];
 
-    [Metadata_ setObject:Settings_ forKey:@"Settings"];
+        [Metadata_ setObject:Settings_ forKey:@"Settings"];
 
-    Changed_ = true;
+        Changed_ = true;
     
-    [roledelegate_ updateData];
+        [roledelegate_ updateData];
+    }
 }
 
 - (void) segmentChanged:(UISegmentedControl *)control {

@@ -8307,7 +8307,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) showSettings {
     RoleController *role = [[RoleController alloc] initWithDatabase:database_ delegate:self];
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:role];
+    CYNavigationController *nav = [[CYNavigationController alloc] initWithRootViewController:role];
     if (IsWildcat_) [nav setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:nav animated:YES];
 }

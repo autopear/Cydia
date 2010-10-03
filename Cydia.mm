@@ -8544,9 +8544,12 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
-- (void) applicationWillResignActive:(UIApplication *)application {
+- (void) applicationWillResignActive:(UIApplication *)application {    
     // Stop refreshing if you get a phone call or lock the device.
     if ([container_ updating]) [container_ cancelUpdate];
+    
+    if ([[self superclass] instancesRespondToSelector:@selector(applicationWillResignActive:)])
+        [super applicationWillResignActive:application];
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {

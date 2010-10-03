@@ -7529,6 +7529,7 @@ freeing the view controllers on tab change */
         }
         
         [segment_ addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
+        [self resizeSegmentedControl];
         
         table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
         [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
@@ -7539,11 +7540,23 @@ freeing the view controllers on tab change */
     } return self;
 }
 
+- (void) resizeSegmentedControl {
+    CGFloat width = [[self view] frame].size.width;
+    [segment_ setFrame:CGRectMake(width / 32.0f, 0, width - (width / 32.0f * 2.0f), 44.0f)];
+}
+
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     
-    CGFloat width = [[self view] frame].size.width;
-    [segment_ setFrame:CGRectMake(width / 32.0f, 0, width - (width / 32.0f * 2.0f), 44.0f)];
+    [self resizeSegmentedControl];
+}
+
+- (void) willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
+    [self resizeSegmentedControl];
+}
+
+- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self resizeSegmentedControl];
 }
 
 - (void) save {
@@ -7593,7 +7606,8 @@ freeing the view controllers on tab change */
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
-    return 5;
+    // XXX: For not having a single cell in the table, this sure is a lot of sections.
+    return 6;
 }
 
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -7817,8 +7831,7 @@ freeing the view controllers on tab change */
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
 
-- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration
-{
+- (void) willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
     // XXX: fix Apple's layout bug
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }

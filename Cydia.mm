@@ -6222,6 +6222,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
     [[self navigationItem] setRightBarButtonItem:rightItem animated:animated];
     [rightItem release];
+    
+    if (IsWildcat_ && !editing) {
+        UIBarButtonItem *settingsItem = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("SETTINGS")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(settingsButtonClicked)
+            ];
+        [[self navigationItem] setLeftBarButtonItem:settingsItem];
+        [settingsItem release];
+    }
+}
+
+- (void) settingsButtonClicked {
+    [delegate_ showSettings];
 }
 
 - (void) editButtonClicked {
@@ -7503,8 +7518,6 @@ freeing the view controllers on tab change */
         segment_ = [[UISegmentedControl alloc] initWithItems:items];
         container_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
         [container_ addSubview:segment_];
-        CGFloat width = [[self view] frame].size.width;
-        [segment_ setFrame:CGRectMake(width / 32.0f, 0, width - (width / 32.0f * 2.0f), 44.0f)];
         
         int index = -1;
         if ([Role_ isEqualToString:@"User"]) index = 0;
@@ -7524,6 +7537,13 @@ freeing the view controllers on tab change */
         [[self view] addSubview:table_];
         [table_ reloadData];
     } return self;
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    
+    CGFloat width = [[self view] frame].size.width;
+    [segment_ setFrame:CGRectMake(width / 32.0f, 0, width - (width / 32.0f * 2.0f), 44.0f)];
 }
 
 - (void) save {
@@ -8282,6 +8302,7 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) showSettings {
     RoleController *role = [[RoleController alloc] initWithDatabase:database_ delegate:self];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:role];
+    if (IsWildcat_) [nav setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:nav animated:YES];
 }
 
@@ -8836,8 +8857,7 @@ int main(int argc, char *argv[]) { _pooled
     if (Metadata_ == NULL)
         Metadata_ = [NSMutableDictionary dictionaryWithCapacity:2];
     else {
-        
-        Role_ = [Metadata_ objectForKey:@"Settings"];
+        Settings_ = [Metadata_ objectForKey:@"Settings"];
 
         Packages_ = [Metadata_ objectForKey:@"Packages"];
         Sections_ = [Metadata_ objectForKey:@"Sections"];

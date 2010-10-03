@@ -42,7 +42,7 @@
 "DATABASE" = "Database";
 "DETAILS" = "Details";
 "DEVELOPER" = "Developer";
-"DEVELOPER_EX" = "No Filters";
+"DEVELOPER_EX" = "Everything, even scary internal stuff.";
 "DEVELOPERS_ONLY" = "Developers Only";
 "DISK_FREEING" = "Disk Freeing";
 "DISK_USING" = "Disk Using";
@@ -77,7 +77,7 @@
 "FROWNY_PANTS" = "Frowny Pants";
 "FUTURE_FEATURE_ROADMAP" = "Future Feature Roadmap";
 "HACKER" = "Hacker";
-"HACKER_EX" = "+ Command Line";
+"HACKER_EX" = "Adds Command Line tools.";
 "HALFINSTALLED_PACKAGE" = "Half-Installed Package";
 "HALFINSTALLED_PACKAGES" = "%d Half-Installed Packages";
 "HALFINSTALLED_PACKAGE_EX" = "When the shell scripts associated with packages fail, they are left in a bad state known as either half-configured or half-installed. These errors don't go away and instead continue to cause issues. These scripts can be deleted and the packages forcibly removed.";
@@ -153,7 +153,7 @@
 "RESUBMIT_FORM" = "Are you sure you want to submit this form again?";
 "RESUMING_AT" = "Resuming At";
 "RETURN_TO_CYDIA" = "Return to Cydia";
-"ROLE_EX" = "Not all of the packages available via Cydia are designed to be used by all users. Please categorize yourself so that Cydia can apply helpful filters.\n\nThis choice can be changed from \"Settings\" under the \"Manage\" tab.";
+"ROLE_EX" = "Not all of the packages available via Cydia are designed to be used by all users. Please categorize yourself so that Cydia can apply helpful filters.\n\nThis choice can be changed from \"Settings\" under the \"Manage\" tab (on the iPhone or iPod touch), or the \"Sources\" tab (on the iPad).";
 "RUNNING" = "Running";
 "SAFE" = "Safe";
 "SAMPLE" = "Sample";
@@ -198,7 +198,7 @@
 "UPGRADE_ESSENTIAL" = "Upgrade Essential";
 "UPGRADING_TO_READ_THIS" = "Upgrading to %@? Read This";
 "USER" = "User";
-"USER_EX" = "Graphical Only";
+"USER_EX" = "Apps, Tweaks, and Themes.";
 "USER_GUIDES" = "User Guides";
 "USERNAME" = "username";
 "VERIFICATION_ERROR" = "Verification Error";

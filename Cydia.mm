@@ -7563,7 +7563,7 @@ freeing the view controllers on tab change */
 
     Changed_ = true;
     
-    [delegate_ updateData];
+    [roledelegate_ updateData];
 }
 
 - (void) segmentChanged:(UISegmentedControl *)control {

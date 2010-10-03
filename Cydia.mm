@@ -1253,7 +1253,7 @@ bool isSectionVisible(NSString *section) {
 - (void) distUpgrade;
 - (void) updateData;
 - (void) syncData;
-- (void) askForSettings;
+- (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (UIViewController *) pageForPackage:(NSString *)name;
@@ -4155,7 +4155,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
 
         UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("CANCEL")//[NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
+            initWithTitle:UCLocalize("CANCEL")
+            // OLD: [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(cancelButtonClicked)
@@ -6392,8 +6393,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) settingsButtonClicked {
-    [delegate_ askForSettings];
-    [delegate_ updateData];
+    [delegate_ showSettings];
 }
 
 #if !AlwaysReload
@@ -7469,6 +7469,140 @@ freeing the view controllers on tab change */
 
 @end
 /* }}} */
+/* Role Controller {{{ */
+@interface RoleController : CYViewController {
+    _transient Database *database_;
+    id roledelegate_;
+    UITableView *table_;
+    UISegmentedControl *segment_;
+    UIView *container_;
+}
+@end
+
+@implementation RoleController
+- (void) dealloc {
+    [table_ release];
+    [segment_ release];
+    [container_ release];
+    
+    [super dealloc];
+}
+
+- (id) initWithDatabase:(Database *)database delegate:(id)delegate {
+    if ((self = [super init])) {
+        database_ = database;
+        roledelegate_ = delegate;
+        
+        [[self navigationItem] setTitle:UCLocalize("WHO_ARE_YOU")];
+        
+        NSArray *items = [NSArray arrayWithObjects:
+            UCLocalize("USER"), 
+            UCLocalize("HACKER"),
+            UCLocalize("DEVELOPER"),
+        nil];
+        segment_ = [[UISegmentedControl alloc] initWithItems:items];
+        container_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
+        [container_ addSubview:segment_];
+        CGFloat width = [[self view] frame].size.width;
+        [segment_ setFrame:CGRectMake(width / 32.0f, 0, width - (width / 32.0f * 2.0f), 44.0f)];
+        
+        int index = -1;
+        if ([Role_ isEqualToString:@"User"]) index = 0;
+        if ([Role_ isEqualToString:@"Hacker"]) index = 1;
+        if ([Role_ isEqualToString:@"Developer"]) index = 2;
+        if (index != -1) {
+            [segment_ setSelectedSegmentIndex:index];
+            [self showDoneButton];
+        }
+        
+        [segment_ addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
+        
+        table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
+        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [table_ setDelegate:self];
+        [table_ setDataSource:self];
+        [[self view] addSubview:table_];
+        [table_ reloadData];
+    } return self;
+}
+
+- (void) save {
+    switch ([segment_ selectedSegmentIndex]) {
+        case 0: Role_ = @"User"; break;
+        case 1: Role_ = @"Hacker"; break;
+        case 2: Role_ = @"Developer"; break;
+
+        _nodefault
+    }
+
+    Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+        Role_, @"Role",
+    nil];
+
+    [Metadata_ setObject:Settings_ forKey:@"Settings"];
+
+    Changed_ = true;
+    
+    [delegate_ updateData];
+}
+
+- (void) segmentChanged:(UISegmentedControl *)control {
+    [self showDoneButton];
+}
+
+- (void) doneButtonClicked {
+    [self save];
+    [[self navigationController] dismissModalViewControllerAnimated:YES];
+}
+
+- (void) showDoneButton {
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("DONE")
+        style:UIBarButtonItemStyleDone
+        target:self
+        action:@selector(doneButtonClicked)
+    ];
+    [[self navigationItem] setRightBarButtonItem:rightItem animated:[[self navigationItem] rightBarButtonItem] == nil];
+    [rightItem release];
+}
+
+- (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
+    return 5;
+}
+
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return 0; // :(
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return nil; // This method is required by the protocol.
+}
+
+- (NSString *) tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (section == 1) 
+        return UCLocalize("ROLE_EX");
+    if (section == 4) 
+        return [NSString stringWithFormat:
+            @"%@: %@\n%@: %@\n%@: %@",
+            UCLocalize("USER"), UCLocalize("USER_EX"), 
+            UCLocalize("HACKER"), UCLocalize("HACKER_EX"), 
+            UCLocalize("DEVELOPER"), UCLocalize("DEVELOPER_EX")
+        ];
+    else return nil;
+}
+
+- (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    if (section == 3) return 44.0f;
+    else return 0;
+}
+
+- (UIView *) tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    if (section == 3) return container_;
+    else return nil;
+}
+
+@end
+/* }}} */
 
 /* Cydia Container {{{ */
 @interface CYContainer : UIViewController <ProgressDelegate> {
@@ -8145,40 +8279,10 @@ static _finline void _setHomePage(Cydia *self) {
     tag_ = tag;
 }
 
-- (void) askForSettings {
-    NSString *parenthetical(UCLocalize("PARENTHETICAL"));
-
-    CYActionSheet *role([[[CYActionSheet alloc]
-        initWithTitle:UCLocalize("WHO_ARE_YOU")
-        buttons:[NSArray arrayWithObjects:
-            [NSString stringWithFormat:parenthetical, UCLocalize("USER"), UCLocalize("USER_EX")],
-            [NSString stringWithFormat:parenthetical, UCLocalize("HACKER"), UCLocalize("HACKER_EX")],
-            [NSString stringWithFormat:parenthetical, UCLocalize("DEVELOPER"), UCLocalize("DEVELOPER_EX")],
-        nil]
-        defaultButtonIndex:-1
-    ] autorelease]);
-
-    [role setMessage:UCLocalize("ROLE_EX")];
-
-    int button([role yieldToPopupAlertAnimated:YES]);
-
-    switch (button) {
-        case 1: Role_ = @"User"; break;
-        case 2: Role_ = @"Hacker"; break;
-        case 3: Role_ = @"Developer"; break;
-
-        _nodefault
-    }
-
-    Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-        Role_, @"Role",
-    nil];
-
-    [Metadata_ setObject:Settings_ forKey:@"Settings"];
-
-    Changed_ = true;
-
-    [role dismiss];
+- (void) showSettings {
+    RoleController *role = [[RoleController alloc] initWithDatabase:database_ delegate:self];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:role];
+    [container_ presentModalViewController:nav animated:YES];
 }
 
 - (void) setPackageController:(PackageController *)view {
@@ -8465,7 +8569,7 @@ static _finline void _setHomePage(Cydia *self) {
     }
 
     if (Role_ == nil)
-        [self askForSettings];
+        [self showSettings];
 
     _trace();
 
@@ -8732,7 +8836,8 @@ int main(int argc, char *argv[]) { _pooled
     if (Metadata_ == NULL)
         Metadata_ = [NSMutableDictionary dictionaryWithCapacity:2];
     else {
-        Settings_ = [Metadata_ objectForKey:@"Settings"];
+        
+        Role_ = [Metadata_ objectForKey:@"Settings"];
 
         Packages_ = [Metadata_ objectForKey:@"Packages"];
         Sections_ = [Metadata_ objectForKey:@"Sections"];

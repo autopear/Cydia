@@ -83,8 +83,6 @@
 
 + (void) _initialize;
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button;
-
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;
 - (void) loadURL:(NSURL *)url;
 

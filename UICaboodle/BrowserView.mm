@@ -315,18 +315,15 @@ static Class $UIWebBrowserView;
     if ([request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
         [self loadRequest:request_];
     else {
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
+        UIAlertView *alert = [[[UIAlertView alloc]
             initWithTitle:UCLocalize("RESUBMIT_FORM")
-            buttons:[NSArray arrayWithObjects:UCLocalize("CANCEL"), UCLocalize("SUBMIT"), nil]
-            defaultButtonIndex:0
+            message:nil
             delegate:self
-            context:@"submit"
+            cancelButtonTitle:UCLocalize("CANCEL")
+            otherButtonTitles:UCLocalize("SUBMIT"), nil
         ] autorelease];
-
-        [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-        [sheet setNumberOfRows:1];
-        [sheet popupAlertAnimated:YES];
+        [alert setContext:@"submit"];
+        [alert show];
     }
 }
 
@@ -448,21 +445,19 @@ static Class $UIWebBrowserView;
 - (void) _promptForSensitive:(NSMutableArray *)array {
     NSString *name([array objectAtIndex:0]);
 
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
+    UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:UCLocalize("YES"), UCLocalize("NO"), nil]
-        defaultButtonIndex:0
+        message:nil
         delegate:indirect_
-        context:@"sensitive"
+        cancelButtonTitle:UCLocalize("NO")
+        otherButtonTitles:UCLocalize("YES"), nil
     ] autorelease];
-
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     NSString *host(@"XXX");
 
-    [sheet setNumberOfRows:1];
-    [sheet setBodyText:[NSString stringWithFormat:@"The website at %@ is requesting your phone's %@. This is almost certainly for product licensing purposes. Will you allow this?", host, name]];
-    [sheet popupAlertAnimated:YES];
+    [alert setContext:@"sensitive"];
+    [alert setMessage:[NSString stringWithFormat:@"The website at %@ is requesting your phone's %@. This is almost certainly for product licensing purposes. Will you allow this?", host, name]];
+    [alert show];
 
     NSRunLoop *loop([NSRunLoop currentRunLoop]);
     NSDate *future([NSDate distantFuture]);
@@ -492,18 +487,15 @@ static Class $UIWebBrowserView;
         return;
     [self retain];
 
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
+    UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:UCLocalize("OK"), nil]
-        defaultButtonIndex:0
+        message:message
         delegate:self
-        context:@"alert"
+        cancelButtonTitle:UCLocalize("OK")
+        otherButtonTitles:nil
     ] autorelease];
-
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-    [sheet setBodyText:message];
-    [sheet popupAlertAnimated:YES];
+    [alert setContext:@"alert"];
+    [alert show];
 }
 
 - (BOOL) webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
@@ -511,19 +503,16 @@ static Class $UIWebBrowserView;
         return NO;
     [self retain];
 
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
+    UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:nil
-        buttons:[NSArray arrayWithObjects:UCLocalize("OK"), UCLocalize("CANCEL"), nil]
-        defaultButtonIndex:0
+        message:message
         delegate:indirect_
-        context:@"confirm"
+        cancelButtonTitle:UCLocalize("CANCEL")
+        otherButtonTitles:UCLocalize("OK"), nil
     ] autorelease];
 
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-
-    [sheet setNumberOfRows:1];
-    [sheet setBodyText:message];
-    [sheet popupAlertAnimated:YES];
+    [alert setContext:@"confirm"];
+    [alert show];
 
     NSRunLoop *loop([NSRunLoop currentRunLoop]);
     NSDate *future([NSDate distantFuture]);
@@ -784,12 +773,12 @@ static Class $UIWebBrowserView;
     //lprintf("Status:%s\n", [text UTF8String]);
 }
 
-- (void) alertSheet:(UIActionSheet *)sheet buttonClicked:(int)button {
-    NSString *context([sheet context]);
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
 
     if ([context isEqualToString:@"alert"]) {
         [self autorelease];
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"confirm"]) {
         switch (button) {
             case 1:
@@ -801,7 +790,7 @@ static Class $UIWebBrowserView;
             break;
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"sensitive"]) {
         switch (button) {
             case 1:
@@ -813,14 +802,14 @@ static Class $UIWebBrowserView;
             break;
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"challenge"]) {
         id<NSURLAuthenticationChallengeSender> sender([challenge_ sender]);
 
         switch (button) {
             case 1: {
-                NSString *username([[sheet textFieldAtIndex:0] text]);
-                NSString *password([[sheet textFieldAtIndex:1] text]);
+                NSString *username([[alert textFieldAtIndex:0] text]);
+                NSString *password([[alert textFieldAtIndex:1] text]);
 
                 NSURLCredential *credential([NSURLCredential credentialWithUser:username password:password persistence:NSURLCredentialPersistenceForSession]);
 
@@ -837,7 +826,7 @@ static Class $UIWebBrowserView;
         [challenge_ release];
         challenge_ = nil;
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"submit"]) {
         switch (button) {
             case 1:
@@ -854,7 +843,7 @@ static Class $UIWebBrowserView;
             _nodefault
         }
 
-        [sheet dismiss];
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
 
@@ -866,22 +855,21 @@ static Class $UIWebBrowserView;
     if (realm == nil)
         realm = @"";
 
-    UIActionSheet *sheet = [[[UIActionSheet alloc]
+    UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:realm
-        buttons:[NSArray arrayWithObjects:UCLocalize("LOGIN"), UCLocalize("CANCEL"), nil]
-        defaultButtonIndex:0
+        message:nil
         delegate:self
-        context:@"challenge"
+        cancelButtonTitle:UCLocalize("CANCEL")
+        otherButtonTitles:UCLocalize("LOGIN"), nil
     ] autorelease];
 
-    [sheet setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [alert setContext:@"challenge"];
+    [alert setNumberOfRows:1];
 
-    [sheet setNumberOfRows:1];
+    [alert addTextFieldWithValue:@"" label:UCLocalize("USERNAME")];
+    [alert addTextFieldWithValue:@"" label:UCLocalize("PASSWORD")];
 
-    [sheet addTextFieldWithValue:@"" label:UCLocalize("USERNAME")];
-    [sheet addTextFieldWithValue:@"" label:UCLocalize("PASSWORD")];
-
-    UITextField *username([sheet textFieldAtIndex:0]); {
+    UITextField *username([alert textFieldAtIndex:0]); {
         UITextInputTraits *traits([username textInputTraits]);
         [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
         [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
@@ -889,7 +877,7 @@ static Class $UIWebBrowserView;
         [traits setReturnKeyType:UIReturnKeyNext];
     }
 
-    UITextField *password([sheet textFieldAtIndex:1]); {
+    UITextField *password([alert textFieldAtIndex:1]); {
         UITextInputTraits *traits([password textInputTraits]);
         [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
         [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
@@ -899,7 +887,7 @@ static Class $UIWebBrowserView;
         [traits setSecureTextEntry:YES];
     }
 
-    [sheet popupAlertAnimated:YES];
+    [alert show];
 }
 
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {

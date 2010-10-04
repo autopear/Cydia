@@ -26,7 +26,7 @@ wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture
     while IFS= read -r line; do
         if [[ ${line} == '' ]]; then
             package=${fields[package]}
-            if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|mobilesubstrate|pcre) ]]; then
+            if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|coreutils|mobilesubstrate|pcre) ]]; then
                 filename=${fields[filename]}
                 wget -O "${package}.deb" "${repository}${filename}"
                 dpkg-deb -x "${package}.deb" .

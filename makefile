@@ -40,13 +40,12 @@ Cydia: Cydia.mm Reachability.mm UICaboodle/*.mm
 	cycc -r4.2 -i$(ios) -o$@ -- $(filter %.mm,$^) $(flags) $(link)
 
 package: Cydia
-	rm -rf _
+	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
 	mkdir -p _/usr/libexec
 	cp -a Library _/usr/libexec/cydia
-	# XXX: fix du
-	#cp -a /apl/tel/dest/iphoneos-arm/coreutils/usr/bin/du _/usr/libexec/cydia
+	cp -a sysroot/usr/bin/du _/usr/libexec/cydia
 	
 	mkdir -p _/System/Library
 	cp -a LaunchDaemons _/System/Library/LaunchDaemons
@@ -54,13 +53,16 @@ package: Cydia
 	mkdir -p _/Applications
 	cp -a Cydia.app _/Applications/Cydia.app
 	cp -a Cydia _/Applications/Cydia.app/Cydia_
-	chmod 6755 _/Applications/Cydia.app/Cydia_
 	
 	mkdir -p _/System/Library/PreferenceBundles
 	cp -a CydiaSettings.bundle _/System/Library/PreferenceBundles/CydiaSettings.bundle
 	
 	mkdir -p _/DEBIAN
 	echo "$$(cat control)"$$'\nInstalled-Size: '"$$(du -s _ | cut -f 1)" > _/DEBIAN/control
+	
+	sudo chown -R 0 _
+	sudo chgrp -R 0 _
+	sudo chmod 6755 _/Applications/Cydia.app/Cydia_
 	
 	$(dpkg) -b _ $(shell grep ^Package: control | cut -d ' ' -f 2-)_$(shell grep ^Version: control | cut -d ' ' -f 2)_iphoneos-arm.deb
 

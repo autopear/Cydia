@@ -7264,11 +7264,11 @@ freeing the view controllers on tab change */
     _transient Database *database_;
     NSString *name_;
     Package *package_;
-    UIPreferencesTable *table_;
-    _UISwitchSlider *subscribedSwitch_;
-    _UISwitchSlider *ignoredSwitch_;
-    UIPreferencesControlTableCell *subscribedCell_;
-    UIPreferencesControlTableCell *ignoredCell_;
+    UITableView *table_;
+    id subscribedSwitch_;
+    id ignoredSwitch_;
+    UITableViewCell *subscribedCell_;
+    UITableViewCell *ignoredCell_;
 }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package;
@@ -7278,8 +7278,6 @@ freeing the view controllers on tab change */
 @implementation SettingsController
 
 - (void) dealloc {
-    [table_ setDataSource:nil];
-
     [name_ release];
     if (package_ != nil)
         [package_ release];
@@ -7288,64 +7286,32 @@ freeing the view controllers on tab change */
     [ignoredSwitch_ release];
     [subscribedCell_ release];
     [ignoredCell_ release];
+    
     [super dealloc];
 }
 
-- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)table {
+- (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
     if (package_ == nil)
         return 0;
 
-    return 2;
+    return 1;
 }
 
-- (NSString *) preferencesTable:(UIPreferencesTable *)table titleForGroup:(int)group {
-    if (package_ == nil)
-        return nil;
-
-    switch (group) {
-        case 0: return nil;
-        case 1: return nil;
-
-        _nodefault
-    }
-
-    return nil;
-}
-
-- (BOOL) preferencesTable:(UIPreferencesTable *)table isLabelGroup:(int)group {
-    if (package_ == nil)
-        return NO;
-
-    switch (group) {
-        case 0: return NO;
-        case 1: return YES;
-
-        _nodefault
-    }
-
-    return NO;
-}
-
-- (int) preferencesTable:(UIPreferencesTable *)table numberOfRowsInGroup:(int)group {
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (package_ == nil)
         return 0;
 
-    switch (group) {
-        case 0: return 1;
-        case 1: return 1;
-
-        _nodefault
-    }
-
-    return 0;
+    return 1;
 }
 
-- (void) onSomething:(UIPreferencesControlTableCell *)cell withKey:(NSString *)key {
+- (NSString *) tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    return UCLocalize("SHOW_ALL_CHANGES_EX");
+}
+
+- (void) onSomething:(BOOL)value withKey:(NSString *)key {
     if (package_ == nil)
         return;
 
-    _UISwitchSlider *slider([cell control]);
-    BOOL value([slider value] != 0);
     NSMutableDictionary *metadata([package_ metadata]);
 
     BOOL before;
@@ -7361,38 +7327,22 @@ freeing the view controllers on tab change */
     }
 }
 
-- (void) onSubscribed:(UIPreferencesControlTableCell *)cell {
-    [self onSomething:cell withKey:@"IsSubscribed"];
+- (void) onSubscribed:(id)control {
+    [self onSomething:(int) [control isOn] withKey:@"IsSubscribed"];
 }
 
-- (void) onIgnored:(UIPreferencesControlTableCell *)cell {
-    [self onSomething:cell withKey:@"IsIgnored"];
+- (void) onIgnored:(id)control {
+    [self onSomething:(int) [control isOn] withKey:@"IsIgnored"];
 }
 
-- (id) preferencesTable:(UIPreferencesTable *)table cellForRow:(int)row inGroup:(int)group {
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (package_ == nil)
         return nil;
 
-    switch (group) {
-        case 0: switch (row) {
-            case 0:
-                return subscribedCell_;
-            case 1:
-                return ignoredCell_;
-            _nodefault
-        } break;
-
-        case 1: switch (row) {
-            case 0: {
-                UIPreferencesControlTableCell *cell([[[UIPreferencesControlTableCell alloc] init] autorelease]);
-                [cell setShowSelection:NO];
-                [cell setTitle:UCLocalize("SHOW_ALL_CHANGES_EX")];
-                return cell;
-            }
-
-            _nodefault
-        } break;
-
+    switch ([indexPath row]) {
+        case 0: return subscribedCell_;
+        case 1: return ignoredCell_;
+        
         _nodefault
     }
 
@@ -7408,26 +7358,29 @@ freeing the view controllers on tab change */
 
         [[self navigationItem] setTitle:UCLocalize("SETTINGS")];
 
-        table_ = [[UIPreferencesTable alloc] initWithFrame:[[self view] bounds]];
+        table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
+        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [table_ setAllowsSelection:NO];
         [[self view] addSubview:table_];
 
-        subscribedSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
-        [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventTouchUpInside];
+        subscribedSwitch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+        [subscribedSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+        [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventValueChanged];
 
-        ignoredSwitch_ = [[_UISwitchSlider alloc] initWithFrame:CGRectMake(200, 10, 50, 20)];
-        [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventTouchUpInside];
+        ignoredSwitch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+        [ignoredSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+        [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventValueChanged];
 
-        subscribedCell_ = [[UIPreferencesControlTableCell alloc] init];
-        [subscribedCell_ setShowSelection:NO];
-        [subscribedCell_ setTitle:UCLocalize("SHOW_ALL_CHANGES")];
-        [subscribedCell_ setControl:subscribedSwitch_];
+        subscribedCell_ = [[UITableViewCell alloc] init];
+        [subscribedCell_ setText:UCLocalize("SHOW_ALL_CHANGES")];
+        [subscribedCell_ setAccessoryView:subscribedSwitch_];
 
-        ignoredCell_ = [[UIPreferencesControlTableCell alloc] init];
-        [ignoredCell_ setShowSelection:NO];
-        [ignoredCell_ setTitle:UCLocalize("IGNORE_UPGRADES")];
-        [ignoredCell_ setControl:ignoredSwitch_];
+        ignoredCell_ = [[UITableViewCell alloc] init];
+        [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
+        [ignoredCell_ setAccessoryView:ignoredSwitch_];
 
         [table_ setDataSource:self];
+        [table_ setDelegate:self];
         [self reloadData];
     } return self;
 }
@@ -7438,8 +7391,8 @@ freeing the view controllers on tab change */
     package_ = [database_ packageWithName:name_];
     if (package_ != nil) {
         [package_ retain];
-        [subscribedSwitch_ setValue:([package_ subscribed] ? 1 : 0) animated:NO];
-        [ignoredSwitch_ setValue:([package_ ignored] ? 1 : 0) animated:NO];
+        [subscribedSwitch_ setOn:([package_ subscribed] ? 1 : 0) animated:NO];
+        [ignoredSwitch_ setOn:([package_ ignored] ? 1 : 0) animated:NO];
     }
 
     [table_ reloadData];

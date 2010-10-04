@@ -36,7 +36,7 @@ all: Cydia
 clean:
 	rm -f Cydia
 
-Cydia: Cydia.mm Reachability.mm UICaboodle/*.mm
+Cydia: Cydia.mm Reachability.mm UICaboodle/*.mm iPhonePrivate.h
 	cycc -r4.2 -i$(ios) -o$@ -- $(filter %.mm,$^) $(flags) $(link)
 
 package: Cydia

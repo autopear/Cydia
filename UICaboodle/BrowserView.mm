@@ -1075,6 +1075,10 @@ static Class $UIWebBrowserView;
     return [customItem autorelease];
 }
 
+- (UIBarButtonItem *) rightButton {
+    return reloaditem_;
+}
+
 - (void) applyLoadingTitle {
     [[self navigationItem] setTitle:UCLocalize("LOADING")];
 }
@@ -1087,7 +1091,7 @@ static Class $UIWebBrowserView;
     } else if (button_) {
         [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
     } else {
-        [[self navigationItem] setRightBarButtonItem:reloaditem_ animated:YES];
+        [[self navigationItem] setRightBarButtonItem:[self rightButton] animated:YES];
     }
 }
 

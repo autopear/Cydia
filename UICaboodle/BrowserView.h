@@ -108,6 +108,7 @@
 - (bool) allowSensitiveRequests;
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button;
+- (void) customButtonClicked;
 - (void) applyRightButton;
 
 - (void) _startLoading;

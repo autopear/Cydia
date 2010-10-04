@@ -5227,9 +5227,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+// We don't want to allow non-commercial packages to do custom things to the install button,
+// so it must call customButtonClicked with a custom commercial_ == 1 fallthrough.
 - (void) customButtonClicked {
-    // Wait until it's done loading.
-    if (![self isLoading])
+    if (commercial_)
+        [super customButtonClicked];
+    else
         [self _customButtonClicked];
 }
 
@@ -5239,6 +5242,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) applyLoadingTitle {
     // Don't show "Loading" as the title. Ever.
+}
+
+- (UIBarButtonItem *) rightButton {
+    int count = [buttons_ count];
+    return [[[UIBarButtonItem alloc]
+        initWithTitle:count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0]
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(customButtonClicked)
+    ] autorelease];
 }
 #endif
 
@@ -5305,19 +5318,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [super callFunction:special_];
         }
     }
-}
-
-- (void) applyRightButton {
-    int count = [buttons_ count];
-    UIBarButtonItem *actionItem = [[UIBarButtonItem alloc]
-        initWithTitle:count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0]
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(customButtonClicked)
-    ];
-    if (![self isLoading]) [[self navigationItem] setRightBarButtonItem:actionItem];
-    else [super applyRightButton];
-    [actionItem release];
 }
 
 - (bool) isLoading {

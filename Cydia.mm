@@ -8944,7 +8944,7 @@ int main(int argc, char *argv[]) { _pooled
     Warning_ = UCLocalize("WARNING");
 
     _trace();
-    int value = UIApplicationMain(argc, argv, @"Cydia", @"Cydia");
+    int value(UIApplicationMain(argc, argv, @"Cydia", @"Cydia"));
 
     CGColorSpaceRelease(space_);
     CFRelease(Locale_);

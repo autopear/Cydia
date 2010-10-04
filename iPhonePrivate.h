@@ -34,7 +34,7 @@ typedef enum {
 
 
 @interface NSString (Apple)
-- (void) drawAtPoint:(CGPoint)point forWidth:(float)width withFont:(UIFont *)font ellipsis:(BOOL)ellipsis;
+- (void) drawAtPoint:(CGPoint)point forWidth:(float)width withFont:(UIFont *)font ellipsis:(NSInteger)ellipsis;
 - (NSString *) stringByAddingPercentEscapes;
 - (NSString *) stringByReplacingCharacter:(UniChar)from withCharacter:(UniChar)to;
 @end

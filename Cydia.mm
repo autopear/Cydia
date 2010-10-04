@@ -3975,7 +3975,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) init {
-    if ((self = [super initWithWidth:[[self view] bounds].size.width ofClass:[CYBrowserController class]]) != nil) {
+    if ((self = [super initWithWidth:0 ofClass:[CYBrowserController class]]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         WebView *webview([document_ webView]);

@@ -1209,6 +1209,7 @@ bool isSectionVisible(NSString *section) {
 - (void) beginUpdate;
 - (BOOL) updating;
 - (void) distUpgrade;
+- (void) loadData;
 - (void) updateData;
 - (void) syncData;
 - (void) showSettings;
@@ -7516,7 +7517,7 @@ freeing the view controllers on tab change */
 }
 
 - (void) save {
-    NSString *role = nil;
+    NSString *role(nil);
 
     switch ([segment_ selectedSegmentIndex]) {
         case 0: role = @"User"; break;
@@ -7527,6 +7528,7 @@ freeing the view controllers on tab change */
     }
 
     if (![role isEqualToString:Role_]) {
+        bool rolling(Role_ == nil);
         Role_ = role;
 
         Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
@@ -7537,7 +7539,10 @@ freeing the view controllers on tab change */
 
         Changed_ = true;
 
-        [roledelegate_ updateData];
+        if (rolling)
+            [roledelegate_ loadData];
+        else
+            [roledelegate_ updateData];
     }
 }
 
@@ -7873,6 +7878,7 @@ typedef enum {
 
 - (UCViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
 - (void) setPage:(UCViewController *)page;
+- (void) loadData;
 
 @end
 
@@ -7997,8 +8003,6 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) _reloadData {
-    UIView *block();
-
     UIProgressHUD *hud([self addProgressHUD]);
     [hud setText:(loaded_ ? UCLocalize("RELOADING_DATA") : UCLocalize("LOADING_DATA"))];
 
@@ -8571,9 +8575,6 @@ static _finline void _setHomePage(Cydia *self) {
         return;
     }
 
-    if (Role_ == nil)
-        [self showSettings];
-
     _trace();
 
     NSMutableArray *items([NSMutableArray arrayWithObjects:
@@ -8607,6 +8608,15 @@ static _finline void _setHomePage(Cydia *self) {
     [container_ setUpdateDelegate:self];
     [container_ setTabBarController:tabbar_];
     [window_ addSubview:[container_ view]];
+
+    [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
+}
+
+- (void) loadData {
+    if (Role_ == nil) {
+        [self showSettings];
+        return;
+    }
 
     [UIKeyboard initImplementationNow];
 

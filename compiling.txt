@@ -1,5 +1,18 @@
 0) use a Mac (I'm sorry, I really am)
-1) install Cydia Substrate (in beta)
-2) install Fink (the only sane choice)
-3) activate Fink (. /sw/bin/init.sh)
-4) fink install bash ldid wget
+1) install the official Apple iOS SDK
+
+2) build a sysroot/ of Telesphoreo by:
+
+    a) downloading and extracting this tarball:
+    http://test.saurik.com/cydia/sysroot-2.tgz
+
+       -or-
+
+    b) doing the following crazy stunts:
+        i) install Cydia Substrate (in beta)
+        ii) install Fink (the only sane choice)
+        iii) activate Fink (. /sw/bin/init.sh)
+        iv) fink install bash ldid tar wget
+        v) run ./sysroot.sh and wait a bit
+
+3) type "make" to compile the executable

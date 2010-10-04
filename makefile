@@ -6,7 +6,9 @@ link :=
 #dpkg := /Library/Cydia/bin/dpkg-deb -Zlzma
 dpkg := dpkg-deb
 
-flags += -F/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$(ios).sdk/System/Library/PrivateFrameworks
+sdk := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$(ios).sdk
+
+flags += -F$(sdk)/System/Library/PrivateFrameworks
 flags += -I. -isystem sysroot/usr/include -Lsysroot/usr/lib
 flags += -Wall -Werror -Wno-deprecated-declarations
 flags += -fmessage-length=0
@@ -31,13 +33,17 @@ link += -lpcre
 
 link += -multiply_defined suppress
 
+#cycc = cycc -r4.2 -i$(ios) -o$@
+gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
+cycc = $(gxx) -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=$(ios) -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
+
 all: Cydia
 
 clean:
 	rm -f Cydia
 
 Cydia: Cydia.mm Reachability.mm UICaboodle/*.mm iPhonePrivate.h
-	cycc -r4.2 -i$(ios) -o$@ -- $(filter %.mm,$^) $(flags) $(link)
+	$(cycc) $(filter %.mm,$^) $(flags) $(link)
 
 package: Cydia
 	sudo rm -rf _

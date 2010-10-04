@@ -8663,19 +8663,20 @@ static NSNumber *shouldPlayKeyboardSounds;
 
 Class $UIHardware;
 
-MSHook(void, UIHardware$_playSystemSound$, Class self, SEL _cmd, int soundIndex) {
-    switch (soundIndex) {
+MSHook(void, UIHardware$_playSystemSound$, Class self, SEL _cmd, int sound) {
+    switch (sound) {
         case 1104: // Keyboard Button Clicked
         case 1105: // Keyboard Delete Repeated
-            if (!shouldPlayKeyboardSounds) {
-                NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.apple.preferences.sounds.plist"];
-                shouldPlayKeyboardSounds = [[dict objectForKey:@"keyboard"] ?: (id)kCFBooleanTrue retain];
-                [dict release];
+            if (shouldPlayKeyboardSounds == nil) {
+                NSDictionary *dict([[[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.apple.preferences.sounds.plist"] autorelease]);
+                shouldPlayKeyboardSounds = [([dict objectForKey:@"keyboard"] ?: (id) kCFBooleanTrue) retain];
             }
+
             if (![shouldPlayKeyboardSounds boolValue])
                 break;
+
         default:
-            _UIHardware$_playSystemSound$(self, _cmd, soundIndex);
+            _UIHardware$_playSystemSound$(self, _cmd, sound);
     }
 }
 

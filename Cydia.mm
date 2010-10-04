@@ -4829,12 +4829,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!selected)
         UISetColor(commercial_ ? Purple_ : Black_);
-    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ ellipsis:2];
-    [source_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ ellipsis:2];
+    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
+    [source_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (!selected)
         UISetColor(commercial_ ? Purplish_ : Gray_);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 46) withFont:Font14_ ellipsis:2];
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 46) withFont:Font14_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (placard_ != nil)
         [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
@@ -4988,7 +4988,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (editing_)
         width -= 87;
 
-    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ ellipsis:2];
+    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
     CGSize size = [count_ sizeWithFont:Font14_];
 
@@ -5750,15 +5750,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!selected)
         UISetColor(Black_);
-    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ ellipsis:2];
+    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (!selected)
         UISetColor(Blue_);
-    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ ellipsis:2];
+    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (!selected)
         UISetColor(Gray_);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 40) withFont:Font14_ ellipsis:2];
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 40) withFont:Font14_ lineBreakMode:UILineBreakModeTailTruncation];
 }
 
 @end

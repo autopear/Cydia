@@ -310,7 +310,7 @@ static Class $UIWebBrowserView;
         [reloaditem_ release];
     if (loadingitem_ != nil)
         [loadingitem_ release];
-        
+
     [super dealloc];
 }
 
@@ -364,7 +364,7 @@ static Class $UIWebBrowserView;
 
 /* XXX: WebThreadLock? */
 - (void) _fixScroller:(CGRect)bounds {
-	float extra;
+    float extra;
 
     if (!editing_ || $UIFormAssistant == nil)
         extra = 0;
@@ -430,8 +430,8 @@ static Class $UIWebBrowserView;
 - (void) swapPage:(UCViewController *)page {
     [page setDelegate:delegate_];
     if (pushed_) [[self navigationController] popViewControllerAnimated:NO];
-		
-	[[self navigationController] pushViewController:page animated:NO];
+
+    [[self navigationController] pushViewController:page animated:NO];
 }
 
 - (BOOL) getSpecial:(NSURL *)url swap:(BOOL)swap {
@@ -576,7 +576,7 @@ static Class $UIWebBrowserView;
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 
-	[self applyRightButton];
+    [self applyRightButton];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -592,7 +592,7 @@ static Class $UIWebBrowserView;
         [function_ autorelease];
     function_ = function == nil ? nil : [function retain];
 
-	[self applyRightButton];
+    [self applyRightButton];
 }
 
 - (void) setFinishHook:(id)function {
@@ -625,7 +625,7 @@ static Class $UIWebBrowserView;
 }
 
 - (void) webViewClose:(WebView *)sender {
-	[self close];
+    [self close];
 }
 
 - (void) close {
@@ -675,15 +675,15 @@ static Class $UIWebBrowserView;
                 [page setDelegate:delegate_];
 
                 [navigation setViewControllers:[NSArray arrayWithObject:page]];
-				UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
-			        initWithTitle:UCLocalize("CLOSE")
-					style:UIBarButtonItemStylePlain
-			        target:page
-			        action:@selector(close)
-			    ];
-			    [[page navigationItem] setLeftBarButtonItem:closeItem];
-			    [closeItem release];
-			
+                UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
+                    initWithTitle:UCLocalize("CLOSE")
+                    style:UIBarButtonItemStylePlain
+                    target:page
+                    action:@selector(close)
+                ];
+                [[page navigationItem] setLeftBarButtonItem:closeItem];
+                [closeItem release];
+
                 [[self navigationController] presentModalViewController:navigation animated:YES];
             }
         } else goto unknown;
@@ -944,15 +944,15 @@ static Class $UIWebBrowserView;
         [browser loadRequest:request];
 
         [navigation setViewControllers:[NSArray arrayWithObject:browser]];
-		UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
-	        initWithTitle:UCLocalize("CLOSE")
-			style:UIBarButtonItemStylePlain
-	        target:browser
-	        action:@selector(close)
-	    ];
-	    [[browser navigationItem] setLeftBarButtonItem:closeItem];
-	    [closeItem release];
-	
+        UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("CLOSE")
+            style:UIBarButtonItemStylePlain
+            target:browser
+            action:@selector(close)
+        ];
+        [[browser navigationItem] setLeftBarButtonItem:closeItem];
+        [closeItem release];
+
         [[self navigationController] presentModalViewController:navigation animated:YES];
     } /*else if (request == nil) {
         [[self navigationItem] setTitle:title_];
@@ -1051,7 +1051,7 @@ static Class $UIWebBrowserView;
         }
     }
 
-	[self _startLoading];
+    [self _startLoading];
 }
 
 - (UIBarButtonItemStyle) rightButtonStyle {
@@ -1066,12 +1066,12 @@ static Class $UIWebBrowserView;
 
 - (UIBarButtonItem *) customButton {
     UIBarButtonItem *customItem = [[UIBarButtonItem alloc]
-		initWithTitle:button_
-		style:[self rightButtonStyle]
-		target:self
-		action:@selector(customButtonClicked)
-	];
-	
+        initWithTitle:button_
+        style:[self rightButtonStyle]
+        target:self
+        action:@selector(customButtonClicked)
+    ];
+
     return [customItem autorelease];
 }
 
@@ -1080,15 +1080,15 @@ static Class $UIWebBrowserView;
 }
 
 - (void) applyRightButton {
-	if ([self isLoading]) {
-	    [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
-	    [[loadingitem_ view] addSubview:indicator_];
+    if ([self isLoading]) {
+        [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
+        [[loadingitem_ view] addSubview:indicator_];
         [self applyLoadingTitle];
     } else if (button_) {
         [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
     } else {
         [[self navigationItem] setRightBarButtonItem:reloaditem_ animated:YES];
-	}
+    }
 }
 
 - (void) _startLoading {
@@ -1104,8 +1104,8 @@ static Class $UIWebBrowserView;
     if (finish_ != nil)
         [self callFunction:finish_];
 
-	[self applyRightButton];
-	if (![self isLoading]) [[self navigationItem] setTitle:title_];
+    [self applyRightButton];
+    if (![self isLoading]) [[self navigationItem] setTitle:title_];
 }
 
 - (bool) isLoading {
@@ -1344,7 +1344,7 @@ static Class $UIWebBrowserView;
 
         BrowserView *actualView = [[BrowserView alloc] initWithFrame:CGRectZero];
         [self setView:actualView];
-        
+
         struct CGRect bounds = [[self view] bounds];
 
         scroller_ = [[objc_getClass(Wildcat_ ? "UIScrollView" : "UIScroller") alloc] initWithFrame:bounds];
@@ -1464,7 +1464,7 @@ static Class $UIWebBrowserView;
             else
                 [preferences _setLayoutInterval:0];
         }
-        
+
         actualView.documentView = document_;
         [actualView release];
 
@@ -1497,22 +1497,22 @@ static Class $UIWebBrowserView;
         CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
         indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(15, 5, indsize.width, indsize.height)];
         [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
-		[indicator_ startAnimation];
-		
-		reloaditem_ = [[UIBarButtonItem alloc]
-			initWithTitle:UCLocalize("RELOAD")
-			style:[self rightButtonStyle]
-			target:self
-			action:@selector(reloadButtonClicked)
-		];
-		
-	    loadingitem_ = [[UIBarButtonItem alloc]
-	        initWithTitle:@" "
-	        style:UIBarButtonItemStylePlain
-	        target:self
-	        action:@selector(reloadButtonClicked)
-	    ];
-		[[loadingitem_ view] addSubview:indicator_];
+        [indicator_ startAnimation];
+
+        reloaditem_ = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("RELOAD")
+            style:[self rightButtonStyle]
+            target:self
+            action:@selector(reloadButtonClicked)
+        ];
+
+        loadingitem_ = [[UIBarButtonItem alloc]
+            initWithTitle:@" "
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(reloadButtonClicked)
+        ];
+        [[loadingitem_ view] addSubview:indicator_];
 
         [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
@@ -1594,14 +1594,14 @@ static Class $UIWebBrowserView;
         [self callFunction:function_];
     else
 #endif
-		[self reloadButtonClicked];
+    [self reloadButtonClicked];
 }
 
 - (void) setPageActive:(BOOL)active {
     if (!active)
         [indicator_ removeFromSuperview];
     else
-		[[[[self navigationItem] rightBarButtonItem] view] addSubview:indicator_];
+        [[[[self navigationItem] rightBarButtonItem] view] addSubview:indicator_];
 }
 
 - (void) resetViewAnimated:(BOOL)animated {

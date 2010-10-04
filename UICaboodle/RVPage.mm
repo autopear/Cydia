@@ -5,9 +5,9 @@
 
 #import "RVBook.h"
 
-@implementation UCViewController 
+@implementation UCViewController
 - (void)setDelegate:(id)delegate {
-	delegate_ = delegate;
+    delegate_ = delegate;
 }
 - (void) reloadData {
 }

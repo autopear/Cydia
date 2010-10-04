@@ -7,7 +7,7 @@
 @end
 
 @interface UCNavigationController : UINavigationController {
-	id<HookProtocol> hook_;
+    id<HookProtocol> hook_;
 }
 - (void) setHook:(id<HookProtocol>)hook;
 @end

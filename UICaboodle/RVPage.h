@@ -3,7 +3,7 @@
 #import <UIKit/UIKit.h>
 
 @interface UCViewController : UIViewController {
-	id delegate_; 
+    id delegate_;
 }
 - (void)setDelegate:(id)delegate;
 - (void) reloadData;

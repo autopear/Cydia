@@ -711,7 +711,7 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
 - (NSString *) stringByAddingPercentEscapesIncludingReserved {
     return [(id)CFURLCreateStringByAddingPercentEscapes(
-        kCFAllocatorDefault, 
+        kCFAllocatorDefault,
         (CFStringRef) self,
         NULL,
         CFSTR(";/?:@&=+$,"),
@@ -4013,7 +4013,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) invokeDefaultMethodWithArguments:(NSArray *)args {
     [self dismissModalViewControllerAnimated:YES];
     [delegate_ cancelAndClear:NO];
-    
+
     return nil;
 }
 
@@ -4135,7 +4135,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (issues_ == nil && ![self isLoading]) [[self navigationItem] setRightBarButtonItem:rightItem];
     else [super applyRightButton];
 #else
-	[[self navigationItem] setRightBarButtonItem:nil];
+    [[self navigationItem] setRightBarButtonItem:nil];
 #endif
     [rightItem release];
 }
@@ -4296,7 +4296,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         (bounds.size.width - prgsize.width) / 2,
         bounds.size.height - prgsize.height - 64
     }, prgsize};
-    
+
     float closewidth = bounds.size.width - 20;
     if (closewidth > 300) closewidth = 300;
 
@@ -4325,7 +4325,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super viewDidAppear:animated];
     [[self navigationItem] setHidesBackButton:YES];
     [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
-    
+
     [self positionViews];
 }
 
@@ -4975,7 +4975,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) drawContentRect:(CGRect)rect {
     BOOL selected = [self isSelected];
-    
+
     [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
 
     if (selected)
@@ -5174,7 +5174,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             NSString *buttonName = [buttons_ objectAtIndex:button];
             [self _clickButtonWithName:buttonName];
         }
-        
+
         [sheet dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
@@ -5218,13 +5218,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
            [sheet setCancelButtonIndex:[sheet numberOfButtons] - 1];
         }
         [sheet setContext:@"modify"];
-    
+
         [delegate_ showActionSheet:sheet fromItem:[[self navigationItem] rightBarButtonItem]];
     }
 }
 
 - (void) actionButtonClicked {
-	// Wait until it's done loading.
+    // Wait until it's done loading.
     if (![self isLoading])
         [self _actionButtonClicked];
 }
@@ -5312,7 +5312,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         action:@selector(actionButtonClicked)
     ];
     if (![self isLoading]) [[self navigationItem] setRightBarButtonItem:actionItem];
-	else [super applyRightButton];
+    else [super applyRightButton];
     [actionItem release];
 }
 
@@ -5591,13 +5591,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
 
 @end
-    
+
 @implementation FilteredPackageController
 
 - (void) dealloc {
     [packages_ release];
     [title_ release];
-    
+
     [super dealloc];
 }
 
@@ -5645,7 +5645,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 @end
-    
+
 /* }}} */
 
 /* Add Source Controller {{{ */
@@ -5698,7 +5698,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setSource:(Source *)source {
     [self clearSource];
-    
+
     if (icon_ == nil)
         icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
     if (icon_ == nil)
@@ -5871,7 +5871,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
     if(cell == nil) cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
     [cell setSource:[self sourceAtIndexPath:indexPath]];
-    
+
     return cell;
 }
 
@@ -6112,7 +6112,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         [[self navigationItem] setTitle:UCLocalize("SOURCES")];
         [self updateButtonsForEditingStatus:NO animated:NO];
-    
+
         database_ = database;
         sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
@@ -6198,7 +6198,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
     [[self navigationItem] setRightBarButtonItem:rightItem animated:animated];
     [rightItem release];
-    
+
     if (IsWildcat_ && !editing) {
         UIBarButtonItem *settingsItem = [[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("SETTINGS")
@@ -6217,7 +6217,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) editButtonClicked {
     [list_ setEditing:![list_ isEditing] animated:YES];
-    
+
     [self updateButtonsForEditingStatus:[list_ isEditing] animated:YES];
 }
 
@@ -6373,7 +6373,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) init {
     if ((self = [super init]) != nil) {
         [[self navigationItem] setTitle:UCLocalize("MANAGE")];
-    
+
         UIBarButtonItem *settingsItem = [[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("SETTINGS")
             style:UIBarButtonItemStylePlain
@@ -6382,7 +6382,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ];
         [[self navigationItem] setLeftBarButtonItem:settingsItem];
         [settingsItem release];
-    
+
         [self queueStatusDidChange];
     } return self;
 }
@@ -6415,7 +6415,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             action:@selector(queueButtonClicked)
         ];
         [[self navigationItem] setRightBarButtonItem:queueItem];
-        
+
         [queueItem release];
     } else {
         [[self navigationItem] setRightBarButtonItem:nil];
@@ -6447,19 +6447,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     frame.origin.x = [self frame].size.width - frame.size.width - 5;
     frame.origin.y = ([self frame].size.height - frame.size.height) / 2;
     [cancel_ setFrame:frame];
-    
+
     CGSize prgsize = {75, 100};
     CGRect prgrect = {{
         [self frame].size.width - prgsize.width - 10,
         ([self frame].size.height - prgsize.height) / 2
     } , prgsize};
     [progress_ setFrame:prgrect];
-    
+
     CGSize indsize([UIProgressIndicator defaultSizeForStyle:[indicator_ activityIndicatorViewStyle]]);
     unsigned indoffset = ([self frame].size.height - indsize.height) / 2;
     CGRect indrect = {{indoffset, indoffset}, indsize};
     [indicator_ setFrame:indrect];
-    
+
     CGSize prmsize = {215, indsize.height + 4};
     CGRect prmrect = {{
         indoffset * 2 + indsize.width,
@@ -6470,7 +6470,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void)setFrame:(CGRect)frame {
     [super setFrame:frame];
-    
+
     [self positionViews];
 }
 
@@ -6503,12 +6503,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin];
         [progress_ setStyle:0];
         [self addSubview:progress_];
-        
+
         cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
         [cancel_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ addTarget:delegate action:@selector(cancelPressed) forControlEvents:UIControlEventTouchUpInside];
         [cancel_ setBarStyle:barstyle];
-        
+
         [self positionViews];
     } return self;
 }
@@ -6545,7 +6545,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Database *database_;
 }
 
-@end    
+@end
 
 @implementation CYTabBarController
 
@@ -6939,7 +6939,7 @@ freeing the view controllers on tab change */
         [list_ reloadData];
     else
         [delegate_ updateData];
-    
+
     [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
     [[[self navigationItem] rightBarButtonItem] setTitle:[sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT")];
     [[[self navigationItem] rightBarButtonItem] setStyle:editing_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain];
@@ -7218,8 +7218,8 @@ freeing the view controllers on tab change */
 }
 
 - (void)viewDidAppear:(BOOL)animated {
-	[super viewDidAppear:animated];
-	if (!search_) {
+    [super viewDidAppear:animated];
+    if (!search_) {
         search_ = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] bounds].size.width, 44.0f)];
         [search_ layoutSubviews];
         [search_ setPlaceholder:UCLocalize("SEARCH_EX")];
@@ -7279,7 +7279,7 @@ freeing the view controllers on tab change */
     [ignoredSwitch_ release];
     [subscribedCell_ release];
     [ignoredCell_ release];
-    
+
     [super dealloc];
 }
 
@@ -7335,7 +7335,7 @@ freeing the view controllers on tab change */
     switch ([indexPath row]) {
         case 0: return subscribedCell_;
         case 1: return ignoredCell_;
-        
+
         _nodefault
     }
 
@@ -7452,7 +7452,7 @@ freeing the view controllers on tab change */
     [table_ release];
     [segment_ release];
     [container_ release];
-    
+
     [super dealloc];
 }
 
@@ -7460,18 +7460,18 @@ freeing the view controllers on tab change */
     if ((self = [super init])) {
         database_ = database;
         roledelegate_ = delegate;
-        
+
         [[self navigationItem] setTitle:UCLocalize("WHO_ARE_YOU")];
-        
+
         NSArray *items = [NSArray arrayWithObjects:
-            UCLocalize("USER"), 
+            UCLocalize("USER"),
             UCLocalize("HACKER"),
             UCLocalize("DEVELOPER"),
         nil];
         segment_ = [[UISegmentedControl alloc] initWithItems:items];
         container_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
         [container_ addSubview:segment_];
-        
+
         int index = -1;
         if ([Role_ isEqualToString:@"User"]) index = 0;
         if ([Role_ isEqualToString:@"Hacker"]) index = 1;
@@ -7480,10 +7480,10 @@ freeing the view controllers on tab change */
             [segment_ setSelectedSegmentIndex:index];
             [self showDoneButton];
         }
-        
+
         [segment_ addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
         [self resizeSegmentedControl];
-        
+
         table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
         [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [table_ setDelegate:self];
@@ -7500,7 +7500,7 @@ freeing the view controllers on tab change */
 
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    
+
     [self resizeSegmentedControl];
 }
 
@@ -7514,7 +7514,7 @@ freeing the view controllers on tab change */
 
 - (void) save {
     NSString *role = nil;
-    
+
     switch ([segment_ selectedSegmentIndex]) {
         case 0: role = @"User"; break;
         case 1: role = @"Hacker"; break;
@@ -7525,7 +7525,7 @@ freeing the view controllers on tab change */
 
     if (![role isEqualToString:Role_]) {
         Role_ = role;
-        
+
         Settings_ = [NSMutableDictionary dictionaryWithObjectsAndKeys:
             Role_, @"Role",
         nil];
@@ -7533,7 +7533,7 @@ freeing the view controllers on tab change */
         [Metadata_ setObject:Settings_ forKey:@"Settings"];
 
         Changed_ = true;
-    
+
         [roledelegate_ updateData];
     }
 }
@@ -7572,13 +7572,13 @@ freeing the view controllers on tab change */
 }
 
 - (NSString *) tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == 1) 
+    if (section == 1)
         return UCLocalize("ROLE_EX");
-    if (section == 4) 
+    if (section == 4)
         return [NSString stringWithFormat:
             @"%@: %@\n%@: %@\n%@: %@",
-            UCLocalize("USER"), UCLocalize("USER_EX"), 
-            UCLocalize("HACKER"), UCLocalize("HACKER_EX"), 
+            UCLocalize("USER"), UCLocalize("USER_EX"),
+            UCLocalize("HACKER"), UCLocalize("HACKER_EX"),
             UCLocalize("DEVELOPER"), UCLocalize("DEVELOPER_EX")
         ];
     else return nil;
@@ -7657,9 +7657,9 @@ freeing the view controllers on tab change */
 - (void) beginUpdate {
     [self dropBar:YES];
     [refreshbar_ start];
-    
+
     updating_ = true;
-    
+
     [NSThread
         detachNewThreadSelector:@selector(performUpdate)
         toTarget:self
@@ -7681,7 +7681,7 @@ freeing the view controllers on tab change */
 
 - (void) completeUpdate {
     updating_ = false;
-    
+
     [self raiseBar:YES];
     [refreshbar_ stop];
     [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
@@ -7800,7 +7800,7 @@ freeing the view controllers on tab change */
         [self raiseBar:NO];
         [self dropBar:NO];
     }
-    
+
     // XXX: fix Apple's layout bug
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
@@ -7960,16 +7960,16 @@ static _finline void _setHomePage(Cydia *self) {
         if ([[controller tabBarItem] tag] == tag) return i;
         i += 1;
     }
-    
+
     return -1;
 }
 
 - (void) _refreshIfPossible {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    
+
     Reachability* reachability = [Reachability reachabilityWithHostName:@"cydia.saurik.com"];
     NetworkStatus remoteHostStatus = [reachability currentReachabilityStatus];
-    
+
     if (loaded_ || ManualRefresh || remoteHostStatus == NotReachable) loaded:
         [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
     else {
@@ -8024,7 +8024,7 @@ static _finline void _setHomePage(Cydia *self) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
         [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setBadgeValue:badge];
         [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setAnimatedBadge:YES];
-    
+
         if ([self respondsToSelector:@selector(setApplicationBadge:)])
             [self setApplicationBadge:badge];
         else
@@ -8032,7 +8032,7 @@ static _finline void _setHomePage(Cydia *self) {
     } else {
         [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setBadgeValue:nil];
         [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setAnimatedBadge:NO];
-    
+
         if ([self respondsToSelector:@selector(removeApplicationBadge)])
             [self removeApplicationBadge];
         else // XXX: maybe use setApplicationBadgeString also?
@@ -8172,7 +8172,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
     ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
-    
+
     if (navigation != nil) {
         [navigation pushViewController:progress animated:YES];
     } else {
@@ -8180,7 +8180,7 @@ static _finline void _setHomePage(Cydia *self) {
         if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
         [container_ presentModalViewController:navigation animated:YES];
     }
-    
+
     [progress
         detachNewThreadSelector:@selector(perform)
         toTarget:database_
@@ -8252,7 +8252,7 @@ static _finline void _setHomePage(Cydia *self) {
     return installed_;
 }
 
-- (void) tabBarController:(id)tabBarController didSelectViewController:(UIViewController *)viewController {    
+- (void) tabBarController:(id)tabBarController didSelectViewController:(UIViewController *)viewController {
     int tag = [[viewController tabBarItem] tag];
     if (tag == tag_) {
         [(CYNavigationController *)[tabbar_ selectedViewController] popToRootViewControllerAnimated:YES];
@@ -8330,7 +8330,7 @@ static _finline void _setHomePage(Cydia *self) {
             }
 
             [self updateData];
-            
+
             Queuing_ = false;
             [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:nil];
             [queueDelegate_ queueStatusDidChange];*/
@@ -8340,7 +8340,7 @@ static _finline void _setHomePage(Cydia *self) {
 
             [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
             [(CYNavigationController *)[tabbar_ selectedViewController] reloadData];
-            
+
             [queueDelegate_ queueStatusDidChange];
         }
     }
@@ -8348,7 +8348,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
-    
+
     if ([context isEqualToString:@"fixhalf"]) {
         if (button == [alert firstOtherButtonIndex]) {
             @synchronized (self) {
@@ -8503,10 +8503,10 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
-- (void) applicationWillResignActive:(UIApplication *)application {    
+- (void) applicationWillResignActive:(UIApplication *)application {
     // Stop refreshing if you get a phone call or lock the device.
     if ([container_ updating]) [container_ cancelUpdate];
-    
+
     if ([[self superclass] instancesRespondToSelector:@selector(applicationWillResignActive:)])
         [super applicationWillResignActive:application];
 }
@@ -8588,14 +8588,14 @@ static _finline void _setHomePage(Cydia *self) {
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
         nil
     ];
-    
+
     if (IsWildcat_) {
         [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
         [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:kInstalledTag] autorelease] atIndex:3];
     } else {
         [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
     }
-    
+
     for (size_t i(0); i != [items count]; i++)
         [[controllers objectAtIndex:i] setTabBarItem:[items objectAtIndex:i]];
 

@@ -29,7 +29,7 @@
 
 - (NSString *) stringByAddingPercentEscapesIncludingReserved {
     return [(id)CFURLCreateStringByAddingPercentEscapes(
-        kCFAllocatorDefault, 
+        kCFAllocatorDefault,
         (CFStringRef) self,
         NULL,
         CFSTR(";/?:@&=+$,"),

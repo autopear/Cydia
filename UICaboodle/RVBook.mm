@@ -15,13 +15,13 @@
 
 @implementation UCNavigationController
 - (void) setHook:(id)hook {
-	hook_ = hook;
+    hook_ = hook;
 }
 - (void) dismissModalViewControllerAnimated:(BOOL)animated {
-	[super dismissModalViewControllerAnimated:YES];
+    [super dismissModalViewControllerAnimated:YES];
 
-	if (hook_ != nil)
-	    [hook_ didDismissModalViewController];
+    if (hook_ != nil)
+        [hook_ didDismissModalViewController];
 }
 @end
 

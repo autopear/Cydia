@@ -65,7 +65,7 @@
     bool editing_;
 
     Class class_;
-    
+
     id reloaditem_;
     id loadingitem_;
 }

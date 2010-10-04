@@ -1,22 +1,9 @@
 #import "ResetView.h"
 
-#include <WebKit/DOMCSSPrimitiveValue.h>
-#include <WebKit/DOMCSSStyleDeclaration.h>
-#include <WebKit/DOMDocument.h>
-#include <WebKit/DOMHTMLBodyElement.h>
 #include <WebKit/DOMNodeList.h>
-#include <WebKit/DOMRGBColor.h>
-
 #include <WebKit/WebFrame.h>
-#include <WebKit/WebPolicyDelegate.h>
-#include <WebKit/WebPreferences.h>
 #include <WebKit/WebScriptObject.h>
-
-#import <WebKit/WebView.h>
-#import <WebKit/WebView-WebPrivate.h>
-
-#include <WebCore/Page.h>
-#include <WebCore/Settings.h>
+#include <WebKit/WebView.h>
 
 #import <JavaScriptCore/JavaScriptCore.h>
 
@@ -43,7 +30,9 @@
 - (UCViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 @end
 
-@interface BrowserController : UCViewController {
+@interface BrowserController : UCViewController <
+    HookProtocol
+> {
     UIScroller *scroller_;
     UIWebDocumentView *document_;
     UIProgressIndicator *indicator_;
@@ -117,5 +106,11 @@
 
 - (bool) promptForSensitive:(NSString *)name;
 - (bool) allowSensitiveRequests;
+
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button;
+- (void) applyRightButton;
+
+- (void) _startLoading;
+- (void) close;
 
 @end

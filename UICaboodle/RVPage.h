@@ -6,5 +6,6 @@
 	id delegate_; 
 }
 - (void)setDelegate:(id)delegate;
+- (void) reloadData;
 @end
 

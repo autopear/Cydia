@@ -1,0 +1,5 @@
+0) use a Mac (I'm sorry, I really am)
+1) install Cydia Substrate (in beta)
+2) install Fink (the only sane choice)
+3) activate Fink (. /sw/bin/init.sh)
+4) fink install bash ldid wget

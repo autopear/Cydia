@@ -1,12 +1,6 @@
 #import "RVBook.h"
 
-#import <UIKit/UINavigationBar.h>
-#import <UIKit/UINavigationItem.h>
-
-#import <UIKit/UITransitionView.h>
-
-#import <UIKit/UIView-Geometry.h>
-#import <UIKit/UIView-Hierarchy.h>
+#import <UIKit/UIKit.h>
 
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGGeometry.h>

@@ -8,17 +8,7 @@
 - (void) clearView;
 @end
 
-@interface UITable (RVBook)
-- (void) resetViewAnimated:(BOOL)animated;
-- (void) clearView;
-@end
-
 @interface UITableView (RVBook)
-- (void) resetViewAnimated:(BOOL)animated;
-- (void) clearView;
-@end
-
-@interface UISectionList (RVBook)
 - (void) resetViewAnimated:(BOOL)animated;
 - (void) clearView;
 @end

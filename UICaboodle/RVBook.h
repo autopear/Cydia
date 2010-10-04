@@ -2,10 +2,14 @@
 
 #import <UIKit/UIKit.h>
 
+@protocol HookProtocol
+- (void) didDismissModalViewController;
+@end
+
 @interface UCNavigationController : UINavigationController {
-	id hook_;
+	id<HookProtocol> hook_;
 }
-- (void) setHook:(id)hook;
+- (void) setHook:(id<HookProtocol>)hook;
 @end
 
 

@@ -1,12 +1,28 @@
+#include <UIKit/UIKit.h>
+#include "iPhonePrivate.h"
+
+#include "UCPlatform.h"
+
 #include <UICaboodle/BrowserView.h>
 #include <UICaboodle/UCLocalize.h>
 
-#import <QuartzCore/CALayer.h>
+//#include <QuartzCore/CALayer.h>
 // XXX: fix the minimum requirement
 extern NSString * const kCAFilterNearest;
 
 #include <WebCore/WebCoreThread.h>
-#include <WebKit/WebPreferences-WebPrivate.h>
+
+#include <WebKit/WebPolicyDelegate.h>
+#include <WebKit/WebPreferences.h>
+
+#include <WebKit/DOMCSSPrimitiveValue.h>
+#include <WebKit/DOMCSSStyleDeclaration.h>
+#include <WebKit/DOMDocument.h>
+#include <WebKit/DOMHTMLBodyElement.h>
+#include <WebKit/DOMRGBColor.h>
+
+//#include <WebCore/Page.h>
+//#include <WebCore/Settings.h>
 
 #include "substrate.h"
 
@@ -19,12 +35,10 @@ static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
 static Class $UIFormAssistant;
 static Class $UIWebBrowserView;
 
-@interface NSString (UIKit)
-- (NSString *) stringByAddingPercentEscapes;
-@end
-
 /* Indirect Delegate {{{ */
-@interface IndirectDelegate : NSObject {
+@interface IndirectDelegate : NSObject <
+    HookProtocol
+> {
     _transient volatile id delegate_;
 }
 
@@ -89,6 +103,11 @@ static Class $UIWebBrowserView;
     return nil;
 }
 
+- (void) didDismissModalViewController {
+    if (delegate_ != nil)
+        return [delegate_ didDismissModalViewController];
+}
+
 - (IMP) methodForSelector:(SEL)sel {
     if (IMP method = [super methodForSelector:sel])
         return method;
@@ -125,11 +144,19 @@ static Class $UIWebBrowserView;
 /* }}} */
 
 @interface WebView (UICaboodle)
-- (void) setScriptDebugDelegate:(id)delegate;
++ (BOOL) _canHandleRequest:(NSURLRequest *)request;
 - (void) _setFormDelegate:(id)delegate;
-- (void) _setUIKitDelegate:(id)delegate;
-- (void) setWebMailDelegate:(id)delegate;
 - (void) _setLayoutInterval:(float)interval;
+- (void) setScriptDebugDelegate:(id)delegate;
+- (void) _setUIKitDelegate:(id)delegate;
+- (void) _setUsesLoaderCache:(BOOL)uses;
+- (void) setWebMailDelegate:(id)delegate;
+@end
+
+@interface WebPreferences (Apple)
++ (void) _setInitialDefaultTextEncodingToSystemEncoding;
+- (void) _setLayoutInterval:(NSInteger)interval;
+- (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
 @end
 
 @implementation WebScriptObject (UICaboodle)
@@ -356,7 +383,7 @@ static Class $UIWebBrowserView;
     if ([scroller_ respondsToSelector:@selector(setScrollerIndicatorSubrect:)])
         [scroller_ setScrollerIndicatorSubrect:subrect];
 
-    [document_ setValue:[NSValue valueWithSize:NSMakeSize(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
+    [document_ setValue:[NSValue valueWithSize:CGSizeMake(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
 
     CGSize size(size_);
     size.height += extra;
@@ -581,7 +608,7 @@ static Class $UIWebBrowserView;
 }
 
 - (void) _openMailToURL:(NSURL *)url {
-    [UIApp openURL:url];// asPanel:YES];
+    [[UIApplication sharedApplication] openURL:url];// asPanel:YES];
 }
 
 - (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {
@@ -675,7 +702,7 @@ static Class $UIWebBrowserView;
 
         WebView *webview([document_ webView]);
         if (frame == [webview mainFrame])
-            [UIApp openURL:[request URL]];
+            [[UIApplication sharedApplication] openURL:[request URL]];
     }
 }
 
@@ -728,7 +755,7 @@ static Class $UIWebBrowserView;
     )) {
         url = open;
       open:
-        [UIApp openURL:url];
+        [[UIApplication sharedApplication] openURL:url];
         goto ignore;
     }
 
@@ -1027,17 +1054,13 @@ static Class $UIWebBrowserView;
 	[self _startLoading];
 }
 
-- (UINavigationButtonStyle) rightButtonStyle {
+- (UIBarButtonItemStyle) rightButtonStyle {
     if (style_ == nil) normal:
-        return UINavigationButtonStyleNormal;
+        return UIBarButtonItemStylePlain;
     else if ([style_ isEqualToString:@"Normal"])
-        return UINavigationButtonStyleNormal;
-    else if ([style_ isEqualToString:@"Back"])
-        return UINavigationButtonStyleBack;
+        return UIBarButtonItemStylePlain;
     else if ([style_ isEqualToString:@"Highlighted"])
-        return UINavigationButtonStyleHighlighted;
-    else if ([style_ isEqualToString:@"Destructive"])
-        return UINavigationButtonStyleDestructive;
+        return UIBarButtonItemStyleDone;
     else goto normal;
 }
 
@@ -1522,8 +1545,12 @@ static Class $UIWebBrowserView;
 
     WebView *webview([document_ webView]);
     WebFrame *frame([webview mainFrame]);
+    WebPreferences *preferences([webview preferences]);
 
-    id _private(MSHookIvar<id>(webview, "_private"));
+    bool maybe([preferences javaScriptCanOpenWindowsAutomatically]);
+    [preferences setJavaScriptCanOpenWindowsAutomatically:NO];
+
+    /*id _private(MSHookIvar<id>(webview, "_private"));
     WebCore::Page *page(_private == nil ? NULL : MSHookIvar<WebCore::Page *>(_private, "page"));
     WebCore::Settings *settings(page == NULL ? NULL : page->settings());
 
@@ -1533,7 +1560,7 @@ static Class $UIWebBrowserView;
     else {
         no = settings->JavaScriptCanOpenWindowsAutomatically();
         settings->setJavaScriptCanOpenWindowsAutomatically(true);
-    }
+    }*/
 
     if (UIWindow *window = [[self view] window])
         if (UIResponder *responder = [window firstResponder])
@@ -1543,8 +1570,10 @@ static Class $UIWebBrowserView;
     JSGlobalContextRef context([frame globalContext]);
     JSObjectCallAsFunction(context, object, NULL, 0, NULL, NULL);
 
-    if (settings != NULL)
-        settings->setJavaScriptCanOpenWindowsAutomatically(no);
+    /*if (settings != NULL)
+        settings->setJavaScriptCanOpenWindowsAutomatically(no);*/
+
+    [preferences setJavaScriptCanOpenWindowsAutomatically:maybe];
 
     WebThreadUnlock();
 }

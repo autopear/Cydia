@@ -54,6 +54,7 @@ typedef enum {
 
 
 @interface UIActionSheet (Apple)
+- (void) setContext:(NSString *)context;
 - (NSString *) context;
 @end
 

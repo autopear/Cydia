@@ -1216,6 +1216,7 @@ bool isSectionVisible(NSString *section) {
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (UCViewController *) pageForPackage:(NSString *)name;
 - (PackageController *) packageController;
+- (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 @end
 /* }}} */
 
@@ -5121,7 +5122,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Package Controller {{{ */
-@interface PackageController : CYBrowserController {
+@interface PackageController : CYBrowserController <
+    UIActionSheetDelegate
+> {
     _transient Database *database_;
     Package *package_;
     NSString *name_;
@@ -5193,7 +5196,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 #if !AlwaysReload
-- (void) _actionButtonClicked {
+- (void) _customButtonClicked {
     int count([buttons_ count]);
     if (count == 0)
         return;
@@ -5223,10 +5226,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) actionButtonClicked {
+- (void) customButtonClicked {
     // Wait until it's done loading.
     if (![self isLoading])
-        [self _actionButtonClicked];
+        [self _customButtonClicked];
 }
 
 - (void) reloadButtonClicked {
@@ -5309,7 +5312,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         initWithTitle:count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0]
         style:UIBarButtonItemStylePlain
         target:self
-        action:@selector(actionButtonClicked)
+        action:@selector(customButtonClicked)
     ];
     if (![self isLoading]) [[self navigationItem] setRightBarButtonItem:actionItem];
     else [super applyRightButton];

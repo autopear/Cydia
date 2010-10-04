@@ -2482,11 +2482,13 @@ struct PackageNameOrdering :
     UIImage *icon(nil);
     if (!icon_.empty())
         if ([icon_ hasPrefix:@"file:///"])
+            // XXX: correct escaping
             icon = [UIImage imageAtPath:[icon_ substringFromIndex:7]];
     if (icon == nil) if (section != nil)
         icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
     if (icon == nil) if (source_ != nil) if (NSString *dicon = [source_ defaultIcon])
         if ([dicon hasPrefix:@"file:///"])
+            // XXX: correct escaping
             icon = [UIImage imageAtPath:[dicon substringFromIndex:7]];
     if (icon == nil)
         icon = [UIImage applicationImageNamed:@"unknown.png"];

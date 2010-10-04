@@ -8576,21 +8576,12 @@ static _finline void _setHomePage(Cydia *self) {
 
     _trace();
 
-    NSMutableArray *controllers = [NSMutableArray array];
-    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
-    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
-    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
-    if (IsWildcat_) [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
-    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
-    [controllers addObject:[[CYNavigationController alloc] initWithDatabase:database_]];
-
-    NSMutableArray *items = [NSMutableArray arrayWithObjects:
+    NSMutableArray *items([NSMutableArray arrayWithObjects:
         [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:kChangesTag] autorelease],
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
-        nil
-    ];
+    nil]);
 
     if (IsWildcat_) {
         [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
@@ -8599,8 +8590,13 @@ static _finline void _setHomePage(Cydia *self) {
         [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
     }
 
-    for (size_t i(0); i != [items count]; i++)
-        [[controllers objectAtIndex:i] setTabBarItem:[items objectAtIndex:i]];
+    NSMutableArray *controllers([NSMutableArray array]);
+
+    for (UITabBarItem *item in items) {
+        CYNavigationController *controller([[[CYNavigationController alloc] initWithDatabase:database_] autorelease]);
+        [controller setTabBarItem:item];
+        [controllers addObject:controller];
+    }
 
     tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
     [tabbar_ setViewControllers:controllers];

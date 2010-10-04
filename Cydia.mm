@@ -8611,7 +8611,6 @@ static _finline void _setHomePage(Cydia *self) {
     [container_ setUpdateDelegate:self];
     [container_ setTabBarController:tabbar_];
     [window_ addSubview:[container_ view]];
-    [[tabbar_ view] setFrame:CGRectMake(0, -20.0f, [window_ bounds].size.width, [window_ bounds].size.height)];
 
     [UIKeyboard initImplementationNow];
 

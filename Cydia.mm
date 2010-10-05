@@ -375,7 +375,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 #define lprintf(args...) fprintf(stderr, args)
 
-#define ForRelease 0
+#define ForRelease 1
 #define TraceLogging (1 && !ForRelease)
 #define HistogramInsertionSort (0 && !ForRelease)
 #define ProfileTimes (0 && !ForRelease)
@@ -6566,7 +6566,7 @@ freeing the view controllers on tab change */
     }
 }
 
-- (id) initWithDatabase: (Database *)database {
+- (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
     } return self;
@@ -7652,7 +7652,8 @@ freeing the view controllers on tab change */
 }
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return YES; /* XXX: return YES; */
+    // XXX: this should be a compile-time flag
+    return YES;
 }
 
 - (void) setTabBarController:(UITabBarController *)controller {
@@ -7769,8 +7770,8 @@ freeing the view controllers on tab change */
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y += barframe.size.height + 20.0f;
-    viewframe.size.height -= barframe.size.height + 20.0f;
+    viewframe.origin.y += barframe.size.height;
+    viewframe.size.height -= barframe.size.height;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 
@@ -7791,8 +7792,8 @@ freeing the view controllers on tab change */
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y -= barframe.size.height + 20.0f;
-    viewframe.size.height += barframe.size.height + 20.0f;
+    viewframe.origin.y -= barframe.size.height;
+    viewframe.size.height += barframe.size.height;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 

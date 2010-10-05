@@ -44,6 +44,7 @@ clean:
 
 Cydia: Cydia.mm Reachability.mm UICaboodle/*.mm iPhonePrivate.h
 	$(cycc) $(filter %.mm,$^) $(flags) $(link)
+	ldid -Slaunch.xml $@
 
 package: Cydia
 	sudo rm -rf _

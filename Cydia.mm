@@ -386,6 +386,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
+#define RotationEnabled 1
 #define RecyclePackageViews (1 && ForRelease)
 #define AlwaysReload (1 && !ForRelease)
 
@@ -3871,7 +3872,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation CYViewController
 @end
 /* }}} */
-
+/* Cydia Browser Controller {{{ */
 @interface CYBrowserController : BrowserController {
     CydiaObject *cydia_;
 }
@@ -3961,7 +3962,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 @end
+/* }}} */
 
+/* Confirmation {{{ */
 @protocol ConfirmationControllerDelegate
 - (void) cancelAndClear:(bool)clear;
 - (void) confirmWithNavigationController:(UINavigationController *)navigation;
@@ -7652,8 +7655,11 @@ freeing the view controllers on tab change */
 }
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    // XXX: this should be a compile-time flag
+#ifdef RotationEnabled
     return YES;
+#else
+    return NO;
+#endif
 }
 
 - (void) setTabBarController:(UITabBarController *)controller {

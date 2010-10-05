@@ -1592,13 +1592,17 @@ static Class $UIWebBrowserView;
     [self reloadURL];
 }
 
+- (void) _customButtonClicked {
+    [self reloadButtonClicked];
+}
+
 - (void) customButtonClicked {
 #if !AlwaysReload
     if (function_ != nil)
         [self callFunction:function_];
     else
 #endif
-    [self reloadButtonClicked];
+    [self _customButtonClicked];
 }
 
 - (void) setPageActive:(BOOL)active {

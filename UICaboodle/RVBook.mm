@@ -14,7 +14,7 @@
 
 
 @implementation UCNavigationController
-- (void) setHook:(id)hook {
+- (void) setHook:(id<HookProtocol>)hook {
     hook_ = hook;
 }
 - (void) dismissModalViewControllerAnimated:(BOOL)animated {

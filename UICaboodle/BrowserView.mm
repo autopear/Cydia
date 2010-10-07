@@ -161,7 +161,7 @@ static Class $UIWebBrowserView;
 
 @implementation WebScriptObject (UICaboodle)
 
-- (unsigned) count {
+- (NSUInteger) count {
     id length([self valueForKey:@"length"]);
     if ([length respondsToSelector:@selector(intValue)])
         return [length intValue];
@@ -759,10 +759,10 @@ static Class $UIWebBrowserView;
         goto ignore;
     }
 
-    int store(_not(int));
+    NSInteger store(_not(NSInteger));
     if (NSURL *itms = [url itmsURL:&store]) {
 #if LogBrowser
-        NSLog(@"itms#%@#%u#%@", url, store, itms);
+        NSLog(@"itms#%@#%d#%@", url, (int) store, itms);
 #endif
 
         if (capability != nil && (
@@ -1144,7 +1144,7 @@ static Class $UIWebBrowserView;
     if ([frame parentFrame] == nil) {
         if (DOMDocument *document = [frame DOMDocument])
             if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
-                for (DOMHTMLBodyElement *body in bodies) {
+                for (DOMHTMLBodyElement *body in (id) bodies) {
                     DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
 
                     bool colored(false);

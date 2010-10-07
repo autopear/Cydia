@@ -25,7 +25,7 @@
 @class IndirectDelegate;
 
 @interface WebScriptObject (UICaboodle)
-- (unsigned) count;
+- (NSUInteger) count;
 - (id) objectAtIndex:(unsigned)index;
 @end
 

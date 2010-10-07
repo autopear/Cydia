@@ -618,7 +618,9 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 @end
 /* }}} */
 
-NSUInteger WebScriptObject$countByEnumeratingWithState$objects$count$(WebScriptObject *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
+@implementation WebScriptObject (NSFastEnumeration)
+
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count {
     size_t length([self count] - state->state);
     if (length <= 0)
         return 0;
@@ -630,6 +632,8 @@ NSUInteger WebScriptObject$countByEnumeratingWithState$objects$count$(WebScriptO
     state->mutationsPtr = (unsigned long *) self;
     return length;
 }
+
+@end
 
 NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
     size_t length([self length] - state->state);
@@ -8713,7 +8717,6 @@ int main(int argc, char *argv[]) { _pooled
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
     /* Library Hacks {{{ */
-    class_addMethod(objc_getClass("WebScriptObject"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &WebScriptObject$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
 
     $WebDefaultUIKitDelegate = objc_getClass("WebDefaultUIKitDelegate");

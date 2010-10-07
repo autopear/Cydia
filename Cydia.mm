@@ -386,7 +386,6 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
-#define RotationEnabled 1
 #define RecyclePackageViews (1 && ForRelease)
 #define AlwaysReload (1 && !ForRelease)
 
@@ -7655,11 +7654,7 @@ freeing the view controllers on tab change */
 }
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-#ifdef RotationEnabled
-    return YES;
-#else
-    return NO;
-#endif
+    return IsWildcat_;
 }
 
 - (void) setTabBarController:(UITabBarController *)controller {

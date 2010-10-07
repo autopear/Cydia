@@ -413,7 +413,7 @@ static Class $UIWebBrowserView;
     [self view:sender didSetFrame:frame];
 }
 
-- (void) pushPage:(UCViewController *)page {
+- (void) pushPage:(CYViewController *)page {
     [page setDelegate:delegate_];
     [[self navigationItem] setTitle:title_];
     [[self navigationController] pushViewController:page animated:YES];
@@ -427,7 +427,7 @@ static Class $UIWebBrowserView;
     [[self navigationController] pushViewController:self animated:YES];
 }
 
-- (void) swapPage:(UCViewController *)page {
+- (void) swapPage:(CYViewController *)page {
     [page setDelegate:delegate_];
     if (pushed_) [[self navigationController] popViewControllerAnimated:NO];
 
@@ -439,7 +439,7 @@ static Class $UIWebBrowserView;
     NSLog(@"getSpecial:%@", url);
 #endif
 
-    if (UCViewController *page = [delegate_ pageForURL:url hasTag:NULL]) {
+    if (CYViewController *page = [delegate_ pageForURL:url hasTag:NULL]) {
         if (swap)
             [self swapPage:page];
         else
@@ -662,7 +662,7 @@ static Class $UIWebBrowserView;
                 UCNavigationController *navigation([[[UCNavigationController alloc] init] autorelease]);
                 [navigation setHook:indirect_];
 
-                UCViewController *page([delegate_ pageForURL:url hasTag:NULL]);
+                CYViewController *page([delegate_ pageForURL:url hasTag:NULL]);
                 if (page == nil) {
                     /* XXX: call createWebViewWithRequest instead? */
 

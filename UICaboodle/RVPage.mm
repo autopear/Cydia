@@ -5,7 +5,7 @@
 
 #import "RVBook.h"
 
-@implementation UCViewController
+@implementation CYViewController
 - (void)setDelegate:(id)delegate {
     delegate_ = delegate;
 }

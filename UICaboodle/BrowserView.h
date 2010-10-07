@@ -27,10 +27,10 @@
 @end
 
 @protocol BrowserControllerDelegate
-- (UCViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag;
+- (CYViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 @end
 
-@interface BrowserController : UCViewController <
+@interface BrowserController : CYViewController <
     HookProtocol
 > {
     UIScroller *scroller_;

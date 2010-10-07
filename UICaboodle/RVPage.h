@@ -2,7 +2,7 @@
 
 #import <UIKit/UIKit.h>
 
-@interface UCViewController : UIViewController {
+@interface CYViewController : UIViewController {
     id delegate_;
 }
 - (void)setDelegate:(id)delegate;

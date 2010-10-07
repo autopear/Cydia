@@ -1215,7 +1215,7 @@ bool isSectionVisible(NSString *section) {
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
-- (UCViewController *) pageForPackage:(NSString *)name;
+- (CYViewController *) pageForPackage:(NSString *)name;
 - (PackageController *) packageController;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 @end
@@ -3864,13 +3864,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Cydia View Controller {{{ */
-@interface CYViewController : UCViewController { }
-@end
-
-@implementation CYViewController
-@end
-/* }}} */
 /* Cydia Browser Controller {{{ */
 @interface CYBrowserController : BrowserController {
     CydiaObject *cydia_;
@@ -7880,8 +7873,8 @@ typedef enum {
     bool loaded_;
 }
 
-- (UCViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
-- (void) setPage:(UCViewController *)page;
+- (CYViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
+- (void) setPage:(CYViewController *)page;
 - (void) loadData;
 
 @end
@@ -8204,7 +8197,7 @@ static _finline void _setHomePage(Cydia *self) {
     [self complete];
 }
 
-- (void) setPage:(UCViewController *)page {
+- (void) setPage:(CYViewController *)page {
     [page setDelegate:self];
 
     CYNavigationController *navController = (CYNavigationController *) [tabbar_ selectedViewController];
@@ -8214,7 +8207,7 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
-- (UCViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class {
+- (CYViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class {
     CYBrowserController *browser = [[[_class alloc] init] autorelease];
     [browser loadURL:url];
     return browser;
@@ -8443,7 +8436,7 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ setUserInteractionEnabled:YES];
 }
 
-- (UCViewController *) pageForPackage:(NSString *)name {
+- (CYViewController *) pageForPackage:(NSString *)name {
     if (Package *package = [database_ packageWithName:name]) {
         PackageController *view([self packageController]);
         [view setPackage:package];
@@ -8455,7 +8448,7 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
-- (UCViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag {
+- (CYViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag {
     if (tag != NULL)
         *tag = -1;
 
@@ -8507,7 +8500,7 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
     int tag;
-    if (UCViewController *page = [self pageForURL:url hasTag:&tag]) {
+    if (CYViewController *page = [self pageForURL:url hasTag:&tag]) {
         [self setPage:page];
         tag_ = tag;
         [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];

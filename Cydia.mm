@@ -1046,7 +1046,7 @@ static UIFont *Font18Bold_;
 static UIFont *Font22Bold_;
 
 static const char *Machine_ = NULL;
-static NSString *System_ = NULL;
+static NSString *System_ = nil;
 static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
 static NSString *Token_ = nil;

@@ -997,7 +997,7 @@ class CYColor {
     void Set(CGColorSpaceRef space, float red, float green, float blue, float alpha) {
         Clear();
         float color[] = {red, green, blue, alpha};
-        color_ = CGColorCreate(space, color);
+        color_ = CGColorCreate(space, (CGFloat *) color);
     }
 
     operator CGColorRef() {
@@ -1431,8 +1431,11 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
     Package *package = id == nil ? nil : [[Database sharedInstance] packageWithName:id];
-    // XXX: holy typecast batman!
-    [(id<ProgressDelegate>)self setProgressError:error withTitle:(package == nil ? id : [package name])];
+    
+    [self performSelector:@selector(setProgressError:withTitle:)
+        withObject:error
+        withObject:(package == nil ? id : [package name])
+    ];
 }
 
 @end
@@ -3069,7 +3072,7 @@ static NSString *Warning_;
     return iterator.end() ? nil : [Package packageWithIterator:iterator withZone:NULL inPool:pool_ database:self];
 } }
 
-- (Database *) init {
+- (id) init {
     if ((self = [super init]) != nil) {
         policy_ = NULL;
         records_ = NULL;
@@ -3577,7 +3580,8 @@ static NSString *Warning_;
         return;
 
     if ([self popErrorWithTitle:title forOperation:ListUpdate(status, list, PulseInterval_)])
-        /* XXX: ignore this because users suck and don't understand why refreshing is important: return */;
+        /* XXX: ignore this because users suck and don't understand why refreshing is important: return */
+        /* XXX: why the hell is an empty if statement a clang error? */ (void) 0;
 
     [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
     Changed_ = true;
@@ -3848,7 +3852,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     id values[count];
     for (unsigned i(0); i != count; ++i)
         values[i] = [arguments objectAtIndex:i];
-    return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
+    return [[[NSString alloc] initWithFormat:format arguments:*(reinterpret_cast<va_list *>(&values))] autorelease];
 }
 
 - (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {
@@ -5026,7 +5030,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (int) tableView:(UITableView *)tableView numberOfRowsInSection:(int)section {
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return files_ == nil ? 0 : [files_ count];
 }
 
@@ -5612,7 +5616,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[self navigationController] pushViewController:view animated:YES];
 }
 
-- (id) title { return title_; }
+- (NSString *) title { return title_; }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
     if ((self = [super init]) != nil) {
@@ -5825,11 +5829,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
 
-- (int) numberOfSectionsInTableView:(UITableView *)tableView {
+- (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
     return offset_ == 0 ? 1 : 2;
 }
 
-- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(int)section {
+- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     switch (section + (offset_ == 0 ? 1 : 0)) {
         case 0: return UCLocalize("ENTERED_BY_USER");
         case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
@@ -5838,7 +5842,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (int) tableView:(UITableView *)tableView numberOfRowsInSection:(int)section {
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     int count = [sources_ count];
     switch (section) {
         case 0: return (offset_ == 0 ? count : offset_);
@@ -6029,7 +6033,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self _endConnection:connection];
 }
 
-- (id)title { return UCLocalize("SOURCES"); }
+- (NSString *) title { return UCLocalize("SOURCES"); }
 
 - (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
     NSMutableURLRequest *request = [NSMutableURLRequest
@@ -6241,7 +6245,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (id) title { return UCLocalize("INSTALLED"); }
+- (NSString *) title { return UCLocalize("INSTALLED"); }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndVisible:) with:[NSNumber numberWithBool:YES]]) != nil) {
@@ -6571,7 +6575,7 @@ freeing the view controllers on tab change */
 /* Cydia Navigation Controller {{{ */
 @interface CYNavigationController : UINavigationController {
     _transient Database *database_;
-    id delegate_;
+    id<UINavigationControllerDelegate> delegate_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -6603,7 +6607,7 @@ freeing the view controllers on tab change */
     }
 }
 
-- (void) setDelegate:(id)delegate {
+- (void) setDelegate:(id<UINavigationControllerDelegate>)delegate {
     delegate_ = delegate;
 }
 
@@ -6760,7 +6764,7 @@ freeing the view controllers on tab change */
     return section;
 }
 
-- (int) tableView:(UITableView *)tableView numberOfRowsInSection:(int)section {
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return editing_ ? [sections_ count] : [filtered_ count] + 1;
 }
 
@@ -6809,7 +6813,7 @@ freeing the view controllers on tab change */
     [[self navigationController] pushViewController:table animated:YES];
 }
 
-- (id) title { return UCLocalize("SECTIONS"); }
+- (NSString *) title { return UCLocalize("SECTIONS"); }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
@@ -7043,7 +7047,7 @@ freeing the view controllers on tab change */
     [delegate_ distUpgrade];
 }
 
-- (id) title { return UCLocalize("CHANGES"); }
+- (NSString *) title { return UCLocalize("CHANGES"); }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
     if ((self = [super init]) != nil) {
@@ -7199,18 +7203,18 @@ freeing the view controllers on tab change */
     [super dealloc];
 }
 
-- (void) searchBarSearchButtonClicked:(id)searchBar {
+- (void) searchBarSearchButtonClicked:(UISearchBar *)searchBar {
     [packages_ setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [search_ resignFirstResponder];
     [self reloadData];
 }
 
-- (void) searchBar:(id)searchBar textDidChange:(NSString *)text {
+- (void) searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)text {
     [packages_ setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
     [self reloadData];
 }
 
-- (id) title { return nil; }
+- (NSString *) title { return nil; }
 
 - (id) initWithDatabase:(Database *)database {
     return [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil];
@@ -7341,7 +7345,7 @@ freeing the view controllers on tab change */
     return nil;
 }
 
-- (id) title { return UCLocalize("SETTINGS"); }
+- (NSString *) title { return UCLocalize("SETTINGS"); }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package {
     if ((self = [super init])) {
@@ -7839,7 +7843,8 @@ typedef enum {
 @interface Cydia : UIApplication <
     ConfirmationControllerDelegate,
     ProgressControllerDelegate,
-    CydiaDelegate
+    CydiaDelegate,
+    UINavigationControllerDelegate
 > {
     UIWindow *window_;
     CYContainer *container_;
@@ -8089,7 +8094,7 @@ static _finline void _setHomePage(Cydia *self) {
     [self _saveConfig];
 
     ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
-    UINavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
+    CYNavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
     if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:navigation animated:YES];
 
@@ -8125,7 +8130,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     ConfirmationController *page([[[ConfirmationController alloc] initWithDatabase:database_] autorelease]);
     [page setDelegate:self];
-    id confirm_ = [[CYNavigationController alloc] initWithRootViewController:page];
+    CYNavigationController *confirm_ = [[CYNavigationController alloc] initWithRootViewController:page];
     [confirm_ setDelegate:self];
 
     if (IsWildcat_) [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];

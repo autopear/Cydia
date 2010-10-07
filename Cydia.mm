@@ -119,7 +119,6 @@ extern "C" {
 #include <ext/hash_map>
 
 #include "UICaboodle/BrowserView.h"
-#include "UICaboodle/ResetView.h"
 
 #include "substrate.h"
 

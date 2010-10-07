@@ -1612,9 +1612,6 @@ static Class $UIWebBrowserView;
         [[[[self navigationItem] rightBarButtonItem] view] addSubview:indicator_];
 }
 
-- (void) resetViewAnimated:(BOOL)animated {
-}
-
 - (void) setPushed:(bool)pushed {
     pushed_ = pushed;
 }

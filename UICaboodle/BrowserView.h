@@ -1,4 +1,7 @@
-#import "ResetView.h"
+#import <UICaboodle/RVPage.h>
+#import <UICaboodle/RVBook.h>
+
+#import <UIKit/UIKit.h>
 
 #include <WebKit/DOMNodeList.h>
 #include <WebKit/WebFrame.h>

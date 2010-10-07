@@ -42,7 +42,7 @@ all: Cydia
 clean:
 	rm -f Cydia
 
-Cydia: Cydia.mm Reachability.mm UICaboodle/*.mm iPhonePrivate.h
+Cydia: Cydia.mm UICaboodle/*.mm iPhonePrivate.h
 	$(cycc) $(filter %.mm,$^) $(flags) $(link)
 	ldid -Slaunch.xml $@
 

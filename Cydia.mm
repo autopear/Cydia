@@ -59,6 +59,8 @@
 #include <CoreFoundation/CFPriv.h>
 #include <CoreFoundation/CFUniChar.h>
 
+#include <SystemConfiguration/SystemConfiguration.h>
+
 #include <UIKit/UIKit.h>
 #include "iPhonePrivate.h"
 
@@ -121,9 +123,6 @@ extern "C" {
 #include "UICaboodle/BrowserView.h"
 
 #include "substrate.h"
-
-// Apple's sample Reachability code, ASPL licensed.
-#include "Reachability.h"
 /* }}} */
 
 /* Profiler {{{ */
@@ -7972,10 +7971,25 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) _refreshIfPossible {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    Reachability* reachability = [Reachability reachabilityWithHostName:@"cydia.saurik.com"];
-    NetworkStatus remoteHostStatus = [reachability currentReachabilityStatus];
+    SCNetworkReachabilityFlags flags; {
+        SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, "cydia.saurik.com"));
+        SCNetworkReachabilityGetFlags(reachability, &flags);
+        CFRelease(reachability);
+    }
 
-    if (loaded_ || ManualRefresh || remoteHostStatus == NotReachable) loaded:
+    // XXX: this elaborate mess is what Apple is using to determine this? :(
+    // XXX: do we care if the user has to intervene? maybe that's ok?
+    bool reachable(
+        (flags & kSCNetworkReachabilityFlagsReachable) != 0 && (
+            (flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0 || (
+                (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) != 0 ||
+                (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0
+            ) && (flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0 ||
+            (flags & kSCNetworkReachabilityFlagsIsWWAN) != 0
+        )
+    );
+
+    if (loaded_ || ManualRefresh || !reachable) loaded:
         [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
     else {
         loaded_ = true;

@@ -1046,14 +1046,14 @@ static UIFont *Font18Bold_;
 static UIFont *Font22Bold_;
 
 static const char *Machine_ = NULL;
-static const NSString *System_ = NULL;
-static const NSString *SerialNumber_ = nil;
-static const NSString *ChipID_ = nil;
-static const NSString *Token_ = nil;
-static const NSString *UniqueID_ = nil;
-static const NSString *Build_ = nil;
-static const NSString *Product_ = nil;
-static const NSString *Safari_ = nil;
+static NSString *System_ = NULL;
+static NSString *SerialNumber_ = nil;
+static NSString *ChipID_ = nil;
+static NSString *Token_ = nil;
+static NSString *UniqueID_ = nil;
+static NSString *Build_ = nil;
+static NSString *Product_ = nil;
+static NSString *Safari_ = nil;
 
 static CFLocaleRef Locale_;
 static NSArray *Languages_;

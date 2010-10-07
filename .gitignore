@@ -2,3 +2,4 @@ sysroot
 Cydia
 _
 *.deb
+.DS_Store

@@ -969,17 +969,17 @@ class Pcre {
 @end
 /* }}} */
 /* CoreGraphics Primitives {{{ */
-class CGColor {
+class CYColor {
   private:
     CGColorRef color_;
 
   public:
-    CGColor() :
+    CYColor() :
         color_(NULL)
     {
     }
 
-    CGColor(CGColorSpaceRef space, float red, float green, float blue, float alpha) :
+    CYColor(CGColorSpaceRef space, float red, float green, float blue, float alpha) :
         color_(NULL)
     {
         Set(space, red, green, blue, alpha);
@@ -990,7 +990,7 @@ class CGColor {
             CGColorRelease(color_);
     }
 
-    ~CGColor() {
+    ~CYColor() {
         Clear();
     }
 
@@ -1020,15 +1020,15 @@ static NSArray *Finishes_;
 
 static bool Queuing_;
 
-static CGColor Blue_;
-static CGColor Blueish_;
-static CGColor Black_;
-static CGColor Off_;
-static CGColor White_;
-static CGColor Gray_;
-static CGColor Green_;
-static CGColor Purple_;
-static CGColor Purplish_;
+static CYColor Blue_;
+static CYColor Blueish_;
+static CYColor Black_;
+static CYColor Off_;
+static CYColor White_;
+static CYColor Gray_;
+static CYColor Green_;
+static CYColor Purple_;
+static CYColor Purplish_;
 
 static UIColor *InstallingColor_;
 static UIColor *RemovingColor_;

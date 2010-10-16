@@ -8346,6 +8346,14 @@ static _finline void _setHomePage(Cydia *self) {
 #endif
 }
 
+// Returns the navigation controller for the queuing badge.
+- (id) queueBadgeController {
+    int index = [self indexOfTabWithTag:kManageTag];
+    if (index == -1) index = [self indexOfTabWithTag:kInstalledTag];
+    
+    return [[tabbar_ viewControllers] objectAtIndex:index];
+}
+
 - (void) cancelAndClear:(bool)clear {
     @synchronized (self) {
         if (clear) {
@@ -8360,19 +8368,18 @@ static _finline void _setHomePage(Cydia *self) {
 				}
             }
 
-			// Stop queuing, and let the appropriate controller know it.
+			// Stop queuing.
             Queuing_ = false;
-            [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:nil];
-            [queueDelegate_ queueStatusDidChange];
+            [[[self queueBadgeController] tabBarItem] setBadgeValue:nil];
         } else {
-			// Start queuing, and let the controllers know.
+			// Start queuing.
             Queuing_ = true;
-
-            [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
-            [(CYNavigationController *)[tabbar_ selectedViewController] reloadData];
-
-            [queueDelegate_ queueStatusDidChange];
-        }
+            [[[self queueBadgeController] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
+		}
+        
+		// Show the changes in the current view.
+        [(CYNavigationController *) [tabbar_ selectedViewController] reloadData];
+        [queueDelegate_ queueStatusDidChange];
     }
 }
 

@@ -8349,19 +8349,23 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) cancelAndClear:(bool)clear {
     @synchronized (self) {
         if (clear) {
-            /* XXX: clear marks instead of reloading data */
-            /*pkgCacheFile &cache([database_ cache]);
+            // Clear all marks.
+            pkgCacheFile &cache([database_ cache]);
             for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
-                if (!cache[iterator].Keep()) cache->MarkKeep(iterator, false, false);
+                // Unmark method taken from Synaptic Package Manager.
+				// Thanks for being sane, unlike Aptitude.
+				if (!cache[iterator].Keep()) {
+					cache->MarkKeep(iterator, false);
+					cache->SetReInstall(iterator, false);
+				}
             }
 
-            [self updateData];
-
+			// Stop queuing, and let the appropriate controller know it.
             Queuing_ = false;
             [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:nil];
-            [queueDelegate_ queueStatusDidChange];*/
-            [self reloadData];
+            [queueDelegate_ queueStatusDidChange];
         } else {
+			// Start queuing, and let the controllers know.
             Queuing_ = true;
 
             [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kManageTag] != -1 ? [self indexOfTabWithTag:kManageTag] : [self indexOfTabWithTag:kInstalledTag]] tabBarItem] setBadgeValue:UCLocalize("Q_D")];

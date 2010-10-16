@@ -383,7 +383,7 @@ static Class $UIWebBrowserView;
     if ([scroller_ respondsToSelector:@selector(setScrollerIndicatorSubrect:)])
         [scroller_ setScrollerIndicatorSubrect:subrect];
 
-    [document_ setValue:[NSValue valueWithSize:CGSizeMake(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
+    [document_ setValue:[NSValue valueWithSize:NSMakeSize(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
 
     CGSize size(size_);
     size.height += extra;

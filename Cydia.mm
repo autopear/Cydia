@@ -311,7 +311,7 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
     } return self;
 }
 
-- (void)_updateFrameForDisplay {
+- (void) _updateFrameForDisplay {
     [super _updateFrameForDisplay];
     if ([self cancelButtonIndex] == -1) {
         NSArray *buttons = [self buttons];
@@ -7821,7 +7821,7 @@ freeing the view controllers on tab change */
     [super dealloc];
 }
 
-- (id) initWithDatabase: (Database *)database {
+- (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
 

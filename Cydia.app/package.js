@@ -195,19 +195,23 @@ var special_ = function () {
     }*/
 
     var depiction = package.depiction;
-    if (depiction == null)
-        $(".depiction").addClass("deleted");
-    else {
+    if (depiction != null) {
         $(".description").addClass("deleted");
         $("#depiction-src").src(depiction);
-    }
+    } else {
+        $(".depiction").addClass("deleted");
 
-    var description = package.longDescription;
-    if (description == null)
-        description = package.shortDescription;
-    else
-        description = description.replace(/\n/g, "<br/>");
-    $("#description").html(description);
+        var description = package.longDescription;
+        if (description == null)
+            description = package.shortDescription;
+
+        if (description == null)
+            $(".description").addClass("deleted");
+        else {
+            description = $.xml(description).replace(/\n/g, "<br/>");
+            $("#description").html(description);
+        }
+    }
 
     var homepage = package.homepage;
     if (homepage == null)
@@ -279,7 +283,7 @@ var special_ = function () {
         if (description == null)
             $(".source-description").addClass("deleted");
         else
-            $("#source-description").html(description);
+            $("#source-description").html($.xml(description));
     }
 };
 

@@ -306,6 +306,9 @@ typedef enum {
     UIModalPresentationCurrentContext,
 } UIModalPresentationStyle;
 
+#define kSCNetworkReachabilityFlagsConnectionOnTraffic kSCNetworkReachabilityFlagsConnectionAutomatic
+#define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
+
 @class NSUndoManager;
 @class UIPasteboard;
 

@@ -312,6 +312,10 @@ typedef enum {
 @class NSUndoManager;
 @class UIPasteboard;
 
+@interface UIActionSheet (iPad)
+- (void) showFromBarButtonItem:(UIBarButtonItem *)item animated:(BOOL)animated;
+@end
+
 @interface UIViewController (iPad)
 - (void) setModalPresentationStyle:(UIModalPresentationStyle)style;
 @end

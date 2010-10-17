@@ -1435,7 +1435,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
     Package *package = id == nil ? nil : [[Database sharedInstance] packageWithName:id];
-    
+
     [self performSelector:@selector(setProgressError:withTitle:)
         withObject:error
         withObject:(package == nil ? id : [package name])
@@ -7783,7 +7783,7 @@ freeing the view controllers on tab change */
 
     CGFloat sboffset = [self statusBarHeight];
 
-    CGRect barframe = [refreshbar_ frame];   
+    CGRect barframe = [refreshbar_ frame];
     barframe.origin.y = sboffset;
     [refreshbar_ setFrame:barframe];
 
@@ -7808,7 +7808,7 @@ freeing the view controllers on tab change */
 
     [refreshbar_ removeFromSuperview];
 
-    CGFloat sboffset = [self statusBarHeight]; 
+    CGFloat sboffset = [self statusBarHeight];
 
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
@@ -8380,7 +8380,7 @@ static _finline void _setHomePage(Cydia *self) {
 - (id) queueBadgeController {
     int index = [self indexOfTabWithTag:kManageTag];
     if (index == -1) index = [self indexOfTabWithTag:kInstalledTag];
-    
+
     return [[tabbar_ viewControllers] objectAtIndex:index];
 }
 
@@ -8391,23 +8391,23 @@ static _finline void _setHomePage(Cydia *self) {
             pkgCacheFile &cache([database_ cache]);
             for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
                 // Unmark method taken from Synaptic Package Manager.
-				// Thanks for being sane, unlike Aptitude.
-				if (!cache[iterator].Keep()) {
-					cache->MarkKeep(iterator, false);
-					cache->SetReInstall(iterator, false);
-				}
+                // Thanks for being sane, unlike Aptitude.
+                if (!cache[iterator].Keep()) {
+                    cache->MarkKeep(iterator, false);
+                    cache->SetReInstall(iterator, false);
+                }
             }
 
-			// Stop queuing.
+            // Stop queuing.
             Queuing_ = false;
             [[[self queueBadgeController] tabBarItem] setBadgeValue:nil];
         } else {
-			// Start queuing.
+            // Start queuing.
             Queuing_ = true;
             [[[self queueBadgeController] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
-		}
-        
-		// Show the changes in the current view.
+        }
+
+        // Show the changes in the current view.
         [(CYNavigationController *) [tabbar_ selectedViewController] reloadData];
         [queueDelegate_ queueStatusDidChange];
     }

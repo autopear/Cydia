@@ -1,4 +1,10 @@
+ifeq (o,O)
+ios := 2.0
+gcc := 4.0
+else
 ios := 3.2
+gcc := 4.2
+endif
 
 flags := 
 link := 
@@ -34,7 +40,7 @@ link += -lpcre
 link += -multiply_defined suppress
 
 #cycc = cycc -r4.2 -i$(ios) -o$@
-gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
+gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
 cycc = $(gxx) -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=$(ios) -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
 
 all: Cydia

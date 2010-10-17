@@ -1,7 +1,10 @@
 #ifndef CYDIA_UIKITPRIVATE_H
+#define CYDIA_UIKITPRIVATE_H
 
+// #include <*> {{{
 #include <GraphicsServices/GraphicsServices.h>
-
+// }}}
+// typedef enum {*} *; {{{
 typedef enum {
     UIGestureAttributeMinDegrees,                 /*float*/
     UIGestureAttributeMaxDegrees,                 /*float*/
@@ -28,11 +31,12 @@ typedef enum {
     UIProgressIndicatorStyleSmallBlack,
     UIProgressIndicatorStyleTinyWhite,
 } UIProgressIndicatorStyle;
-
-
+// }}}
+// @class *; {{{
 @class WebView;
+// }}}
 
-
+// @interface NS* (*) {{{
 @interface NSString (Apple)
 - (NSString *) stringByAddingPercentEscapes;
 - (NSString *) stringByReplacingCharacter:(UniChar)from withCharacter:(UniChar)to;
@@ -51,8 +55,8 @@ typedef enum {
 @interface NSValue (Apple)
 + (NSValue *) valueWithSize:(CGSize)size;
 @end
-
-
+// }}}
+// @interface UI* (*) {{{
 @interface UIActionSheet (Apple)
 - (void) setContext:(NSString *)context;
 - (NSString *) context;
@@ -149,8 +153,9 @@ typedef enum {
 - (void) makeKey:(UIApplication *)application;
 - (void) orderFront:(UIApplication *)application;
 @end
+// }}}
 
-
+// @interface * : UIView {{{
 @interface UIFormAssistant : UIView
 + (UIFormAssistant *) sharedFormAssistant;
 - (CGRect) peripheralFrame;
@@ -264,8 +269,8 @@ typedef enum {
 - (void) webViewDidPreventDefaultForEvent:(WebView *)view;
 - (void) webViewFormEditedStatusHasChanged:(WebView *)changed;
 @end
-
-
+// }}}
+// @interface *Button : * {{{
 @interface UINavigationButton : UIButton
 - (id) initWithTitle:(NSString *)title style:(UINavigationButtonStyle)style;
 - (void) setBarStyle:(UIBarStyle)style;
@@ -283,21 +288,49 @@ typedef enum {
 
 @interface UIThreePartButton : UIPushButton
 @end
-
-
+// }}}
+// @interface * : NS* {{{
 @interface WebDefaultUIKitDelegate : NSObject
 + (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
 @end
+// }}}
 
+// #ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER {{{
+#ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+#define AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
 
-extern "C" CFStringRef const kGSDisplayIdentifiersCapability;
+typedef enum {
+    UIModalPresentationFullScreen,
+    UIModalPresentationPageSheet,
+    UIModalPresentationFormSheet,
+    UIModalPresentationCurrentContext,
+} UIModalPresentationStyle;
 
-extern "C" float const UIWebViewGrowsAndShrinksToFitHeight;
-extern "C" float const UIWebViewScalesToFitScale;
+#define kSCNetworkReachabilityFlagsConnectionOnTraffic kSCNetworkReachabilityFlagsConnectionAutomatic
+#define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
 
+@class NSUndoManager;
+@class UIPasteboard;
 
+@interface UIActionSheet (iPad)
+- (void) showFromBarButtonItem:(UIBarButtonItem *)item animated:(BOOL)animated;
+@end
+
+@interface UIViewController (iPad)
+- (void) setModalPresentationStyle:(UIModalPresentationStyle)style;
+@end
+
+#endif//AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+// }}}
+
+// extern *; {{{
+extern CFStringRef const kGSDisplayIdentifiersCapability;
+extern float const UIWebViewGrowsAndShrinksToFitHeight;
+extern float const UIWebViewScalesToFitScale;
+// }}}
+// extern "C" *(); {{{
 extern "C" UIImage *_UIImageWithName(NSString *name);
 extern "C" void UISetColor(CGColorRef color);
-
+// }}}
 
 #endif//CYDIA_UIKITPRIVATE_H

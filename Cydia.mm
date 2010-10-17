@@ -8252,7 +8252,7 @@ static _finline void _setHomePage(Cydia *self) {
     [page setDelegate:self];
 
     CYNavigationController *navController = (CYNavigationController *) [tabbar_ selectedViewController];
-    [navController setViewControllers:[NSArray arrayWithObject:page] animated:NO];
+    [navController setViewControllers:[NSArray arrayWithObject:page]];
     for (CYNavigationController *page in [tabbar_ viewControllers]) {
         if (page != navController) [page setViewControllers:nil];
     }

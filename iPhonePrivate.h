@@ -1,4 +1,5 @@
 #ifndef CYDIA_UIKITPRIVATE_H
+#define CYDIA_UIKITPRIVATE_H
 
 // #include <*> {{{
 #include <GraphicsServices/GraphicsServices.h>

@@ -309,6 +309,8 @@ typedef enum {
 #define kSCNetworkReachabilityFlagsConnectionOnTraffic kSCNetworkReachabilityFlagsConnectionAutomatic
 #define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
 
+#define UIBarStyleBlack UIBarStyleBlackOpaque
+
 @class NSUndoManager;
 @class UIPasteboard;
 

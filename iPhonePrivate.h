@@ -1,7 +1,9 @@
 #ifndef CYDIA_UIKITPRIVATE_H
 
+// #include <*> {{{
 #include <GraphicsServices/GraphicsServices.h>
-
+// }}}
+// typedef enum {*} *; {{{
 typedef enum {
     UIGestureAttributeMinDegrees,                 /*float*/
     UIGestureAttributeMaxDegrees,                 /*float*/
@@ -28,11 +30,12 @@ typedef enum {
     UIProgressIndicatorStyleSmallBlack,
     UIProgressIndicatorStyleTinyWhite,
 } UIProgressIndicatorStyle;
-
-
+// }}}
+// @class *; {{{
 @class WebView;
+// }}}
 
-
+// @interface NS* (*) {{{
 @interface NSString (Apple)
 - (NSString *) stringByAddingPercentEscapes;
 - (NSString *) stringByReplacingCharacter:(UniChar)from withCharacter:(UniChar)to;
@@ -51,8 +54,8 @@ typedef enum {
 @interface NSValue (Apple)
 + (NSValue *) valueWithSize:(CGSize)size;
 @end
-
-
+// }}}
+// @interface UI* (*) {{{
 @interface UIActionSheet (Apple)
 - (void) setContext:(NSString *)context;
 - (NSString *) context;
@@ -149,8 +152,9 @@ typedef enum {
 - (void) makeKey:(UIApplication *)application;
 - (void) orderFront:(UIApplication *)application;
 @end
+// }}}
 
-
+// @interface * : UIView {{{
 @interface UIFormAssistant : UIView
 + (UIFormAssistant *) sharedFormAssistant;
 - (CGRect) peripheralFrame;
@@ -264,8 +268,8 @@ typedef enum {
 - (void) webViewDidPreventDefaultForEvent:(WebView *)view;
 - (void) webViewFormEditedStatusHasChanged:(WebView *)changed;
 @end
-
-
+// }}}
+// @interface *Button : * {{{
 @interface UINavigationButton : UIButton
 - (id) initWithTitle:(NSString *)title style:(UINavigationButtonStyle)style;
 - (void) setBarStyle:(UIBarStyle)style;
@@ -283,21 +287,22 @@ typedef enum {
 
 @interface UIThreePartButton : UIPushButton
 @end
-
-
+// }}}
+// @interface * : NS* {{{
 @interface WebDefaultUIKitDelegate : NSObject
 + (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
 @end
+// }}}
 
-
+// extern *; {{{
 extern "C" CFStringRef const kGSDisplayIdentifiersCapability;
 
 extern "C" float const UIWebViewGrowsAndShrinksToFitHeight;
 extern "C" float const UIWebViewScalesToFitScale;
-
-
+// }}}
+// extern "C" *(); {{{
 extern "C" UIImage *_UIImageWithName(NSString *name);
 extern "C" void UISetColor(CGColorRef color);
-
+// }}}
 
 #endif//CYDIA_UIKITPRIVATE_H

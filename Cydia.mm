@@ -384,7 +384,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define RecycleWebViews 0
-#define RecyclePackageViews (1 && ForRelease)
+#define RecyclePackageViews (0 && ForRelease)
 #define AlwaysReload (1 && !ForRelease)
 
 #if !TraceLogging

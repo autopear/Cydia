@@ -295,11 +295,31 @@ typedef enum {
 @end
 // }}}
 
-// extern *; {{{
-extern "C" CFStringRef const kGSDisplayIdentifiersCapability;
+// #ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER {{{
+#ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+#define AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
 
-extern "C" float const UIWebViewGrowsAndShrinksToFitHeight;
-extern "C" float const UIWebViewScalesToFitScale;
+typedef enum {
+    UIModalPresentationFullScreen,
+    UIModalPresentationPageSheet,
+    UIModalPresentationFormSheet,
+    UIModalPresentationCurrentContext,
+} UIModalPresentationStyle;
+
+@class NSUndoManager;
+@class UIPasteboard;
+
+@interface UIViewController (iPad)
+- (void) setModalPresentationStyle:(UIModalPresentationStyle)style;
+@end
+
+#endif//AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+// }}}
+
+// extern *; {{{
+extern CFStringRef const kGSDisplayIdentifiersCapability;
+extern float const UIWebViewGrowsAndShrinksToFitHeight;
+extern float const UIWebViewScalesToFitScale;
 // }}}
 // extern "C" *(); {{{
 extern "C" UIImage *_UIImageWithName(NSString *name);

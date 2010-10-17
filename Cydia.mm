@@ -1634,11 +1634,11 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (NSString *) depictionForPackage:(NSString *)package {
-    return depiction_.empty() ? nil : [depiction_ stringByReplacingOccurrencesOfString:@"*" withString:package];
+    return depiction_.empty() ? nil : [static_cast<id>(depiction_) stringByReplacingOccurrencesOfString:@"*" withString:package];
 }
 
 - (NSString *) supportForPackage:(NSString *)package {
-    return support_.empty() ? nil : [support_ stringByReplacingOccurrencesOfString:@"*" withString:package];
+    return support_.empty() ? nil : [static_cast<id>(support_) stringByReplacingOccurrencesOfString:@"*" withString:package];
 }
 
 - (NSDictionary *) record {
@@ -2180,7 +2180,7 @@ struct PackageNameOrdering :
         _end
 
         bool changed(false);
-        NSString *key([id_ lowercaseString]);
+        NSString *key([static_cast<id>(id_) lowercaseString]);
 
         _profile(Package$initWithVersion$Metadata)
             metadata_ = [Packages_ objectForKey:key];
@@ -2486,9 +2486,9 @@ struct PackageNameOrdering :
 
     UIImage *icon(nil);
     if (!icon_.empty())
-        if ([icon_ hasPrefix:@"file:///"])
+        if ([static_cast<id>(icon_) hasPrefix:@"file:///"])
             // XXX: correct escaping
-            icon = [UIImage imageAtPath:[icon_ substringFromIndex:7]];
+            icon = [UIImage imageAtPath:[static_cast<id>(icon_) substringFromIndex:7]];
     if (icon == nil) if (section != nil)
         icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
     if (icon == nil) if (source_ != nil) if (NSString *dicon = [source_ defaultIcon])

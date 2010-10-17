@@ -7624,10 +7624,15 @@ freeing the view controllers on tab change */
 - (void) dropBar:(BOOL)animated;
 - (void) beginUpdate;
 - (void) raiseBar:(BOOL)animated;
+- (BOOL) updating;
 
 @end
 
 @implementation CYContainer
+
+- (BOOL) _reallyWantsFullScreenLayout {
+    return YES;
+}
 
 // NOTE: UIWindow only sends the top controller these messages,
 //       So we have to forward them on.
@@ -7767,11 +7772,16 @@ freeing the view controllers on tab change */
 
     [[self view] addSubview:refreshbar_];
 
+    CGFloat sboffset = [[UIApplication sharedApplication] statusBarFrame].size.height;
+
+    CGRect barframe = [refreshbar_ frame];   
+    barframe.origin.y = sboffset;
+    [refreshbar_ setFrame:barframe];
+
     if (animated) [UIView beginAnimations:nil context:NULL];
-    CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y += barframe.size.height;
-    viewframe.size.height -= barframe.size.height;
+    viewframe.origin.y += barframe.size.height + sboffset;
+    viewframe.size.height -= barframe.size.height + sboffset;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 
@@ -7789,11 +7799,13 @@ freeing the view controllers on tab change */
 
     [refreshbar_ removeFromSuperview];
 
+    CGFloat sboffset = [[UIApplication sharedApplication] statusBarFrame].size.height;
+
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y -= barframe.size.height;
-    viewframe.size.height += barframe.size.height;
+    viewframe.origin.y -= barframe.size.height + sboffset;
+    viewframe.size.height += barframe.size.height + sboffset;
     [[root_ view] setFrame:viewframe];
     if (animated) [UIView commitAnimations];
 
@@ -7816,8 +7828,16 @@ freeing the view controllers on tab change */
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
 
+- (void) statusBarFrameChanged:(NSNotification *)notification {
+    if (dropped_) {
+        [self raiseBar:NO];
+        [self dropBar:NO];
+    }
+}
+
 - (void) dealloc {
     [refreshbar_ release];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     [super dealloc];
 }
 
@@ -7826,6 +7846,7 @@ freeing the view controllers on tab change */
         database_ = database;
 
         [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(statusBarFrameChanged:) name:UIApplicationDidChangeStatusBarFrameNotification object:nil];
 
         refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
     } return self;

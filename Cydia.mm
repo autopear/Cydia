@@ -7360,7 +7360,6 @@ freeing the view controllers on tab change */
 
         table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
         [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [table_ setAllowsSelection:NO];
         [[self view] addSubview:table_];
 
         subscribedSwitch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
@@ -7374,10 +7373,12 @@ freeing the view controllers on tab change */
         subscribedCell_ = [[UITableViewCell alloc] init];
         [subscribedCell_ setText:UCLocalize("SHOW_ALL_CHANGES")];
         [subscribedCell_ setAccessoryView:subscribedSwitch_];
+        [subscribedCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
 
         ignoredCell_ = [[UITableViewCell alloc] init];
         [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
         [ignoredCell_ setAccessoryView:ignoredSwitch_];
+        [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
 
         [table_ setDataSource:self];
         [table_ setDelegate:self];

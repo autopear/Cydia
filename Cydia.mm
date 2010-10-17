@@ -7766,13 +7766,21 @@ freeing the view controllers on tab change */
     updatedelegate_ = delegate;
 }
 
+- (CGFloat) statusBarHeight {
+    if (UIInterfaceOrientationIsPortrait([self interfaceOrientation])) {
+        return [[UIApplication sharedApplication] statusBarFrame].size.height;
+    } else {
+        return [[UIApplication sharedApplication] statusBarFrame].size.width;
+    }
+}
+
 - (void) dropBar:(BOOL)animated {
     if (dropped_) return;
     dropped_ = true;
 
     [[self view] addSubview:refreshbar_];
 
-    CGFloat sboffset = [[UIApplication sharedApplication] statusBarFrame].size.height;
+    CGFloat sboffset = [self statusBarHeight];
 
     CGRect barframe = [refreshbar_ frame];   
     barframe.origin.y = sboffset;
@@ -7799,7 +7807,7 @@ freeing the view controllers on tab change */
 
     [refreshbar_ removeFromSuperview];
 
-    CGFloat sboffset = [[UIApplication sharedApplication] statusBarFrame].size.height;
+    CGFloat sboffset = [self statusBarHeight]; 
 
     if (animated) [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];

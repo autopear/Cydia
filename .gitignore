@@ -1,5 +1,6 @@
 sysroot
-Cydia
+MobileCydia
+CydiaAppliance
 _
 *.deb
 .DS_Store

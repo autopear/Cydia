@@ -29,7 +29,6 @@ link += -framework IOKit
 link += -framework JavaScriptCore
 link += -framework QuartzCore
 link += -framework SystemConfiguration
-link += -framework UIKit
 link += -framework WebCore
 link += -framework WebKit
 
@@ -39,20 +38,29 @@ link += -lpcre
 
 link += -multiply_defined suppress
 
+uikit := 
+uikit += -framework UIKit
+
+backrow := 
+backrow += -FAppleTV -framework BackRow -framework AppleTV
+
 #cycc = cycc -r4.2 -i$(ios) -o$@
 gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
 cycc = $(gxx) -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=$(ios) -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
 
-all: Cydia
+all: MobileCydia
 
 clean:
-	rm -f Cydia
+	rm -f MobileCydia
 
-Cydia: Cydia.mm UICaboodle/*.mm iPhonePrivate.h
-	$(cycc) $(filter %.mm,$^) $(flags) $(link)
+MobileCydia: MobileCydia.mm UICaboodle/*.mm iPhonePrivate.h
+	$(cycc) $(filter %.mm,$^) $(flags) $(link) $(uikit)
 	ldid -Slaunch.xml $@
 
-package: Cydia
+CydiaAppliance: CydiaAppliance.mm
+	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
+
+package: MobileCydia
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
@@ -64,8 +72,12 @@ package: Cydia
 	cp -a LaunchDaemons _/System/Library/LaunchDaemons
 	
 	mkdir -p _/Applications
-	cp -a Cydia.app _/Applications/Cydia.app
-	cp -a Cydia _/Applications/Cydia.app/Cydia_
+	cp -a MobileCydia.app _/Applications/Cydia.app
+	cp -a MobileCydia _/Applications/Cydia.app/MobileCydia
+	
+	#mkdir -p _/Applications/Lowtide.app/Appliances
+	#cp -a Cydia.frappliance _/Applications/Lowtide.app/Appliances
+	#cp -a CydiaAppliance _/Applications/Lowtide.app/Appliances/Cydia.frappliance
 	
 	mkdir -p _/System/Library/PreferenceBundles
 	cp -a CydiaSettings.bundle _/System/Library/PreferenceBundles/CydiaSettings.bundle
@@ -75,7 +87,7 @@ package: Cydia
 	
 	sudo chown -R 0 _
 	sudo chgrp -R 0 _
-	sudo chmod 6755 _/Applications/Cydia.app/Cydia_
+	sudo chmod 6755 _/Applications/Cydia.app/MobileCydia
 	
 	$(dpkg) -b _ $(shell grep ^Package: control | cut -d ' ' -f 2-)_$(shell grep ^Version: control | cut -d ' ' -f 2)_iphoneos-arm.deb
 

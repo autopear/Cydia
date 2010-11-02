@@ -6321,6 +6321,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _setMoreHeaders:(NSMutableURLRequest *)request {
     [super _setMoreHeaders:request];
+
     if (ChipID_ != nil)
         [request setValue:ChipID_ forHTTPHeaderField:@"X-Chip-ID"];
     if (UniqueID_ != nil)
@@ -6328,7 +6329,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) aboutButtonClicked {
-    UIAlertView *alert = [[[UIAlertView alloc] init] autorelease];
+    UIAlertView *alert([[[UIAlertView alloc] init] autorelease]);
+
     [alert setTitle:UCLocalize("ABOUT_CYDIA")];
     [alert addButtonWithTitle:UCLocalize("CLOSE")];
     [alert setCancelButtonIndex:0];
@@ -6355,14 +6357,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        UIBarButtonItem *aboutItem = [[UIBarButtonItem alloc]
+        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("ABOUT")
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(aboutButtonClicked)
-        ];
-        [[self navigationItem] setLeftBarButtonItem:aboutItem];
-        [aboutItem release];
+        ] autorelease]];
     } return self;
 }
 

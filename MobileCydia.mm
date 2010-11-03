@@ -7659,7 +7659,7 @@ freeing the view controllers on tab change */
 }
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return IsWildcat_;
+    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
 }
 
 - (void) setTabBarController:(UITabBarController *)controller {

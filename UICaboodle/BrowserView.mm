@@ -28,12 +28,23 @@ extern NSString * const kCAFilterNearest;
 
 #define ForSaurik 0
 
-static bool Wildcat_;
+template <typename Type_>
+static inline void CYRelease(Type_ &value) {
+    if (value != nil) {
+        [value release];
+        value = nil;
+    }
+}
 
-static CFArrayRef (*$GSSystemCopyCapability)(CFStringRef);
-static CFArrayRef (*$GSSystemGetCapability)(CFStringRef);
-static Class $UIFormAssistant;
-static Class $UIWebBrowserView;
+@interface WebView (Apple)
+- (void) _setLayoutInterval:(float)interval;
+@end
+
+@interface WebPreferences (Apple)
++ (void) _setInitialDefaultTextEncodingToSystemEncoding;
+- (void) _setLayoutInterval:(NSInteger)interval;
+- (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
+@end
 
 /* Indirect Delegate {{{ */
 @interface IndirectDelegate : NSObject <
@@ -55,52 +66,6 @@ static Class $UIWebBrowserView;
 - (id) initWithDelegate:(id)delegate {
     delegate_ = delegate;
     return self;
-}
-
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didClearWindowObject:window forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didCommitLoadForFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didCommitLoadForFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didFailLoadWithError:error forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didFailProvisionalLoadWithError:error forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didFinishLoadForFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didReceiveTitle:title forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender didStartProvisionalLoadForFrame:frame];
-}
-
-- (void) webView:(WebView *)sender resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender resource:identifier didReceiveAuthenticationChallenge:challenge fromDataSource:source];
-}
-
-- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
-    if (delegate_ != nil)
-        return [delegate_ webView:sender resource:identifier willSendRequest:request redirectResponse:redirectResponse fromDataSource:source];
-    return nil;
 }
 
 - (void) didDismissModalViewController {
@@ -143,22 +108,6 @@ static Class $UIWebBrowserView;
 @end
 /* }}} */
 
-@interface WebView (UICaboodle)
-+ (BOOL) _canHandleRequest:(NSURLRequest *)request;
-- (void) _setFormDelegate:(id)delegate;
-- (void) _setLayoutInterval:(float)interval;
-- (void) setScriptDebugDelegate:(id)delegate;
-- (void) _setUIKitDelegate:(id)delegate;
-- (void) _setUsesLoaderCache:(BOOL)uses;
-- (void) setWebMailDelegate:(id)delegate;
-@end
-
-@interface WebPreferences (Apple)
-+ (void) _setInitialDefaultTextEncodingToSystemEncoding;
-- (void) _setLayoutInterval:(NSInteger)interval;
-- (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
-@end
-
 @implementation WebScriptObject (UICaboodle)
 
 - (NSUInteger) count {
@@ -175,26 +124,180 @@ static Class $UIWebBrowserView;
 
 @end
 
-@interface BrowserView : UIView {
-@private
-    UIWebDocumentView *documentView;
+// CYWebPolicyDecision* {{{
+enum CYWebPolicyDecision {
+    CYWebPolicyDecisionUnknown,
+    CYWebPolicyDecisionDownload,
+    CYWebPolicyDecisionIgnore,
+    CYWebPolicyDecisionUse,
+};
+
+@interface CYWebPolicyDecisionMediator : NSObject <
+    WebPolicyDecisionListener
+> {
+    id<WebPolicyDecisionListener> listener_;
+    CYWebPolicyDecision decision_;
 }
-@property (nonatomic, retain) UIWebDocumentView *documentView;
+
+- (id) initWithListener:(id<WebPolicyDecisionListener>)listener;
+
+- (CYWebPolicyDecision) decision;
+- (bool) decided;
+- (bool) decide;
+
 @end
 
-@implementation BrowserView
+@implementation CYWebPolicyDecisionMediator
 
-@synthesize documentView;
+- (id) initWithListener:(id<WebPolicyDecisionListener>)listener {
+    if ((self = [super init]) != nil) {
+        listener_ = listener;
+    } return self;
+}
 
-- (void)dealloc {
-    [documentView release];
+- (CYWebPolicyDecision) decision {
+    return decision_;
+}
+
+- (bool) decided {
+    return decision_ != CYWebPolicyDecisionUnknown;
+}
+
+- (bool) decide {
+    switch (decision_) {
+        case CYWebPolicyDecisionUnknown:
+        default:
+            return false;
+
+        case CYWebPolicyDecisionDownload: [listener_ download]; break;
+        case CYWebPolicyDecisionIgnore: [listener_ ignore]; break;
+        case CYWebPolicyDecisionUse: [listener_ use]; break;
+    }
+
+    return true;
+}
+
+- (void) download {
+    decision_ = CYWebPolicyDecisionDownload;
+}
+
+- (void) ignore {
+    decision_ = CYWebPolicyDecisionIgnore;
+}
+
+- (void) use {
+    decision_ = CYWebPolicyDecisionUse;
+}
+
+@end
+// }}}
+
+@implementation CYWebView : UIWebView
+
+- (id) initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame]) != nil) {
+    } return self;
+}
+
+- (void) dealloc {
     [super dealloc];
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    if ([documentView respondsToSelector:@selector(setMinimumSize:)])
-        [documentView setMinimumSize:documentView.bounds.size];
+- (id<CYWebViewDelegate>) delegate {
+    return (id<CYWebViewDelegate>) [super delegate];
+}
+
+/*- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request {
+    NSLog(@"createWebViewWithRequest:%@", request);
+    WebView *created(nil); // XXX
+    if (created == nil && [super respondsToSelector:@selector(webView:createWebViewWithRequest:)])
+        return [super webView:view createWebViewWithRequest:request];
+    else
+        return created;
+}*/
+
+- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    CYWebPolicyDecisionMediator *mediator([[[CYWebPolicyDecisionMediator alloc] initWithListener:listener] autorelease]);
+    [[self delegate] webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
+    if (![mediator decided] && [super respondsToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
+        [super webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
+    [mediator decide];
+}
+
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    CYWebPolicyDecisionMediator *mediator([[[CYWebPolicyDecisionMediator alloc] initWithListener:listener] autorelease]);
+    [[self delegate] webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:mediator];
+    if (![mediator decided] && [super respondsToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
+        [super webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:mediator];
+    [mediator decide];
+}
+
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [[self delegate] webView:view didClearWindowObject:window forFrame:frame];
+    if ([super respondsToSelector:@selector(webView:didClearWindowObject:forFrame:)])
+        [super webView:view didClearWindowObject:window forFrame:frame];
+}
+
+- (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    [[self delegate] webView:view didFailLoadWithError:error forFrame:frame];
+    if ([super respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
+        [super webView:view didFailLoadWithError:error forFrame:frame];
+}
+
+- (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    [[self delegate] webView:view didFailProvisionalLoadWithError:error forFrame:frame];
+    if ([super respondsToSelector:@selector(webView:didFailProvisionalLoadWithError:forFrame:)])
+        [super webView:view didFailProvisionalLoadWithError:error forFrame:frame];
+}
+
+- (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
+    [[self delegate] webView:view didFinishLoadForFrame:frame];
+    if ([super respondsToSelector:@selector(webView:didFinishLoadForFrame:)])
+        [super webView:view didFinishLoadForFrame:frame];
+}
+
+- (void) webView:(WebView *)view didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
+    [[self delegate] webView:view didReceiveTitle:title forFrame:frame];
+    if ([super respondsToSelector:@selector(webView:didReceiveTitle:forFrame:)])
+        [super webView:view didReceiveTitle:title forFrame:frame];
+}
+
+- (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame {
+    [[self delegate] webView:view didStartProvisionalLoadForFrame:frame];
+    if ([super respondsToSelector:@selector(webView:didStartProvisionalLoadForFrame:)])
+        [super webView:view didStartProvisionalLoadForFrame:frame];
+}
+
+- (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    if ([super respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:)])
+        request = [super webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    return [[self delegate] webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+}
+
+- (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    if ([super respondsToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:)])
+        if ([[self delegate] webView:view shouldRunJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame])
+            [super webView:view runJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame];
+}
+
+- (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    if ([super respondsToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:)])
+        if ([[self delegate] webView:view shouldRunJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame])
+            return [super webView:view runJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame];
+    return NO;
+}
+
+- (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame {
+    if ([super respondsToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)])
+        if ([[self delegate] webView:view shouldRunJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame])
+            return [super webView:view runJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame];
+    return nil;
+}
+
+- (void) webViewClose:(WebView *)view {
+    [[self delegate] webViewClose:view];
+    if ([super respondsToSelector:@selector(webViewClose:)])
+        [super webViewClose:view];
 }
 
 @end
@@ -211,25 +314,7 @@ static Class $UIWebBrowserView;
 #endif
 
 + (void) _initialize {
-    //[WebView enableWebThread];
-
-    WebPreferences *preferences([WebPreferences standardPreferences]);
-    [preferences setCacheModel:WebCacheModelDocumentBrowser];
-    [preferences setOfflineWebApplicationCacheEnabled:YES];
-
     [WebPreferences _setInitialDefaultTextEncodingToSystemEncoding];
-
-    $GSSystemCopyCapability = reinterpret_cast<CFArrayRef (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemCopyCapability"));
-    $GSSystemGetCapability = reinterpret_cast<CFArrayRef (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemGetCapability"));
-    $UIFormAssistant = objc_getClass("UIFormAssistant");
-
-    $UIWebBrowserView = objc_getClass("UIWebBrowserView");
-    if ($UIWebBrowserView == nil) {
-        Wildcat_ = false;
-        $UIWebBrowserView = objc_getClass("UIWebDocumentView");
-    } else {
-        Wildcat_ = true;
-    }
 }
 
 - (void) dealloc {
@@ -237,79 +322,35 @@ static Class $UIWebBrowserView;
     NSLog(@"[BrowserController dealloc]");
 #endif
 
+    [webview_ setDelegate:nil];
+
+    [indirect_ setDelegate:nil];
+    [indirect_ release];
+
     if (challenge_ != nil)
         [challenge_ release];
 
-    WebThreadLock();
-
-    WebView *webview = [document_ webView];
-    [webview setFrameLoadDelegate:nil];
-    [webview setResourceLoadDelegate:nil];
-    [webview setUIDelegate:nil];
-    [webview setScriptDebugDelegate:nil];
-    [webview setPolicyDelegate:nil];
-
-    /* XXX: these are set by UIWebDocumentView
-    [webview setDownloadDelegate:nil];
-    [webview _setFormDelegate:nil];
-    [webview _setUIKitDelegate:nil];
-    [webview setEditingDelegate:nil];*/
-
-    /* XXX: no one sets this, ever
-    [webview setWebMailDelegate:nil];*/
-
-    [document_ setDelegate:nil];
-    [document_ setGestureDelegate:nil];
-
-    if ([document_ respondsToSelector:@selector(setFormEditingDelegate:)])
-        [document_ setFormEditingDelegate:nil];
-
-    [document_ setInteractionDelegate:nil];
-
-    [indirect_ setDelegate:nil];
-
     //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
-    [webview close];
-
-#if RecycleWebViews
-    [document_ removeFromSuperview];
-    [Documents_ addObject:[document_ autorelease]];
-#else
-    [document_ release];
-#endif
-
-    [indirect_ release];
-
-    WebThreadUnlock();
-
-    [scroller_ setDelegate:nil];
-
-    if (button_ != nil)
-        [button_ release];
+    if (custom_ != nil)
+        [custom_ release];
     if (style_ != nil)
         [style_ release];
+
     if (function_ != nil)
         [function_ release];
-    if (finish_ != nil)
-        [finish_ release];
     if (closer_ != nil)
         [closer_ release];
-    if (special_ != nil)
-        [special_ release];
 
-    [scroller_ release];
-    [indicator_ release];
-    if (confirm_ != nil)
-        [confirm_ release];
     if (sensitive_ != nil)
         [sensitive_ release];
     if (title_ != nil)
         [title_ release];
-    if (reloaditem_ != nil)
-        [reloaditem_ release];
-    if (loadingitem_ != nil)
-        [loadingitem_ release];
+
+    [reloaditem_ release];
+    [loadingitem_ release];
+
+    [indicator_ release];
 
     [super dealloc];
 }
@@ -327,11 +368,10 @@ static Class $UIWebBrowserView;
 }
 
 - (void) loadRequest:(NSURLRequest *)request {
-    pushed_ = true;
     error_ = false;
 
     WebThreadLock();
-    [document_ loadRequest:request];
+    [webview_ loadRequest:request];
     WebThreadUnlock();
 }
 
@@ -349,224 +389,16 @@ static Class $UIWebBrowserView;
             cancelButtonTitle:UCLocalize("CANCEL")
             otherButtonTitles:UCLocalize("SUBMIT"), nil
         ] autorelease];
+
         [alert setContext:@"submit"];
         [alert show];
     }
 }
 
-- (WebView *) webView {
-    return [document_ webView];
-}
-
-- (UIWebDocumentView *) documentView {
-    return document_;
-}
-
-/* XXX: WebThreadLock? */
-- (void) _fixScroller:(CGRect)bounds {
-    float extra;
-
-    if (!editing_ || $UIFormAssistant == nil)
-        extra = 0;
-    else {
-        UIFormAssistant *assistant([$UIFormAssistant sharedFormAssistant]);
-        CGRect peripheral([assistant peripheralFrame]);
-#if LogBrowser
-        NSLog(@"per:%f", peripheral.size.height);
-#endif
-        extra = peripheral.size.height;
-    }
-
-    CGRect subrect([scroller_ frame]);
-    subrect.size.height -= extra;
-
-    if ([scroller_ respondsToSelector:@selector(setScrollerIndicatorSubrect:)])
-        [scroller_ setScrollerIndicatorSubrect:subrect];
-
-    [document_ setValue:[NSValue valueWithSize:CGSizeMake(subrect.size.width, subrect.size.height)] forGestureAttribute:UIGestureAttributeVisibleSize];
-
-    CGSize size(size_);
-    size.height += extra;
-    [scroller_ setContentSize:size];
-
-    if ([scroller_ respondsToSelector:@selector(releaseRubberBandIfNecessary)])
-        [scroller_ releaseRubberBandIfNecessary];
-}
-
-- (void) fixScroller {
-    CGRect bounds([document_ documentBounds]);
-#if TrackResize
-    NSLog(@"_fs:(%f,%f+%f,%f)", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height);
-#endif
-    [self _fixScroller:bounds];
-}
-
-- (void) view:(UIView *)sender didSetFrame:(CGRect)frame {
-    size_ = frame.size;
-#if TrackResize
-    NSLog(@"dsf:(%f,%f+%f,%f)", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
-#endif
-    [self _fixScroller:frame];
-}
-
-- (void) view:(UIView *)sender didSetFrame:(CGRect)frame oldFrame:(CGRect)old {
-    [self view:sender didSetFrame:frame];
-}
-
-- (void) pushPage:(CYViewController *)page {
-    [page setDelegate:delegate_];
-    [[self navigationItem] setTitle:title_];
-    [[self navigationController] pushViewController:page animated:YES];
-}
-
-- (void) _pushPage {
-    if (pushed_)
-        return;
-    // WTR: [self autorelease];
-    pushed_ = true;
-    [[self navigationController] pushViewController:self animated:YES];
-}
-
-- (void) swapPage:(CYViewController *)page {
-    [page setDelegate:delegate_];
-    if (pushed_) [[self navigationController] popViewControllerAnimated:NO];
-
-    [[self navigationController] pushViewController:page animated:NO];
-}
-
-- (BOOL) getSpecial:(NSURL *)url swap:(BOOL)swap {
-#if LogBrowser
-    NSLog(@"getSpecial:%@", url);
-#endif
-
-    if (CYViewController *page = [delegate_ pageForURL:url hasTag:NULL]) {
-        if (swap)
-            [self swapPage:page];
-        else
-            [self pushPage:page];
-
-        return true;
-    } else
-        return false;
-}
-
-- (void) formAssistant:(id)sender didBeginEditingFormNode:(id)node {
-}
-
-- (void) formAssistant:(id)sender didEndEditingFormNode:(id)node {
-    [self fixScroller];
-}
-
-- (void) webViewShow:(WebView *)sender {
-    /* XXX: this is where I cry myself to sleep */
-}
-
-- (bool) _allowJavaScriptPanel {
-    return true;
-}
-
-- (bool) allowSensitiveRequests {
-    return [self _allowJavaScriptPanel];
-}
-
-- (void) _promptForSensitive:(NSMutableArray *)array {
-    NSString *name([array objectAtIndex:0]);
-
-    UIAlertView *alert = [[[UIAlertView alloc]
-        initWithTitle:nil
-        message:nil
-        delegate:indirect_
-        cancelButtonTitle:UCLocalize("NO")
-        otherButtonTitles:UCLocalize("YES"), nil
-    ] autorelease];
-
-    NSString *host(@"XXX");
-
-    [alert setContext:@"sensitive"];
-    [alert setMessage:[NSString stringWithFormat:@"The website at %@ is requesting your phone's %@. This is almost certainly for product licensing purposes. Will you allow this?", host, name]];
-    [alert show];
-
-    NSRunLoop *loop([NSRunLoop currentRunLoop]);
-    NSDate *future([NSDate distantFuture]);
-
-    while (sensitive_ == nil && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
-
-    NSNumber *sensitive([sensitive_ autorelease]);
-    sensitive_ = nil;
-
-    [self autorelease];
-    [array replaceObjectAtIndex:0 withObject:sensitive];
-}
-
-- (bool) promptForSensitive:(NSString *)name {
-    if (![self allowSensitiveRequests])
-        return false;
-
-    NSMutableArray *array([NSMutableArray arrayWithCapacity:1]);
-    [array addObject:name];
-
-    [self performSelectorOnMainThread:@selector(_promptForSensitive:) withObject:array waitUntilDone:YES];
-    return [[array lastObject] boolValue];
-}
-
-- (void) webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    if (![self _allowJavaScriptPanel])
-        return;
-    [self retain];
-
-    UIAlertView *alert = [[[UIAlertView alloc]
-        initWithTitle:nil
-        message:message
-        delegate:self
-        cancelButtonTitle:UCLocalize("OK")
-        otherButtonTitles:nil
-    ] autorelease];
-    [alert setContext:@"alert"];
-    [alert show];
-}
-
-- (BOOL) webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    if (![self _allowJavaScriptPanel])
-        return NO;
-    [self retain];
-
-    UIAlertView *alert = [[[UIAlertView alloc]
-        initWithTitle:nil
-        message:message
-        delegate:indirect_
-        cancelButtonTitle:UCLocalize("CANCEL")
-        otherButtonTitles:UCLocalize("OK"), nil
-    ] autorelease];
-
-    [alert setContext:@"confirm"];
-    [alert show];
-
-    NSRunLoop *loop([NSRunLoop currentRunLoop]);
-    NSDate *future([NSDate distantFuture]);
-
-    while (confirm_ == nil && [loop runMode:NSDefaultRunLoopMode beforeDate:future]);
-
-    NSNumber *confirm([confirm_ autorelease]);
-    confirm_ = nil;
-
-    [self autorelease];
-    return [confirm boolValue];
-}
-
-- (void) setAutoPopup:(BOOL)popup {
-    popup_ = popup;
-}
-
-- (void) setSpecial:(id)function {
-    if (special_ != nil)
-        [special_ autorelease];
-    special_ = function == nil ? nil : [function retain];
-}
-
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    if (button_ != nil)
-        [button_ autorelease];
-    button_ = button == nil ? nil : [[UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:button]]] retain];
+    if (custom_ != nil)
+        [custom_ autorelease];
+    custom_ = button == nil ? nil : [[UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:button]]] retain];
 
     if (style_ != nil)
         [style_ autorelease];
@@ -580,9 +412,9 @@ static Class $UIWebBrowserView;
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    if (button_ != nil)
-        [button_ autorelease];
-    button_ = button == nil ? nil : [button retain];
+    if (custom_ != nil)
+        [custom_ autorelease];
+    custom_ = button == nil ? nil : [button retain];
 
     if (style_ != nil)
         [style_ autorelease];
@@ -595,551 +427,130 @@ static Class $UIWebBrowserView;
     [self applyRightButton];
 }
 
-- (void) setFinishHook:(id)function {
-    if (finish_ != nil)
-        [finish_ autorelease];
-    finish_ = function == nil ? nil : [function retain];
-}
-
 - (void) setPopupHook:(id)function {
     if (closer_ != nil)
         [closer_ autorelease];
     closer_ = function == nil ? nil : [function retain];
 }
 
+- (void) setViewportWidth:(float)width {
+    width_ = width != 0 ? width : [[self class] defaultWidth];
+    [[webview_ _documentView] setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+}
+
 - (void) _openMailToURL:(NSURL *)url {
     [[UIApplication sharedApplication] openURL:url];// asPanel:YES];
 }
 
-- (void) webView:(WebView *)sender willBeginEditingFormElement:(id)element {
-    editing_ = true;
+- (bool) _allowJavaScriptPanel {
+    return true;
 }
 
-- (void) webView:(WebView *)sender didBeginEditingFormElement:(id)element {
-    [self fixScroller];
-}
+- (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
+    [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
+    [self _didFinishLoading];
 
-- (void) webViewDidEndEditingFormElements:(WebView *)sender {
-    editing_ = false;
-    [self fixScroller];
-}
-
-- (void) webViewClose:(WebView *)sender {
-    [self close];
-}
-
-- (void) close {
-    [[self navigationController] dismissModalViewControllerAnimated:YES];
-}
-
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-}
-
-- (void) webView:(WebView *)sender unableToImplementPolicyWithError:(NSError *)error frame:(WebFrame *)frame {
-    NSLog(@"err:%@", error);
-}
-
-- (void) webView:(WebView *)sender decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
-#if LogBrowser
-    NSLog(@"nwa:%@", name);
-#endif
-
-    if (NSURL *url = [request URL]) {
-        if (name == nil) unknown: {
-            if (![self getSpecial:url swap:NO]) {
-                NSString *scheme([[url scheme] lowercaseString]);
-                if ([scheme isEqualToString:@"mailto"])
-                    [self _openMailToURL:url];
-                else goto use;
-            }
-        } else if ([name isEqualToString:@"_open"])
-            [delegate_ openURL:url];
-        else if ([name isEqualToString:@"_popup"]) {
-            NSString *scheme([[url scheme] lowercaseString]);
-            if ([scheme isEqualToString:@"mailto"])
-                [self _openMailToURL:url];
-            else {
-                UCNavigationController *navigation([[[UCNavigationController alloc] init] autorelease]);
-                [navigation setHook:indirect_];
-
-                CYViewController *page([delegate_ pageForURL:url hasTag:NULL]);
-                if (page == nil) {
-                    /* XXX: call createWebViewWithRequest instead? */
-
-                    BrowserController *browser([[[class_ alloc] init] autorelease]);
-                    [browser loadURL:url];
-                    page = browser;
-                }
-
-                [navigation setDelegate:delegate_];
-                [page setDelegate:delegate_];
-
-                [navigation setViewControllers:[NSArray arrayWithObject:page]];
-                UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
-                    initWithTitle:UCLocalize("CLOSE")
-                    style:UIBarButtonItemStylePlain
-                    target:page
-                    action:@selector(close)
-                ];
-                [[page navigationItem] setLeftBarButtonItem:closeItem];
-                [closeItem release];
-
-                [[self navigationController] presentModalViewController:navigation animated:YES];
-            }
-        } else goto unknown;
-
-        [listener ignore];
-    } else use:
-        [listener use];
-}
-
-- (void) webView:(WebView *)sender decidePolicyForMIMEType:(NSString *)type request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
-    if ([WebView canShowMIMEType:type])
-        [listener use];
-    else {
-        // XXX: handle more mime types!
-        [listener ignore];
-
-        WebView *webview([document_ webView]);
-        if (frame == [webview mainFrame])
-            [[UIApplication sharedApplication] openURL:[request URL]];
-    }
-}
-
-- (void) webView:(WebView *)sender decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
-    if (request == nil) ignore: {
-        [listener ignore];
+    if ([error code] == NSURLErrorCancelled)
         return;
-    }
-
-    NSURL *url([request URL]);
-    NSString *host([url host]);
-
-    if (url == nil) use: {
-        if (!error_ && [frame parentFrame] == nil) {
-            if (request_ != nil)
-                [request_ autorelease];
-            request_ = [request retain];
-#if LogBrowser
-            NSLog(@"dpn:%@", request_);
-#endif
-        }
-
-        [listener use];
-
-        WebView *webview([document_ webView]);
-        if (frame == [webview mainFrame])
-            [self _pushPage];
-        return;
-    }
-#if LogBrowser
-    else NSLog(@"nav:%@:%@", url, [action description]);
-#endif
-
-    const NSArray *capability;
-
-    if ($GSSystemCopyCapability != NULL) {
-        capability = reinterpret_cast<const NSArray *>((*$GSSystemCopyCapability)(kGSDisplayIdentifiersCapability));
-        capability = [capability autorelease];
-    } else if ($GSSystemGetCapability != NULL) {
-        capability = reinterpret_cast<const NSArray *>((*$GSSystemGetCapability)(kGSDisplayIdentifiersCapability));
-    } else
-        capability = nil;
-
-    NSURL *open(nil);
-
-    if (capability != nil && (
-        [url isGoogleMapsURL] && [capability containsObject:@"com.apple.Maps"] && (open = [url mapsURL]) != nil||
-        [host hasSuffix:@"youtube.com"] && [capability containsObject:@"com.apple.youtube"] && (open = [url youTubeURL]) != nil ||
-        [url respondsToSelector:@selector(phobosURL)] && (open = [url phobosURL]) != nil
-    )) {
-        url = open;
-      open:
-        [[UIApplication sharedApplication] openURL:url];
-        goto ignore;
-    }
-
-    NSInteger store(_not(NSInteger));
-    if (NSURL *itms = [url itmsURL:&store]) {
-#if LogBrowser
-        NSLog(@"itms#%@#%d#%@", url, (int) store, itms);
-#endif
-
-        if (capability != nil && (
-            store == 1 && [capability containsObject:@"com.apple.MobileStore"] ||
-            store == 2 && [capability containsObject:@"com.apple.AppStore"]
-        )) {
-            url = itms;
-            goto open;
-        }
-    }
-
-    NSString *scheme([[url scheme] lowercaseString]);
-
-    if ([scheme isEqualToString:@"tel"]) {
-        // XXX: intelligence
-        goto open;
-    }
-
-    if ([scheme isEqualToString:@"mailto"]) {
-        [self _openMailToURL:url];
-        goto ignore;
-    }
-
-    if ([self getSpecial:url swap:YES])
-        goto ignore;
-    else if ([WebView _canHandleRequest:request])
-        goto use;
-    else if ([url isSpringboardHandledURL])
-        goto open;
-    else
-        goto use;
-}
-
-- (void) webView:(WebView *)sender setStatusText:(NSString *)text {
-    //lprintf("Status:%s\n", [text UTF8String]);
-}
-
-- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
-    NSString *context([alert context]);
-
-    if ([context isEqualToString:@"alert"]) {
-        [self autorelease];
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    } else if ([context isEqualToString:@"confirm"]) {
-        switch (button) {
-            case 1:
-                confirm_ = [NSNumber numberWithBool:YES];
-            break;
-
-            case 2:
-                confirm_ = [NSNumber numberWithBool:NO];
-            break;
-        }
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    } else if ([context isEqualToString:@"sensitive"]) {
-        switch (button) {
-            case 1:
-                sensitive_ = [NSNumber numberWithBool:YES];
-            break;
-
-            case 2:
-                sensitive_ = [NSNumber numberWithBool:NO];
-            break;
-        }
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    } else if ([context isEqualToString:@"challenge"]) {
-        id<NSURLAuthenticationChallengeSender> sender([challenge_ sender]);
-
-        switch (button) {
-            case 1: {
-                NSString *username([[alert textFieldAtIndex:0] text]);
-                NSString *password([[alert textFieldAtIndex:1] text]);
-
-                NSURLCredential *credential([NSURLCredential credentialWithUser:username password:password persistence:NSURLCredentialPersistenceForSession]);
-
-                [sender useCredential:credential forAuthenticationChallenge:challenge_];
-            } break;
-
-            case 2:
-                [sender cancelAuthenticationChallenge:challenge_];
-            break;
-
-            _nodefault
-        }
-
-        [challenge_ release];
-        challenge_ = nil;
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    } else if ([context isEqualToString:@"submit"]) {
-        switch (button) {
-            case 1:
-            break;
-
-            case 2:
-                if (request_ != nil) {
-                    WebThreadLock();
-                    [document_ loadRequest:request_];
-                    WebThreadUnlock();
-                }
-            break;
-
-            _nodefault
-        }
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    }
-}
-
-- (void) webView:(WebView *)sender resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
-    challenge_ = [challenge retain];
-
-    NSURLProtectionSpace *space([challenge protectionSpace]);
-    NSString *realm([space realm]);
-    if (realm == nil)
-        realm = @"";
-
-    UIAlertView *alert = [[[UIAlertView alloc]
-        initWithTitle:realm
-        message:nil
-        delegate:self
-        cancelButtonTitle:UCLocalize("CANCEL")
-        otherButtonTitles:UCLocalize("LOGIN"), nil
-    ] autorelease];
-
-    [alert setContext:@"challenge"];
-    [alert setNumberOfRows:1];
-
-    [alert addTextFieldWithValue:@"" label:UCLocalize("USERNAME")];
-    [alert addTextFieldWithValue:@"" label:UCLocalize("PASSWORD")];
-
-    UITextField *username([alert textFieldAtIndex:0]); {
-        UITextInputTraits *traits([username textInputTraits]);
-        [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-        [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
-        [traits setKeyboardType:UIKeyboardTypeASCIICapable];
-        [traits setReturnKeyType:UIReturnKeyNext];
-    }
-
-    UITextField *password([alert textFieldAtIndex:1]); {
-        UITextInputTraits *traits([password textInputTraits]);
-        [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-        [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
-        [traits setKeyboardType:UIKeyboardTypeASCIICapable];
-        // XXX: UIReturnKeyDone
-        [traits setReturnKeyType:UIReturnKeyNext];
-        [traits setSecureTextEntry:YES];
-    }
-
-    [alert show];
-}
-
-- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
-    return request;
-}
-
-- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features {
-//- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request userGesture:(BOOL)gesture {
-#if LogBrowser
-    NSLog(@"cwv:%@ (%@): %@", request, title_, features == nil ? @"{}" : [features description]);
-    //NSLog(@"cwv:%@ (%@): %@", request, title_, gesture ? @"Yes" : @"No");
-#endif
-
-    NSNumber *value([features objectForKey:@"width"]);
-    float width(value == nil ? 0 : [value floatValue]);
-
-    UCNavigationController *navigation(!popup_ ? [self navigationController] : [[[UCNavigationController alloc] init] autorelease]);
-
-    /* XXX: deal with cydia:// pages */
-    BrowserController *browser([[[class_ alloc] initWithWidth:width] autorelease]);
-
-    if (features != nil && popup_) {
-        [navigation setDelegate:delegate_];
-        [navigation setHook:indirect_];
-        [browser setDelegate:delegate_];
-
-        [browser loadRequest:request];
-
-        [navigation setViewControllers:[NSArray arrayWithObject:browser]];
-        UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("CLOSE")
-            style:UIBarButtonItemStylePlain
-            target:browser
-            action:@selector(close)
-        ];
-        [[browser navigationItem] setLeftBarButtonItem:closeItem];
-        [closeItem release];
-
-        [[self navigationController] presentModalViewController:navigation animated:YES];
-    } /*else if (request == nil) {
-        [[self navigationItem] setTitle:title_];
-        [browser setDelegate:delegate_];
-        [browser retain];
-    }*/ else {
-        [self pushPage:browser];
-        [browser loadRequest:request];
-    }
-
-    return [browser webView];
-}
-
-- (WebView *) webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request {
-    return [self webView:sender createWebViewWithRequest:request windowFeatures:nil];
-    //return [self webView:sender createWebViewWithRequest:request userGesture:YES];
-}
-
-- (void) webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
-    if ([frame parentFrame] != nil)
-        return;
-
-    title_ = [title retain];
-    [[self navigationItem] setTitle:title_];
-}
-
-- (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    /*if ([loading_ count] == 0)
-        [self retain];*/
-    [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
-        [document_ resignFirstResponder];
+        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
+            [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
+            [[error localizedDescription] stringByAddingPercentEscapes]
+        ]]];
 
-        reloading_ = false;
+        error_ = true;
+    }
+}
 
-        if (title_ != nil) {
-            [title_ release];
-            title_ = nil;
-        }
+// CYWebViewDelegate {{{
+- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+#if LogBrowser
+    NSLog(@"decidePolicyForNavigationAction:%@ request:%@ frame:%@", action, request, frame);
+#endif
 
-        if (button_ != nil) {
-            [button_ release];
-            button_ = nil;
-        }
+    if (!error_ && [frame parentFrame] == nil) {
+        if (request_ != nil)
+            [request_ autorelease];
+        if (request == nil)
+            request_ = nil;
+        else
+            request_ = [request retain];
+    }
+}
 
-        if (style_ != nil) {
-            [style_ release];
-            style_ = nil;
-        }
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+#if LogBrowser
+    NSLog(@"decidePolicyForNewWindowAction:%@ request:%@ newFrameName:%@", action, request, frame);
+#endif
 
-        if (function_ != nil) {
-            [function_ release];
-            function_ = nil;
-        }
+    NSURL *url([request URL]);
+    if (url == nil)
+        return;
 
-        if (finish_ != nil) {
-            [finish_ release];
-            finish_ = nil;
-        }
+    if ([frame isEqualToString:@"_open"])
+        [delegate_ openURL:url];
 
-        if (closer_ != nil) {
-            [closer_ release];
-            closer_ = nil;
-        }
+    NSString *scheme([[url scheme] lowercaseString]);
+    if ([scheme isEqualToString:@"mailto"])
+        [self _openMailToURL:url];
 
-        if (special_ != nil) {
-            [special_ release];
-            special_ = nil;
-        }
+    CYViewController *page([delegate_ pageForURL:url hasTag:NULL]);
 
+    if (page == nil) {
+        BrowserController *browser([[[class_ alloc] init] autorelease]);
+        [browser loadRequest:request];
+        page = browser;
+    }
+
+    [page setDelegate:delegate_];
+
+    if (![frame isEqualToString:@"_popup"]) {
         [[self navigationItem] setTitle:title_];
 
-        if (Wildcat_) {
-            CGRect webrect = [scroller_ bounds];
-            webrect.size.height = 1;
-            [document_ setFrame:webrect];
-        }
-
-        if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
-            [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
-        else
-            [scroller_ scrollRectToVisible:CGRectZero animated:NO];
-
-        if ([scroller_ respondsToSelector:@selector(setZoomScale:duration:)])
-            [scroller_ setZoomScale:1 duration:0];
-        else if ([scroller_ respondsToSelector:@selector(_setZoomScale:duration:)])
-            [scroller_ _setZoomScale:1 duration:0];
-        /*else if ([scroller_ respondsToSelector:@selector(setZoomScale:animated:)])
-            [scroller_ setZoomScale:1 animated:NO];*/
-
-        if (!Wildcat_) {
-            CGRect webrect = [scroller_ bounds];
-            webrect.size.height = 0;
-            [document_ setFrame:webrect];
-        }
-    }
-
-    [self _startLoading];
-}
-
-- (UIBarButtonItemStyle) rightButtonStyle {
-    if (style_ == nil) normal:
-        return UIBarButtonItemStylePlain;
-    else if ([style_ isEqualToString:@"Normal"])
-        return UIBarButtonItemStylePlain;
-    else if ([style_ isEqualToString:@"Highlighted"])
-        return UIBarButtonItemStyleDone;
-    else goto normal;
-}
-
-- (UIBarButtonItem *) customButton {
-    UIBarButtonItem *customItem = [[UIBarButtonItem alloc]
-        initWithTitle:button_
-        style:[self rightButtonStyle]
-        target:self
-        action:@selector(customButtonClicked)
-    ];
-
-    return [customItem autorelease];
-}
-
-- (UIBarButtonItem *) rightButton {
-    return reloaditem_;
-}
-
-- (void) applyLoadingTitle {
-    [[self navigationItem] setTitle:UCLocalize("LOADING")];
-}
-
-- (void) applyRightButton {
-    if ([self isLoading]) {
-        [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
-        [[loadingitem_ view] addSubview:indicator_];
-        [self applyLoadingTitle];
-    } else if (button_) {
-        [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
+        [[self navigationController] pushViewController:page animated:YES];
     } else {
-        [[self navigationItem] setRightBarButtonItem:[self rightButton] animated:YES];
+        UCNavigationController *navigation([[[UCNavigationController alloc] init] autorelease]);
+
+        [navigation setHook:indirect_];
+        [navigation setDelegate:delegate_];
+
+        [navigation setViewControllers:[NSArray arrayWithObject:page]];
+
+        [[page navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("CLOSE")
+            style:UIBarButtonItemStylePlain
+            target:page
+            action:@selector(close)
+        ] autorelease]];
+
+        [[self navigationController] presentModalViewController:navigation animated:YES];
     }
+
+    [listener ignore];
 }
 
-- (void) _startLoading {
-    [self applyRightButton];
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
 }
 
-- (void) _finishLoading {
-    size_t count([loading_ count]);
-    /*if (count == 0)
-        [self autorelease];*/
-    if (reloading_ || count != 0)
-        return;
-    if (finish_ != nil)
-        [self callFunction:finish_];
+- (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+#if LogBrowser
+    NSLog(@"didFailLoadWithError:%@ forFrame:%@", error, frame);
+#endif
 
-    [self applyRightButton];
-    if (![self isLoading]) [[self navigationItem] setTitle:title_];
+    [self _didFailWithError:error forFrame:frame];
 }
 
-- (bool) isLoading {
-    return [loading_ count] != 0;
+- (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
+#if LogBrowser
+    NSLog(@"didFailProvisionalLoadWithError:%@ forFrame:%@", error, frame);
+#endif
+
+    [self _didFailWithError:error forFrame:frame];
 }
 
-- (BOOL) webView:(WebView *)sender shouldScrollToPoint:(struct CGPoint)point forFrame:(WebFrame *)frame {
-    return [document_ webView:sender shouldScrollToPoint:point forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didReceiveViewportArguments:(id)arguments forFrame:(WebFrame *)frame {
-    return [document_ webView:sender didReceiveViewportArguments:arguments forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender needsScrollNotifications:(id)notifications forFrame:(WebFrame *)frame {
-    return [document_ webView:sender needsScrollNotifications:notifications forFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didCommitLoadForFrame:(WebFrame *)frame {
-    [self _pushPage];
-    return [document_ webView:sender didCommitLoadForFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didReceiveDocTypeForFrame:(WebFrame *)frame {
-    return [document_ webView:sender didReceiveDocTypeForFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
+- (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
-    [self _finishLoading];
 
     if ([frame parentFrame] == nil) {
         if (DOMDocument *document = [frame DOMDocument])
@@ -1183,325 +594,249 @@ static Class $UIWebBrowserView;
                 }
     }
 
-    return [document_ webView:sender didFinishLoadForFrame:frame];
+    [self _didFinishLoading];
 }
 
-- (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    _trace();
-    /*if ([frame parentFrame] == nil)
-        [self autorelease];*/
-
-    [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
-    [self _finishLoading];
-
-    if (reloading_)
+- (void) webView:(WebView *)view didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
+    if ([frame parentFrame] != nil)
         return;
 
-    if ([frame parentFrame] == nil) {
-        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
-            [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
-            [[error localizedDescription] stringByAddingPercentEscapes]
-        ]]];
+    title_ = [title retain];
+    [[self navigationItem] setTitle:title_];
+}
 
-        error_ = true;
+- (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame {
+    [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
+
+    if ([frame parentFrame] == nil) {
+        CYRelease(title_);
+        CYRelease(custom_);
+        CYRelease(style_);
+        CYRelease(function_);
+        CYRelease(closer_);
+
+        // XXX: do we still need to do this?
+        [[self navigationItem] setTitle:nil];
+    }
+
+    [self _didStartLoading];
+}
+
+- (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    return request;
+}
+
+- (bool) webView:(WebView *)view shouldRunJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    return [self _allowJavaScriptPanel];
+}
+
+- (bool) webView:(WebView *)view shouldRunJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    return [self _allowJavaScriptPanel];
+}
+
+- (bool) webView:(WebView *)view shouldRunJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame {
+    return [self _allowJavaScriptPanel];
+}
+
+- (void) webViewClose:(WebView *)view {
+    [self close];
+}
+// }}}
+
+- (void) close {
+    [[self navigationController] dismissModalViewControllerAnimated:YES];
+}
+
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
+
+    if ([context isEqualToString:@"sensitive"]) {
+        switch (button) {
+            case 1:
+                sensitive_ = [NSNumber numberWithBool:YES];
+            break;
+
+            case 2:
+                sensitive_ = [NSNumber numberWithBool:NO];
+            break;
+        }
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    } else if ([context isEqualToString:@"challenge"]) {
+        id<NSURLAuthenticationChallengeSender> sender([challenge_ sender]);
+
+        switch (button) {
+            case 1: {
+                NSString *username([[alert textFieldAtIndex:0] text]);
+                NSString *password([[alert textFieldAtIndex:1] text]);
+
+                NSURLCredential *credential([NSURLCredential credentialWithUser:username password:password persistence:NSURLCredentialPersistenceForSession]);
+
+                [sender useCredential:credential forAuthenticationChallenge:challenge_];
+            } break;
+
+            case 2:
+                [sender cancelAuthenticationChallenge:challenge_];
+            break;
+
+            _nodefault
+        }
+
+        [challenge_ release];
+        challenge_ = nil;
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    } else if ([context isEqualToString:@"submit"]) {
+        switch (button) {
+            case 1:
+            break;
+
+            case 2:
+                if (request_ != nil) {
+                    WebThreadLock();
+                    [webview_ loadRequest:request_];
+                    WebThreadUnlock();
+                }
+            break;
+
+            _nodefault
+        }
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
 
-- (void) webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    [self _didFailWithError:error forFrame:frame];
-    if ([document_ respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
-        [document_ webView:sender didFailLoadWithError:error forFrame:frame];
+- (UIBarButtonItemStyle) rightButtonStyle {
+    if (style_ == nil) normal:
+        return UIBarButtonItemStylePlain;
+    else if ([style_ isEqualToString:@"Normal"])
+        return UIBarButtonItemStylePlain;
+    else if ([style_ isEqualToString:@"Highlighted"])
+        return UIBarButtonItemStyleDone;
+    else goto normal;
 }
 
-- (void) webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    [self _didFailWithError:error forFrame:frame];
+- (UIBarButtonItem *) customButton {
+    return [[[UIBarButtonItem alloc]
+        initWithTitle:custom_
+        style:[self rightButtonStyle]
+        target:self
+        action:@selector(customButtonClicked)
+    ] autorelease];
 }
 
-- (void) webView:(WebView *)sender addMessageToConsole:(NSDictionary *)dictionary {
-#if LogBrowser || ForSaurik
-    lprintf("Console:%s\n", [[dictionary description] UTF8String]);
-#endif
+- (UIBarButtonItem *) rightButton {
+    return reloaditem_;
 }
 
-- (void) webView:(WebView *)sender didReceiveMessage:(NSDictionary *)dictionary {
-#if LogBrowser || ForSaurik
-    lprintf("Console:%s\n", [[dictionary description] UTF8String]);
-#endif
-    if ([document_ respondsToSelector:@selector(webView:didReceiveMessage:)])
-        [document_ webView:sender didReceiveMessage:dictionary];
+- (void) applyLoadingTitle {
+    [[self navigationItem] setTitle:UCLocalize("LOADING")];
 }
 
-- (void) webView:(id)sender willCloseFrame:(id)frame {
-    if ([document_ respondsToSelector:@selector(webView:willCloseFrame:)])
-        [document_ webView:sender willCloseFrame:frame];
+- (void) applyRightButton {
+    if ([self isLoading]) {
+        [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
+        // XXX: why do we do this again here?
+        [[loadingitem_ view] addSubview:indicator_];
+        [self applyLoadingTitle];
+    } else if (custom_ != nil) {
+        [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
+    } else {
+        [[self navigationItem] setRightBarButtonItem:[self rightButton] animated:YES];
+    }
 }
 
-- (void) webView:(id)sender didFinishDocumentLoadForFrame:(id)frame {
-    if ([document_ respondsToSelector:@selector(webView:didFinishDocumentLoadForFrame:)])
-        [document_ webView:sender didFinishDocumentLoadForFrame:frame];
+- (void) _didStartLoading {
+    [self applyRightButton];
 }
 
-- (void) webView:(id)sender didFirstLayoutInFrame:(id)frame {
-    if ([document_ respondsToSelector:@selector(webView:didFirstLayoutInFrame:)])
-        [document_ webView:sender didFirstLayoutInFrame:frame];
+- (void) _didFinishLoading {
+    if ([loading_ count] != 0)
+        return;
+
+    [self applyRightButton];
+
+    // XXX: wtf?
+    if (![self isLoading])
+        [[self navigationItem] setTitle:title_];
 }
 
-- (void) webViewFormEditedStatusHasChanged:(id)changed {
-    if ([document_ respondsToSelector:@selector(webViewFormEditedStatusHasChanged:)])
-        [document_ webViewFormEditedStatusHasChanged:changed];
-}
-
-- (void) webView:(id)sender formStateDidFocusNode:(id)formState {
-    if ([document_ respondsToSelector:@selector(webView:formStateDidFocusNode:)])
-        [document_ webView:sender formStateDidFocusNode:formState];
-}
-
-- (void) webView:(id)sender formStateDidBlurNode:(id)formState {
-    if ([document_ respondsToSelector:@selector(webView:formStateDidBlurNode:)])
-        [document_ webView:sender formStateDidBlurNode:formState];
-}
-
-/* XXX: fix this stupid include file
-- (void) webView:(WebView *)sender frame:(WebFrame *)frame exceededDatabaseQuotaForSecurityOrigin:(WebSecurityOrigin *)origin database:(NSString *)database {
-    [origin setQuota:0x500000];
-}*/
-
-- (void) webViewDidLayout:(id)sender {
-    [document_ webViewDidLayout:sender];
-}
-
-- (void) webView:(id)sender didFirstVisuallyNonEmptyLayoutInFrame:(id)frame {
-    [document_ webView:sender didFirstVisuallyNonEmptyLayoutInFrame:frame];
-}
-
-- (void) webView:(id)sender saveStateToHistoryItem:(id)item forFrame:(id)frame {
-    [document_ webView:sender saveStateToHistoryItem:item forFrame:frame];
-}
-
-- (void) webView:(id)sender restoreStateFromHistoryItem:(id)item forFrame:(id)frame force:(BOOL)force {
-    [document_ webView:sender restoreStateFromHistoryItem:item forFrame:frame force:force];
-}
-
-- (void) webView:(id)sender attachRootLayer:(id)layer {
-    [document_ webView:sender attachRootLayer:layer];
-}
-
-- (id) webView:(id)sender plugInViewWithArguments:(id)arguments fromPlugInPackage:(id)package {
-    return [document_ webView:sender plugInViewWithArguments:arguments fromPlugInPackage:package];
-}
-
-- (void) webView:(id)sender willShowFullScreenForPlugInView:(id)view {
-    [document_ webView:sender willShowFullScreenForPlugInView:view];
-}
-
-- (void) webView:(id)sender didHideFullScreenForPlugInView:(id)view {
-    [document_ webView:sender didHideFullScreenForPlugInView:view];
-}
-
-- (void) webView:(id)sender willAddPlugInView:(id)view {
-    [document_ webView:sender willAddPlugInView:view];
-}
-
-- (void) webView:(id)sender didObserveDeferredContentChange:(int)change forFrame:(id)frame {
-    [document_ webView:sender didObserveDeferredContentChange:change forFrame:frame];
-}
-
-- (void) webViewDidPreventDefaultForEvent:(id)sender {
-    [document_ webViewDidPreventDefaultForEvent:sender];
-}
-
-- (void) _setTileDrawingEnabled:(BOOL)enabled {
-    //[document_ setTileDrawingEnabled:enabled];
-}
-
-- (void) setViewportWidth:(float)width {
-    width_ = width != 0 ? width : [[self class] defaultWidth];
-    [document_ setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
-}
-
-- (void) willStartGesturesInView:(UIView *)view forEvent:(GSEventRef)event {
-    [self _setTileDrawingEnabled:NO];
-}
-
-- (void) didFinishGesturesInView:(UIView *)view forEvent:(GSEventRef)event {
-    [self _setTileDrawingEnabled:YES];
-    [document_ redrawScaledDocument];
-}
-
-- (void) scrollerWillStartDragging:(UIScroller *)scroller {
-    [self _setTileDrawingEnabled:NO];
-}
-
-- (void) scrollerDidEndDragging:(UIScroller *)scroller willSmoothScroll:(BOOL)smooth {
-    [self _setTileDrawingEnabled:YES];
-}
-
-- (void) scrollerDidEndDragging:(UIScroller *)scroller {
-    [self _setTileDrawingEnabled:YES];
+- (bool) isLoading {
+    return [loading_ count] != 0;
 }
 
 - (id) initWithWidth:(float)width ofClass:(Class)_class {
     if ((self = [super init]) != nil) {
         class_ = _class;
-        loading_ = [[NSMutableSet alloc] initWithCapacity:3];
-        popup_ = false;
-
-        BrowserView *actualView = [[BrowserView alloc] initWithFrame:CGRectZero];
-        [self setView:actualView];
-
-        struct CGRect bounds = [[self view] bounds];
-
-        scroller_ = [[objc_getClass(Wildcat_ ? "UIScrollView" : "UIScroller") alloc] initWithFrame:bounds];
-        [[self view] addSubview:scroller_];
-
-        [scroller_ setFixedBackgroundPattern:YES];
-        [scroller_ setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
-
-        [scroller_ setScrollingEnabled:YES];
-        [scroller_ setClipsSubviews:YES];
-
-        if (!Wildcat_)
-            [scroller_ setAllowsRubberBanding:YES];
-
-        [scroller_ setDelegate:self];
-        [scroller_ setBounces:YES];
-
-        if (!Wildcat_) {
-            [scroller_ setScrollHysteresis:8];
-            [scroller_ setThumbDetectionEnabled:NO];
-            [scroller_ setDirectionalScrolling:YES];
-            //[scroller_ setScrollDecelerationFactor:0.99]; /* 0.989324 */
-            [scroller_ setEventMode:YES];
-        }
-
-        if (Wildcat_) {
-            UIScrollView *scroller((UIScrollView *)scroller_);
-            //[scroller setDirectionalLockEnabled:NO];
-            [scroller setDelaysContentTouches:NO];
-            //[scroller setScrollsToTop:NO];
-            //[scroller setCanCancelContentTouches:NO];
-        }
-
-        [scroller_ setShowBackgroundShadow:NO]; /* YES */
-        //[scroller_ setAllowsRubberBanding:YES]; /* Vertical */
-
-        if (!Wildcat_)
-            [scroller_ setAdjustForContentSizeChange:YES]; /* NO */
-
-        CGRect webrect = [scroller_ bounds];
-        webrect.size.height = 0;
-
-        WebView *webview;
-
-        WebThreadLock();
-
-#if RecycleWebViews
-        document_ = [Documents_ lastObject];
-        if (document_ != nil) {
-            document_ = [document_ retain];
-            webview = [document_ webView];
-            [Documents_ removeLastObject];
-            [document_ setFrame:webrect];
-        } else {
-#else
-        if (true) {
-#endif
-            document_ = [[$UIWebBrowserView alloc] initWithFrame:webrect];
-            webview = [document_ webView];
-
-            // XXX: this is terribly (too?) expensive
-            //[document_ setDrawsBackground:NO];
-            [webview setPreferencesIdentifier:@"Cydia"];
-
-            [document_ setTileSize:CGSizeMake(webrect.size.width, 500)];
-
-            if ([document_ respondsToSelector:@selector(enableReachability)])
-                [document_ enableReachability];
-            if ([document_ respondsToSelector:@selector(setAllowsMessaging:)])
-                [document_ setAllowsMessaging:YES];
-            if ([document_ respondsToSelector:@selector(useSelectionAssistantWithMode:)])
-                [document_ useSelectionAssistantWithMode:0];
-
-            [document_ setTilingEnabled:YES];
-            [document_ setDrawsGrid:NO];
-            [document_ setLogsTilingChanges:NO];
-            [document_ setTileMinificationFilter:kCAFilterNearest];
-
-            if ([document_ respondsToSelector:@selector(setDataDetectorTypes:)])
-                /* XXX: abstractify */
-                [document_ setDataDetectorTypes:0x80000000];
-            else
-                [document_ setDetectsPhoneNumbers:NO];
-
-            [document_ setAutoresizes:YES];
-
-            [document_ setMinimumScale:0.25f forDocumentTypes:0x10];
-            [document_ setMaximumScale:5.00f forDocumentTypes:0x10];
-            [document_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x10];
-            //[document_ setViewportSize:CGSizeMake(980, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
-
-            [document_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x2];
-
-            [document_ setMinimumScale:1.00f forDocumentTypes:0x8];
-            [document_ setInitialScale:UIWebViewScalesToFitScale forDocumentTypes:0x8];
-            [document_ setViewportSize:CGSizeMake(320, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x8];
-
-            [document_ _setDocumentType:0x4];
-
-            if ([document_ respondsToSelector:@selector(setZoomsFocusedFormControl:)])
-                [document_ setZoomsFocusedFormControl:YES];
-            [document_ setContentsPosition:7];
-            [document_ setEnabledGestures:0xa];
-            [document_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeIsZoomRubberBandEnabled];
-            [document_ setValue:[NSNumber numberWithBool:YES] forGestureAttribute:UIGestureAttributeUpdatesScroller];
-
-            [document_ setSmoothsFonts:YES];
-            [document_ setAllowsImageSheet:YES];
-            [webview _setUsesLoaderCache:YES];
-
-            [webview setGroupName:@"CydiaGroup"];
-
-            WebPreferences *preferences([webview preferences]);
-
-            if ([webview respondsToSelector:@selector(_setLayoutInterval:)])
-                [webview _setLayoutInterval:0];
-            else
-                [preferences _setLayoutInterval:0];
-        }
-
-        actualView.documentView = document_;
-        [actualView release];
-
-        [self setViewportWidth:width];
-
-        [document_ setDelegate:self];
-        [document_ setGestureDelegate:self];
-
-        if ([document_ respondsToSelector:@selector(setFormEditingDelegate:)])
-            [document_ setFormEditingDelegate:self];
-
-        [document_ setInteractionDelegate:self];
-
-        [scroller_ addSubview:document_];
-
-        //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+        loading_ = [[NSMutableSet alloc] initWithCapacity:5];
 
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
 
-        [webview setFrameLoadDelegate:indirect_];
-        [webview setPolicyDelegate:indirect_];
-        [webview setResourceLoadDelegate:indirect_];
-        [webview setUIDelegate:indirect_];
+        webview_ = [[[CYWebView alloc] initWithFrame:[[self view] bounds]] autorelease];
+        [webview_ setDelegate:self];
+        [self setView:webview_];
 
-        /* XXX: do not turn this on under penalty of extreme pain */
-        [webview setScriptDebugDelegate:nil];
+        if ([webview_ respondsToSelector:@selector(setDataDetectorTypes:)])
+            [webview_ setDataDetectorTypes:UIDataDetectorTypeAutomatic];
+        else
+            [webview_ setDetectsPhoneNumbers:NO];
 
-        WebThreadUnlock();
+        [webview_ setScalesPageToFit:YES];
 
-        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(15, 5, indsize.width, indsize.height)];
-        [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
-        [indicator_ startAnimation];
+        UIWebDocumentView *document([webview_ _documentView]);
+
+        // XXX: I think this improves scrolling; the hardcoded-ness sucks
+        [document setTileSize:CGSizeMake(320, 500)];
+
+        [document setBackgroundColor:[UIColor clearColor]];
+        [document setDrawsBackground:NO];
+
+        WebView *webview([document webView]);
+        WebPreferences *preferences([webview preferences]);
+
+        // XXX: I have no clue if I actually /want/ this modification
+        if ([webview respondsToSelector:@selector(_setLayoutInterval:)])
+            [webview _setLayoutInterval:0];
+        else if ([preferences respondsToSelector:@selector(_setLayoutInterval:)])
+            [preferences _setLayoutInterval:0];
+
+        [preferences setCacheModel:WebCacheModelDocumentBrowser];
+        [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+        if ([webview_ respondsToSelector:@selector(_scrollView)]) {
+            scroller_ = [webview_ _scrollView];
+
+            [scroller_ setDirectionalLockEnabled:YES];
+            [scroller_ setDecelerationRate:UIScrollViewDecelerationRateNormal];
+            [scroller_ setDelaysContentTouches:NO];
+
+            [scroller_ setCanCancelContentTouches:YES];
+        } else if ([webview_ respondsToSelector:@selector(_scroller)]) {
+            UIScroller *scroller([webview_ _scroller]);
+            scroller_ = (UIScrollView *) scroller;
+
+            [scroller setDirectionalScrolling:YES];
+            [scroller setScrollDecelerationFactor:UIScrollViewDecelerationRateNormal]; /* 0.989324 */
+            [scroller setScrollHysteresis:0]; /* 8 */
+
+            [scroller setThumbDetectionEnabled:NO];
+
+            // use NO with UIApplicationUseLegacyEvents(YES)
+            [scroller setEventMode:YES];
+
+            // XXX: this is handled by setBounces, right?
+            //[scroller setAllowsRubberBanding:YES];
+        }
+
+        [scroller_ setFixedBackgroundPattern:YES];
+        [scroller_ setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
+        [scroller_ setClipsSubviews:YES];
+
+        [scroller_ setBounces:YES];
+        [scroller_ setScrollingEnabled:YES];
+        [scroller_ setShowBackgroundShadow:NO];
+
+        [self setViewportWidth:width];
 
         reloaditem_ = [[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("RELOAD")
@@ -1516,15 +851,15 @@ static Class $UIWebBrowserView;
             target:self
             action:@selector(reloadButtonClicked)
         ];
+
+        CGSize indsize = [UIProgressIndicator defaultSizeForStyle:UIProgressIndicatorStyleMediumWhite];
+        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectMake(15, 5, indsize.width, indsize.height)];
+        [indicator_ setStyle:UIProgressIndicatorStyleMediumWhite];
+        [indicator_ startAnimation];
         [[loadingitem_ view] addSubview:indicator_];
 
-        [scroller_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-        [document_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-
-        /*UIWebView *test([[[UIWebView alloc] initWithFrame:[[self view] bounds]] autorelease]);
-        [test loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.saurik.com/"]]];
-        [[self view] addSubview:test];*/
     } return self;
 }
 
@@ -1536,18 +871,15 @@ static Class $UIWebBrowserView;
     return [self initWithWidth:0];
 }
 
-- (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script {
-    WebThreadLock();
-    WebView *webview([document_ webView]);
-    NSString *string([webview stringByEvaluatingJavaScriptFromString:script]);
-    WebThreadUnlock();
-    return string;
+- (void) didDismissModalViewController {
+    if (closer_ != nil)
+        [self callFunction:closer_];
 }
 
 - (void) callFunction:(WebScriptObject *)function {
     WebThreadLock();
 
-    WebView *webview([document_ webView]);
+    WebView *webview([[webview_ _documentView] webView]);
     WebFrame *frame([webview mainFrame]);
     WebPreferences *preferences([webview preferences]);
 
@@ -1582,13 +914,7 @@ static Class $UIWebBrowserView;
     WebThreadUnlock();
 }
 
-- (void) didDismissModalViewController {
-    if (closer_ != nil)
-        [self callFunction:closer_];
-}
-
 - (void) reloadButtonClicked {
-    reloading_ = true;
     [self reloadURL];
 }
 
@@ -1603,17 +929,6 @@ static Class $UIWebBrowserView;
     else
 #endif
     [self _customButtonClicked];
-}
-
-- (void) setPageActive:(BOOL)active {
-    if (!active)
-        [indicator_ removeFromSuperview];
-    else
-        [[[[self navigationItem] rightBarButtonItem] view] addSubview:indicator_];
-}
-
-- (void) setPushed:(bool)pushed {
-    pushed_ = pushed;
 }
 
 + (float) defaultWidth {

@@ -380,12 +380,10 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
 #define TrackResize (0 && !ForRelease)
-#define ManualRefresh (0 && !ForRelease)
+#define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
-#define RecycleWebViews 0
-#define RecyclePackageViews (0 && ForRelease)
-#define AlwaysReload (1 && !ForRelease)
+#define AlwaysReload (0 && !ForRelease)
 
 #if !TraceLogging
 #undef _trace
@@ -1074,10 +1072,6 @@ static bool Changed_;
 static NSDate *now_;
 
 static bool IsWildcat_;
-
-#if RecycleWebViews
-static NSMutableArray *Documents_;
-#endif
 /* }}} */
 
 /* Display Helpers {{{ */
@@ -3695,14 +3689,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return @"getPackageById";
     else if (selector == @selector(installPackages:))
         return @"installPackages";
-    else if (selector == @selector(setAutoPopup:))
-        return @"setAutoPopup";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
         return @"setButtonTitle";
-    else if (selector == @selector(setFinishHook:))
-        return @"setFinishHook";
     else if (selector == @selector(setPopupHook:))
         return @"setPopupHook";
     else if (selector == @selector(setSpecial:))
@@ -3813,10 +3803,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ performSelectorOnMainThread:@selector(installPackages:) withObject:packages waitUntilDone:NO];
 }
 
-- (void) setAutoPopup:(BOOL)popup {
-    [indirect_ setAutoPopup:popup];
-}
-
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     [indirect_ setButtonImage:button withStyle:style toFunction:function];
 }
@@ -3836,10 +3822,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [Metadata_ setObject:Token_ forKey:@"Token"];
     Changed_ = true;
-}
-
-- (void) setFinishHook:(id)function {
-    [indirect_ setFinishHook:function];
 }
 
 - (void) setPopupHook:(id)function {
@@ -3887,8 +3869,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setHeaders:(NSDictionary *)headers forHost:(NSString *)host {
 }
 
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [super webView:sender didClearWindowObject:window forFrame:frame];
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [super webView:view didClearWindowObject:window forFrame:frame];
 
     WebDataSource *source([frame dataSource]);
     NSURLResponse *response([source response]);
@@ -3924,8 +3906,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
 }
 
-- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source {
-    NSMutableURLRequest *copy = [request mutableCopy];
+- (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
     [self _setMoreHeaders:copy];
     return copy;
 }
@@ -3939,7 +3921,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithWidth:0 ofClass:[CYBrowserController class]]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
-        WebView *webview([document_ webView]);
+        WebView *webview([[webview_ _documentView] webView]);
 
         Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
 
@@ -4022,8 +4004,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return nil;
 }
 
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [super webView:sender didClearWindowObject:window forFrame:frame];
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [super webView:view didClearWindowObject:window forFrame:frame];
     [window setValue:changes_ forKey:@"changes"];
     [window setValue:issues_ forKey:@"issues"];
     [window setValue:sizes_ forKey:@"sizes"];
@@ -5134,6 +5116,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *name_;
     bool commercial_;
     NSMutableArray *buttons_;
+    UIBarButtonItem *button_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -5148,7 +5131,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [package_ release];
     if (name_ != nil)
         [name_ release];
+
     [buttons_ release];
+
+    if (button_ != nil)
+        [button_ release];
+
     [super dealloc];
 }
 
@@ -5186,12 +5174,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
-    return [super webView:sender didFinishLoadForFrame:frame];
-}
-
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [super webView:sender didClearWindowObject:window forFrame:frame];
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [super webView:view didClearWindowObject:window forFrame:frame];
     [window setValue:package_ forKey:@"package"];
 }
 
@@ -5248,13 +5232,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UIBarButtonItem *) rightButton {
-    int count = [buttons_ count];
-    return [[[UIBarButtonItem alloc]
-        initWithTitle:count == 0 ? nil : count != 1 ? UCLocalize("MODIFY") : [buttons_ objectAtIndex:0]
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(customButtonClicked)
-    ] autorelease];
+    return button_;
 }
 #endif
 
@@ -5297,30 +5275,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [buttons_ addObject:UCLocalize("REINSTALL")];
         if (![package_ uninstalled])
             [buttons_ addObject:UCLocalize("REMOVE")];
-
-        if (special_ != NULL) {
-            CGRect frame([document_ frame]);
-            frame.size.height = 0;
-            [document_ setFrame:frame];
-
-            if ([scroller_ respondsToSelector:@selector(scrollPointVisibleAtTopLeft:)])
-                [scroller_ scrollPointVisibleAtTopLeft:CGPointZero];
-            else
-                [scroller_ scrollRectToVisible:CGRectZero animated:NO];
-
-            WebThreadLock();
-            [[[document_ webView] windowScriptObject] setValue:package_ forKey:@"package"];
-
-            [self setButtonTitle:nil withStyle:nil toFunction:nil];
-
-            [self setFinishHook:nil];
-            [self setPopupHook:nil];
-            WebThreadUnlock();
-
-            //[self yieldToSelector:@selector(callFunction:) withObject:special_];
-            [super callFunction:special_];
-        }
     }
+
+    if (button_ != nil)
+        [button_ release];
+
+    NSString *title;
+    switch ([buttons_ count]) {
+        case 0: title = nil; break;
+        case 1: title = [buttons_ objectAtIndex:0]; break;
+        default: title = UCLocalize("MODIFY"); break;
+    }
+
+    button_ = [[UIBarButtonItem alloc]
+        initWithTitle:title
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(customButtonClicked)
+    ];
 }
 
 - (bool) isLoading {
@@ -7419,9 +7391,9 @@ freeing the view controllers on tab change */
     [super dealloc];
 }
 
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     // XXX: dude!
-    [super webView:sender didClearWindowObject:window forFrame:frame];
+    [super webView:view didClearWindowObject:window forFrame:frame];
 }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package {
@@ -7903,10 +7875,6 @@ typedef enum {
     InstalledController *installed_;
     id queueDelegate_;
 
-#if RecyclePackageViews
-    NSMutableArray *details_;
-#endif
-
     bool loaded_;
 }
 
@@ -8343,10 +8311,6 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) setPackageController:(PackageController *)view {
     WebThreadLock();
     [view setPackage:nil];
-#if RecyclePackageViews
-    if ([details_ count] < 3)
-        [details_ addObject:view];
-#endif
     WebThreadUnlock();
 }
 
@@ -8355,25 +8319,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (PackageController *) packageController {
-#if RecyclePackageViews
-    PackageController *view;
-    size_t count([details_ count]);
-
-    if (count == 0) {
-        view = [self _packageController];
-      renew:
-        [details_ addObject:[self _packageController]];
-    } else {
-        view = [[[details_ lastObject] retain] autorelease];
-        [details_ removeLastObject];
-        if (count == 1)
-            goto renew;
-    }
-
-    return view;
-#else
     return [self _packageController];
-#endif
 }
 
 // Returns the navigation controller for the queuing badge.
@@ -8682,12 +8628,6 @@ static _finline void _setHomePage(Cydia *self) {
 
     [self reloadData];
 
-#if RecyclePackageViews
-    details_ = [[NSMutableArray alloc] initWithCapacity:4];
-    [details_ addObject:[self _packageController]];
-    [details_ addObject:[self _packageController]];
-#endif
-
     PrintTimes();
 
     _setHomePage(self);
@@ -8930,10 +8870,6 @@ int main(int argc, char *argv[]) { _pooled
         [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
     /* }}} */
-
-#if RecycleWebViews
-    Documents_ = [[[NSMutableArray alloc] initWithCapacity:4] autorelease];
-#endif
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 

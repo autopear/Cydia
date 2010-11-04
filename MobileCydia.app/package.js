@@ -45,7 +45,7 @@ swap_ = function (on, off, time) {
     };
 };
 
-var special_ = function () {
+$(function () {
     if (package == null)
         return;
 
@@ -285,46 +285,4 @@ var special_ = function () {
         else
             $("#source-description").html($.xml(description));
     }
-};
-
-$(special_);
-
-var special = function () {
-    $(".deleted").removeClass("deleted");
-    $(".inserted").remove();
-
-    $("#icon")[0].className = 'flip-0';
-    $("#thumb")[0].className = 'flip-180';
-
-    /* XXX: this could be better */
-    $("#rating-href").href(null);
-    $("#rating-none").css("display", "none");
-    $("#rating-done").css("display", "none");
-
-    var notice = $("#notice-src");
-
-    notice[0].outerHTML = '<iframe' +
-        ' class="notice"' +
-        ' id="notice-src"' +
-        ' frameborder="0"' +
-        ' width="320"' +
-        ' height="0"' +
-        ' target="_top"' +
-    '></iframe>';
-
-    var depiction = $("#depiction-src");
-
-    depiction[0].outerHTML = '<iframe' +
-        ' class="depiction"' +
-        ' id="depiction-src"' +
-        ' frameborder="0"' +
-        ' width="320"' +
-        ' height="0"' +
-        ' target="_top"' +
-        ' onload_="loaded()"' +
-    '></iframe>';
-
-    special_();
-};
-
-cydia.setSpecial(special);
+});

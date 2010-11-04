@@ -32,8 +32,116 @@ typedef enum {
     UIProgressIndicatorStyleTinyWhite,
 } UIProgressIndicatorStyle;
 // }}}
-// @class *; {{{
+// #define * * {{{
+#define UIDataDetectorTypeAutomatic 0x80000000
+// }}}
+// @class Web*; {{{
+@class WebDataSource;
+@class WebScriptObject;
 @class WebView;
+// }}}
+// @protocol *; {{{
+@protocol WebPolicyDecisionListener;
+// }}}
+
+// @interface * : UIView {{{
+@interface UIFormAssistant : UIView
++ (UIFormAssistant *) sharedFormAssistant;
+- (CGRect) peripheralFrame;
+@end
+
+@interface UIKeyboard : UIView
++ (void) initImplementationNow;
+@end
+
+@interface UIProgressBar : UIView
++ (CGSize) defaultSize;
+- (void) setProgress:(float)progress;
+- (void) setStyle:(NSInteger)style;
+@end
+
+@interface UIProgressHUD : UIView
+- (id) initWithWindow:(UIWindow *)window;
+- (void) setText:(NSString *)text;
+- (void) show:(BOOL)show;
+@end
+
+@interface UIProgressIndicator : UIView
++ (CGSize) defaultSizeForStyle:(NSUInteger)style;
+- (NSUInteger) activityIndicatorViewStyle;
+- (void) setStyle:(UIProgressIndicatorStyle)style;
+- (void) startAnimation;
+@end
+
+@interface UIScroller : UIView
+- (CGSize) contentSize;
+- (void) setDirectionalScrolling:(BOOL)directional;
+- (void) setEventMode:(NSInteger)mode;
+- (void) setOffset:(CGPoint)offset;
+- (void) setScrollDecelerationFactor:(float)factor;
+- (void) setScrollHysteresis:(float)hysteresis;
+- (void) setThumbDetectionEnabled:(BOOL)enabled;
+@end
+
+@interface UITextLabel : UIView
+- (void) setCentersHorizontally:(BOOL)centers;
+- (void) setColor:(UIColor *)color;
+- (void) setFont:(UIFont *)font;
+- (void) setText:(NSString *)text;
+@end
+
+@interface UIWebDocumentView : UIView
+- (CGRect) documentBounds;
+- (void) enableReachability;
+- (void) loadRequest:(NSURLRequest *)request;
+- (void) redrawScaledDocument;
+- (void) setAllowsImageSheet:(BOOL)allows;
+- (void) setAllowsMessaging:(BOOL)allows;
+- (void) setAutoresizes:(BOOL)autoresizes;
+- (void) setContentsPosition:(NSInteger)position;
+- (void) setDataDetectorTypes:(NSUInteger)types;
+- (void) setDetectsPhoneNumbers:(BOOL)detects;
+- (void) setDrawsBackground:(BOOL)draws;
+- (void) _setDocumentType:(NSInteger)type;
+- (void) setDrawsGrid:(BOOL)draws;
+- (void) setInitialScale:(float)scale forDocumentTypes:(NSInteger)types;
+- (void) setLogsTilingChanges:(BOOL)logs;
+- (void) setMinimumScale:(float)scale forDocumentTypes:(NSInteger)types;
+- (void) setMinimumSize:(CGSize)size;
+- (void) setMaximumScale:(float)scale forDocumentTypes:(NSInteger)tpyes;
+- (void) setSmoothsFonts:(BOOL)smooths;
+- (void) setTileMinificationFilter:(NSString *)filter;
+- (void) setTileSize:(CGSize)size;
+- (void) setTilingEnabled:(BOOL)enabled;
+- (void) setViewportSize:(CGSize)size forDocumentTypes:(NSInteger)types;
+- (void) setZoomsFocusedFormControl:(BOOL)zooms;
+- (void) useSelectionAssistantWithMode:(NSInteger)mode;
+- (WebView *) webView;
+@end
+// }}}
+// @interface *Button : * {{{
+@interface UINavigationButton : UIButton
+- (id) initWithTitle:(NSString *)title style:(UINavigationButtonStyle)style;
+- (void) setBarStyle:(UIBarStyle)style;
+@end
+
+@interface UIPushButton : UIControl
+- (id) backgroundForState:(NSUInteger)state;
+- (void) setAutosizesToFit:(BOOL)autosizes;
+- (void) setBackground:(id)background forState:(NSUInteger)state;
+- (void) setDrawsShadow:(BOOL)draws;
+- (void) setStretchBackground:(BOOL)stretch;
+- (void) setTitle:(NSString *)title;
+- (void) setTitleFont:(UIFont *)font;
+@end
+
+@interface UIThreePartButton : UIPushButton
+@end
+// }}}
+// @interface * : NS* {{{
+@interface WebDefaultUIKitDelegate : NSObject
++ (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
+@end
 // }}}
 
 // @interface NS* (*) {{{
@@ -111,6 +219,11 @@ typedef enum {
 - (UIBarStyle) _barStyle:(BOOL)style;
 @end
 
+@interface UIScrollView (Apple)
+- (void) setScrollingEnabled:(BOOL)enabled;
+- (void) setShowBackgroundShadow:(BOOL)show;
+@end
+
 @interface UISearchBar (Apple)
 - (UITextField *) searchField;
 @end
@@ -136,7 +249,10 @@ typedef enum {
 @end
 
 @interface UIView (Apple)
+- (UIScroller *) _scroller;
+- (void) setClipsSubviews:(BOOL)clips;
 - (void) setEnabledGestures:(NSInteger)gestures;
+- (void) setFixedBackgroundPattern:(BOOL)fixed;
 - (void) setGestureDelegate:(id)delegate;
 - (void) setNeedsDisplayOnBoundsChange:(BOOL)needs;
 - (void) setValue:(NSValue *)value forGestureAttribute:(NSInteger)attribute;
@@ -153,145 +269,25 @@ typedef enum {
 - (void) makeKey:(UIApplication *)application;
 - (void) orderFront:(UIApplication *)application;
 @end
-// }}}
 
-// @interface * : UIView {{{
-@interface UIFormAssistant : UIView
-+ (UIFormAssistant *) sharedFormAssistant;
-- (CGRect) peripheralFrame;
-@end
-
-@interface UIKeyboard : UIView
-+ (void) initImplementationNow;
-@end
-
-@interface UIProgressBar : UIView
-+ (CGSize) defaultSize;
-- (void) setProgress:(float)progress;
-- (void) setStyle:(NSInteger)style;
-@end
-
-@interface UIProgressHUD : UIView
-- (id) initWithWindow:(UIWindow *)window;
-- (void) setText:(NSString *)text;
-- (void) show:(BOOL)show;
-@end
-
-@interface UIProgressIndicator : UIView
-+ (CGSize) defaultSizeForStyle:(NSUInteger)style;
-- (NSUInteger) activityIndicatorViewStyle;
-- (void) setStyle:(UIProgressIndicatorStyle)style;
-- (void) startAnimation;
-@end
-
-@interface UIScroller : UIView
-- (CGSize) contentSize;
-- (BOOL) releaseRubberBandIfNecessary;
-- (void) scrollPointVisibleAtTopLeft:(CGPoint)point;
-- (void) scrollRectToVisible:(CGRect)rect animated:(BOOL)animated;
-- (void) setAdjustForContentSizeChange:(BOOL)adjust;
-- (void) setAllowsRubberBanding:(BOOL)allows;
-- (void) setBounces:(BOOL)bounces;
-- (void) setClipsSubviews:(BOOL)clips;
-- (void) setContentSize:(CGSize)size;
-- (void) setDelegate:(id)delegate;
-- (void) setDirectionalScrolling:(BOOL)directional;
-- (void) setEventMode:(NSInteger)mode;
-- (void) setFixedBackgroundPattern:(BOOL)fixed;
-- (void) setOffset:(CGPoint)offset;
-- (void) setScrollHysteresis:(float)hysteresis;
-- (void) setScrollerIndicatorSubrect:(CGRect)rect;
-- (void) setScrollingEnabled:(BOOL)enabled;
-- (void) setShowBackgroundShadow:(BOOL)shows;
-- (void) setThumbDetectionEnabled:(BOOL)enabled;
-@end
-
-@interface UITextLabel : UIView
-- (void) setCentersHorizontally:(BOOL)centers;
-- (void) setColor:(UIColor *)color;
-- (void) setFont:(UIFont *)font;
-- (void) setText:(NSString *)text;
-@end
-
-@interface UIWebDocumentView : UIView
-- (CGRect) documentBounds;
-- (void) enableReachability;
-- (void) loadRequest:(NSURLRequest *)request;
-- (void) redrawScaledDocument;
+@interface UIWebView (Apple)
+- (UIWebDocumentView *) _documentView;
+- (UIScrollView *) _scrollView;
 - (UIScroller *) _scroller;
-- (void) setAllowsImageSheet:(BOOL)allows;
-- (void) setAllowsMessaging:(BOOL)allows;
-- (void) setAutoresizes:(BOOL)autoresizes;
-- (void) setContentsPosition:(NSInteger)position;
-- (void) setDataDetectorTypes:(NSUInteger)types;
-- (void) setDelegate:(id)delegate;
-- (void) setDetectsPhoneNumbers:(BOOL)detects;
-- (void) _setDocumentType:(NSInteger)type;
-- (void) setDrawsGrid:(BOOL)draws;
-- (void) setFormEditingDelegate:(id)delegate;
-- (void) setInitialScale:(float)scale forDocumentTypes:(NSInteger)types;
-- (void) setInteractionDelegate:(id)delegate;
-- (void) setLogsTilingChanges:(BOOL)logs;
-- (void) setMinimumScale:(float)scale forDocumentTypes:(NSInteger)types;
-- (void) setMinimumSize:(CGSize)size;
-- (void) setMaximumScale:(float)scale forDocumentTypes:(NSInteger)tpyes;
-- (void) setSmoothsFonts:(BOOL)smooths;
-- (void) setTileMinificationFilter:(NSString *)filter;
-- (void) setTileSize:(CGSize)size;
-- (void) setTilingEnabled:(BOOL)enabled;
-- (void) setViewportSize:(CGSize)size forDocumentTypes:(NSInteger)types;
-- (void) setZoomsFocusedFormControl:(BOOL)zooms;
-- (void) useSelectionAssistantWithMode:(NSInteger)mode;
-- (WebView *) webView;
-- (void) webView:(WebView *)view attachRootLayer:(id)layer;
-- (void) webView:(WebView *)view didCommitLoadForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFailLoadWithError:(id)error forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFinishDocumentLoadForFrame:(WebFrame *)frame;
+//- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request;
+- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener;
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener;
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFirstLayoutInFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFirstVisuallyNonEmptyLayoutInFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didHideFullScreenForPlugInView:(id)plugin;
-- (void) webView:(WebView *)view didObserveDeferredContentChange:(NSInteger)change forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didReceiveDocTypeForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didReceiveMessage:(id)message;
-- (void) webView:(WebView *)view didReceiveViewportArguments:(id)arguments forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view formStateDidBlurNode:(id)state;
-- (void) webView:(WebView *)view formStateDidFocusNode:(id)state;
-- (void) webView:(WebView *)view needsScrollNotifications:(id)notifications forFrame:(WebFrame *)frame;
-- (id) webView:(WebView *)view plugInViewWithArguments:(id)arguments fromPlugInPackage:(id)package;
-- (void) webView:(WebView *)view restoreStateFromHistoryItem:(id)item forFrame:(WebFrame *)frame force:(BOOL)force;
-- (void) webView:(WebView *)view saveStateToHistoryItem:(id)item forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view willAddPlugInView:(id)plugin;
-- (void) webView:(WebView *)view willCloseFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view willShowFullScreenForPlugInView:(id)plugin;
-- (BOOL) webView:(WebView *)view shouldScrollToPoint:(CGPoint)point forFrame:(WebFrame *)frame;
-- (void) webViewDidLayout:(WebView *)view;
-- (void) webViewDidPreventDefaultForEvent:(WebView *)view;
-- (void) webViewFormEditedStatusHasChanged:(WebView *)changed;
-@end
-// }}}
-// @interface *Button : * {{{
-@interface UINavigationButton : UIButton
-- (id) initWithTitle:(NSString *)title style:(UINavigationButtonStyle)style;
-- (void) setBarStyle:(UIBarStyle)style;
-@end
-
-@interface UIPushButton : UIControl
-- (id) backgroundForState:(NSUInteger)state;
-- (void) setAutosizesToFit:(BOOL)autosizes;
-- (void) setBackground:(id)background forState:(NSUInteger)state;
-- (void) setDrawsShadow:(BOOL)draws;
-- (void) setStretchBackground:(BOOL)stretch;
-- (void) setTitle:(NSString *)title;
-- (void) setTitleFont:(UIFont *)font;
-@end
-
-@interface UIThreePartButton : UIPushButton
-@end
-// }}}
-// @interface * : NS* {{{
-@interface WebDefaultUIKitDelegate : NSObject
-+ (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
+- (void) webView:(WebView *)view didReceiveTitle:(id)title forFrame:(id)frame;
+- (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame;
+- (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
+- (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
+- (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
+- (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame;
+- (void) webViewClose:(WebView *)view;
 @end
 // }}}
 

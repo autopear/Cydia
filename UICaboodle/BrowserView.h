@@ -24,6 +24,26 @@
 @class Database;
 @class IndirectDelegate;
 
+@protocol CYWebViewDelegate <UIWebViewDelegate>
+- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener;
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener;
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame;
+- (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
+- (void) webViewClose:(WebView *)view;
+- (bool) webView:(WebView *)view shouldRunJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
+- (bool) webView:(WebView *)view shouldRunJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
+- (bool) webView:(WebView *)view shouldRunJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame;
+@end
+
+@interface CYWebView : UIWebView
+- (id<CYWebViewDelegate>) delegate;
+@end
+
 @interface WebScriptObject (UICaboodle)
 - (NSUInteger) count;
 - (id) objectAtIndex:(unsigned)index;
@@ -34,10 +54,13 @@
 @end
 
 @interface BrowserController : CYViewController <
-    HookProtocol
+    CYWebViewDelegate,
+    HookProtocol,
+    UIWebViewDelegate
 > {
-    UIScroller *scroller_;
-    UIWebDocumentView *document_;
+    CYWebView *webview_;
+    UIScrollView *scroller_;
+
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
     NSURLAuthenticationChallenge *challenge_;
@@ -45,32 +68,23 @@
     bool error_;
     NSURLRequest *request_;
 
-    NSNumber *confirm_;
     NSNumber *sensitive_;
+
     NSString *title_;
     NSMutableSet *loading_;
-    bool reloading_;
 
-    NSString *button_;
+    // XXX: NSString * or UIImage *
+    id custom_;
     NSString *style_;
 
     WebScriptObject *function_;
     WebScriptObject *closer_;
-    WebScriptObject *special_;
-    WebScriptObject *finish_;
-
-    bool pushed_;
 
     float width_;
-    bool popup_;
-
-    CGSize size_;
-    bool editing_;
-
     Class class_;
 
-    id reloaditem_;
-    id loadingitem_;
+    UIBarButtonItem *reloaditem_;
+    UIBarButtonItem *loadingitem_;
 }
 
 + (void) _initialize;
@@ -82,39 +96,28 @@
 - (void) reloadURL;
 - (bool) isLoading;
 
-- (void) fixScroller;
-
-- (WebView *) webView;
-- (UIWebDocumentView *) documentView;
-
 - (id) init;
 - (id) initWithWidth:(float)width;
 - (id) initWithWidth:(float)width ofClass:(Class)_class;
 
-- (NSString *) stringByEvaluatingJavaScriptFromString:(NSString *)script;
 - (void) callFunction:(WebScriptObject *)function;
 
-- (void) webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)sender didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
-
-- (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)source;
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+- (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
 
 + (float) defaultWidth;
-- (void) setViewportWidth:(float)width;
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
-- (void) setFinishHook:(id)function;
 - (void) setPopupHook:(id)function;
-
-- (bool) promptForSensitive:(NSString *)name;
-- (bool) allowSensitiveRequests;
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button;
 - (void) customButtonClicked;
 - (void) applyRightButton;
 
-- (void) _startLoading;
+- (void) _didStartLoading;
+- (void) _didFinishLoading;
+
 - (void) close;
 
 @end

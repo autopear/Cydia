@@ -3997,10 +3997,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (id) invokeDefaultMethodWithArguments:(NSArray *)args {
+- (void) _doContinue {
     [self dismissModalViewControllerAnimated:YES];
     [delegate_ cancelAndClear:NO];
+}
 
+- (id) invokeDefaultMethodWithArguments:(NSArray *)args {
+    [self performSelectorOnMainThread:@selector(_doContinue) withObject:nil waitUntilDone:NO];
     return nil;
 }
 

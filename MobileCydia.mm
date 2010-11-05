@@ -4953,6 +4953,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     [self setAccessoryType:editing ? UITableViewCellAccessoryNone : UITableViewCellAccessoryDisclosureIndicator];
+	[self setSelectionStyle:editing ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleBlue];
     [content_ setNeedsDisplay];
 }
 
@@ -6762,7 +6763,9 @@ freeing the view controllers on tab change */
 }
 
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    Section *section = [self sectionAtIndexPath:indexPath];
+    if (editing_) return;
+
+	Section *section = [self sectionAtIndexPath:indexPath];
     NSString *name = [section name];
     NSString *title;
 

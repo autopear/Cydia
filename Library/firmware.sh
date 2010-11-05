@@ -23,7 +23,7 @@ model=$(sysctl -n "${model}")
 status=${data}/status
 
 function lower() {
-    tr '[:upper:]' '[:lower:]'
+    sed -e 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'
 }
 
 # Generate New Package {{{

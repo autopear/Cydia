@@ -318,6 +318,12 @@ typedef enum {
 - (void) setModalPresentationStyle:(UIModalPresentationStyle)style;
 @end
 
+@interface UIScrollView (iOS_3_0)
+@property(assign, nonatomic) float decelerationRate;
+@end
+
+extern float const UIScrollViewDecelerationRateNormal;
+
 #endif//AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
 // }}}
 

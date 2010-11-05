@@ -36,6 +36,8 @@ static inline void CYRelease(Type_ &value) {
     }
 }
 
+float CYScrollViewDecelerationRateNormal;
+
 @interface WebView (Apple)
 - (void) _setLayoutInterval:(float)interval;
 @end
@@ -315,6 +317,11 @@ enum CYWebPolicyDecision {
 
 + (void) _initialize {
     [WebPreferences _setInitialDefaultTextEncodingToSystemEncoding];
+
+    if (float *_UIScrollViewDecelerationRateNormal = reinterpret_cast<float *>(dlsym(RTLD_DEFAULT, "UIScrollViewDecelerationRateNormal")))
+        CYScrollViewDecelerationRateNormal = *_UIScrollViewDecelerationRateNormal;
+    else // XXX: this actually might be fast on some older systems: we should look into this
+        CYScrollViewDecelerationRateNormal = 0.998;
 }
 
 - (void) dealloc {
@@ -807,7 +814,7 @@ enum CYWebPolicyDecision {
             scroller_ = [webview_ _scrollView];
 
             [scroller_ setDirectionalLockEnabled:YES];
-            [scroller_ setDecelerationRate:UIScrollViewDecelerationRateNormal];
+            [scroller_ setDecelerationRate:CYScrollViewDecelerationRateNormal];
             [scroller_ setDelaysContentTouches:NO];
 
             [scroller_ setCanCancelContentTouches:YES];
@@ -816,7 +823,8 @@ enum CYWebPolicyDecision {
             scroller_ = (UIScrollView *) scroller;
 
             [scroller setDirectionalScrolling:YES];
-            [scroller setScrollDecelerationFactor:UIScrollViewDecelerationRateNormal]; /* 0.989324 */
+            // XXX: we might be better off /not/ setting this on older systems
+            [scroller setScrollDecelerationFactor:CYScrollViewDecelerationRateNormal]; /* 0.989324 */
             [scroller setScrollHysteresis:0]; /* 8 */
 
             [scroller setThumbDetectionEnabled:NO];

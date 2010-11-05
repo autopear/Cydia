@@ -99,8 +99,6 @@ typedef enum {
 - (void) setAllowsMessaging:(BOOL)allows;
 - (void) setAutoresizes:(BOOL)autoresizes;
 - (void) setContentsPosition:(NSInteger)position;
-- (void) setDataDetectorTypes:(NSUInteger)types;
-- (void) setDetectsPhoneNumbers:(BOOL)detects;
 - (void) setDrawsBackground:(BOOL)draws;
 - (void) _setDocumentType:(NSInteger)type;
 - (void) setDrawsGrid:(BOOL)draws;
@@ -320,6 +318,10 @@ typedef enum {
 
 @interface UIScrollView (iOS_3_0)
 @property(assign, nonatomic) float decelerationRate;
+@end
+
+@interface UIWebView (iOS_3_0)
+@property(assign, nonatomic) NSUInteger dataDetectorTypes;
 @end
 
 extern float const UIScrollViewDecelerationRateNormal;

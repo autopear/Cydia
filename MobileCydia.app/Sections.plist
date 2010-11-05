@@ -188,6 +188,12 @@
         <key>Rename</key>
         <string>Addons_(BossPaper)</string>
     </dict>
+    
+    <key>Lockinfo_Addons</key>
+    <dict>
+        <key>Rename</key>
+        <string>Addons_(LockInfo)</string>
+    </dict>
 </dict>
 
 </plist>

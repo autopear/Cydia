@@ -8557,40 +8557,6 @@ static _finline void _setHomePage(Cydia *self) {
 
     database_ = [Database sharedInstance];
 
-    if (
-        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
-        false
-    ) {
-        [self setIdleTimerDisabled:YES];
-
-        hud_ = [self addProgressHUD];
-        [hud_ setText:@"Reorganizing:\n\nWill Automatically\nClose When Done"];
-        [self setStatusBarShowsProgress:YES];
-
-        [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
-
-        [self setStatusBarShowsProgress:NO];
-        [self removeProgressHUD:hud_];
-        hud_ = nil;
-
-        if (ExecFork() == 0) {
-            execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
-            perror("launchctl stop");
-        }
-
-        return;
-    }
-
-    _trace();
-
     NSMutableArray *items([NSMutableArray arrayWithObjects:
         [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
@@ -8622,6 +8588,38 @@ static _finline void _setHomePage(Cydia *self) {
     [container_ setUpdateDelegate:self];
     [container_ setTabBarController:tabbar_];
     [window_ addSubview:[container_ view]];
+
+    if (
+        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
+        false
+    ) {
+        [self setIdleTimerDisabled:YES];
+
+        hud_ = [self addProgressHUD];
+        [hud_ setText:@"Reorganizing:\n\nWill Automatically\nClose When Done"];
+        [self setStatusBarShowsProgress:YES];
+
+        [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
+
+        [self setStatusBarShowsProgress:NO];
+        [self removeProgressHUD:hud_];
+        hud_ = nil;
+
+        if (ExecFork() == 0) {
+            execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
+            perror("launchctl stop");
+        }
+
+        return;
+    }
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 }

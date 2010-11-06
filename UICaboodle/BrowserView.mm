@@ -247,7 +247,7 @@ static void $UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$req
     [mediator decide];
 }
 // }}}
-// webView:didClearWindowObject:forFrame: (3.2, 4.1+) {{{
+// webView:didClearWindowObject:forFrame: (3.2+) {{{
 static void $UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, WebScriptObject *window, WebFrame *frame) {
     UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
     if ([uiWebView respondsToSelector:@selector(webView:didClearWindowObject:forFrame:)])
@@ -289,7 +289,7 @@ static void $UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$(UIW
         [super webView:view didFinishLoadForFrame:frame];
 }
 // }}}
-// webView:didReceiveTitle:forFrame: (3.2, 4.1+) {{{
+// webView:didReceiveTitle:forFrame: (3.2+) {{{
 static void $UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, NSString *title, WebFrame *frame) {
     UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
     if ([uiWebView respondsToSelector:@selector(webView:didReceiveTitle:forFrame:)])
@@ -313,7 +313,7 @@ static void $UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$(UIWebVie
         [super webView:view didStartProvisionalLoadForFrame:frame];
 }
 // }}}
-// webView:resource:willSendRequest:redirectResponse:fromDataSource: (3.2, 4.1+) {{{
+// webView:resource:willSendRequest:redirectResponse:fromDataSource: (3.2+) {{{
 static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, id identifier, NSURLRequest *request, NSURLResponse *response, WebDataSource *source) {
     UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
     if ([uiWebView respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:)])
@@ -360,7 +360,7 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
     return nil;
 }
 // }}}
-// webViewClose: (3.2, 4.1+) {{{
+// webViewClose: (3.2+) {{{
 static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view) {
     UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
     if ([uiWebView respondsToSelector:@selector(webViewClose:)])

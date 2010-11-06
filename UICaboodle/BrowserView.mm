@@ -169,6 +169,7 @@ enum CYWebPolicyDecision {
     switch (decision_) {
         case CYWebPolicyDecisionUnknown:
         default:
+            NSLog(@"CYWebPolicyDecisionUnknown");
             return false;
 
         case CYWebPolicyDecisionDownload: [listener_ download]; break;
@@ -458,6 +459,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (void) loadRequest:(NSURLRequest *)request {
+#if LogBrowser
+    NSLog(@"loadRequest:%@", request);
+#endif
+
     error_ = false;
 
     WebThreadLock();
@@ -713,6 +718,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+#if LogBrowser
+    NSLog(@"resource:%@ willSendRequest:%@ redirectResponse:%@ fromDataSource:%@", identifier, request, response, source);
+#endif
+
     return request;
 }
 

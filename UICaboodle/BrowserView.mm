@@ -318,9 +318,8 @@ static void $UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$(UIWebVie
 static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, id identifier, NSURLRequest *request, NSURLResponse *response, WebDataSource *source) {
     UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
     if ([uiWebView respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:)])
-        return [uiWebView webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
-    else
-        return request;
+        request = [uiWebView webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    return request;
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {

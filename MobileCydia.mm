@@ -7024,7 +7024,7 @@ freeing the view controllers on tab change */
 
 - (void) refreshButtonClicked {
     [delegate_ beginUpdate];
-    [[self navigationItem] setLeftBarButtonItem:nil];
+    [[self navigationItem] setLeftBarButtonItem:nil animated:YES];
 }
 
 - (void) upgradeButtonClicked {
@@ -7677,6 +7677,7 @@ freeing the view controllers on tab change */
 }
 
 - (void) completeUpdate {
+    if (!updating_) return;
     updating_ = false;
 
     [self raiseBar:YES];
@@ -7685,8 +7686,10 @@ freeing the view controllers on tab change */
 }
 
 - (void) cancelUpdate {
-    [refreshbar_ cancel];
-    [self completeUpdate];
+    updating_ = false;
+    [self raiseBar:YES];
+    [refreshbar_ stop];
+    [updatedelegate_ performSelector:@selector(updateData) withObject:nil afterDelay:0];
 }
 
 - (void) cancelPressed {
@@ -7986,6 +7989,30 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) _refreshIfPossible {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
+    bool recently = false;
+    NSDate *update([Metadata_ objectForKey:@"LastUpdate"]);
+    if (update != nil) {
+        NSTimeInterval interval([update timeIntervalSinceNow]);
+        if (interval <= 0 && interval > -(15*60))
+            recently = true;
+    }
+
+    // Don't automatic refresh if:
+    //  - We already refreshed recently.
+    //  - We already auto-refreshed this launch.
+    //  - Auto-refresh is disabled.
+    if (recently || loaded_ || ManualRefresh) {
+        [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
+
+        // If we are cancelling due to ManualRefresh or a recent refresh
+        // we need to make sure it knows it's already loaded.
+        loaded_ = true;
+        return;
+    } else {
+        // We are going to load, so remember that.
+        loaded_ = true;
+    }
+
     SCNetworkReachabilityFlags flags; {
         SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, "cydia.saurik.com"));
         SCNetworkReachabilityGetFlags(reachability, &flags);
@@ -8004,21 +8031,9 @@ static _finline void _setHomePage(Cydia *self) {
         )
     );
 
-    if (loaded_ || ManualRefresh || !reachable) loaded:
-        [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
-    else {
-        loaded_ = true;
-
-        NSDate *update([Metadata_ objectForKey:@"LastUpdate"]);
-
-        if (update != nil) {
-            NSTimeInterval interval([update timeIntervalSinceNow]);
-            if (interval <= 0 && interval > -(15*60))
-                goto loaded;
-        }
-
+    // If we can reach the server, auto-refresh!
+    if (reachable)
         [container_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
-    }
 
     [pool release];
 }
@@ -8052,18 +8067,19 @@ static _finline void _setHomePage(Cydia *self) {
         }
     }
 
+    UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem];
     if (changes != 0) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
-        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setBadgeValue:badge];
-        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setAnimatedBadge:YES];
+        [changesItem setBadgeValue:badge];
+        [changesItem setAnimatedBadge:YES];
 
         if ([self respondsToSelector:@selector(setApplicationBadge:)])
             [self setApplicationBadge:badge];
         else
             [self setApplicationBadgeString:badge];
     } else {
-        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setBadgeValue:nil];
-        [[[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem] setAnimatedBadge:NO];
+        [changesItem setBadgeValue:nil];
+        [changesItem setAnimatedBadge:NO];
 
         if ([self respondsToSelector:@selector(removeApplicationBadge)])
             [self removeApplicationBadge];

@@ -212,94 +212,177 @@ enum CYWebPolicyDecision {
 /*- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request {
     NSLog(@"createWebViewWithRequest:%@", request);
     WebView *created(nil); // XXX
-    if (created == nil && [super respondsToSelector:@selector(webView:createWebViewWithRequest:)])
+    if (created == nil && [UIWebView instancesRespondToSelector:@selector(webView:createWebViewWithRequest:)])
         return [super webView:view createWebViewWithRequest:request];
     else
         return created;
 }*/
 
+// webView:decidePolicyForNavigationAction:request:frame:decisionListener: (2.0+) {{{
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    id<CYWebViewDelegate> delegate([self delegate]);
     CYWebPolicyDecisionMediator *mediator([[[CYWebPolicyDecisionMediator alloc] initWithListener:listener] autorelease]);
-    [[self delegate] webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
-    if (![mediator decided] && [super respondsToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
+    if (![mediator decided] && [delegate respondsToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
+        [delegate webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
+    if (![mediator decided] && [UIWebView instancesRespondToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
         [super webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
     [mediator decide];
 }
+// }}}
+// webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener: (3.0+) {{{
+static void $UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$request$newFrameName$decisionListener$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, NSDictionary *action, NSURLRequest *request, NSString *frame, id<WebPolicyDecisionListener> listener) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
+        [uiWebView webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:listener];
+}
 
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    id<CYWebViewDelegate> delegate([self delegate]);
     CYWebPolicyDecisionMediator *mediator([[[CYWebPolicyDecisionMediator alloc] initWithListener:listener] autorelease]);
-    [[self delegate] webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:mediator];
-    if (![mediator decided] && [super respondsToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
+    if (![mediator decided] && [delegate respondsToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
+        [delegate webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:mediator];
+    if (![mediator decided] && [UIWebView instancesRespondToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
         [super webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:mediator];
     [mediator decide];
 }
+// }}}
+// webView:didClearWindowObject:forFrame: (3.2, 4.1+) {{{
+static void $UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, WebScriptObject *window, WebFrame *frame) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webView:didClearWindowObject:forFrame:)])
+        [uiWebView webView:view didClearWindowObject:window forFrame:frame];
+}
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [[self delegate] webView:view didClearWindowObject:window forFrame:frame];
-    if ([super respondsToSelector:@selector(webView:didClearWindowObject:forFrame:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didClearWindowObject:forFrame:)])
+        [delegate webView:view didClearWindowObject:window forFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didClearWindowObject:forFrame:)])
         [super webView:view didClearWindowObject:window forFrame:frame];
 }
-
+// }}}
+// webView:didFailLoadWithError:forFrame: (2.0+) {{{
 - (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    [[self delegate] webView:view didFailLoadWithError:error forFrame:frame];
-    if ([super respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
+        [delegate webView:view didFailLoadWithError:error forFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didFailLoadWithError:forFrame:)])
         [super webView:view didFailLoadWithError:error forFrame:frame];
 }
-
+// }}}
+// webView:didFailProvisionalLoadWithError:forFrame: (2.0+) {{{
 - (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    [[self delegate] webView:view didFailProvisionalLoadWithError:error forFrame:frame];
-    if ([super respondsToSelector:@selector(webView:didFailProvisionalLoadWithError:forFrame:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didFailProvisionalLoadWithError:forFrame:)])
+        [delegate webView:view didFailProvisionalLoadWithError:error forFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didFailProvisionalLoadWithError:forFrame:)])
         [super webView:view didFailProvisionalLoadWithError:error forFrame:frame];
 }
-
+// }}}
+// webView:didFinishLoadForFrame: (2.0+) {{{
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
-    [[self delegate] webView:view didFinishLoadForFrame:frame];
-    if ([super respondsToSelector:@selector(webView:didFinishLoadForFrame:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didFinishLoadForFrame:)])
+        [delegate webView:view didFinishLoadForFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didFinishLoadForFrame:)])
         [super webView:view didFinishLoadForFrame:frame];
+}
+// }}}
+// webView:didReceiveTitle:forFrame: (3.2, 4.1+) {{{
+static void $UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, NSString *title, WebFrame *frame) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webView:didReceiveTitle:forFrame:)])
+        [uiWebView webView:view didReceiveTitle:title forFrame:frame];
 }
 
 - (void) webView:(WebView *)view didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame {
-    [[self delegate] webView:view didReceiveTitle:title forFrame:frame];
-    if ([super respondsToSelector:@selector(webView:didReceiveTitle:forFrame:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didReceiveTitle:forFrame:)])
+        [delegate webView:view didReceiveTitle:title forFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didReceiveTitle:forFrame:)])
         [super webView:view didReceiveTitle:title forFrame:frame];
 }
-
+// }}}
+// webView:didStartProvisionalLoadForFrame: (2.0+) {{{
 - (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame {
-    [[self delegate] webView:view didStartProvisionalLoadForFrame:frame];
-    if ([super respondsToSelector:@selector(webView:didStartProvisionalLoadForFrame:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didStartProvisionalLoadForFrame:)])
+        [delegate webView:view didStartProvisionalLoadForFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didStartProvisionalLoadForFrame:)])
         [super webView:view didStartProvisionalLoadForFrame:frame];
+}
+// }}}
+// webView:resource:willSendRequest:redirectResponse:fromDataSource: (3.2, 4.1+) {{{
+static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, id identifier, NSURLRequest *request, NSURLResponse *response, WebDataSource *source) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:)])
+        return [uiWebView webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    else
+        return request;
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
-    if ([super respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView instancesRespondToSelector:@selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:)])
         request = [super webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
-    return [[self delegate] webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    if ([delegate respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:)])
+        request = [delegate webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    return request;
 }
-
+// }}}
+// webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame: (2.2+) {{{
 - (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    if ([super respondsToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:)])
-        if ([[self delegate] webView:view shouldRunJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:)])
+        // XXX: check delegate
+        if ([delegate webView:view shouldRunJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame])
             [super webView:view runJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame];
 }
-
+// }}}
+// webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame: (2.2+) {{{
 - (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    if ([super respondsToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:)])
-        if ([[self delegate] webView:view shouldRunJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:)])
+        // XXX: check delegate
+        if ([delegate webView:view shouldRunJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame])
             return [super webView:view runJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame];
     return NO;
 }
-
+// }}}
+// webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame: (2.2+) {{{
 - (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame {
-    if ([super respondsToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)])
-        if ([[self delegate] webView:view shouldRunJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)])
+        // XXX: check delegate
+        if ([delegate webView:view shouldRunJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame])
             return [super webView:view runJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame];
     return nil;
 }
+// }}}
+// webViewClose: (3.2, 4.1+) {{{
+static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webViewClose:)])
+        [uiWebView webViewClose:view];
+}
 
 - (void) webViewClose:(WebView *)view {
-    [[self delegate] webViewClose:view];
-    if ([super respondsToSelector:@selector(webViewClose:)])
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webViewClose:)])
+        [delegate webViewClose:view];
+    if ([UIWebView instancesRespondToSelector:@selector(webViewClose:)])
         [super webViewClose:view];
+}
+// }}}
+
++ (void) initialize {
+    if (Class $UIWebViewWebViewDelegate = objc_getClass("UIWebViewWebViewDelegate")) {
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:), (IMP) &$UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$request$newFrameName$decisionListener$, "v28@0:4@8@12@16@20@24");
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didClearWindowObject:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$, "v20@0:4@8@12@16");
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didReceiveTitle:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$, "v20@0:4@8@12@16");
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:), (IMP) &$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$, "@28@0:4@8@12@16@20@24");
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webViewClose:), (IMP) &$UIWebViewWebViewDelegate$webViewClose$, "v12@0:4@8");
+    }
 }
 
 @end

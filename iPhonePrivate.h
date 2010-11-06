@@ -116,6 +116,11 @@ typedef enum {
 - (void) useSelectionAssistantWithMode:(NSInteger)mode;
 - (WebView *) webView;
 @end
+
+@interface UIWebViewWebViewDelegate : NSObject {
+    @public UIWebView *uiWebView;
+}
+@end
 // }}}
 // @interface *Button : * {{{
 @interface UINavigationButton : UIButton

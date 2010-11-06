@@ -211,12 +211,13 @@ enum CYWebPolicyDecision {
 }
 
 /*- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request {
-    NSLog(@"createWebViewWithRequest:%@", request);
-    WebView *created(nil); // XXX
+    id<CYWebViewDelegate> delegate([self delegate]);
+    WebView *created(nil);
+    if (created == nil && [delegate respondsToSelector:@selector(webView:createWebViewWithRequest:)])
+        created = [delegate webView:view createWebViewWithRequest:request];
     if (created == nil && [UIWebView instancesRespondToSelector:@selector(webView:createWebViewWithRequest:)])
-        return [super webView:view createWebViewWithRequest:request];
-    else
-        return created;
+        created = [super webView:view createWebViewWithRequest:request];
+    return created;
 }*/
 
 // webView:decidePolicyForNavigationAction:request:frame:decisionListener: (2.0+) {{{

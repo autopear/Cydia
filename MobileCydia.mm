@@ -293,6 +293,7 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 @end
 /* }}} */
 
+/* Cydia Action Sheet {{{ */
 @interface CYActionSheet : UIAlertView {
     unsigned button_;
 }
@@ -339,6 +340,7 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 }
 
 @end
+/* }}} */
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;

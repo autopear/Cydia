@@ -8639,6 +8639,9 @@ static _finline void _setHomePage(Cydia *self) {
         return;
     }
 
+    // Show pinstripes while loading data.
+    [[container_ view] setBackgroundColor:[UIColor performSelector:@selector(pinStripeColor)]];
+
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 }
 
@@ -8655,6 +8658,9 @@ static _finline void _setHomePage(Cydia *self) {
     PrintTimes();
 
     _setHomePage(self);
+
+    // XXX: does this actually slow anything down?
+    [[container_ view] setBackgroundColor:[UIColor clearColor]];
 }
 
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {

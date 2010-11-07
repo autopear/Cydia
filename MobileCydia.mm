@@ -8439,9 +8439,16 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) applicationSuspend:(__GSEvent *)event {
-    // FIXME: This needs to be fixed, but we no longer have a progress_.
-    //        What's the best solution?
-    if (hud_ == nil)// && ![progress_ isRunning])
+    // Use external process status API internally.
+    // This is probably a really bad idea.
+    uint64_t status = 0;
+    int notify_token;
+    if (notify_register_check("com.saurik.Cydia.status", &notify_token) == NOTIFY_STATUS_OK) {
+        notify_get_state(notify_token, &status);
+        notify_cancel(notify_token);
+    }
+
+    if (hud_ == nil && status == 0)
         [super applicationSuspend:event];
 }
 

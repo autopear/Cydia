@@ -4286,7 +4286,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CGRect prgrect = {{
         (bounds.size.width - prgsize.width) / 2,
-        bounds.size.height - prgsize.height - 64
+        bounds.size.height - prgsize.height - 20
     }, prgsize};
 
     float closewidth = bounds.size.width - 20;
@@ -4295,7 +4295,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [progress_ setFrame:prgrect];
     [status_ setFrame:CGRectMake(
         10,
-        bounds.size.height - prgsize.height - 94,
+        bounds.size.height - prgsize.height - 50,
         bounds.size.width - 20,
         24
     )];
@@ -4303,11 +4303,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         10,
         20,
         bounds.size.width - 20,
-        bounds.size.height - 106
+        bounds.size.height - 62
     )];
     [close_ setFrame:CGRectMake(
         (bounds.size.width - closewidth) / 2,
-        bounds.size.height - prgsize.height - 94,
+        bounds.size.height - prgsize.height - 50,
         closewidth,
         32 + prgsize.height
     )];
@@ -7078,7 +7078,7 @@ freeing the view controllers on tab change */
     UIProgressHUD *hud([delegate_ addProgressHUD]);
     // XXX: localize
     [hud setText:@"Loading Changes"];
-    NSLog(@"HUD:%@::%@", delegate_, hud);
+    //NSLog(@"HUD:%@::%@", delegate_, hud);
     [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
     [delegate_ removeProgressHUD:hud];
 
@@ -8468,7 +8468,11 @@ static _finline void _setHomePage(Cydia *self) {
 
     [window_ setUserInteractionEnabled:NO];
     [hud show:YES];
-    [[container_ view] addSubview:hud];
+
+    UIViewController *target = container_;
+    while ([target modalViewController] != nil) target = [target modalViewController];
+    [[target view] addSubview:hud];
+
     return hud;
 }
 

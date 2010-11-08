@@ -7383,7 +7383,6 @@ freeing the view controllers on tab change */
 
 @end
 /* }}} */
-
 /* Signature Controller {{{ */
 @interface SignatureController : CYBrowserController {
     _transient Database *database_;
@@ -7420,6 +7419,7 @@ freeing the view controllers on tab change */
 
 @end
 /* }}} */
+
 /* Role Controller {{{ */
 @interface RoleController : CYViewController <
     UITableViewDataSource,
@@ -7588,6 +7588,68 @@ freeing the view controllers on tab change */
     else return nil;
 }
 
+@end
+/* }}} */
+/* Stash Controller {{{ */
+@interface CYStashController : CYViewController {
+    UIActivityIndicatorView *spinner_;
+    UILabel *status_;
+    UILabel *caption_;
+}
+@end
+
+@implementation CYStashController
+- (id) init {
+    if ((self = [super init])) {
+	    [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
+
+	    spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+	    CGRect spinrect = [spinner_ frame];
+        spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
+        spinrect.origin.y = [[self view] frame].size.height - 80.0f;
+        [spinner_ setFrame:spinrect];
+        [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
+	    [[self view] addSubview:spinner_];
+        [spinner_ release];
+	    [spinner_ startAnimating];
+
+        CGRect captrect;
+        captrect.size.width = [[self view] frame].size.width;
+        captrect.size.height = 40.0f;
+        captrect.origin.x = 0;
+        captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
+        caption_ = [[UILabel alloc] initWithFrame:captrect];
+        [caption_ setText:@"Initializing Filesystem"];
+        [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin];
+        [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
+        [caption_ setTextColor:[UIColor whiteColor]];
+        [caption_ setBackgroundColor:[UIColor clearColor]];
+        [caption_ setShadowColor:[UIColor blackColor]];
+        [caption_ setTextAlignment:UITextAlignmentCenter];
+        [[self view] addSubview:caption_];
+	    [caption_ release];
+
+        CGRect statusrect;
+        statusrect.size.width = [[self view] frame].size.width;
+        statusrect.size.height = 30.0f;
+        statusrect.origin.x = 0;
+        statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
+        status_ = [[UILabel alloc] initWithFrame:statusrect];
+        [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
+        [status_ setText:@"(Cydia will exit when complete.)"];
+        [status_ setFont:[UIFont systemFontOfSize:16.0f]];
+        [status_ setTextColor:[UIColor whiteColor]];
+        [status_ setBackgroundColor:[UIColor clearColor]];
+        [status_ setShadowColor:[UIColor blackColor]];
+        [status_ setTextAlignment:UITextAlignmentCenter];
+        [[self view] addSubview:status_];
+        [status_ release];
+    } return self;
+}
+
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
+}
 @end
 /* }}} */
 
@@ -7867,7 +7929,6 @@ typedef enum {
 > {
     UIWindow *window_;
     CYContainer *container_;
-
     id tabbar_;
 
     NSMutableArray *essential_;
@@ -7887,6 +7948,8 @@ typedef enum {
     SourceTable *sources_;
     InstalledController *installed_;
     id queueDelegate_;
+
+    CYStashController *stash_;
 
     bool loaded_;
 }
@@ -8561,6 +8624,35 @@ static _finline void _setHomePage(Cydia *self) {
         [super applicationWillResignActive:application];
 }
 
+- (void) addStashController {
+    stash_ = [[CYStashController alloc] init];
+    [window_ addSubview:[stash_ view]];
+}
+
+- (void) removeStashController {
+    [[stash_ view] removeFromSuperview];
+    [stash_ release];
+}
+
+- (void) stash {
+    [self setIdleTimerDisabled:YES];
+
+    [self setStatusBarShowsProgress:YES];
+    UpdateExternalStatus(1);
+
+    [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
+
+    UpdateExternalStatus(0);
+    [self setStatusBarShowsProgress:NO];
+
+    [self removeStashController];
+
+    if (ExecFork() == 0) {
+        execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
+        perror("launchctl stop");
+    }
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
     [CYBrowserController _initialize];
 
@@ -8583,6 +8675,23 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
+
+    if (
+        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
+        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
+        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
+        false
+    ) {
+        [self addStashController];
+        [self performSelector:@selector(stash) withObject:nil afterDelay:0];
+        return;
+    }
 
     database_ = [Database sharedInstance];
 
@@ -8617,38 +8726,6 @@ static _finline void _setHomePage(Cydia *self) {
     [container_ setUpdateDelegate:self];
     [container_ setTabBarController:tabbar_];
     [window_ addSubview:[container_ view]];
-
-    if (
-        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
-        false
-    ) {
-        [self setIdleTimerDisabled:YES];
-
-        hud_ = [self addProgressHUD];
-        [hud_ setText:@"Reorganizing:\n\nWill Automatically\nClose When Done"];
-        [self setStatusBarShowsProgress:YES];
-
-        [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
-
-        [self setStatusBarShowsProgress:NO];
-        [self removeProgressHUD:hud_];
-        hud_ = nil;
-
-        if (ExecFork() == 0) {
-            execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
-            perror("launchctl stop");
-        }
-
-        return;
-    }
 
     // Show pinstripes while loading data.
     [[container_ view] setBackgroundColor:[UIColor performSelector:@selector(pinStripeColor)]];

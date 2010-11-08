@@ -8637,6 +8637,7 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) stash {
     [self setIdleTimerDisabled:YES];
 
+    [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     [self setStatusBarShowsProgress:YES];
     UpdateExternalStatus(1);
 

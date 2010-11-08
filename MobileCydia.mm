@@ -8136,7 +8136,7 @@ static _finline void _setHomePage(Cydia *self) {
     if (changes != 0) {
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
         [changesItem setBadgeValue:badge];
-        [changesItem setAnimatedBadge:YES];
+        [changesItem setAnimatedBadge:[essential_ count] == 0];
 
         if ([self respondsToSelector:@selector(setApplicationBadge:)])
             [self setApplicationBadge:badge];

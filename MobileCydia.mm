@@ -7601,17 +7601,17 @@ freeing the view controllers on tab change */
 @implementation CYStashController
 - (id) init {
     if ((self = [super init])) {
-	    [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
+        [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
 
-	    spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-	    CGRect spinrect = [spinner_ frame];
+        spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+        CGRect spinrect = [spinner_ frame];
         spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
         spinrect.origin.y = [[self view] frame].size.height - 80.0f;
         [spinner_ setFrame:spinrect];
         [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
-	    [[self view] addSubview:spinner_];
+        [[self view] addSubview:spinner_];
         [spinner_ release];
-	    [spinner_ startAnimating];
+        [spinner_ startAnimating];
 
         CGRect captrect;
         captrect.size.width = [[self view] frame].size.width;
@@ -7627,7 +7627,7 @@ freeing the view controllers on tab change */
         [caption_ setShadowColor:[UIColor blackColor]];
         [caption_ setTextAlignment:UITextAlignmentCenter];
         [[self view] addSubview:caption_];
-	    [caption_ release];
+        [caption_ release];
 
         CGRect statusrect;
         statusrect.size.width = [[self view] frame].size.width;

@@ -1055,6 +1055,7 @@ static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
 static NSString *Token_ = nil;
 static NSString *UniqueID_ = nil;
+static NSString *PLMN_ = nil;
 static NSString *Build_ = nil;
 static NSString *Product_ = nil;
 static NSString *Safari_ = nil;
@@ -6305,6 +6306,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [request setValue:ChipID_ forHTTPHeaderField:@"X-Chip-ID"];
     if (UniqueID_ != nil)
         [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+    if (PLMN_ != nil)
+        [request setValue:PLMN_ forHTTPHeaderField:@"X-Carrier-ID"];
 }
 
 - (void) aboutButtonClicked {
@@ -8995,6 +8998,22 @@ int main(int argc, char *argv[]) { _pooled
     }
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
+
+    CFStringRef (*$CTSIMSupportCopyMobileSubscriberCountryCode)(CFAllocatorRef);
+    $CTSIMSupportCopyMobileSubscriberCountryCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberCountryCode"));
+    CFStringRef mcc($CTSIMSupportCopyMobileSubscriberCountryCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberCountryCode)(kCFAllocatorDefault));
+
+    CFStringRef (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(CFAllocatorRef);
+    $CTSIMSupportCopyMobileSubscriberNetworkCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberCountryCode"));
+    CFStringRef mnc($CTSIMSupportCopyMobileSubscriberNetworkCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(kCFAllocatorDefault));
+
+    if (mcc != NULL && mnc != NULL)
+        PLMN_ = [NSString stringWithFormat:@"%@%@", mcc, mnc];
+
+    if (mnc != NULL)
+        CFRelease(mnc);
+    if (mcc != NULL)
+        CFRelease(mcc);
 
     if (NSDictionary *system = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"])
         Build_ = [system objectForKey:@"ProductBuildVersion"];

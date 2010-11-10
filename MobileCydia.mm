@@ -9101,7 +9101,10 @@ int main(int argc, char *argv[]) { _pooled
 
     if (lang != NULL)
         _config->Set("APT::Acquire::Translation", lang);
-    _config->Set("Acquire::http::Timeout", 15);
+
+    // XXX: this timeout might be important :(
+    //_config->Set("Acquire::http::Timeout", 15);
+
     _config->Set("Acquire::http::MaxParallel", 3);
     /* }}} */
     /* Color Choices {{{ */

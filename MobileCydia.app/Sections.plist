@@ -261,6 +261,12 @@
         <string>Themes_(LockScreen)</string>
     </dict>
 
+    <key>Themes_(SYSTEM)</key>
+    <dict>
+        <key>Rename</key>
+        <string>Themes_(System)</string>
+    </dict>
+
     <key>WebApps</key>
     <dict>
         <key>Rename</key>

@@ -2153,6 +2153,13 @@ struct PackageNameOrdering :
             name_.set(pool, iterator_.Display());
         _end
 
+        _profile(Package$lowercaseString)
+            char *data(id_.data());
+            for (size_t i(0), e(id_.size()); i != e; ++i)
+                // XXX: do not use tolower() as this is not locale-specific? :(
+                data[i] |= 0x20;
+        _end
+
         if (!file_.end()) {
             _profile(Package$initWithVersion$Source)
                 source_ = [database_ getSource:file_.File()];
@@ -2183,10 +2190,9 @@ struct PackageNameOrdering :
         _end
 
         bool changed(false);
-        NSString *key([static_cast<id>(id_) lowercaseString]);
 
         _profile(Package$initWithVersion$Metadata)
-            metadata_ = [Packages_ objectForKey:key];
+            metadata_ = [Packages_ objectForKey:id_];
 
             if (metadata_ == nil) {
                 firstSeen_ = now_;
@@ -2226,7 +2232,7 @@ struct PackageNameOrdering :
             metadata_ = [metadata_ retain];
 
             if (changed) {
-                [Packages_ setObject:metadata_ forKey:key];
+                [Packages_ setObject:metadata_ forKey:id_];
                 Changed_ = true;
             }
         _end

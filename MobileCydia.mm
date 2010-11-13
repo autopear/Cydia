@@ -7620,7 +7620,7 @@ freeing the view controllers on tab change */
         captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
         caption_ = [[UILabel alloc] initWithFrame:captrect];
         [caption_ setText:@"Initializing Filesystem"];
-        [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin];
+        [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
         [caption_ setTextColor:[UIColor whiteColor]];
         [caption_ setBackgroundColor:[UIColor clearColor]];
@@ -7635,7 +7635,7 @@ freeing the view controllers on tab change */
         statusrect.origin.x = 0;
         statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
         status_ = [[UILabel alloc] initWithFrame:statusrect];
-        [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
+        [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [status_ setText:@"(Cydia will exit when complete.)"];
         [status_ setFont:[UIFont systemFontOfSize:16.0f]];
         [status_ setTextColor:[UIColor whiteColor]];
@@ -8108,13 +8108,13 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) _reloadData {
-    UIProgressHUD *hud([self addProgressHUD]);
-    [hud setText:(loaded_ ? UCLocalize("RELOADING_DATA") : UCLocalize("LOADING_DATA"))];
+    UIProgressHUD *hud(loaded_ ? [self addProgressHUD] : nil);
+    [hud setText:UCLocalize("RELOADING_DATA")];
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
     _trace();
 
-    [self removeProgressHUD:hud];
+    if (hud) [self removeProgressHUD:hud];
 
     size_t changes(0);
 
@@ -8654,6 +8654,36 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
+- (void) setupTabBarController {
+    tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
+    [tabbar_ setDelegate:self];
+
+    NSMutableArray *items([NSMutableArray arrayWithObjects:
+        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:kChangesTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
+    nil]);
+
+    if (IsWildcat_) {
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:kInstalledTag] autorelease] atIndex:3];
+    } else {
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
+    }
+
+    NSMutableArray *controllers([NSMutableArray array]);
+
+    for (UITabBarItem *item in items) {
+        CYNavigationController *controller([[[CYNavigationController alloc] initWithDatabase:database_] autorelease]);
+        [controller setTabBarItem:item];
+        [controllers addObject:controller];
+    }
+
+    [tabbar_ setViewControllers:controllers];
+    [tabbar_ setSelectedIndex:0];
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
     [CYBrowserController _initialize];
 
@@ -8696,32 +8726,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     database_ = [Database sharedInstance];
 
-    NSMutableArray *items([NSMutableArray arrayWithObjects:
-        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:kChangesTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
-    nil]);
-
-    if (IsWildcat_) {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:kInstalledTag] autorelease] atIndex:3];
-    } else {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
-    }
-
-    NSMutableArray *controllers([NSMutableArray array]);
-
-    for (UITabBarItem *item in items) {
-        CYNavigationController *controller([[[CYNavigationController alloc] initWithDatabase:database_] autorelease]);
-        [controller setTabBarItem:item];
-        [controllers addObject:controller];
-    }
-
-    tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
-    [tabbar_ setViewControllers:controllers];
-    [tabbar_ setDelegate:self];
-    [tabbar_ setSelectedIndex:0];
+    [self setupTabBarController];
 
     container_ = [[CYContainer alloc] initWithDatabase:database_];
     [container_ setUpdateDelegate:self];
@@ -8742,14 +8747,60 @@ static _finline void _setHomePage(Cydia *self) {
 
     [UIKeyboard initImplementationNow];
 
-    [self reloadData];
+    [window_ setUserInteractionEnabled:NO];
 
+    UIView *container = [[UIView alloc] init];
+    [container setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
+
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+    [spinner startAnimating];
+    [container addSubview:spinner];
+    [spinner release];
+
+    UILabel *label = [[UILabel alloc] init];
+    [label setFont:[UIFont boldSystemFontOfSize:15.0f]];
+    [label setBackgroundColor:[UIColor clearColor]];
+    [label setTextColor:[UIColor blackColor]];
+    [label setShadowColor:[UIColor whiteColor]];
+    [label setShadowOffset:CGSizeMake(0, 1)];
+    [label setText:UCLocalize("LOADING_DATA")];
+    [container addSubview:label];
+    [label release];
+
+    CGSize viewsize = [[tabbar_ view] frame].size;
+    CGSize spinnersize = [spinner bounds].size;
+    CGSize textsize = [[label text] sizeWithFont:[label font]];
+    float bothwidth = spinnersize.width + textsize.width + 5.0f;
+
+    CGRect containrect = {
+        CGPointMake(floorf((viewsize.width / 2) - (bothwidth / 2)), floorf((viewsize.height / 2) - (spinnersize.height / 2))),
+        CGSizeMake(bothwidth, spinnersize.height)
+    };
+    CGRect textrect = {
+        CGPointMake(spinnersize.width + 5.0f, floorf((spinnersize.height / 2) - (textsize.height / 2))),
+        textsize
+    };
+    CGRect spinrect = {
+        CGPointZero,
+        spinnersize
+    };
+
+    [container setFrame:containrect];
+    [spinner setFrame:spinrect];
+    [label setFrame:textrect];
+    [[container_ view] addSubview:container];
+    [container release];
+
+    [self reloadData];
     PrintTimes();
 
+    // Show the home page
     _setHomePage(self);
+    [window_ setUserInteractionEnabled:YES];
 
     // XXX: does this actually slow anything down?
     [[container_ view] setBackgroundColor:[UIColor clearColor]];
+    [container removeFromSuperview];
 }
 
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {

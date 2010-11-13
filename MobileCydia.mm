@@ -197,6 +197,13 @@ void PrintTimes() {
 
 #define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
 
+#define CYPoolStart() \
+    NSAutoreleasePool *_pool([[NSAutoreleasePool alloc] init]); \
+    do
+#define CYPoolEnd() \
+    while (false); \
+    [_pool release];
+
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
 void NSLogPoint(const char *fix, const CGPoint &point) {
@@ -3260,7 +3267,7 @@ static NSString *Warning_;
     return [self popErrorWithTitle:title] || !success;
 }
 
-- (void) reloadData { _pooled
+- (void) reloadData { CYPoolStart() {
 @synchronized (self) {
     ++era_;
 
@@ -3415,7 +3422,8 @@ static NSString *Warning_;
 
         _trace();
     }
-} }
+}
+} CYPoolEnd() }
 
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];

@@ -2116,7 +2116,6 @@ struct PackageNameOrdering :
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
-    @synchronized (database) {
         era_ = [database era];
         pool_ = pool;
 
@@ -2232,11 +2231,10 @@ struct PackageNameOrdering :
         obsolete_ = [self hasTag:@"cydia::obsolete"];
         essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
         [self setVisible];
-    } _end } return self;
+    _end } return self;
 }
 
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
-@synchronized ([Database class]) {
     pkgCache::VerIterator version;
 
     _profile(Package$packageWithIterator$GetCandidateVer)
@@ -2252,7 +2250,7 @@ struct PackageNameOrdering :
         inPool:pool
         database:database
     ] autorelease];
-} }
+}
 
 - (pkgCache::PkgIterator) iterator {
     return iterator_;
@@ -2318,8 +2316,10 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) longDescription {
-    if (file_.end())
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
         return nil;
+
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
     NSString *description([NSString stringWithUTF8String:parser->LongDesc().c_str()]);
 
@@ -2335,7 +2335,7 @@ struct PackageNameOrdering :
     }
 
     return [trimmed componentsJoinedByString:@"\n"];
-}
+} }
 
 - (NSString *) shortDescription {
     return tagline_;
@@ -3066,7 +3066,7 @@ static NSString *Warning_;
 }
 
 - (Package *) packageWithName:(NSString *)name {
-@synchronized ([Database class]) {
+@synchronized (self) {
     if (static_cast<pkgDepCache *>(cache_) == NULL)
         return nil;
     pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
@@ -3261,10 +3261,8 @@ static NSString *Warning_;
 }
 
 - (void) reloadData { _pooled
-@synchronized ([Database class]) {
-    @synchronized (self) {
-        ++era_;
-    }
+@synchronized (self) {
+    ++era_;
 
     [packages_ removeAllObjects];
     sources_.clear();

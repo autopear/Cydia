@@ -564,13 +564,15 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     NSLog(@"decidePolicyForNavigationAction:%@ request:%@ frame:%@", action, request, frame);
 #endif
 
-    if (!error_ && [frame parentFrame] == nil) {
-        if (request_ != nil)
-            [request_ autorelease];
-        if (request == nil)
-            request_ = nil;
-        else
-            request_ = [request retain];
+    if ([frame parentFrame] == nil) {
+        if (!error_) {
+            if (request_ != nil)
+                [request_ autorelease];
+            if (request == nil)
+                request_ = nil;
+            else
+                request_ = [request retain];
+        }
     }
 }
 

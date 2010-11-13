@@ -204,6 +204,10 @@ typedef enum {
 - (UIView *) view;
 @end
 
+@interface UIColor (Apple)
++ (UIColor *) pinStripeColor;
+@end
+
 @interface UIControl (Apple)
 - (void) addTarget:(id)target action:(SEL)action forEvents:(NSInteger)events;
 @end

@@ -8735,7 +8735,7 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ addSubview:[container_ view]];
 
     // Show pinstripes while loading data.
-    [[container_ view] setBackgroundColor:[UIColor performSelector:@selector(pinStripeColor)]];
+    [[container_ view] setBackgroundColor:[UIColor pinStripeColor]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 }

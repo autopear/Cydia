@@ -384,7 +384,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 
 #define ForRelease 1
 #define TraceLogging (1 && !ForRelease)
-#define HistogramInsertionSort (0 && !ForRelease)
+#define HistogramInsertionSort (!ForRelease ? 0 : 0)
 #define ProfileTimes (0 && !ForRelease)
 #define ForSaurik (0 && !ForRelease)
 #define LogBrowser (0 && !ForRelease)
@@ -560,7 +560,7 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
     const void **values(new const void *[range.length]);
     CFArrayGetValues(array, range, values);
 
-#if HistogramInsertionSort
+#if HistogramInsertionSort > 0
     uint32_t total(0), *offsets(new uint32_t[range.length]);
 #endif
 
@@ -568,9 +568,13 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
         const void *value(values[index]);
         //CFIndex correct(SKBSearch_(&value, sizeof(const void *), values, index, comparator, context));
         CFIndex correct(index);
-        while (comparator(value, values[correct - 1], context) == kCFCompareLessThan)
+        while (comparator(value, values[correct - 1], context) == kCFCompareLessThan) {
+#if HistogramInsertionSort > 1
+            NSLog(@"%@ < %@", value, values[correct - 1]);
+#endif
             if (--correct == 0)
                 break;
+        }
         if (correct != index) {
             size_t offset(index - correct);
 #if HistogramInsertionSort
@@ -587,7 +591,7 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
     CFArrayReplaceValues(array, range, values, range.length);
     delete [] values;
 
-#if HistogramInsertionSort
+#if HistogramInsertionSort > 0
     for (CFIndex index(0); index != range.length; ++index)
         if (offsets[index] != 0)
             NSLog(@"Insertion Displacement [%u]: %u", index, offsets[index]);

@@ -3338,8 +3338,6 @@ static NSString *Warning_;
             return;
     }
 
-    _trace();
-
     for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
         std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
         for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
@@ -3350,8 +3348,6 @@ static NSString *Warning_;
                     sources_[cached->ID] = [[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease];
             }
     }
-
-    _trace();
 
     {
         /*std::vector<Package *> packages;
@@ -3396,8 +3392,7 @@ static NSString *Warning_;
 
         _trace();
     }
-}
-} CYPoolEnd() }
+} } CYPoolEnd() _trace(); }
 
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
@@ -8106,7 +8101,6 @@ static _finline void _setHomePage(Cydia *self) {
     [hud setText:UCLocalize("RELOADING_DATA")];
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
-    _trace();
 
     if (hud) [self removeProgressHUD:hud];
 
@@ -8730,9 +8724,11 @@ static _finline void _setHomePage(Cydia *self) {
     [[container_ view] setBackgroundColor:[UIColor pinStripeColor]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
+_trace();
 }
 
 - (void) loadData {
+_trace();
     if (Role_ == nil) {
         [self showSettings];
         return;
@@ -9016,7 +9012,6 @@ int main(int argc, char *argv[]) { _pooled
     Metadata_ = [[[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"] autorelease];
     _trace();
     SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
-    _trace();
 
     if (Metadata_ == NULL)
         Metadata_ = [NSMutableDictionary dictionaryWithCapacity:2];

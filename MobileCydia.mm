@@ -8739,8 +8739,6 @@ static _finline void _setHomePage(Cydia *self) {
         return;
     }
 
-    [UIKeyboard initImplementationNow];
-
     [window_ setUserInteractionEnabled:NO];
 
     UIView *container = [[UIView alloc] init];

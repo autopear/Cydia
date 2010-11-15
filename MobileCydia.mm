@@ -419,7 +419,20 @@ struct RadixItem_ {
     uint32_t key;
 };
 
-static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *swap) {
+@implementation NSMutableArray (Radix)
+
+- (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument {
+    size_t count([self count]);
+    struct RadixItem_ *swap(new RadixItem_[count * 2]);
+
+    for (size_t i(0); i != count; ++i) {
+        RadixItem_ &item(swap[i]);
+        item.index = i;
+
+        id object([self objectAtIndex:i]);
+        item.key = function(object, argument);
+    }
+
     struct RadixItem_ *lhs(swap), *rhs(swap + count);
 
     static const size_t width = 32;
@@ -467,23 +480,6 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
     delete [] values;
 
     delete [] swap;
-}
-
-@implementation NSMutableArray (Radix)
-
-- (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument {
-    size_t count([self count]);
-    struct RadixItem_ *swap(new RadixItem_[count * 2]);
-
-    for (size_t i(0); i != count; ++i) {
-        RadixItem_ &item(swap[i]);
-        item.index = i;
-
-        id object([self objectAtIndex:i]);
-        item.key = function(object, argument);
-    }
-
-    RadixSort_(self, count, swap);
 }
 
 @end

@@ -8675,7 +8675,6 @@ static _finline void _setHomePage(Cydia *self) {
     }
 
     [tabbar_ setViewControllers:controllers];
-    [tabbar_ setSelectedIndex:0];
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -8787,6 +8786,7 @@ static _finline void _setHomePage(Cydia *self) {
     PrintTimes();
 
     // Show the home page
+    [tabbar_ setSelectedIndex:0];
     _setHomePage(self);
     [window_ setUserInteractionEnabled:YES];
 

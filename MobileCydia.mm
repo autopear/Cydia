@@ -7065,12 +7065,16 @@ freeing the view controllers on tab change */
 
     [sections_ removeAllObjects];
 
+#if 0
     UIProgressHUD *hud([delegate_ addProgressHUD]);
     // XXX: localize
     [hud setText:@"Loading Changes"];
     //NSLog(@"HUD:%@::%@", delegate_, hud);
     [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
     [delegate_ removeProgressHUD:hud];
+#else
+    [self _reloadPackages:packages];
+#endif
 
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
     Section *ignored = [[[Section alloc] initWithName:UCLocalize("IGNORED_UPGRADES") localize:NO] autorelease];

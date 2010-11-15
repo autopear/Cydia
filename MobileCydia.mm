@@ -1330,7 +1330,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     pkgSourceList *list_;
 
     SourceMap sources_;
-    NSMutableArray *packages_;
+    CFMutableArrayRef packages_;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
     Status status_;
@@ -3063,7 +3063,7 @@ static NSString *Warning_;
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
         apr_pool_create(&pool_, NULL);
 
-        packages_ = [[NSMutableArray alloc] init];
+        packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
 
         int fds[2];
 
@@ -3131,7 +3131,7 @@ static NSString *Warning_;
 }
 
 - (NSArray *) packages {
-    return packages_;
+    return (NSArray *) packages_;
 }
 
 - (NSArray *) sources {
@@ -3147,7 +3147,7 @@ static NSString *Warning_;
 
     NSMutableArray *issues([NSMutableArray arrayWithCapacity:4]);
 
-    for (Package *package in packages_) {
+    for (Package *package in [self packages]) {
         if (![package broken])
             continue;
         pkgCache::PkgIterator pkg([package iterator]);
@@ -3243,7 +3243,9 @@ static NSString *Warning_;
 @synchronized (self) {
     ++era_;
 
-    [packages_ removeAllObjects];
+    CFArrayApplyFunction(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFArrayApplierFunction>(&CFRelease), NULL);
+    CFArrayRemoveAllValues(packages_);
+
     sources_.clear();
 
     _error->Discard();
@@ -3362,7 +3364,7 @@ static NSString *Warning_;
         for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
             if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:pool_ database:self])
                 //packages.push_back(package);
-                [packages_ addObject:package];
+                CFArrayAppendValue(packages_, [package retain]);
 
         _trace();
 
@@ -3372,9 +3374,9 @@ static NSString *Warning_;
             packages_ = [[NSArray alloc] initWithObjects:&packages.front() count:packages.size()];
         _trace();*/
 
-        [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(16)];
-        [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(4)];
-        [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(0)];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(16)];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(4)];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(0)];
 
         /*_trace();
         PrintTimes();
@@ -3388,7 +3390,7 @@ static NSString *Warning_;
 
         //CFArraySortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
 
-        CFArrayInsertionSortValues((CFMutableArrayRef) packages_, CFRangeMake(0, [packages_ count]), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
+        CFArrayInsertionSortValues(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
 
         //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
 
@@ -3541,7 +3543,7 @@ static NSString *Warning_;
 }
 
 - (void) setVisible {
-    for (Package *package in packages_)
+    for (Package *package in [self packages])
         [package setVisible];
 }
 

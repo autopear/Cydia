@@ -411,7 +411,6 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 typedef uint32_t (*SKRadixFunction)(id, void *);
 
 @interface NSMutableArray (Radix)
-- (void) radixSortUsingSelector:(SEL)selector withObject:(id)object;
 - (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument;
 @end
 
@@ -471,43 +470,6 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
 }
 
 @implementation NSMutableArray (Radix)
-
-- (void) radixSortUsingSelector:(SEL)selector withObject:(id)object {
-    size_t count([self count]);
-    if (count == 0)
-        return;
-
-#if 0
-    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:"L12@0:4@8"]]);
-    [invocation setSelector:selector];
-    [invocation setArgument:&object atIndex:2];
-#else
-    /* XXX: this is an unsafe optimization of doomy hell */
-    Method method(class_getInstanceMethod([[self objectAtIndex:0] class], selector));
-    _assert(method != NULL);
-    uint32_t (*imp)(id, SEL, id) = reinterpret_cast<uint32_t (*)(id, SEL, id)>(method_getImplementation(method));
-    _assert(imp != NULL);
-#endif
-
-    struct RadixItem_ *swap(new RadixItem_[count * 2]);
-
-    for (size_t i(0); i != count; ++i) {
-        RadixItem_ &item(swap[i]);
-        item.index = i;
-
-        id object([self objectAtIndex:i]);
-
-#if 0
-        [invocation setTarget:object];
-        [invocation invoke];
-        [invocation getReturnValue:&item.key];
-#else
-        item.key = imp(object, selector, object);
-#endif
-    }
-
-    RadixSort_(self, count, swap);
-}
 
 - (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument {
     size_t count([self count]);

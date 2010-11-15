@@ -461,10 +461,11 @@ static void RadixSort_(NSMutableArray *self, size_t count, struct RadixItem_ *sw
 
     delete [] hist;
 
-    NSMutableArray *values([NSMutableArray arrayWithCapacity:count]);
+    const void **values(new const void *[count]);
     for (size_t i(0); i != count; ++i)
-        [values addObject:[self objectAtIndex:lhs[i].index]];
-    [self setArray:values];
+        values[i] = [self objectAtIndex:lhs[i].index];
+    CFArrayReplaceValues((CFMutableArrayRef) self, CFRangeMake(0, count), values, count);
+    delete [] values;
 
     delete [] swap;
 }

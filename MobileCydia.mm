@@ -1949,11 +1949,14 @@ uint32_t PackagePrefixRadix(Package *self, void *context) {
 
         for (size_t i(0); i != 4; ++i)
             if (isalpha(data[i]))
-                data[i] &= 0xdf;
+                data[i] |= 0x20;
     }
 
     if (offset == 0)
-        data[0] = (data[0] & 0x3f) | "\x80\x00\xc0\x40"[data[0] >> 6];
+        if (data[0] == '@')
+            data[0] = 0x7f;
+        else
+            data[0] = (data[0] & 0x1f) | "\x80\x00\xc0\x40"[data[0] >> 6];
 
     /* XXX: ntohl may be more honest */
     return OSSwapInt32(*reinterpret_cast<uint32_t *>(data));

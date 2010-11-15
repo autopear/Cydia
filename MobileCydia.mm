@@ -6929,7 +6929,7 @@ freeing the view controllers on tab change */
     UITableViewDelegate
 > {
     _transient Database *database_;
-    NSMutableArray *packages_;
+    CFMutableArrayRef packages_;
     NSMutableArray *sections_;
     UITableView *list_;
     unsigned upgrades_;
@@ -6947,7 +6947,8 @@ freeing the view controllers on tab change */
     [list_ setDelegate:nil];
     [list_ setDataSource:nil];
 
-    [packages_ release];
+    CFRelease(packages_);
+
     [sections_ release];
     [list_ release];
     [super dealloc];
@@ -6980,10 +6981,14 @@ freeing the view controllers on tab change */
     return [[sections_ objectAtIndex:section] count];
 }
 
+- (Package *) packageAtIndex:(NSUInteger)index {
+    return (Package *) CFArrayGetValueAtIndex(packages_, index);
+}
+
 - (Package *) packageAtIndexPath:(NSIndexPath *)path {
     Section *section([sections_ objectAtIndex:[path section]]);
     NSInteger row([path row]);
-    return [packages_ objectAtIndex:([section row] + row)];
+    return [self packageAtIndex:([section row] + row)];
 }
 
 - (UITableViewCell *) tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -7023,7 +7028,8 @@ freeing the view controllers on tab change */
         database_ = database;
         [[self navigationItem] setTitle:UCLocalize("CHANGES")];
 
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
+
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
@@ -7045,17 +7051,18 @@ freeing the view controllers on tab change */
             [package uninstalled] && [package valid] && [package visible] ||
             [package upgradableAndEssential:YES]
         )
-            [packages_ addObject:package];
+            CFArrayAppendValue(packages_, package);
 
     _trace();
-    [packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
+    [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
     _trace();
 }
 
 - (void) reloadData {
     NSArray *packages = [database_ packages];
 
-    [packages_ removeAllObjects];
+    CFArrayRemoveAllValues(packages_);
+
     [sections_ removeAllObjects];
 
     UIProgressHUD *hud([delegate_ addProgressHUD]);
@@ -7075,8 +7082,8 @@ freeing the view controllers on tab change */
 
     CFDateFormatterRef formatter(CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle));
 
-    for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
-        Package *package = [packages_ objectAtIndex:offset];
+    for (size_t offset = 0, count = CFArrayGetCount(packages_); offset != count; ++offset) {
+        Package *package = [self packageAtIndex:offset];
 
         BOOL uae = [package upgradableAndEssential:YES];
 
@@ -7121,7 +7128,7 @@ freeing the view controllers on tab change */
     if (unseens) {
         Section *last = [sections_ lastObject];
         size_t count = [last count];
-        [packages_ removeObjectsInRange:NSMakeRange([packages_ count] - count, count)];
+        CFArrayReplaceValues(packages_, CFRangeMake(CFArrayGetCount(packages_) - count, count), NULL, 0);
         [sections_ removeLastObject];
     }
 

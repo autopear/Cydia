@@ -421,6 +421,9 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (challenge_ != nil)
         [challenge_ release];
 
+    if (request_ != nil)
+        [request_ release];
+
     //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
     if (custom_ != nil)
@@ -433,10 +436,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (closer_ != nil)
         [closer_ release];
 
-    if (sensitive_ != nil)
-        [sensitive_ release];
     if (title_ != nil)
         [title_ release];
+
+    [loading_ release];
 
     [reloaditem_ release];
     [loadingitem_ release];
@@ -493,15 +496,24 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     if (custom_ != nil)
         [custom_ autorelease];
-    custom_ = button == nil ? nil : [[UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:button]]] retain];
+    if (button == nil)
+        custom_ = nil;
+    else
+        custom_ = [[UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:button]]] retain];
 
     if (style_ != nil)
         [style_ autorelease];
-    style_ = style == nil ? nil : [style retain];
+    if (style == nil)
+        style_ = nil;
+    else
+        style_ = [style retain];
 
     if (function_ != nil)
         [function_ autorelease];
-    function_ = function == nil ? nil : [function retain];
+    if (function == nil)
+        function_ = nil;
+    else
+        function_ = [function retain];
 
     [self applyRightButton];
 }
@@ -509,15 +521,24 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     if (custom_ != nil)
         [custom_ autorelease];
-    custom_ = button == nil ? nil : [button retain];
+    if (button == nil)
+        custom_ = nil;
+    else
+        custom_ = [button retain];
 
     if (style_ != nil)
         [style_ autorelease];
-    style_ = style == nil ? nil : [style retain];
+    if (style == nil)
+        style_ = nil;
+    else
+        style_ = [style retain];
 
     if (function_ != nil)
         [function_ autorelease];
-    function_ = function == nil ? nil : [function retain];
+    if (function == nil)
+        function_ = nil;
+    else
+        function_ = [function retain];
 
     [self applyRightButton];
 }
@@ -525,7 +546,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 - (void) setPopupHook:(id)function {
     if (closer_ != nil)
         [closer_ autorelease];
-    closer_ = function == nil ? nil : [function retain];
+    if (function == nil)
+        closer_ = nil;
+    else
+        closer_ = [function retain];
 }
 
 - (void) setViewportWidth:(float)width {
@@ -698,7 +722,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if ([frame parentFrame] != nil)
         return;
 
+    if (title_ != nil)
+        [title_ autorelease];
     title_ = [title retain];
+
     [[self navigationItem] setTitle:title_];
 }
 
@@ -837,7 +864,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 - (void) applyRightButton {
     if ([self isLoading]) {
         [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
-        // XXX: why do we do this again here?
+        // XXX: why do we do this again here? (if we don't, just remove indicator_)
         [[loadingitem_ view] addSubview:indicator_];
         [self applyLoadingTitle];
     } else if (custom_ != nil) {

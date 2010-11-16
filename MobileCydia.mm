@@ -1082,6 +1082,7 @@ const char *StripVersion_(const char *version) {
     return version;
 }
 
+// XXX: rename this to involve "Create"
 CFStringRef StripVersion(const char *version) {
     const char *colon(strchr(version, ':'));
     if (colon != NULL)
@@ -1495,6 +1496,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 }
 
 - (void) dealloc {
+    // XXX: this is a very inefficient way to call these deconstructors
     [self _clear];
     [super dealloc];
 }
@@ -1715,7 +1717,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     bool parsed_;
 
     CYString section_;
-    NSString *section$_;
+    _transient NSString *section$_;
     bool essential_;
     bool required_;
     bool visible_;
@@ -2148,7 +2150,7 @@ struct PackageNameOrdering :
                 tags_ = [[NSMutableArray alloc] initWithCapacity:8];
                 do {
                     const char *name(tag.Name());
-                    [tags_ addObject:(NSString *)CYStringCreate(name)];
+                    [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
                     if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
                         role_ = (NSString *) CYStringCreate(name + 6);
                     if (required_ && strncmp(name, "require::", 9) == 0 && (
@@ -2982,6 +2984,7 @@ static NSString *Warning_;
 }
 
 - (void) dealloc {
+    // XXX: actually implement this thing
     _assert(false);
     NSRecycleZone(zone_);
     // XXX: malloc_destroy_zone(zone_);
@@ -3106,7 +3109,7 @@ static NSString *Warning_;
         [NSThread
             detachNewThreadSelector:@selector(_readCydia:)
             toTarget:self
-            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+            withObject:[NSNumber numberWithInt:fds[0]]
         ];
 
         _assert(pipe(fds) != -1);
@@ -3115,7 +3118,7 @@ static NSString *Warning_;
         [NSThread
             detachNewThreadSelector:@selector(_readStatus:)
             toTarget:self
-            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+            withObject:[NSNumber numberWithInt:fds[0]]
         ];
 
         _assert(pipe(fds) != -1);
@@ -3131,7 +3134,7 @@ static NSString *Warning_;
         [NSThread
             detachNewThreadSelector:@selector(_readOutput:)
             toTarget:self
-            withObject:[[NSNumber numberWithInt:fds[0]] retain]
+            withObject:[NSNumber numberWithInt:fds[0]]
         ];
     } return self;
 }
@@ -3627,7 +3630,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Web Scripting {{{ */
 @interface CydiaObject : NSObject {
     id indirect_;
-    id delegate_;
+    _transient id delegate_;
 }
 
 - (id) initWithDelegate:(IndirectDelegate *)indirect;
@@ -4164,8 +4167,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Progress Data {{{ */
 @interface ProgressData : NSObject {
     SEL selector_;
-    id target_;
-    id object_;
+    // XXX: should these really both be _transient?
+    _transient id target_;
+    _transient id object_;
 }
 
 - (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object;
@@ -4427,8 +4431,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _detachNewThreadData:(ProgressData *)data { _pooled
     [[data target] performSelector:[data selector] withObject:[data object]];
-    [data release];
-
     [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
 }
 
@@ -4482,11 +4484,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [NSThread
         detachNewThreadSelector:@selector(_detachNewThreadData:)
         toTarget:self
-        withObject:[[ProgressData alloc]
+        withObject:[[[ProgressData alloc]
             initWithSelector:selector
             target:target
             object:object
-        ]
+        ] autorelease]
     ];
 }
 
@@ -5329,9 +5331,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableView *list_;
     NSMutableArray *index_;
     NSMutableDictionary *indices_;
-    id target_;
+    // XXX: this target_ seems to be delegate_. :(
+    _transient id target_;
     SEL action_;
-    id delegate_;
+    // XXX: why do we even have this delegate_?
+    _transient id delegate_;
 }
 
 - (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action;
@@ -5786,7 +5790,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SourceTable
 
-- (void) _deallocConnection:(NSURLConnection *)connection {
+- (void) _releaseConnection:(NSURLConnection *)connection {
     if (connection != nil) {
         [connection cancel];
         //[connection setDelegate:nil];
@@ -5802,11 +5806,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (error_ != nil)
         [error_ release];
 
-    //[self _deallocConnection:installer_];
-    [self _deallocConnection:trivial_];
-    [self _deallocConnection:trivial_gz_];
-    [self _deallocConnection:trivial_bz2_];
-    //[self _deallocConnection:automatic_];
+    //[self _releaseConnection:installer_];
+    [self _releaseConnection:trivial_];
+    [self _releaseConnection:trivial_gz_];
+    [self _releaseConnection:trivial_bz2_];
+    //[self _releaseConnection:automatic_];
 
     [sources_ release];
     [list_ release];
@@ -5927,6 +5931,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _endConnection:(NSURLConnection *)connection {
+    // XXX: the memory management in this method is horribly awkward
+
     NSURLConnection **field = NULL;
     if (connection == trivial_)
         field = &trivial_;
@@ -6066,6 +6072,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
                 cydia_ = false;
 
+                // XXX: this is stupid
                 hud_ = [[delegate_ addProgressHUD] retain];
                 [hud_ setText:UCLocalize("VERIFYING_URL")];
             } break;
@@ -6436,6 +6443,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation RefreshBar
 
+- (void) dealloc {
+    [indicator_ release];
+    [prompt_ release];
+    [progress_ release];
+    [cancel_ release];
+    [super dealloc];
+}
+
 - (void) positionViews {
     CGRect frame = [cancel_ frame];
     frame.origin.x = [self frame].size.width - frame.size.width - 5;
@@ -6536,7 +6551,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Cydia Tab Bar Controller {{{ */
 @interface CYTabBarController : UITabBarController {
-    Database *database_;
+    _transient Database *database_;
 }
 
 @end
@@ -6566,7 +6581,7 @@ freeing the view controllers on tab change */
 /* Cydia Navigation Controller {{{ */
 @interface CYNavigationController : UINavigationController {
     _transient Database *database_;
-    id<UINavigationControllerDelegate> delegate_;
+    _transient id<UINavigationControllerDelegate> delegate_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7445,7 +7460,8 @@ freeing the view controllers on tab change */
     UITableViewDelegate
 > {
     _transient Database *database_;
-    id roledelegate_;
+    // XXX: ok, "roledelegate_"?...
+    _transient id roledelegate_;
     UITableView *table_;
     UISegmentedControl *segment_;
     UIView *container_;
@@ -7622,9 +7638,10 @@ freeing the view controllers on tab change */
 /* }}} */
 /* Stash Controller {{{ */
 @interface CYStashController : CYViewController {
-    UIActivityIndicatorView *spinner_;
-    UILabel *status_;
-    UILabel *caption_;
+    // XXX: just delete these things
+    _transient UIActivityIndicatorView *spinner_;
+    _transient UILabel *status_;
+    _transient UILabel *caption_;
 }
 @end
 
@@ -7690,8 +7707,10 @@ freeing the view controllers on tab change */
 
     bool dropped_;
     bool updating_;
-    NSObject<CydiaDelegate> *updatedelegate_;
-    UITabBarController *root_;
+    // XXX: ok, "updatedelegate_"?...
+    _transient NSObject<CydiaDelegate> *updatedelegate_;
+    // XXX: can't we query for this variable when we need it?
+    _transient UITabBarController *root_;
 }
 
 - (void) setTabBarController:(UITabBarController *)controller;
@@ -7958,6 +7977,8 @@ typedef enum {
     UINavigationControllerDelegate,
     UITabBarControllerDelegate
 > {
+    // XXX: evaluate all fields for _transient
+
     UIWindow *window_;
     CYContainer *container_;
     CYTabBarController *tabbar_;
@@ -8251,7 +8272,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     ConfirmationController *page([[[ConfirmationController alloc] initWithDatabase:database_] autorelease]);
     [page setDelegate:self];
-    CYNavigationController *confirm_ = [[CYNavigationController alloc] initWithRootViewController:page];
+    CYNavigationController *confirm_([[[CYNavigationController alloc] initWithRootViewController:page] autorelease]);
     [confirm_ setDelegate:self];
 
     if (IsWildcat_) [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
@@ -8421,8 +8442,8 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) showSettings {
-    RoleController *role = [[RoleController alloc] initWithDatabase:database_ delegate:self];
-    CYNavigationController *nav = [[CYNavigationController alloc] initWithRootViewController:role];
+    RoleController *role = [[[RoleController alloc] initWithDatabase:database_ delegate:self] autorelease];
+    CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
     if (IsWildcat_) [nav setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:nav animated:YES];
 }
@@ -8755,6 +8776,9 @@ static _finline void _setHomePage(Cydia *self) {
         false
     ) {
         [self addStashController];
+        // XXX: this would be much cleaner as a yieldToSelector:
+        // that way the removeStashController could happen right here inline
+        // we also could no longer require the useless stash_ field anymore
         [self performSelector:@selector(stash) withObject:nil afterDelay:0];
         return;
     }

@@ -58,8 +58,8 @@
     HookProtocol,
     UIWebViewDelegate
 > {
-    CYWebView *webview_;
-    UIScrollView *scroller_;
+    _transient CYWebView *webview_;
+    _transient UIScrollView *scroller_;
 
     UIProgressIndicator *indicator_;
     IndirectDelegate *indirect_;
@@ -68,7 +68,7 @@
     bool error_;
     NSURLRequest *request_;
 
-    NSNumber *sensitive_;
+    _transient NSNumber *sensitive_;
 
     NSString *title_;
     NSMutableSet *loading_;

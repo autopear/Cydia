@@ -1974,8 +1974,6 @@ struct PackageNameOrdering :
 - (void) dealloc {
     if (source_ != nil)
         [source_ release];
-    if (section$_ != nil)
-        [section$_ release];
 
     if (latest_ != nil)
         [latest_ release];
@@ -2251,7 +2249,7 @@ struct PackageNameOrdering :
         if (section_.empty())
             return nil;
 
-        std::replace(section_.data(), section_.data() + section_.size(), ' ', '_');
+        std::replace(section_.data(), section_.data() + section_.size(), '_', ' ');
         NSString *name(section_);
 
       lookup:
@@ -2261,7 +2259,7 @@ struct PackageNameOrdering :
                 goto lookup;
             }
 
-        section$_ = [[name stringByReplacingCharacter:'_' withCharacter:' '] retain];
+        section$_ = name;
     } return section$_;
 }
 

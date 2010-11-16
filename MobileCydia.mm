@@ -2095,7 +2095,11 @@ struct PackageNameOrdering :
         pool_ = pool;
 
         version_ = version;
-        iterator_ = version.ParentPkg();
+
+        _profile(Package$initWithVersion$ParentPkg)
+            iterator_ = version.ParentPkg();
+        _end
+
         database_ = database;
 
         _profile(Package$initWithVersion$Latest)
@@ -2121,7 +2125,7 @@ struct PackageNameOrdering :
             name_.set(pool, iterator_.Display());
         _end
 
-        _profile(Package$lowercaseString)
+        _profile(Package$initWithVersion$lowercaseString)
             char *data(id_.data());
             for (size_t i(0), e(id_.size()); i != e; ++i)
                 // XXX: do not use tolower() as this is not locale-specific? :(
@@ -2209,9 +2213,14 @@ struct PackageNameOrdering :
             section_.set(pool_, iterator_.Section());
         _end
 
-        obsolete_ = [self hasTag:@"cydia::obsolete"];
-        essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
-        [self setVisible];
+        _profile(Package$initWithVersion$hasTag)
+            obsolete_ = [self hasTag:@"cydia::obsolete"];
+            essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
+        _end
+
+        _profile(Package$initWithVersion$setVisible)
+            [self setVisible];
+        _end
     _end } return self;
 }
 
@@ -2391,8 +2400,28 @@ struct PackageNameOrdering :
 }
 
 - (BOOL) unfiltered {
-    NSString *section([self section]);
-    return !obsolete_ && [self hasSupportingRole] && (section == nil || isSectionVisible(section));
+    _profile(Package$unfiltered$obsolete)
+        if (obsolete_)
+            return false;
+    _end
+
+    _profile(Package$unfiltered$hasSupportingRole)
+        if (![self hasSupportingRole])
+            return false;
+    _end
+
+    NSString *section;
+
+    _profile(Package$unfiltered$section)
+        section = [self section];
+    _end
+
+    _profile(Package$unfiltered$isSectionVisible)
+        if (section != nil && !isSectionVisible(section))
+            return false;
+    _end
+
+    return true;
 }
 
 - (BOOL) visible {

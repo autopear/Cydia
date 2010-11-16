@@ -4860,7 +4860,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *count_;
     UIImage *icon_;
     ContentView *content_;
-    id switch_;
+    UISwitch *switch_;
     BOOL editing_;
 }
 
@@ -4904,7 +4904,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
         icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
-        switch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
+        switch_ = [[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
 
         UIView *content([self contentView]);
@@ -7266,8 +7266,8 @@ freeing the view controllers on tab change */
     NSString *name_;
     Package *package_;
     UITableView *table_;
-    id subscribedSwitch_;
-    id ignoredSwitch_;
+    UISwitch *subscribedSwitch_;
+    UISwitch *ignoredSwitch_;
     UITableViewCell *subscribedCell_;
     UITableViewCell *ignoredCell_;
 }
@@ -7363,11 +7363,11 @@ freeing the view controllers on tab change */
         [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [[self view] addSubview:table_];
 
-        subscribedSwitch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+        subscribedSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
         [subscribedSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventValueChanged];
 
-        ignoredSwitch_ = [[objc_getClass("UISwitch") alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+        ignoredSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
         [ignoredSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventValueChanged];
 
@@ -7955,11 +7955,12 @@ typedef enum {
     ConfirmationControllerDelegate,
     ProgressControllerDelegate,
     CydiaDelegate,
-    UINavigationControllerDelegate
+    UINavigationControllerDelegate,
+    UITabBarControllerDelegate
 > {
     UIWindow *window_;
     CYContainer *container_;
-    id tabbar_;
+    CYTabBarController *tabbar_;
 
     NSMutableArray *essential_;
     NSMutableArray *broken_;
@@ -8394,7 +8395,7 @@ static _finline void _setHomePage(Cydia *self) {
     return installed_;
 }
 
-- (void) tabBarController:(id)tabBarController didSelectViewController:(UIViewController *)viewController {
+- (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
     int tag = [[viewController tabBarItem] tag];
     if (tag == tag_) {
         [(CYNavigationController *)[tabbar_ selectedViewController] popToRootViewControllerAnimated:YES];

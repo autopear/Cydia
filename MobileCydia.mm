@@ -1185,6 +1185,7 @@ bool isSectionVisible(NSString *section) {
 - (void) syncData;
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
+- (BOOL) hudIsShowing;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (CYViewController *) pageForPackage:(NSString *)name;
 - (PackageController *) packageController;
@@ -7678,7 +7679,7 @@ freeing the view controllers on tab change */
 
     bool dropped_;
     bool updating_;
-    id updatedelegate_;
+    NSObject<CydiaDelegate> *updatedelegate_;
     UITabBarController *root_;
 }
 
@@ -7721,7 +7722,7 @@ freeing the view controllers on tab change */
 }
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
+    return ![updatedelegate_ hudIsShowing] && (IsWildcat_ || orientation == UIInterfaceOrientationPortrait);
 }
 
 - (void) setTabBarController:(UITabBarController *)controller {
@@ -7957,7 +7958,7 @@ typedef enum {
     int tag_;
 
     UIKeyboard *keyboard_;
-    UIProgressHUD *hud_;
+    int huds_;
 
     SectionsController *sections_;
     ChangesController *changes_;
@@ -8518,6 +8519,10 @@ static _finline void _setHomePage(Cydia *self) {
     [super applicationWillSuspend];
 }
 
+- (BOOL) hudIsShowing {
+    return (huds_ > 0);
+}
+
 - (void) applicationSuspend:(__GSEvent *)event {
     // Use external process status API internally.
     // This is probably a really bad idea.
@@ -8528,17 +8533,17 @@ static _finline void _setHomePage(Cydia *self) {
         notify_cancel(notify_token);
     }
 
-    if (hud_ == nil && status == 0)
+    if (![self hudIsShowing] && status == 0)
         [super applicationSuspend:event];
 }
 
 - (void) _animateSuspension:(BOOL)arg0 duration:(double)arg1 startTime:(double)arg2 scale:(float)arg3 {
-    if (hud_ == nil)
+    if (![self hudIsShowing])
         [super _animateSuspension:arg0 duration:arg1 startTime:arg2 scale:arg3];
 }
 
 - (void) _setSuspended:(BOOL)value {
-    if (hud_ == nil)
+    if (![self hudIsShowing])
         [super _setSuspended:value];
 }
 
@@ -8553,6 +8558,7 @@ static _finline void _setHomePage(Cydia *self) {
     while ([target modalViewController] != nil) target = [target modalViewController];
     [[target view] addSubview:hud];
 
+    huds_++;
     return hud;
 }
 
@@ -8560,6 +8566,7 @@ static _finline void _setHomePage(Cydia *self) {
     [hud show:NO];
     [hud removeFromSuperview];
     [window_ setUserInteractionEnabled:YES];
+    huds_--;
 }
 
 - (CYViewController *) pageForPackage:(NSString *)name {

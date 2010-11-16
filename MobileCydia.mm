@@ -695,6 +695,16 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 /* }}} */
 
 /* C++ NSString Wrapper Cache {{{ */
+static _finline CFStringRef CYStringCreate(const char *data, size_t size) {
+    return size == 0 ? NULL :
+        CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(data), size, kCFStringEncodingUTF8, NO, kCFAllocatorNull) ?:
+        CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(data), size, kCFStringEncodingISOLatin1, NO, kCFAllocatorNull);
+}
+
+static _finline CFStringRef CYStringCreate(const char *data) {
+    return CYStringCreate(data, strlen(data));
+}
+
 class CYString {
   private:
     char *data_;
@@ -773,14 +783,10 @@ class CYString {
         return size_ == rhs.size_ && memcmp(data_, rhs.data_, size_) == 0;
     }
 
-    operator CFStringRef() {
-        if (cache_ == NULL) {
-            if (size_ == 0)
-                return nil;
-            cache_ = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<uint8_t *>(data_), size_, kCFStringEncodingUTF8, NO, kCFAllocatorNull);
-            if (cache_ == NULL)
-                cache_ = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<uint8_t *>(data_), size_, kCFStringEncodingISOLatin1, NO, kCFAllocatorNull);
-        } return cache_;
+    _finline operator CFStringRef() {
+        if (cache_ == NULL)
+            cache_ = CYStringCreate(data_, size_);
+        return cache_;
     }
 
     _finline operator id() {
@@ -1069,14 +1075,6 @@ NSString *SizeString(double size) {
     return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
 }
 
-static _finline CFStringRef CFCString(const char *value) {
-    size_t size(strlen(data));
-
-    return
-        CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(data), size, kCFStringEncodingUTF8, NO, kCFAllocatorNull) ?:
-        CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(data), size, kCFStringEncodingISOLatin1, NO, kCFAllocatorNull);
-}
-
 const char *StripVersion_(const char *version) {
     const char *colon(strchr(version, ':'));
     if (colon != NULL)
@@ -1090,7 +1088,7 @@ CFStringRef StripVersion(const char *version) {
         version = colon + 1;
     return CFStringCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(version), strlen(version), kCFStringEncodingUTF8, NO);
     // XXX: performance
-    return CFCString(version);
+    return CYStringCreate(version);
 }
 
 NSString *LocalizeSection(NSString *section) {
@@ -2147,9 +2145,9 @@ struct PackageNameOrdering :
                 tags_ = [[NSMutableArray alloc] initWithCapacity:8];
                 do {
                     const char *name(tag.Name());
-                    [tags_ addObject:(NSString *)CFCString(name)];
+                    [tags_ addObject:(NSString *)CYStringCreate(name)];
                     if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
-                        role_ = (NSString *) CFCString(name + 6);
+                        role_ = (NSString *) CYStringCreate(name + 6);
                     if (required_ && strncmp(name, "require::", 9) == 0 && (
                         true
                     ))

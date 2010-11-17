@@ -7555,9 +7555,20 @@ freeing the view controllers on tab change */
     [self showDoneButton];
 }
 
-- (void) doneButtonClicked {
+- (void) saveAndClose {
     [self save];
+
+    [[self navigationItem] setRightBarButtonItem:nil];
     [[self navigationController] dismissModalViewControllerAnimated:YES];
+}
+
+- (void) doneButtonClicked {
+    UIActivityIndicatorView *spinner = [[[UIActivityIndicatorView alloc] initWithFrame:CGRectMake(0, 0, 20.0f, 20.0f)] autorelease];
+    [spinner startAnimating];
+    UIBarButtonItem *spinItem = [[[UIBarButtonItem alloc] initWithCustomView:spinner] autorelease];
+    [[self navigationItem] setRightBarButtonItem:spinItem];
+
+    [self performSelector:@selector(saveAndClose) withObject:nil afterDelay:0];
 }
 
 - (void) showDoneButton {

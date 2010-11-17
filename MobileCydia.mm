@@ -4113,32 +4113,30 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
 
-        UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
+        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
             // OLD: [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(cancelButtonClicked)
-        ];
-        [[self navigationItem] setLeftBarButtonItem:leftItem];
-        [leftItem release];
+        ] autorelease]];
     } return self;
 }
 
 - (void) applyRightButton {
-    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CONFIRM")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(confirmButtonClicked)
-    ];
 #if !AlwaysReload && !IgnoreInstall
-    if (issues_ == nil && ![self isLoading]) [[self navigationItem] setRightBarButtonItem:rightItem];
-    else [super applyRightButton];
+    if (issues_ == nil && ![self isLoading])
+        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("CONFIRM")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(confirmButtonClicked)
+        ] autorelease]];
+    else
+        [super applyRightButton];
 #else
     [[self navigationItem] setRightBarButtonItem:nil];
 #endif
-    [rightItem release];
 }
 
 - (void) cancelButtonClicked {
@@ -6180,34 +6178,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated {
-    UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
+    [[self navigationItem] setLeftBarButtonItem:(editing ? [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("ADD")
         style:UIBarButtonItemStylePlain
         target:self
         action:@selector(addButtonClicked)
-    ];
-    [[self navigationItem] setLeftBarButtonItem:editing ? leftItem : [[self navigationItem] backBarButtonItem] animated:animated];
-    [leftItem release];
+    ] autorelease] : [[self navigationItem] backBarButtonItem]) animated:animated];
 
-    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
-        initWithTitle:editing ? UCLocalize("DONE") : UCLocalize("EDIT")
-        style:editing ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain
+    [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+        initWithTitle:(editing ? UCLocalize("DONE") : UCLocalize("EDIT"))
+        style:(editing ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
         target:self
         action:@selector(editButtonClicked)
-    ];
-    [[self navigationItem] setRightBarButtonItem:rightItem animated:animated];
-    [rightItem release];
+    ] autorelease] animated:animated];
 
-    if (IsWildcat_ && !editing) {
-        UIBarButtonItem *settingsItem = [[UIBarButtonItem alloc]
+    if (IsWildcat_ && !editing)
+        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("SETTINGS")
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(settingsButtonClicked)
-            ];
-        [[self navigationItem] setLeftBarButtonItem:settingsItem];
-        [settingsItem release];
-    }
+        ] autorelease]];
 }
 
 - (void) settingsButtonClicked {
@@ -6259,15 +6250,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) queueStatusDidChange {
 #if !AlwaysReload
     if (IsWildcat_) {
-        UIBarButtonItem *queueItem = [[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("QUEUE")
-            style:UIBarButtonItemStyleDone
-            target:self
-            action:@selector(queueButtonClicked)
-        ];
-        if (Queuing_) [[self navigationItem] setLeftBarButtonItem:queueItem];
-        else [[self navigationItem] setLeftBarButtonItem:nil];
-        [queueItem release];
+        if (Queuing_) {
+            [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+                initWithTitle:UCLocalize("QUEUE")
+                style:UIBarButtonItemStyleDone
+                target:self
+                action:@selector(queueButtonClicked)
+            ] autorelease]];
+        } else {
+            [[self navigationItem] setLeftBarButtonItem:nil];
+        }
     }
 #endif
 }
@@ -6277,14 +6269,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) updateRoleButton {
-    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
-        initWithTitle:expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE")
-        style:expert_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain
-        target:self
-        action:@selector(roleButtonClicked)
-    ];
-    if (Role_ != nil && ![Role_ isEqualToString:@"Developer"]) [[self navigationItem] setRightBarButtonItem:rightItem];
-    [rightItem release];
+    if (Role_ != nil && ![Role_ isEqualToString:@"Developer"])
+        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:(expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE"))
+            style:(expert_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
+            target:self
+            action:@selector(roleButtonClicked)
+        ] autorelease]];
 }
 
 - (void) roleButtonClicked {
@@ -6375,14 +6366,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         [[self navigationItem] setTitle:UCLocalize("MANAGE")];
 
-        UIBarButtonItem *settingsItem = [[UIBarButtonItem alloc]
+        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("SETTINGS")
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(settingsButtonClicked)
-        ];
-        [[self navigationItem] setLeftBarButtonItem:settingsItem];
-        [settingsItem release];
+        ] autorelease]];
 
         [self queueStatusDidChange];
     } return self;
@@ -6409,15 +6398,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) queueStatusDidChange {
 #if !AlwaysReload
     if (!IsWildcat_ && Queuing_) {
-        UIBarButtonItem *queueItem = [[UIBarButtonItem alloc]
+        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("QUEUE")
             style:UIBarButtonItemStyleDone
             target:self
             action:@selector(queueButtonClicked)
-        ];
-        [[self navigationItem] setRightBarButtonItem:queueItem];
-
-        [queueItem release];
+        ] autorelease]];
     } else {
         [[self navigationItem] setRightBarButtonItem:nil];
     }
@@ -6928,14 +6914,12 @@ freeing the view controllers on tab change */
         [filtered_ addObject:section];
     }
 
-    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
-        initWithTitle:[sections_ count] == 0 ? nil : UCLocalize("EDIT")
+    [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+        initWithTitle:([sections_ count] == 0 ? nil : UCLocalize("EDIT"))
         style:UIBarButtonItemStylePlain
         target:self
         action:@selector(editButtonClicked)
-    ];
-    [[self navigationItem] setRightBarButtonItem:rightItem animated:[[self navigationItem] rightBarButtonItem] != nil];
-    [rightItem release];
+    ] autorelease] animated:([[self navigationItem] rightBarButtonItem] != nil)];
 
     [list_ reloadData];
     _trace();
@@ -7183,23 +7167,21 @@ freeing the view controllers on tab change */
 
     [list_ reloadData];
 
-    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
-        initWithTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]]
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(upgradeButtonClicked)
-    ];
-    if (upgrades_ > 0) [[self navigationItem] setRightBarButtonItem:rightItem];
-    [rightItem release];
+    if (upgrades_ > 0)
+        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]]
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(upgradeButtonClicked)
+        ] autorelease]];
 
-    UIBarButtonItem *leftItem = [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("REFRESH")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(refreshButtonClicked)
-    ];
-    if (![delegate_ updating]) [[self navigationItem] setLeftBarButtonItem:leftItem];
-    [leftItem release];
+    if (![delegate_ updating])
+        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("REFRESH")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(refreshButtonClicked)
+        ] autorelease]];
 }
 
 @end
@@ -7588,14 +7570,12 @@ freeing the view controllers on tab change */
 }
 
 - (void) showDoneButton {
-    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc]
+    [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("DONE")
         style:UIBarButtonItemStyleDone
         target:self
         action:@selector(doneButtonClicked)
-    ];
-    [[self navigationItem] setRightBarButtonItem:rightItem animated:[[self navigationItem] rightBarButtonItem] == nil];
-    [rightItem release];
+    ] autorelease] animated:([[self navigationItem] rightBarButtonItem] == nil)];
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
@@ -7650,14 +7630,13 @@ freeing the view controllers on tab change */
     if ((self = [super init])) {
         [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
 
-        spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+        spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge] autorelease];
         CGRect spinrect = [spinner_ frame];
         spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
         spinrect.origin.y = [[self view] frame].size.height - 80.0f;
         [spinner_ setFrame:spinrect];
         [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
         [[self view] addSubview:spinner_];
-        [spinner_ release];
         [spinner_ startAnimating];
 
         CGRect captrect;
@@ -7665,7 +7644,7 @@ freeing the view controllers on tab change */
         captrect.size.height = 40.0f;
         captrect.origin.x = 0;
         captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
-        caption_ = [[UILabel alloc] initWithFrame:captrect];
+        caption_ = [[[UILabel alloc] initWithFrame:captrect] autorelease];
         [caption_ setText:@"Initializing Filesystem"];
         [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
@@ -7674,14 +7653,13 @@ freeing the view controllers on tab change */
         [caption_ setShadowColor:[UIColor blackColor]];
         [caption_ setTextAlignment:UITextAlignmentCenter];
         [[self view] addSubview:caption_];
-        [caption_ release];
 
         CGRect statusrect;
         statusrect.size.width = [[self view] frame].size.width;
         statusrect.size.height = 30.0f;
         statusrect.origin.x = 0;
         statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
-        status_ = [[UILabel alloc] initWithFrame:statusrect];
+        status_ = [[[UILabel alloc] initWithFrame:statusrect] autorelease];
         [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [status_ setText:@"(Cydia will exit when complete.)"];
         [status_ setFont:[UIFont systemFontOfSize:16.0f]];
@@ -7690,7 +7668,6 @@ freeing the view controllers on tab change */
         [status_ setShadowColor:[UIColor blackColor]];
         [status_ setTextAlignment:UITextAlignmentCenter];
         [[self view] addSubview:status_];
-        [status_ release];
     } return self;
 }
 
@@ -8808,15 +8785,14 @@ _trace();
 
     [window_ setUserInteractionEnabled:NO];
 
-    UIView *container = [[UIView alloc] init];
+    UIView *container = [[[UIView alloc] init] autorelease];
     [container setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
 
-    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+    UIActivityIndicatorView *spinner = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray] autorelease];
     [spinner startAnimating];
     [container addSubview:spinner];
-    [spinner release];
 
-    UILabel *label = [[UILabel alloc] init];
+    UILabel *label = [[[UILabel alloc] init] autorelease];
     [label setFont:[UIFont boldSystemFontOfSize:15.0f]];
     [label setBackgroundColor:[UIColor clearColor]];
     [label setTextColor:[UIColor blackColor]];
@@ -8824,7 +8800,6 @@ _trace();
     [label setShadowOffset:CGSizeMake(0, 1)];
     [label setText:UCLocalize("LOADING_DATA")];
     [container addSubview:label];
-    [label release];
 
     CGSize viewsize = [[tabbar_ view] frame].size;
     CGSize spinnersize = [spinner bounds].size;
@@ -8848,7 +8823,6 @@ _trace();
     [spinner setFrame:spinrect];
     [label setFrame:textrect];
     [[container_ view] addSubview:container];
-    [container release];
 
     [self reloadData];
     PrintTimes();

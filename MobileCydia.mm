@@ -2824,7 +2824,7 @@ struct PackageNameOrdering :
 }
 
 - (bool) isInstalledAndVisible:(NSNumber *)number {
-    return (![number boolValue] || [self visible]) && ![self uninstalled];
+    return ((![number boolValue] && ![role_ isEqualToString:@"cydia"]) || [self visible]) && ![self uninstalled];
 }
 
 - (bool) isVisibleInSection:(NSString *)name {

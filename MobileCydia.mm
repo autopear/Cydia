@@ -4297,8 +4297,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         bounds.size.height - prgsize.height - 20
     }, prgsize};
 
-    float closewidth = bounds.size.width - 20;
-    if (closewidth > 300) closewidth = 300;
+    float closewidth = std::min(bounds.size.width - 20, 300.0f);
 
     [progress_ setFrame:prgrect];
     [status_ setFrame:CGRectMake(
@@ -4338,8 +4337,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([context isEqualToString:@"conffile"]) {
         FILE *input = [database_ input];
-        if (button == [alert cancelButtonIndex]) fprintf(input, "N\n");
-        else if (button == [alert firstOtherButtonIndex]) fprintf(input, "Y\n");
+        if (button == [alert cancelButtonIndex])
+            fprintf(input, "N\n");
+        else if (button == [alert firstOtherButtonIndex])
+            fprintf(input, "Y\n");
         fflush(input);
     }
 }
@@ -6135,11 +6136,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
     _trace();
 
-     int count([sources_ count]);
+    int count([sources_ count]);
     offset_ = 0;
     for (int i = 0; i != count; i++) {
-        if ([[sources_ objectAtIndex:i] record] == nil) break;
-        else offset_++;
+        if ([[sources_ objectAtIndex:i] record] == nil)
+            break;
+        offset_++;
     }
 
     [list_ setEditing:NO];
@@ -6768,7 +6770,9 @@ freeing the view controllers on tab change */
     static NSString *reuseIdentifier = @"SectionCell";
 
     SectionCell *cell = (SectionCell *) [tableView dequeueReusableCellWithIdentifier:reuseIdentifier];
-    if (cell == nil) cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
+    if (cell == nil)
+        cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
+
     [cell setSection:[self sectionAtIndexPath:indexPath] editing:editing_];
 
     return cell;
@@ -7605,13 +7609,11 @@ freeing the view controllers on tab change */
 }
 
 - (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
-    if (section == 3) return 44.0f;
-    else return 0;
+    return section == 3 ? 44.0f : 0;
 }
 
 - (UIView *) tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
-    if (section == 3) return container_;
-    else return nil;
+    return section == 3 ? container_ : nil;
 }
 
 @end
@@ -7767,7 +7769,8 @@ freeing the view controllers on tab change */
 }
 
 - (void) completeUpdate {
-    if (!updating_) return;
+    if (!updating_)
+        return;
     updating_ = false;
 
     [self raiseBar:YES];
@@ -7849,7 +7852,8 @@ freeing the view controllers on tab change */
 }
 
 - (void) dropBar:(BOOL)animated {
-    if (dropped_) return;
+    if (dropped_)
+        return;
     dropped_ = true;
 
     [[self view] addSubview:refreshbar_];
@@ -7860,12 +7864,14 @@ freeing the view controllers on tab change */
     barframe.origin.y = sboffset;
     [refreshbar_ setFrame:barframe];
 
-    if (animated) [UIView beginAnimations:nil context:NULL];
+    if (animated)
+        [UIView beginAnimations:nil context:NULL];
     CGRect viewframe = [[root_ view] frame];
     viewframe.origin.y += barframe.size.height + sboffset;
     viewframe.size.height -= barframe.size.height + sboffset;
     [[root_ view] setFrame:viewframe];
-    if (animated) [UIView commitAnimations];
+    if (animated)
+        [UIView commitAnimations];
 
     // Ensure bar has the proper width for our view, it might have changed
     barframe.size.width = viewframe.size.width;
@@ -7876,20 +7882,23 @@ freeing the view controllers on tab change */
 }
 
 - (void) raiseBar:(BOOL)animated {
-    if (!dropped_) return;
+    if (!dropped_)
+        return;
     dropped_ = false;
 
     [refreshbar_ removeFromSuperview];
 
     CGFloat sboffset = [self statusBarHeight];
 
-    if (animated) [UIView beginAnimations:nil context:NULL];
+    if (animated)
+        [UIView beginAnimations:nil context:NULL];
     CGRect barframe = [refreshbar_ frame];
     CGRect viewframe = [[root_ view] frame];
     viewframe.origin.y -= barframe.size.height + sboffset;
     viewframe.size.height += barframe.size.height + sboffset;
     [[root_ view] setFrame:viewframe];
-    if (animated) [UIView commitAnimations];
+    if (animated)
+        [UIView commitAnimations];
 
     // XXX: fix Apple's layout bug
     [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
@@ -8073,7 +8082,8 @@ static _finline void _setHomePage(Cydia *self) {
 - (int)indexOfTabWithTag:(int)tag {
     int i = 0;
     for (UINavigationController *controller in [tabbar_ viewControllers]) {
-        if ([[controller tabBarItem] tag] == tag) return i;
+        if ([[controller tabBarItem] tag] == tag)
+            return i;
         i += 1;
     }
 
@@ -8142,7 +8152,8 @@ static _finline void _setHomePage(Cydia *self) {
 
     [database_ yieldToSelector:@selector(reloadData) withObject:nil];
 
-    if (hud) [self removeProgressHUD:hud];
+    if (hud != nil)
+        [self removeProgressHUD:hud];
 
     size_t changes(0);
 
@@ -8214,7 +8225,8 @@ static _finline void _setHomePage(Cydia *self) {
 
     ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
     CYNavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
-    if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
+    if (IsWildcat_)
+        [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:navigation animated:YES];
 
     [progress
@@ -8252,7 +8264,8 @@ static _finline void _setHomePage(Cydia *self) {
     CYNavigationController *confirm_([[[CYNavigationController alloc] initWithRootViewController:page] autorelease]);
     [confirm_ setDelegate:self];
 
-    if (IsWildcat_) [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
+    if (IsWildcat_)
+        [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:confirm_ animated:YES];
 
     return true;
@@ -8318,7 +8331,8 @@ static _finline void _setHomePage(Cydia *self) {
         [navigation pushViewController:progress animated:YES];
     } else {
         navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
-        if (IsWildcat_) [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
+        if (IsWildcat_)
+            [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
         [container_ presentModalViewController:navigation animated:YES];
     }
 
@@ -8339,9 +8353,9 @@ static _finline void _setHomePage(Cydia *self) {
 
     CYNavigationController *navController = (CYNavigationController *) [tabbar_ selectedViewController];
     [navController setViewControllers:[NSArray arrayWithObject:page]];
-    for (CYNavigationController *page in [tabbar_ viewControllers]) {
-        if (page != navController) [page setViewControllers:nil];
-    }
+    for (CYNavigationController *page in [tabbar_ viewControllers])
+        if (page != navController)
+            [page setViewControllers:nil];
 }
 
 - (CYViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class {
@@ -8368,7 +8382,8 @@ static _finline void _setHomePage(Cydia *self) {
             _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
             withClass:[ManageController class]
         ] retain];
-        if (!IsWildcat_) queueDelegate_ = manage_;
+        if (!IsWildcat_)
+            queueDelegate_ = manage_;
     }
     return manage_;
 }
@@ -8388,7 +8403,8 @@ static _finline void _setHomePage(Cydia *self) {
 - (InstalledController *) installedController {
     if (installed_ == nil) {
         installed_ = [[InstalledController alloc] initWithDatabase:database_];
-        if (IsWildcat_) queueDelegate_ = installed_;
+        if (IsWildcat_)
+            queueDelegate_ = installed_;
     }
     return installed_;
 }
@@ -8421,7 +8437,8 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) showSettings {
     RoleController *role = [[[RoleController alloc] initWithDatabase:database_ delegate:self] autorelease];
     CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
-    if (IsWildcat_) [nav setModalPresentationStyle:UIModalPresentationFormSheet];
+    if (IsWildcat_)
+        [nav setModalPresentationStyle:UIModalPresentationFormSheet];
     [container_ presentModalViewController:nav animated:YES];
 }
 
@@ -8442,7 +8459,8 @@ static _finline void _setHomePage(Cydia *self) {
 // Returns the navigation controller for the queuing badge.
 - (id) queueBadgeController {
     int index = [self indexOfTabWithTag:kManageTag];
-    if (index == -1) index = [self indexOfTabWithTag:kInstalledTag];
+    if (index == -1)
+        index = [self indexOfTabWithTag:kInstalledTag];
 
     return [[tabbar_ viewControllers] objectAtIndex:index];
 }
@@ -8652,7 +8670,8 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationWillResignActive:(UIApplication *)application {
     // Stop refreshing if you get a phone call or lock the device.
-    if ([container_ updating]) [container_ cancelUpdate];
+    if ([container_ updating])
+        [container_ cancelUpdate];
 
     if ([[self superclass] instancesRespondToSelector:@selector(applicationWillResignActive:)])
         [super applicationWillResignActive:application];

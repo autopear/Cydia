@@ -5314,6 +5314,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target:self
         action:@selector(customButtonClicked)
     ];
+
+    [self reloadURL];
 }
 
 - (bool) isLoading {

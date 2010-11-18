@@ -2118,12 +2118,6 @@ struct PackageNameOrdering :
                 data[i] |= 0x20;
         _end
 
-        if (!file_.end()) {
-            _profile(Package$initWithVersion$Source)
-                source_ = [([database_ getSource:file_.File()] ?: (Source *) [NSNull null]) retain];
-            _end
-        }
-
         required_ = true;
 
         _profile(Package$initWithVersion$Tags)

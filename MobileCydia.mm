@@ -1733,8 +1733,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     NSMutableArray *tags_;
     NSString *role_;
 
-    NSArray *relationships_;
-
     NSMutableDictionary *metadata_;
     _transient NSDate *firstSeen_;
     _transient NSDate *lastSeen_;
@@ -1795,7 +1793,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (NSString *) support;
 
 - (NSArray *) files;
-- (NSArray *) relationships;
 - (NSArray *) warnings;
 - (NSArray *) applications;
 
@@ -1979,8 +1976,6 @@ struct PackageNameOrdering :
     if (role_ != nil)
         [role_ release];
 
-    if (relationships_ != nil)
-        [relationships_ release];
     if (metadata_ != nil)
         [metadata_ release];
 
@@ -2537,10 +2532,6 @@ struct PackageNameOrdering :
         [files addObject:[NSString stringWithUTF8String:line.c_str()]];
 
     return files;
-}
-
-- (NSArray *) relationships {
-    return relationships_;
 }
 
 - (NSArray *) warnings {

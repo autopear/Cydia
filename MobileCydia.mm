@@ -8479,8 +8479,7 @@ static _finline void _setHomePage(Cydia *self) {
             [[[self queueBadgeController] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
         }
 
-        // Show the changes in the current view.
-        [(CYNavigationController *) [tabbar_ selectedViewController] reloadData];
+        [self _updateData];
         [queueDelegate_ queueStatusDidChange];
     }
 }

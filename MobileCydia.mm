@@ -118,8 +118,6 @@ extern "C" {
 #include <errno.h>
 #include <pcre.h>
 
-#include <ext/hash_map>
-
 #include "UICaboodle/BrowserView.h"
 
 #include "substrate.h"
@@ -6828,40 +6826,13 @@ freeing the view controllers on tab change */
     [sections_ removeAllObjects];
     [filtered_ removeAllObjects];
 
-#if 0
-    typedef __gnu_cxx::hash_map<NSString *, Section *, NSStringMapHash, NSStringMapEqual> SectionMap;
-    SectionMap sections;
-    sections.resize(64);
-#else
     NSMutableDictionary *sections([NSMutableDictionary dictionaryWithCapacity:32]);
-#endif
 
     _trace();
     for (Package *package in packages) {
         NSString *name([package section]);
         NSString *key(name == nil ? @"" : name);
 
-#if 0
-        Section **section;
-
-        _profile(SectionsView$reloadData$Section)
-            section = &sections[key];
-            if (*section == nil) {
-                _profile(SectionsView$reloadData$Section$Allocate)
-                    *section = [[[Section alloc] initWithName:name localize:YES] autorelease];
-                _end
-            }
-        _end
-
-        [*section addToCount];
-
-        _profile(SectionsView$reloadData$Filter)
-            if (![package valid] || ![package visible])
-                continue;
-        _end
-
-        [*section addToRow];
-#else
         Section *section;
 
         _profile(SectionsView$reloadData$Section)
@@ -6882,16 +6853,10 @@ freeing the view controllers on tab change */
         _end
 
         [section addToRow];
-#endif
     }
     _trace();
 
-#if 0
-    for (SectionMap::const_iterator i(sections.begin()), e(sections.end()); i != e; ++i)
-        [sections_ addObject:i->second];
-#else
     [sections_ addObjectsFromArray:[sections allValues]];
-#endif
 
     [sections_ sortUsingSelector:@selector(compareByLocalized:)];
 

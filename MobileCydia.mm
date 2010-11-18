@@ -1708,7 +1708,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     CYString section_;
     _transient NSString *section$_;
     bool essential_;
-    bool required_;
     bool visible_;
     bool obsolete_;
 
@@ -2070,7 +2069,7 @@ struct PackageNameOrdering :
 }
 
 - (void) setVisible {
-    visible_ = required_ && [self unfiltered];
+    visible_ = [self unfiltered];
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
@@ -2118,8 +2117,6 @@ struct PackageNameOrdering :
                 data[i] |= 0x20;
         _end
 
-        required_ = true;
-
         _profile(Package$initWithVersion$Tags)
             pkgCache::TagIterator tag(iterator_.TagList());
             if (!tag.end()) {
@@ -2129,10 +2126,6 @@ struct PackageNameOrdering :
                     [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
                     if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
                         role_ = (NSString *) CYStringCreate(name + 6);
-                    if (required_ && strncmp(name, "require::", 9) == 0 && (
-                        true
-                    ))
-                        required_ = false;
                     ++tag;
                 } while (!tag.end());
             }

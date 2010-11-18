@@ -389,7 +389,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 @end
 
 #define ShowInternals 0
-#define LogBrowser 1
+#define LogBrowser 0
 
 #define lprintf(args...) fprintf(stderr, args)
 

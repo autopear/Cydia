@@ -1703,7 +1703,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     pkgCache::VerFileIterator file_;
 
     Source *source_;
-    bool cached_;
     bool parsed_;
 
     CYString section_;
@@ -2126,10 +2125,7 @@ struct PackageNameOrdering :
 
         if (!file_.end()) {
             _profile(Package$initWithVersion$Source)
-                source_ = [database_ getSource:file_.File()];
-                if (source_ != nil)
-                    [source_ retain];
-                cached_ = true;
+                source_ = [([database_ getSource:file_.File()] ?: (Source *) [NSNull null]) retain];
             _end
         }
 
@@ -2632,21 +2628,16 @@ struct PackageNameOrdering :
 }
 
 - (Source *) source {
-    if (!cached_) {
+    if (source_ == nil) {
         @synchronized (database_) {
             if ([database_ era] != era_ || file_.end())
-                source_ = nil;
-            else {
-                source_ = [database_ getSource:file_.File()];
-                if (source_ != nil)
-                    [source_ retain];
-            }
-
-            cached_ = true;
+                source_ = (Source *) [NSNull null];
+            else
+                source_ = [([database_ getSource:file_.File()] ?: (Source *) [NSNull null]) retain];
         }
     }
 
-    return source_;
+    return source_ == (Source *) [NSNull null] ? nil : source_;
 }
 
 - (NSString *) role {

@@ -1075,21 +1075,11 @@ NSString *SizeString(double size) {
     return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
 }
 
-const char *StripVersion_(const char *version) {
+static _finline const char *StripVersion_(const char *version) {
     const char *colon(strchr(version, ':'));
     if (colon != NULL)
         version = colon + 1;
     return version;
-}
-
-// XXX: rename this to involve "Create"
-CFStringRef StripVersion(const char *version) {
-    const char *colon(strchr(version, ':'));
-    if (colon != NULL)
-        version = colon + 1;
-    return CFStringCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(version), strlen(version), kCFStringEncodingUTF8, NO);
-    // XXX: performance
-    return CYStringCreate(version);
 }
 
 NSString *LocalizeSection(NSString *section) {
@@ -2104,7 +2094,8 @@ struct PackageNameOrdering :
         database_ = database;
 
         _profile(Package$initWithVersion$Latest)
-            latest_ = (NSString *) StripVersion(version_.VerStr());
+            const char *latest(StripVersion_(version_.VerStr()));
+            latest_ = (NSString *) CFStringCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(latest), strlen(latest), kCFStringEncodingASCII, NO);
         _end
 
         pkgCache::VerIterator current;

@@ -2748,29 +2748,41 @@ struct PackageNameOrdering :
 }
 
 - (void) clear {
+@synchronized (database_) {
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
-    resolver->Protect(iterator_);
-}
+
+    pkgCacheFile &cache([database_ cache]);
+    cache->SetReInstall(iterator_, false);
+    cache->MarkKeep(iterator_, false);
+} }
 
 - (void) install {
+@synchronized (database_) {
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
     resolver->Protect(iterator_);
+
     pkgCacheFile &cache([database_ cache]);
+    cache->SetReInstall(iterator_, false);
     cache->MarkInstall(iterator_, false);
+
     pkgDepCache::StateCache &state((*cache)[iterator_]);
     if (!state.Install())
         cache->SetReInstall(iterator_, true);
-}
+} }
 
 - (void) remove {
+@synchronized (database_) {
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
-    resolver->Protect(iterator_);
     resolver->Remove(iterator_);
-    [database_ cache]->MarkDelete(iterator_, true);
-}
+    resolver->Protect(iterator_);
+
+    pkgCacheFile &cache([database_ cache]);
+    cache->SetReInstall(iterator_, false);
+    cache->MarkDelete(iterator_, true);
+} }
 
 - (bool) isUnfilteredAndSearchedForBy:(NSString *)search {
     _profile(Package$isUnfilteredAndSearchedForBy)
@@ -3408,6 +3420,19 @@ static NSString *Warning_;
         _trace();
     }
 } } CYPoolEnd() _trace(); }
+
+- (void) clear {
+@synchronized (self) {
+    delete resolver_;
+    resolver_ = new pkgProblemResolver(cache_);
+
+    for (pkgCache::PkgIterator iterator(cache_->PkgBegin()); !iterator.end(); ++iterator) {
+        if (!cache_[iterator].Keep()) {
+            cache_->MarkKeep(iterator, false);
+            cache_->SetReInstall(iterator, false);
+        }
+    }
+} }
 
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
@@ -8450,16 +8475,7 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) cancelAndClear:(bool)clear {
     @synchronized (self) {
         if (clear) {
-            // Clear all marks.
-            pkgCacheFile &cache([database_ cache]);
-            for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator) {
-                // Unmark method taken from Synaptic Package Manager.
-                // Thanks for being sane, unlike Aptitude.
-                if (!cache[iterator].Keep()) {
-                    cache->MarkKeep(iterator, false);
-                    cache->SetReInstall(iterator, false);
-                }
-            }
+            [database_ clear];
 
             // Stop queuing.
             Queuing_ = false;

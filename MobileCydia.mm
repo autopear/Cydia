@@ -1360,8 +1360,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (bool) upgrade;
 - (void) update;
 
-- (void) setVisible;
-
 - (void) updateWithStatus:(Status &)status;
 
 - (void) setDelegate:(id)delegate;
@@ -1706,7 +1704,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     CYString section_;
     _transient NSString *section$_;
     bool essential_;
-    bool visible_;
     bool obsolete_;
 
     NSString *latest_;
@@ -1778,8 +1775,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (BOOL) hasMode;
 - (NSString *) mode;
 
-- (void) setVisible;
-
 - (NSString *) id;
 - (NSString *) name;
 - (UIImage *) icon;
@@ -1815,7 +1810,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (bool) isUnfilteredAndSearchedForBy:(NSString *)search;
 - (bool) isUnfilteredAndSelectedForBy:(NSString *)search;
-- (bool) isInstalledAndVisible:(NSNumber *)number;
+- (bool) isInstalledAndUnfiltered:(NSNumber *)number;
 - (bool) isVisibleInSection:(NSString *)section;
 - (bool) isVisibleInSource:(Source *)source;
 
@@ -2066,10 +2061,6 @@ struct PackageNameOrdering :
     _end
 }
 
-- (void) setVisible {
-    visible_ = [self unfiltered];
-}
-
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
@@ -2185,10 +2176,6 @@ struct PackageNameOrdering :
             obsolete_ = [self hasTag:@"cydia::obsolete"];
             essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
         _end
-
-        _profile(Package$initWithVersion$setVisible)
-            [self setVisible];
-        _end
     _end } return self;
 }
 
@@ -2219,17 +2206,19 @@ struct PackageNameOrdering :
         if (section_.empty())
             return nil;
 
-        std::replace(section_.data(), section_.data() + section_.size(), '_', ' ');
-        NSString *name(section_);
+        _profile(Package$section)
+            std::replace(section_.data(), section_.data() + section_.size(), '_', ' ');
+            NSString *name(section_);
 
-      lookup:
-        if (NSDictionary *value = [SectionMap_ objectForKey:name])
-            if (NSString *rename = [value objectForKey:@"Rename"]) {
-                name = rename;
-                goto lookup;
-            }
+          lookup:
+            if (NSDictionary *value = [SectionMap_ objectForKey:name])
+                if (NSString *rename = [value objectForKey:@"Rename"]) {
+                    name = rename;
+                    goto lookup;
+                }
 
-        section$_ = name;
+            section$_ = name;
+        _end
     } return section$_;
 }
 
@@ -2353,9 +2342,9 @@ struct PackageNameOrdering :
     _profile(Package$upgradableAndEssential)
         pkgCache::VerIterator current(iterator_.CurrentVer());
         if (current.end())
-            return essential && essential_ && visible_;
+            return essential && essential_;
         else
-            return !version_.end() && version_ != current;// && (!essential || ![database_ cache][iterator_].Keep());
+            return !version_.end() && version_ != current;
     _end
 }
 
@@ -2378,22 +2367,21 @@ struct PackageNameOrdering :
             return false;
     _end
 
-    NSString *section;
+    return true;
+}
 
-    _profile(Package$unfiltered$section)
-        section = [self section];
-    _end
+- (BOOL) visible {
+    if (![self unfiltered])
+        return false;
 
-    _profile(Package$unfiltered$isSectionVisible)
+    NSString *section([self section]);
+
+    _profile(Package$visible$isSectionVisible)
         if (section != nil && !isSectionVisible(section))
             return false;
     _end
 
     return true;
-}
-
-- (BOOL) visible {
-    return visible_;
 }
 
 - (BOOL) half {
@@ -2795,19 +2783,18 @@ struct PackageNameOrdering :
     _end
 }
 
-- (bool) isInstalledAndVisible:(NSNumber *)number {
-    return ((![number boolValue] && ![role_ isEqualToString:@"cydia"]) || [self visible]) && ![self uninstalled];
+- (bool) isInstalledAndUnfiltered:(NSNumber *)number {
+    return ![self uninstalled] && (![number boolValue] && ![role_ isEqualToString:@"cydia"] || [self unfiltered]);
 }
 
 - (bool) isVisibleInSection:(NSString *)name {
-    NSString *section = [self section];
+    NSString *section([self section]);
 
-    return
-        [self visible] && (
-            name == nil ||
-            section == nil && [name length] == 0 ||
-            [name isEqualToString:section]
-        );
+    return (
+        name == nil ||
+        section == nil && [name length] == 0 ||
+        [name isEqualToString:section]
+    ) && [self visible];
 }
 
 - (bool) isVisibleInSource:(Source *)source {
@@ -3551,11 +3538,6 @@ static NSString *Warning_;
 
 - (void) update {
     [self updateWithStatus:status_];
-}
-
-- (void) setVisible {
-    for (Package *package in [self packages])
-        [package setVisible];
 }
 
 - (void) updateWithStatus:(Status &)status {
@@ -6222,7 +6204,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (NSString *) title { return UCLocalize("INSTALLED"); }
 
 - (id) initWithDatabase:(Database *)database {
-    if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndVisible:) with:[NSNumber numberWithBool:YES]]) != nil) {
+    if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndUnfiltered:) with:[NSNumber numberWithBool:YES]]) != nil) {
         [self updateRoleButton];
         [self queueStatusDidChange];
     } return self;
@@ -7027,10 +7009,7 @@ freeing the view controllers on tab change */
 - (void) _reloadPackages:(NSArray *)packages {
     _trace();
     for (Package *package in packages)
-        if (
-            [package uninstalled] && [package valid] && [package visible] ||
-            [package upgradableAndEssential:YES]
-        )
+        if ([package upgradableAndEssential:YES] || [package visible])
             CFArrayAppendValue(packages_, package);
 
     _trace();
@@ -8149,7 +8128,6 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) updateData {
-    [database_ setVisible];
     [self _updateData];
 }
 

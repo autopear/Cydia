@@ -951,6 +951,11 @@ class CYColor {
   private:
     CGColorRef color_;
 
+    static CGColorRef Create_(CGColorSpaceRef space, float red, float green, float blue, float alpha) {
+        CGFloat color[] = {red, green, blue, alpha};
+        return CGColorCreate(space, color);
+    }
+
   public:
     CYColor() :
         color_(NULL)
@@ -958,7 +963,7 @@ class CYColor {
     }
 
     CYColor(CGColorSpaceRef space, float red, float green, float blue, float alpha) :
-        color_(NULL)
+        color_(Create_(space, red, green, blue, alpha))
     {
         Set(space, red, green, blue, alpha);
     }
@@ -974,8 +979,7 @@ class CYColor {
 
     void Set(CGColorSpaceRef space, float red, float green, float blue, float alpha) {
         Clear();
-        float color[] = {red, green, blue, alpha};
-        color_ = CGColorCreate(space, (CGFloat *) color);
+        color_ = Create_(space, red, green, blue, alpha);
     }
 
     operator CGColorRef() {

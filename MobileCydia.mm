@@ -4575,9 +4575,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation ContentView
+
 - (id) initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame]) != nil) {
-        /* Fix landscape stretching. */
         [self setNeedsDisplayOnBoundsChange:YES];
     } return self;
 }
@@ -4590,10 +4590,47 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super drawRect:rect];
     [delegate_ drawContentRect:rect];
 }
+
+@end
+/* }}} */
+/* Cydia TableView Cell {{{ */
+@interface CYTableViewCell : UITableViewCell {
+    ContentView *content_;
+    bool highlighted_;
+}
+
+@end
+
+@implementation CYTableViewCell
+
+- (void) dealloc {
+    [content_ release];
+    [super dealloc];
+}
+
+- (void) _updateHighlightColorsForView:(id)view highlighted:(BOOL)highlighted {
+    //NSLog(@"_updateHighlightColorsForView:%@ highlighted:%s [content_=%@]", view, highlighted ? "YES" : "NO", content_);
+
+    if (view == content_) {
+        //NSLog(@"_updateHighlightColorsForView:content_ highlighted:%s", highlighted ? "YES" : "NO", content_);
+        highlighted_ = highlighted;
+    }
+
+    [super _updateHighlightColorsForView:view highlighted:highlighted];
+}
+
+- (void) setSelected:(BOOL)selected animated:(BOOL)animated {
+    //NSLog(@"setSelected:%s animated:%s", selected ? "YES" : "NO", animated ? "YES" : "NO");
+    highlighted_ = selected;
+
+    [super setSelected:selected animated:animated];
+    [content_ setNeedsDisplay];
+}
+
 @end
 /* }}} */
 /* Package Cell {{{ */
-@interface PackageCell : UITableViewCell <
+@interface PackageCell : CYTableViewCell <
     ContentDelegate
 > {
     UIImage *icon_;
@@ -4604,7 +4641,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIImage *badge_;
     Package *package_;
     UIColor *color_;
-    ContentView *content_;
     BOOL faded_;
     float fade_;
     UIImage *placard_;
@@ -4657,7 +4693,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [self clearPackage];
-    [content_ release];
     [color_ release];
     [super dealloc];
 }
@@ -4750,7 +4785,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool selected([self isSelected]);
+    bool highlighted(highlighted_);
     float width([self bounds].size.width);
 
 #if 0
@@ -4781,26 +4816,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         )];
     }
 
-    if (selected)
+    if (highlighted)
         UISetColor(White_);
 
-    if (!selected)
+    if (!highlighted)
         UISetColor(commercial_ ? Purple_ : Black_);
     [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
     [source_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
 
-    if (!selected)
+    if (!highlighted)
         UISetColor(commercial_ ? Purplish_ : Gray_);
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 46) withFont:Font14_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (placard_ != nil)
         [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
-}
-
-- (void) setSelected:(BOOL)selected animated:(BOOL)fade {
-    //[self _setBackgroundColor];
-    [super setSelected:selected animated:fade];
-    [content_ setNeedsDisplay];
 }
 
 + (int) heightForPackage:(Package *)package {
@@ -4810,7 +4839,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Section Cell {{{ */
-@interface SectionCell : UITableViewCell <
+@interface SectionCell : CYTableViewCell <
     ContentDelegate
 > {
     NSString *basic_;
@@ -4818,7 +4847,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *name_;
     NSString *count_;
     UIImage *icon_;
-    ContentView *content_;
     UISwitch *switch_;
     BOOL editing_;
 }
@@ -4855,8 +4883,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self clearSection];
     [icon_ release];
     [switch_ release];
-    [content_ release];
-
     [super dealloc];
 }
 
@@ -4933,20 +4959,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    BOOL selected = [self isSelected];
+    bool highlighted(highlighted_);
 
     [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
 
-    if (selected)
+    if (highlighted)
         UISetColor(White_);
-
-    if (!selected)
-        UISetColor(Black_);
 
     float width(rect.size.width);
     if (editing_)
         width -= 87;
 
+    if (!highlighted)
+        UISetColor(Black_);
     [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
     CGSize size = [count_ sizeWithFont:Font14_];
@@ -5623,14 +5648,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Source Cell {{{ */
-@interface SourceCell : UITableViewCell <
+@interface SourceCell : CYTableViewCell <
     ContentDelegate
 > {
     UIImage *icon_;
     NSString *origin_;
     NSString *description_;
     NSString *label_;
-    ContentView *content_;
 }
 
 - (void) setSource:(Source *)source;
@@ -5669,7 +5693,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [self clearSource];
-    [content_ release];
     [super dealloc];
 }
 
@@ -5688,30 +5711,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) setSelected:(BOOL)selected animated:(BOOL)animated {
-    [super setSelected:selected animated:animated];
-    [content_ setNeedsDisplay];
-}
-
 - (void) drawContentRect:(CGRect)rect {
-    bool selected([self isSelected]);
+    bool highlighted(highlighted_);
     float width(rect.size.width);
 
     if (icon_ != nil)
         [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
 
-    if (selected)
+    if (highlighted)
         UISetColor(White_);
 
-    if (!selected)
+    if (!highlighted)
         UISetColor(Black_);
     [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
-    if (!selected)
+    if (!highlighted)
         UISetColor(Blue_);
     [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
 
-    if (!selected)
+    if (!highlighted)
         UISetColor(Gray_);
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 40) withFont:Font14_ lineBreakMode:UILineBreakModeTailTruncation];
 }

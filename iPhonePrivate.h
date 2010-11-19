@@ -241,6 +241,7 @@ typedef enum {
 
 @interface UITableViewCell (Apple)
 - (float) selectionPercent;
+- (void) _updateHighlightColorsForView:(id)view highlighted:(BOOL)highlighted;
 @end
 
 @interface UITextField (Apple)

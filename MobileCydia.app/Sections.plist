@@ -4,286 +4,145 @@
 
 <dict>
     <key>Hunspell Dictionaries</key>
-    <dict>
-        <key>Rename</key>
-        <string>Dictionaries (Hunspell)</string>
-    </dict>
+    <string>Dictionaries</string>
 
     <key>Utility</key>
-    <dict>
-        <key>Rename</key>
-        <string>Utilities</string>
-    </dict>
+    <string>Utilities</string>
 
     <key>Themes (Springboard)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (SpringBoard)</string>
-    </dict>
+    <string>Themes (SpringBoard)</string>
 
     <key>Themes (SummerBoard)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (SpringBoard)</string>
-    </dict>
+    <string>Themes (SpringBoard)</string>
     
     <key>Themes (Systen)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (System)</string>
-    </dict>
+    <string>Themes (System)</string>
 
     <key>Intelliborn</key>
-    <dict>
-        <key>Rename</key>
-        <string>Utilities</string>
-    </dict>
+    <string>Utilities</string>
 
     <key>SMS</key>
-    <dict>
-        <key>Rename</key>
-        <string>Messaging</string>
-    </dict>
+    <string>Messaging</string>
 
     <key>CarrierBundle</key>
-    <dict>
-        <key>Rename</key>
-        <string>Carrier Bundles</string>
-    </dict>
+    <string>Carrier Bundles</string>
 
     <key>Messages</key>
-    <dict>
-        <key>Rename</key>
-        <string>Messaging</string>
-    </dict>
+    <string>Messaging</string>
 
     <key>Themes (Locksceen)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (LockScreen)</string>
-    </dict>
+    <string>Themes (LockScreen)</string>
 
     <key>Themes (Lockscree)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (LockScreen)</string>
-    </dict>
+    <string>Themes (LockScreen)</string>
 
     <key>Themes (Losckscreen)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (LockScreen)</string>
-    </dict>
+    <string>Themes (LockScreen)</string>
 
     <key>Themes (Video)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Videos)</string>
-    </dict>
+    <string>Themes (Videos)</string>
 
     <key>Utilites</key>
-    <dict>
-        <key>Rename</key>
-        <string>Utilities</string>
-    </dict>
+    <string>Utilities</string>
 
     <key>Themes (Lockscreen)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (LockScreen)</string>
-    </dict>
+    <string>Themes (LockScreen)</string>
 
     <key>Themes (Complet)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Complete)</string>
-    </dict>
+    <string>Themes (Complete)</string>
     
     <key>Themes (Widgets)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Addons)</string>
-    </dict>
+    <string>Themes (Addons)</string>
 
     <key>Wallpapers</key>
-    <dict>
-        <key>Rename</key>
-        <string>Wallpaper</string>
-    </dict>
+    <string>Wallpaper</string>
 
     <key>Messageing</key>
-    <dict>
-        <key>Rename</key>
-        <string>Messaging</string>
-    </dict>
+    <string>Messaging</string>
 
     <key>Network</key>
-    <dict>
-        <key>Rename</key>
-        <string>Networking</string>
-    </dict>
+    <string>Networking</string>
     
     <key>Ringtone</key>
-    <dict>
-        <key>Rename</key>
-        <string>Ringtones</string>
-    </dict>
+    <string>Ringtones</string>
 
     <key>Tweak</key>
-    <dict>
-        <key>Rename</key>
-        <string>Tweaks</string>
-    </dict>
+    <string>Tweaks</string>
 
     <key>Tweaks 2.0</key>
-    <dict>
-        <key>Rename</key>
-        <string>Tweaks (2.0)</string>
-    </dict>
+    <string>Tweaks (2.0)</string>
 
     <key>Tweaks 2.1</key>
-    <dict>
-        <key>Rename</key>
-        <string>Tweaks (2.1)</string>
-    </dict>
+    <string>Tweaks (2.1)</string>
 
     <key>Tweaks 2.2</key>
-    <dict>
-        <key>Rename</key>
-        <string>Tweaks (2.2)</string>
-    </dict>
+    <string>Tweaks (2.2)</string>
 
     <key>Tweaks 3.0</key>
-    <dict>
-        <key>Rename</key>
-        <string>Tweaks (3.0)</string>
-    </dict>
+    <string>Tweaks (3.0)</string>
     
     <key>SBSettings Addons</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (SBSettings)</string>
-    </dict>
+    <string>Addons (SBSettings)</string>
     
     <key>LockInfo Addons</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (LockInfo)</string>
-    </dict>
+    <string>Addons (LockInfo)</string>
     
     <key>App Addons</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons</string>
-    </dict>
+    <string>Addons</string>
     
     <key>App Addons (Iconoclasm)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (Iconoclasm)</string>
-    </dict>
+    <string>Addons (Iconoclasm)</string>
     
     <key>BossPaper Addons</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (BossPaper)</string>
-    </dict>
+    <string>Addons (BossPaper)</string>
     
     <key>Lockinfo Addons</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (LockInfo)</string>
-    </dict>
+    <string>Addons (LockInfo)</string>
 
     <key>Dictionaries (Hunspell)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Dictionaries</string>
-    </dict>
+    <string>Dictionaries</string>
 
     <key>eBooks</key>
-    <dict>
-        <key>Rename</key>
-        <string>Books</string>
-    </dict>
+    <string>Books</string>
 
     <key>Themes (WinterBoard)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes</string>
-    </dict>
+    <string>Themes</string>
 
     <key>Themes (Weather)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Apps)</string>
-    </dict>
+    <string>Themes (Apps)</string>
 
     <key>Themes (Videos)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Apps)</string>
-    </dict>
+    <string>Themes (Apps)</string>
 
     <key>Themes (SMS)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Apps)</string>
-    </dict>
+    <string>Themes (Apps)</string>
 
     <key>Themes (iPad)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes</string>
-    </dict>
+    <string>Themes</string>
 
     <key>Themes (Dock)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (SpringBoard)</string>
-    </dict>
+    <string>Themes (SpringBoard)</string>
 
     <key>Themes (Icy)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Apps)</string>
-    </dict>
+    <string>Themes (Apps)</string>
 
     <key>Themes (Dialer)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (Apps)</string>
-    </dict>
+    <string>Themes (Apps)</string>
 
     <key>Themes (Battery)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (LockScreen)</string>
-    </dict>
+    <string>Themes (LockScreen)</string>
 
     <key>Themes (SYSTEM)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Themes (System)</string>
-    </dict>
+    <string>Themes (System)</string>
 
     <key>WebApps</key>
-    <dict>
-        <key>Rename</key>
-        <string>Site-Specific Apps</string>
-    </dict>
+    <string>Site-Specific Apps</string>
 
     <key>FontSwap</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (FontSwap)</string>
-    </dict>
+    <string>Addons (FontSwap)</string>
 
     <key>Cydgets (Lock)</key>
-    <dict>
-        <key>Rename</key>
-        <string>Addons (Cydget)</string>
-    </dict>
+    <string>Addons (Cydget)</string>
 </dict>
 
 </plist>

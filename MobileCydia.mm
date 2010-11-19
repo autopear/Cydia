@@ -2209,15 +2209,7 @@ struct PackageNameOrdering :
         _profile(Package$section)
             std::replace(section_.data(), section_.data() + section_.size(), '_', ' ');
             NSString *name(section_);
-
-          lookup:
-            if (NSDictionary *value = [SectionMap_ objectForKey:name])
-                if (NSString *rename = [value objectForKey:@"Rename"]) {
-                    name = rename;
-                    goto lookup;
-                }
-
-            section$_ = name;
+            section$_ = [SectionMap_ objectForKey:name] ?: name;
         _end
     } return section$_;
 }

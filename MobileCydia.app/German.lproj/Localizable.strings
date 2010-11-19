@@ -53,6 +53,7 @@
 "DOWNLOADING" = "Lädt";
 "DOWNLOADING_" = "Lädt %@ herunter";
 "EDIT" = "Bearbeiten";
+"ELISION" = "%@...";
 "ENTER_APT_URL" = "Cydia/APT URL eingeben";
 "ENTERED_BY_USER" = "Vom Benutzer eingegeben";
 "ERROR" = "Fehler";

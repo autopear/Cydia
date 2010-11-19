@@ -53,6 +53,7 @@
 "DOWNLOADING" = "Télécharger";
 "DOWNLOADING_" = "Téléchargement de %@ en cours";
 "EDIT" = "Modifier";
+"ELISION" = "%@...";
 "ENTER_APT_URL" = "Entrez une adresse Cydia/APT";
 "ENTERED_BY_USER" = "Entré par l'utilisateur";
 "ERROR" = "Erreur";

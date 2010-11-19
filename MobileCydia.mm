@@ -2923,6 +2923,7 @@ struct PackageNameOrdering :
 /* }}} */
 
 static NSString *Colon_;
+static NSString *Elision_;
 static NSString *Error_;
 static NSString *Warning_;
 
@@ -8737,7 +8738,7 @@ _trace();
     [label setTextColor:[UIColor blackColor]];
     [label setShadowColor:[UIColor whiteColor]];
     [label setShadowOffset:CGSizeMake(0, 1)];
-    [label setText:UCLocalize("LOADING_DATA")];
+    [label setText:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil]];
     [container addSubview:label];
 
     CGSize viewsize = [[tabbar_ view] frame].size;
@@ -9102,6 +9103,7 @@ int main(int argc, char *argv[]) { _pooled
     /* }}} */
 
     Colon_ = UCLocalize("COLON_DELIMITED");
+    Elision_ = UCLocalize("ELISION");
     Error_ = UCLocalize("ERROR");
     Warning_ = UCLocalize("WARNING");
 

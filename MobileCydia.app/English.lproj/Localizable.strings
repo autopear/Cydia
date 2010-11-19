@@ -53,6 +53,7 @@
 "DOWNLOADING" = "Downloading";
 "DOWNLOADING_" = "Downloading %@";
 "EDIT" = "Edit";
+"ELISION" = "%@...";
 "ENTER_APT_URL" = "Enter Cydia/APT URL";
 "ENTERED_BY_USER" = "Entered by User";
 "ERROR" = "Error";
@@ -93,7 +94,7 @@
 "INSTALLED_FILES" = "Installed Files";
 "KEEP_OLD_COPY" = "Keep My Old Copy";
 "LOADING" = "Loading";
-"LOADING_DATA" = "Loading...";
+"LOADING_DATA" = "Loading Data";
 "LOCAL" = "Local";
 "LOGIN" = "Login";
 "MAILING_LISTS" = "Mailing Lists";

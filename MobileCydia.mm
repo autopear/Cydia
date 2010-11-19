@@ -4640,9 +4640,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *source_;
     UIImage *badge_;
     Package *package_;
-    UIColor *color_;
-    BOOL faded_;
-    float fade_;
     UIImage *placard_;
 }
 
@@ -4693,12 +4690,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [self clearPackage];
-    [color_ release];
     [super dealloc];
-}
-
-- (float) fade {
-    return faded_ ? [self selectionPercent] : fade_;
 }
 
 - (PackageCell *) init {
@@ -4713,8 +4705,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [content_ setDelegate:self];
         [content_ setOpaque:YES];
-        if ([self respondsToSelector:@selector(selectionPercent)])
-            faded_ = YES;
     } return self;
 }
 

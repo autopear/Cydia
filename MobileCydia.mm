@@ -7017,10 +7017,9 @@ freeing the view controllers on tab change */
 
     [sections_ removeAllObjects];
 
-#if 0
+#if 1
     UIProgressHUD *hud([delegate_ addProgressHUD]);
-    // XXX: localize
-    [hud setText:@"Loading Changes"];
+    [hud setText:UCLocalize("LOADING")];
     //NSLog(@"HUD:%@::%@", delegate_, hud);
     [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
     [delegate_ removeProgressHUD:hud];

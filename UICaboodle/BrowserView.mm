@@ -376,6 +376,14 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 // }}}
 
+- (void) _updateViewSettings {
+    [super _updateViewSettings];
+
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webViewUpdateViewSettings:)])
+        [delegate webViewUpdateViewSettings:self];
+}
+
 + (void) initialize {
     if (Class $UIWebViewWebViewDelegate = objc_getClass("UIWebViewWebViewDelegate")) {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:), (IMP) &$UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$request$newFrameName$decisionListener$, "v28@0:4@8@12@16@20@24");
@@ -552,9 +560,17 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         closer_ = [function retain];
 }
 
+- (void) _setViewportWidth {
+    [[webview_ _documentView] setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+}
+
 - (void) setViewportWidth:(float)width {
     width_ = width != 0 ? width : [[self class] defaultWidth];
-    [[webview_ _documentView] setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+    [self _setViewportWidth];
+}
+
+- (void) webViewUpdateViewSettings:(UIWebView *)view {
+    [self _setViewportWidth];
 }
 
 - (void) _openMailToURL:(NSURL *)url {

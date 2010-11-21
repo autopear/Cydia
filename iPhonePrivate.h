@@ -282,6 +282,7 @@ typedef enum {
 - (UIWebDocumentView *) _documentView;
 - (UIScrollView *) _scrollView;
 - (UIScroller *) _scroller;
+- (void) _updateViewSettings;
 //- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request;
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener;
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener;

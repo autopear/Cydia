@@ -1807,8 +1807,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (uint32_t) compareBySection:(NSArray *)sections;
 
-- (uint32_t) compareForChanges;
-
 - (void) install;
 - (void) remove;
 
@@ -2678,33 +2676,6 @@ struct PackageNameOrdering :
     }
 
     return _not(uint32_t);
-}
-
-- (uint32_t) compareForChanges {
-    union {
-        uint32_t key;
-
-        struct {
-            uint32_t timestamp : 30;
-            uint32_t ignored : 1;
-            uint32_t upgradable : 1;
-        } bits;
-    } value;
-
-    bool upgradable([self upgradableAndEssential:YES]);
-    value.bits.upgradable = upgradable ? 1 : 0;
-
-    if (upgradable) {
-        value.bits.timestamp = 0;
-        value.bits.ignored = [self ignored] ? 0 : 1;
-        value.bits.upgradable = 1;
-    } else {
-        value.bits.timestamp = static_cast<uint32_t>([[self seen] timeIntervalSince1970]) >> 2;
-        value.bits.ignored = 0;
-        value.bits.upgradable = 0;
-    }
-
-    return _not(uint32_t) - value.key;
 }
 
 - (void) clear {

@@ -90,7 +90,15 @@ EOF
     if [[ ${cpu} == arm ]]; then
         pseudo "firmware" "${version}" "almost impressive Apple frameworks"
 
-        gssc 2>&1 | sed -re '
+        while [[ 1 ]]; do
+            gssc=$(gssc 2>&1)
+            if [[ ${gssc} != *'(null)'* ]]; then
+                break
+            fi
+            sleep 1
+        done
+
+        echo "${gssc}" | sed -re '
             /^    [^ ]* = [0-9.]*;$/ ! d;
             s/^    ([^ ]*) = ([0-9.]*);$/\1 \2/;
             s/([A-Z])/-\L\1/g; s/^"([^ ]*)"/\1/;

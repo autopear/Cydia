@@ -106,6 +106,10 @@ EOF
             / 0$/ d;
         ' | while read -r name value; do
             pseudo "gsc.${name}" "${value}" "virtual GraphicsServices dependency"
+
+            if [[ ${name} == ipad ]]; then
+                pseudo "gsc.wildcat" "${value}" "virtual virtual GraphicsServices dependency"
+            fi
         done
     fi
 

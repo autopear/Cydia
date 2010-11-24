@@ -145,7 +145,7 @@
 "RELOADING_DATA" = "Reloading Data";
 "REMOVE" = "Remove";
 "REMOVING_ESSENTIALS" = "Removing Essentials";
-"REMOVING_ESSENTIALS_EX" = "This operation involves the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. If you continue, you may not be able to use Cydia to repair any damage.";
+"REMOVING_ESSENTIALS_EX" = "This operation involves the removal of one or more packages that are required for the continued operation of either Cydia or iOS. If you continue, you may not be able to use Cydia to repair any damage.";
 "REPAIRING" = "Repairing";
 "REPOSITORY_SIGNATURE" = "View Repository Signature";
 "REQUEST_ADVERTISING_SPACE" = "Request Advertising Space";
@@ -189,7 +189,7 @@
 "THANK_YOU" = "Thank You";
 "QUEUE" = "Queue";
 "UNABLE_TO_COMPLY" = "Unable to Comply";
-"UNABLE_TO_COMPLY_EX" = "This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or iPhoneOS. In order to continue and force this operation you will need to be activate the Advanced mode under to continue and force this operation you will need to be activate the Advanced mode under Settings.";
+"UNABLE_TO_COMPLY_EX" = "This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or iOS. In order to continue and force this operation you will need to be activate the Advanced mode under to continue and force this operation you will need to be activate the Advanced mode under Settings.";
 "UNABLE_TO_LOAD" = "Unable to Load";
 "UNKNOWN" = "Unknown";
 "UNSAFE" = "Unsafe";

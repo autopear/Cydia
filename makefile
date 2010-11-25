@@ -86,12 +86,15 @@ package: MobileCydia
 	cp -a CydiaSettings.bundle _/System/Library/PreferenceBundles/CydiaSettings.bundle
 	
 	mkdir -p _/DEBIAN
-	echo "$$(cat control)"$$'\nInstalled-Size: '"$$(du -s _ | cut -f 1)" > _/DEBIAN/control
+	./control.sh _ >_/DEBIAN/control
 	
 	sudo chown -R 0 _
 	sudo chgrp -R 0 _
 	sudo chmod 6755 _/Applications/Cydia.app/MobileCydia
 	
-	$(dpkg) -b _ $(shell grep ^Package: control | cut -d ' ' -f 2-)_$(shell grep ^Version: control | cut -d ' ' -f 2)_iphoneos-arm.deb
+	mkdir -p debs
+	ln -sf debs/cydia_$$(./version.sh)_iphoneos-arm.deb Cydia.deb
+	$(dpkg) -b _ Cydia.deb
+	readlink Cydia.deb
 
 .PHONY: all clean sign

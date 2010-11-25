@@ -2,6 +2,7 @@ sysroot
 MobileCydia
 CydiaAppliance
 _
-*.deb
+Cydia.deb
+debs
 .DS_Store
 *.o

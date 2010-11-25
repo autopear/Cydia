@@ -2448,7 +2448,7 @@ struct PackageNameOrdering :
             icon = [UIImage imageAtPath:[static_cast<id>(icon_) substringFromIndex:7]];
     if (icon == nil) if (section != nil)
         icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
-    if (icon == nil) if (source_ != nil) if (NSString *dicon = [source_ defaultIcon])
+    if (icon == nil) if (Source *source = [self source]) if (NSString *dicon = [source defaultIcon])
         if ([dicon hasPrefix:@"file:///"])
             // XXX: correct escaping
             icon = [UIImage imageAtPath:[dicon substringFromIndex:7]];

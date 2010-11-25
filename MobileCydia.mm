@@ -3678,7 +3678,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSArray *) getInstalledPackages {
     NSArray *packages([[Database sharedInstance] packages]);
-    NSMutableArray *installed([NSMutableArray arrayWithCapacity:[packages count]]);
+    NSMutableArray *installed([NSMutableArray arrayWithCapacity:1024]);
     for (Package *package in packages)
         if ([package installed] != nil)
             [installed addObject:package];

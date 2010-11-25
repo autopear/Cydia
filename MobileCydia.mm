@@ -2914,12 +2914,17 @@ static NSString *Warning_;
     return era_;
 }
 
+- (void) releasePackages {
+    CFArrayApplyFunction(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFArrayApplierFunction>(&CFRelease), NULL);
+    CFArrayRemoveAllValues(packages_);
+}
+
 - (void) dealloc {
     // XXX: actually implement this thing
     _assert(false);
-    NSRecycleZone(zone_);
-    // XXX: malloc_destroy_zone(zone_);
+    [self releasePackages];
     apr_pool_destroy(pool_);
+    NSRecycleZone(zone_);
     [super dealloc];
 }
 
@@ -3207,9 +3212,7 @@ static NSString *Warning_;
 @synchronized (self) {
     ++era_;
 
-    CFArrayApplyFunction(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFArrayApplierFunction>(&CFRelease), NULL);
-    CFArrayRemoveAllValues(packages_);
-
+    [self releasePackages];
     sources_.clear();
 
     _error->Discard();

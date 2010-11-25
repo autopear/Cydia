@@ -2245,16 +2245,22 @@ struct PackageNameOrdering :
 }
 
 - (Address *) maintainer {
-    if (file_.end())
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
         return nil;
+
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
     const std::string &maintainer(parser->Maintainer());
     return maintainer.empty() ? nil : [Address addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
-}
+} }
 
 - (size_t) size {
-    return version_.end() ? 0 : version_->InstalledSize;
-}
+@synchronized (database_) {
+    if ([database_ era] != era_ || version_.end())
+        return 0;
+
+    return version_->InstalledSize;
+} }
 
 - (NSString *) longDescription {
 @synchronized (database_) {

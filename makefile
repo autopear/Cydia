@@ -53,8 +53,11 @@ all: MobileCydia
 clean:
 	rm -f MobileCydia
 
-MobileCydia: MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm iPhonePrivate.h
-	$(cycc) $(filter %.mm,$^) $(flags) $(link) $(uikit)
+%.o: %.c
+	$(cycc) -c -o $@ -x c $<
+
+MobileCydia: MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm iPhonePrivate.h lookup3.o
+	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(flags) $(link) $(uikit)
 	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm

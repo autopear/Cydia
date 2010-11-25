@@ -4,3 +4,4 @@ CydiaAppliance
 _
 *.deb
 .DS_Store
+*.o

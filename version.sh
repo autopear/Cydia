@@ -1,5 +1,2 @@
 #!/bin/bash
-ver=$(git describe --tags --dirty="+")
-ver=${ver#v}
-ver=${ver//-/.}
-echo "${ver}"
+git describe --tags --dirty="+" --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@+\1.\2@;s@^v@@'

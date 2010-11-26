@@ -1735,6 +1735,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     _transient NSDate *firstSeen_;
     _transient NSDate *lastSeen_;
     bool subscribed_;
+    bool ignored_;
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
@@ -2178,6 +2179,8 @@ struct PackageNameOrdering :
             obsolete_ = [self hasTag:@"cydia::obsolete"];
             essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
         _end
+
+        ignored_ = iterator_->SelectedState == pkgCache::State::Hold;
     _end } return self;
 }
 
@@ -2315,11 +2318,7 @@ struct PackageNameOrdering :
 }
 
 - (BOOL) ignored {
-    NSDictionary *metadata([self metadata]);
-    if (NSNumber *ignored = [metadata objectForKey:@"IsIgnored"])
-        return [ignored boolValue];
-    else
-        return false;
+    return ignored_;
 }
 
 - (NSString *) latest {
@@ -7020,7 +7019,7 @@ freeing the view controllers on tab change */
 #endif
 
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
-    Section *ignored = [[[Section alloc] initWithName:UCLocalize("IGNORED_UPGRADES") localize:NO] autorelease];
+    Section *ignored = nil;
     Section *section = nil;
     NSDate *last = nil;
 
@@ -7061,9 +7060,12 @@ freeing the view controllers on tab change */
             }
 
             [section addToCount];
-        } else if ([package ignored])
+        } else if ([package ignored]) {
+            if (ignored == nil) {
+                ignored = [[[Section alloc] initWithName:UCLocalize("IGNORED_UPGRADES") row:offset localize:NO] autorelease];
+            }
             [ignored addToCount];
-        else {
+        } else {
             ++upgrades_;
             [upgradable addToCount];
         }
@@ -7249,7 +7251,7 @@ freeing the view controllers on tab change */
 }
 
 - (void) onIgnored:(id)control {
-    [self onSomething:(int) [control isOn] withKey:@"IsIgnored"];
+    // TODO: set Held state - possibly call out to dpkg, etc.
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {

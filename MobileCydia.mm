@@ -7892,9 +7892,8 @@ typedef enum {
     Database *database_;
 
     int tag_;
-
-    UIKeyboard *keyboard_;
     int huds_;
+    NSURL *starturl_;
 
     SectionsController *sections_;
     ChangesController *changes_;
@@ -8566,12 +8565,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
-    int tag;
-    if (CYViewController *page = [self pageForURL:url hasTag:&tag]) {
-        [self setPage:page];
-        tag_ = tag;
-        [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
-    }
+    starturl_ = [url retain];
 }
 
 - (void) applicationWillResignActive:(UIApplication *)application {
@@ -8752,9 +8746,19 @@ _trace();
     [self reloadData];
     PrintTimes();
 
-    // Show the home page
-    [tabbar_ setSelectedIndex:0];
-    _setHomePage(self);
+    // Show the initial page
+    CYViewController *page = nil;
+    int tag = 0;
+    if (starturl_ != nil && (page = [self pageForURL:starturl_ hasTag:&tag])) {
+        [starturl_ release];
+        [self setPage:page];
+        tag_ = tag;
+        [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
+    } else {
+        [tabbar_ setSelectedIndex:0];
+        _setHomePage(self);
+    }
+
     [window_ setUserInteractionEnabled:YES];
 
     // XXX: does this actually slow anything down?

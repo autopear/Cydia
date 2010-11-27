@@ -7892,7 +7892,7 @@ typedef enum {
     Database *database_;
 
     int tag_;
-    int huds_;
+    int hudcount_;
     NSURL *starturl_;
 
     SectionsController *sections_;
@@ -8453,7 +8453,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (BOOL) hudIsShowing {
-    return (huds_ > 0);
+    return (hudcount_ > 0);
 }
 
 - (void) applicationSuspend:(__GSEvent *)event {
@@ -8491,7 +8491,7 @@ static _finline void _setHomePage(Cydia *self) {
     while ([target modalViewController] != nil) target = [target modalViewController];
     [[target view] addSubview:hud];
 
-    huds_++;
+    hudcount_++;
     return hud;
 }
 
@@ -8499,7 +8499,7 @@ static _finline void _setHomePage(Cydia *self) {
     [hud show:NO];
     [hud removeFromSuperview];
     [window_ setUserInteractionEnabled:YES];
-    huds_--;
+    hudcount_--;
 }
 
 - (CYViewController *) pageForPackage:(NSString *)name {
@@ -8563,9 +8563,24 @@ static _finline void _setHomePage(Cydia *self) {
     return nil;
 }
 
+- (BOOL) openCydiaURL:(NSURL *)url {
+    CYViewController *page = nil;
+    int tag = 0;
+
+    if ((page = [self pageForURL:starturl_ hasTag:&tag])) {
+        [starturl_ release];
+        [self setPage:page];
+        tag_ = tag;
+        [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
+    }
+
+    return !!page;
+}
+
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
-    starturl_ = [url retain];
+    if (!loaded_) starturl_ = [url retain];
+    else [self openCydiaURL:url];
 }
 
 - (void) applicationWillResignActive:(UIApplication *)application {
@@ -8747,14 +8762,7 @@ _trace();
     PrintTimes();
 
     // Show the initial page
-    CYViewController *page = nil;
-    int tag = 0;
-    if (starturl_ != nil && (page = [self pageForURL:starturl_ hasTag:&tag])) {
-        [starturl_ release];
-        [self setPage:page];
-        tag_ = tag;
-        [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
-    } else {
+    if (starturl_ == nil || ![self openCydiaURL:starturl_]) {
         [tabbar_ setSelectedIndex:0];
         _setHomePage(self);
     }

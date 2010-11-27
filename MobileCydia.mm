@@ -8567,8 +8567,9 @@ static _finline void _setHomePage(Cydia *self) {
     CYViewController *page = nil;
     int tag = 0;
 
-    if ((page = [self pageForURL:starturl_ hasTag:&tag])) {
-        [starturl_ release];
+    NSLog(@"open url: %@", url);
+
+    if ((page = [self pageForURL:url hasTag:&tag])) {
         [self setPage:page];
         tag_ = tag;
         [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
@@ -8579,6 +8580,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
+    NSLog(@"first: %@", url);
     if (!loaded_) starturl_ = [url retain];
     else [self openCydiaURL:url];
 }
@@ -8766,6 +8768,9 @@ _trace();
         [tabbar_ setSelectedIndex:0];
         _setHomePage(self);
     }
+
+    [starturl_ release];
+    starturl_ = nil;
 
     [window_ setUserInteractionEnabled:YES];
 

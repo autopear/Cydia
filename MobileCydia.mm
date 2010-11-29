@@ -790,6 +790,10 @@ class CYString {
     _finline operator id() {
         return (NSString *) static_cast<CFStringRef>(*this);
     }
+
+    _finline operator const char *() {
+        return reinterpret_cast<const char *>(data_);
+    }
 };
 /* }}} */
 /* C++ NSString Algorithm Adapters {{{ */
@@ -1710,7 +1714,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     bool essential_;
     bool obsolete_;
 
-    NSString *latest_;
+    CYString latest_;
     CYString installed_;
 
     CYString id_;
@@ -1959,9 +1963,6 @@ struct PackageNameOrdering :
     if (source_ != nil)
         [source_ release];
 
-    if (latest_ != nil)
-        [latest_ release];
-
     if (sponsor$_ != nil)
         [sponsor$_ release];
     if (author$_ != nil)
@@ -2079,8 +2080,7 @@ struct PackageNameOrdering :
         database_ = database;
 
         _profile(Package$initWithVersion$Latest)
-            const char *latest(StripVersion_(version_.VerStr()));
-            latest_ = (NSString *) CFStringCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(latest), strlen(latest), kCFStringEncodingASCII, NO);
+            latest_.set(pool_, StripVersion_(version_.VerStr()));
         _end
 
         pkgCache::VerIterator current;
@@ -2133,7 +2133,7 @@ struct PackageNameOrdering :
 
                 metadata_ = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
                     firstSeen_, @"FirstSeen",
-                    latest_, @"LastVersion",
+                    static_cast<id>(latest_), @"LastVersion",
                 nil] mutableCopy];
 
                 changed = true;

@@ -1054,7 +1054,7 @@ static _transient NSMutableDictionary *Packages_;
 static _transient NSMutableDictionary *Sections_;
 static _transient NSMutableDictionary *Sources_;
 static bool Changed_;
-static NSDate *now_;
+static time_t now_;
 
 static bool IsWildcat_;
 /* }}} */
@@ -1736,8 +1736,8 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     NSString *role_;
 
     NSMutableDictionary *metadata_;
-    _transient NSDate *firstSeen_;
-    _transient NSDate *lastSeen_;
+    time_t firstSeen_;
+    time_t lastSeen_;
     bool subscribed_;
     bool ignored_;
 }
@@ -1763,7 +1763,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (unichar) index;
 
 - (NSMutableDictionary *) metadata;
-- (NSDate *) seen;
+- (time_t) seen;
 - (BOOL) subscribed;
 - (BOOL) ignored;
 
@@ -1842,7 +1842,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
         value.bits.ignored = [self ignored] ? 0 : 1;
         value.bits.upgradable = 1;
     } else {
-        value.bits.timestamp = static_cast<uint32_t>([[self seen] timeIntervalSince1970]) >> 2;
+        value.bits.timestamp = static_cast<uint32_t>([self seen]) >> 2;
         value.bits.ignored = 0;
         value.bits.upgradable = 0;
     }
@@ -2132,23 +2132,23 @@ struct PackageNameOrdering :
                 firstSeen_ = now_;
 
                 metadata_ = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                    firstSeen_, @"FirstSeen",
+                    [NSDate dateWithTimeIntervalSince1970:firstSeen_], @"FirstSeen",
                     static_cast<id>(latest_), @"LastVersion",
                 nil] mutableCopy];
 
                 changed = true;
             } else {
-                firstSeen_ = [metadata_ objectForKey:@"FirstSeen"];
-                lastSeen_ = [metadata_ objectForKey:@"LastSeen"];
+                firstSeen_ = [[metadata_ objectForKey:@"FirstSeen"] timeIntervalSince1970];
+                lastSeen_ = [[metadata_ objectForKey:@"LastSeen"] timeIntervalSince1970];
 
                 if (NSNumber *subscribed = [metadata_ objectForKey:@"IsSubscribed"])
                     subscribed_ = [subscribed boolValue];
 
                 NSString *version([metadata_ objectForKey:@"LastVersion"]);
 
-                if (firstSeen_ == nil) {
-                    firstSeen_ = lastSeen_ == nil ? now_ : lastSeen_;
-                    [metadata_ setObject:firstSeen_ forKey:@"FirstSeen"];
+                if (firstSeen_ == 0) {
+                    firstSeen_ = lastSeen_ == 0 ? now_ : lastSeen_;
+                    [metadata_ setObject:[NSDate dateWithTimeIntervalSince1970:firstSeen_] forKey:@"FirstSeen"];
                     changed = true;
                 }
 
@@ -2158,7 +2158,7 @@ struct PackageNameOrdering :
                 } else if (![version isEqualToString:latest_]) {
                     [metadata_ setObject:latest_ forKey:@"LastVersion"];
                     lastSeen_ = now_;
-                    [metadata_ setObject:lastSeen_ forKey:@"LastSeen"];
+                    [metadata_ setObject:[NSDate dateWithTimeIntervalSince1970:lastSeen_] forKey:@"LastSeen"];
                     changed = true;
                 }
             }
@@ -2307,10 +2307,8 @@ struct PackageNameOrdering :
     return metadata_;
 }
 
-- (NSDate *) seen {
-    if (subscribed_ && lastSeen_ != nil)
-        return lastSeen_;
-    return firstSeen_;
+- (time_t) seen {
+    return subscribed_ ? lastSeen_ : firstSeen_;
 }
 
 - (BOOL) subscribed {
@@ -3230,11 +3228,6 @@ static NSString *Warning_;
     delete policy_;
     policy_ = NULL;
 
-    if (now_ != nil) {
-        [now_ release];
-        now_ = nil;
-    }
-
     cache_.Close();
 
     apr_pool_clear(pool_);
@@ -3271,7 +3264,7 @@ static NSString *Warning_;
 
     unlink("/tmp/cydia.chk");
 
-    now_ = [[NSDate date] retain];
+    now_ = [[NSDate date] timeIntervalSince1970];
 
     policy_ = new pkgDepCache::Policy();
     records_ = new pkgRecords(cache_);
@@ -7021,7 +7014,7 @@ freeing the view controllers on tab change */
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
     Section *ignored = nil;
     Section *section = nil;
-    NSDate *last = nil;
+    time_t last = 0;
 
     upgrades_ = 0;
     bool unseens = false;
@@ -7035,22 +7028,14 @@ freeing the view controllers on tab change */
 
         if (!uae) {
             unseens = true;
-            NSDate *seen;
+            time_t seen([package seen]);
 
-            _profile(ChangesController$reloadData$Remember)
-                seen = [package seen];
-            _end
-
-            if (section == nil || last != seen && (seen == nil || [seen compare:last] != NSOrderedSame)) {
+            if (section == nil || last != seen) {
                 last = seen;
 
                 NSString *name;
-                if (seen == nil)
-                    name = UCLocalize("UNKNOWN");
-                else {
-                    name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) seen);
-                    [name autorelease];
-                }
+                name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) [NSDate dateWithTimeIntervalSince1970:seen]);
+                [name autorelease];
 
                 _profile(ChangesController$reloadData$Allocate)
                     name = [NSString stringWithFormat:UCLocalize("NEW_AT"), name];

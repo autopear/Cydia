@@ -2243,8 +2243,17 @@ struct PackageNameOrdering :
                 do {
                     const char *name(tag.Name());
                     [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
+
                     if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
                         role_ = (NSString *) CYStringCreate(name + 6);
+
+                    if (strncmp(name, "cydia::", 7) == 0) {
+                        if (strcmp(name + 7, "essential") == 0)
+                            essential_ = true;
+                        else if (strcmp(name + 7, "obsolete") == 0)
+                            obsolete_ = true;
+                    }
+
                     ++tag;
                 } while (!tag.end());
             }
@@ -2277,8 +2286,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$hasTag)
-            obsolete_ = [self hasTag:@"cydia::obsolete"];
-            essential_ = ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES) || [self hasTag:@"cydia::essential"];
+            essential_ |= ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES);
         _end
 
         ignored_ = iterator_->SelectedState == pkgCache::State::Hold;

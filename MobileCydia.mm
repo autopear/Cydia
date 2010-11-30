@@ -1808,6 +1808,21 @@ static void PackageImport(const void *key, const void *value, void *context) {
 @end
 /* }}} */
 /* Package Class {{{ */
+struct ParsedPackage {
+    CYString tagline_;
+
+    CYString icon_;
+
+    CYString depiction_;
+    CYString homepage_;
+
+    CYString sponsor_;
+    CYString author_;
+
+    CYString bugs_;
+    CYString support_;
+};
+
 @interface Package : NSObject {
     unsigned era_;
     apr_pool_t *pool_;
@@ -1818,7 +1833,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     pkgCache::VerFileIterator file_;
 
     Source *source_;
-    bool parsed_;
+    ParsedPackage *parsed_;
 
     CYString section_;
     _transient NSString *section$_;
@@ -1830,19 +1845,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
     CYString id_;
     CYString name_;
-    CYString tagline_;
-    CYString icon_;
-    CYString depiction_;
-    CYString homepage_;
 
-    CYString sponsor_;
-    Address *sponsor$_;
-
-    CYString author_;
-    Address *author$_;
-
-    CYString bugs_;
-    CYString support_;
     NSMutableArray *tags_;
     NSString *role_;
 
@@ -2072,13 +2075,12 @@ struct PackageNameOrdering :
 }
 
 - (void) dealloc {
+    if (parsed_ != NULL)
+        delete parsed_;
+
     if (source_ != nil)
         [source_ release];
 
-    if (sponsor$_ != nil)
-        [sponsor$_ release];
-    if (author$_ != nil)
-        [author$_ release];
     if (tags_ != nil)
         [tags_ release];
     if (role_ != nil)
@@ -2111,11 +2113,14 @@ struct PackageNameOrdering :
 }
 
 - (void) parse {
-    if (parsed_)
+    if (parsed_ != NULL)
         return;
-    parsed_ = true;
-    if (file_.end())
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
         return;
+
+    ParsedPackage *parsed(new ParsedPackage);
+    parsed_ = parsed;
 
     _profile(Package$parse)
         pkgRecords::Parser *parser;
@@ -2131,14 +2136,14 @@ struct PackageNameOrdering :
                 const char *name_;
                 CYString *value_;
             } names[] = {
-                {"icon", &icon_},
-                {"depiction", &depiction_},
-                {"homepage", &homepage_},
+                {"icon", &parsed->icon_},
+                {"depiction", &parsed->depiction_},
+                {"homepage", &parsed->homepage_},
                 {"website", &website},
-                {"bugs", &bugs_},
-                {"support", &support_},
-                {"sponsor", &sponsor_},
-                {"author", &author_},
+                {"bugs", &parsed->bugs_},
+                {"support", &parsed->support_},
+                {"sponsor", &parsed->sponsor_},
+                {"author", &parsed->author_},
             };
 
             for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
@@ -2161,18 +2166,18 @@ struct PackageNameOrdering :
                     stop = end;
                 while (stop != start && stop[-1] == '\r')
                     --stop;
-                tagline_.set(pool_, start, stop - start);
+                parsed->tagline_.set(pool_, start, stop - start);
             }
         _end
 
         _profile(Package$parse$Retain)
-            if (homepage_.empty())
-                homepage_ = website;
-            if (homepage_ == depiction_)
-                homepage_.clear();
+            if (parsed->homepage_.empty())
+                parsed->homepage_ = website;
+            if (parsed->homepage_ == parsed->depiction_)
+                parsed->homepage_.clear();
         _end
     _end
-}
+} }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
@@ -2371,7 +2376,7 @@ struct PackageNameOrdering :
 } }
 
 - (NSString *) shortDescription {
-    return tagline_;
+    return parsed_ == NULL ? nil : static_cast<NSString *>(parsed_->tagline_);
 }
 
 - (unichar) index {
@@ -2537,10 +2542,11 @@ struct PackageNameOrdering :
     NSString *section = [self simpleSection];
 
     UIImage *icon(nil);
-    if (!icon_.empty())
-        if ([static_cast<id>(icon_) hasPrefix:@"file:///"])
-            // XXX: correct escaping
-            icon = [UIImage imageAtPath:[static_cast<id>(icon_) substringFromIndex:7]];
+    if (parsed_ != NULL)
+        if (NSString *href = parsed_->icon_)
+            if ([href hasPrefix:@"file:///"])
+                // XXX: correct escaping
+                icon = [UIImage imageAtPath:[href substringFromIndex:7]];
     if (icon == nil) if (section != nil)
         icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
     if (icon == nil) if (Source *source = [self source]) if (NSString *dicon = [source defaultIcon])
@@ -2553,31 +2559,23 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) homepage {
-    return homepage_;
+    return parsed_ == NULL ? nil : static_cast<NSString *>(parsed_->homepage_);
 }
 
 - (NSString *) depiction {
-    return !depiction_.empty() ? depiction_ : [[self source] depictionForPackage:id_];
+    return parsed_ != NULL && !parsed_->depiction_.empty() ? parsed_->depiction_ : [[self source] depictionForPackage:id_];
 }
 
 - (Address *) sponsor {
-    if (sponsor$_ == nil) {
-        if (sponsor_.empty())
-            return nil;
-        sponsor$_ = [[Address addressWithString:sponsor_] retain];
-    } return sponsor$_;
+    return parsed_ == NULL || parsed_->sponsor_.empty() ? nil : [Address addressWithString:parsed_->sponsor_];
 }
 
 - (Address *) author {
-    if (author$_ == nil) {
-        if (author_.empty())
-            return nil;
-        author$_ = [[Address addressWithString:author_] retain];
-    } return author$_;
+    return parsed_ == NULL || parsed_->author_.empty() ? nil : [Address addressWithString:parsed_->author_];
 }
 
 - (NSString *) support {
-    return !bugs_.empty() ? bugs_ : [[self source] supportForPackage:id_];
+    return parsed_ != NULL && !parsed_->bugs_.empty() ? parsed_->bugs_ : [[self source] supportForPackage:id_];
 }
 
 - (NSArray *) files {

@@ -1459,7 +1459,7 @@ struct MetaValue :
 static Cytore::File<MetaValue> MetaFile_;
 // }}}
 // Cytore Helper Functions {{{
-static PackageValue *PackageFind(const char *name, size_t length, Cytore::Offset<PackageValue> *cache = NULL) {
+static PackageValue *PackageFind(const char *name, size_t length) {
     SplitHash nhash = { hashlittle(name, length) };
 
     PackageValue *metadata;
@@ -1479,9 +1479,6 @@ static PackageValue *PackageFind(const char *name, size_t length, Cytore::Offset
             goto offset;
         }
     }
-
-    if (cache != NULL)
-        *cache = *offset;
 
     return metadata;
 }
@@ -1856,7 +1853,7 @@ struct ParsedPackage {
     NSMutableArray *tags_;
     NSString *role_;
 
-    Cytore::Offset<PackageValue> metadata_;
+    PackageValue *metadata_;
 
     bool ignored_;
 }
@@ -2260,7 +2257,8 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Metadata)
-            PackageValue *metadata(PackageFind(id_.data(), id_.size(), &metadata_));
+            PackageValue *metadata(PackageFind(id_.data(), id_.size()));
+            metadata_ = metadata;
 
             const char *latest(version_.VerStr());
             size_t length(strlen(latest));
@@ -2413,7 +2411,7 @@ struct PackageNameOrdering :
 }
 
 - (PackageValue *) metadata {
-    return &MetaFile_.Get(metadata_);
+    return metadata_;
 }
 
 - (time_t) seen {

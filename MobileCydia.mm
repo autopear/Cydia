@@ -772,10 +772,16 @@ class CYString {
         else {
             clear_();
 
-            char *temp(reinterpret_cast<char *>(apr_palloc(pool, size + 1)));
-            memcpy(temp, data, size);
-            temp[size] = '\0';
-            data_ = temp;
+            if (pool == NULL)
+                data_ = const_cast<char *>(data);
+            else {
+                char *temp(reinterpret_cast<char *>(apr_palloc(pool, size + 1)));
+                memcpy(temp, data, size);
+                temp[size] = '\0';
+
+                data_ = temp;
+            }
+
             size_ = size;
         }
     }
@@ -2194,14 +2200,14 @@ struct PackageNameOrdering :
         database_ = database;
 
         _profile(Package$initWithVersion$Latest)
-            latest_.set(pool_, StripVersion_(version_.VerStr()));
+            latest_.set(NULL, StripVersion_(version_.VerStr()));
         _end
 
         pkgCache::VerIterator current;
         _profile(Package$initWithVersion$Versions)
             current = iterator_.CurrentVer();
             if (!current.end())
-                installed_.set(pool_, StripVersion_(current.VerStr()));
+                installed_.set(NULL, StripVersion_(current.VerStr()));
 
             if (!version_.end())
                 file_ = version_.FileList();
@@ -2213,7 +2219,7 @@ struct PackageNameOrdering :
 
         _profile(Package$initWithVersion$Name)
             id_.set(pool_, iterator_.Name());
-            name_.set(pool, iterator_.Display());
+            name_.set(NULL, iterator_.Display());
         _end
 
         _profile(Package$initWithVersion$lowercaseString)
@@ -2260,7 +2266,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Section)
-            section_.set(pool_, iterator_.Section());
+            section_.set(NULL, iterator_.Section());
         _end
 
         _profile(Package$initWithVersion$hasTag)

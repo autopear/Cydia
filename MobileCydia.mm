@@ -1963,7 +1963,7 @@ uint32_t PackageChangesRadix(Package *self, void *) {
         value.bits.ignored = [self ignored] ? 0 : 1;
         value.bits.upgradable = 1;
     } else {
-        value.bits.timestamp = static_cast<uint32_t>([self seen]) >> 2;
+        value.bits.timestamp = [self seen] >> 2;
         value.bits.ignored = 0;
         value.bits.upgradable = 0;
     }

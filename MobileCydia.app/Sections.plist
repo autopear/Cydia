@@ -70,16 +70,16 @@
     <string>Tweaks</string>
 
     <key>Tweaks 2.0</key>
-    <string>Tweaks (2.0)</string>
+    <string>Tweaks</string>
 
     <key>Tweaks 2.1</key>
-    <string>Tweaks (2.1)</string>
+    <string>Tweaks</string>
 
     <key>Tweaks 2.2</key>
-    <string>Tweaks (2.2)</string>
+    <string>Tweaks</string>
 
     <key>Tweaks 3.0</key>
-    <string>Tweaks (3.0)</string>
+    <string>Tweaks</string>
     
     <key>SBSettings Addons</key>
     <string>Addons (SBSettings)</string>
@@ -93,6 +93,9 @@
     <key>App Addons (Iconoclasm)</key>
     <string>Addons (Iconoclasm)</string>
     
+    <key>App Addons (OpenNotifier)</key>
+    <string>Addons (OpenNotifier)</key>
+
     <key>BossPaper Addons</key>
     <string>Addons (BossPaper)</string>
     

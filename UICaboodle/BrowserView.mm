@@ -933,6 +933,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         [document setTileSize:CGSizeMake(320, 500)];
 
         [document setBackgroundColor:[UIColor clearColor]];
+
+        // XXX: this is terribly (too?) expensive
         [document setDrawsBackground:NO];
 
         WebView *webview([document webView]);

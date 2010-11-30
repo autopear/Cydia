@@ -766,23 +766,24 @@ class CYString {
             cache_ = reinterpret_cast<CFStringRef>(CFRetain(rhs.cache_));
     }
 
+    void copy(apr_pool_t *pool) {
+        char *temp(reinterpret_cast<char *>(apr_palloc(pool, size_ + 1)));
+        memcpy(temp, data_, size_);
+        temp[size_] = '\0';
+        data_ = temp;
+    }
+
     void set(apr_pool_t *pool, const char *data, size_t size) {
         if (size == 0)
             clear();
         else {
             clear_();
 
-            if (pool == NULL)
-                data_ = const_cast<char *>(data);
-            else {
-                char *temp(reinterpret_cast<char *>(apr_palloc(pool, size + 1)));
-                memcpy(temp, data, size);
-                temp[size] = '\0';
-
-                data_ = temp;
-            }
-
+            data_ = const_cast<char *>(data);
             size_ = size;
+
+            if (pool != NULL)
+                copy(pool);
         }
     }
 
@@ -2218,15 +2219,21 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Name)
-            id_.set(pool_, iterator_.Name());
+            id_.set(NULL, iterator_.Name());
             name_.set(NULL, iterator_.Display());
         _end
 
         _profile(Package$initWithVersion$lowercaseString)
+            // XXX: do not use tolower() as this is not locale-specific? :(
             char *data(id_.data());
             for (size_t i(0), e(id_.size()); i != e; ++i)
-                // XXX: do not use tolower() as this is not locale-specific? :(
-                data[i] |= 0x20;
+                if ((data[i] & 0x20) == 0) {
+                    id_.copy(pool);
+                    data = id_.data();
+                    for (; i != e; ++i)
+                        data[i] |= 0x20;
+                    break;
+                }
         _end
 
         _profile(Package$initWithVersion$Tags)

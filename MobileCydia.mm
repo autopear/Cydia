@@ -118,6 +118,8 @@ extern "C" {
 #include <errno.h>
 #include <pcre.h>
 
+#include <Cytore.hpp>
+
 #include "UICaboodle/BrowserView.h"
 
 #include "substrate.h"
@@ -201,6 +203,15 @@ void PrintTimes() {
 #define CYPoolEnd() \
     while (false); \
     [_pool release];
+
+// Hash Functions/Structures {{{
+extern "C" uint32_t hashlittle(const void *key, size_t length, uint32_t initval = 0);
+
+union SplitHash {
+    uint32_t u32;
+    uint16_t u16[2];
+};
+// }}}
 
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
@@ -1410,6 +1421,106 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 @end
 /* }}} */
 
+// Cytore Definitions {{{
+struct PackageValue :
+    Cytore::Block
+{
+    Cytore::Offset<void> reserved_;
+    Cytore::Offset<PackageValue> next_;
+
+    uint32_t index_ : 23;
+    uint32_t subscribed_ : 1;
+    uint32_t : 8;
+
+    int32_t first_;
+    int32_t last_;
+
+    uint16_t vhash_;
+    uint16_t nhash_;
+
+    char version_[8];
+    char name_[];
+};
+
+struct MetaValue :
+    Cytore::Block
+{
+    Cytore::Offset<void> reserved_;
+    Cytore::Offset<PackageValue> packages_[1 << 16];
+};
+
+static Cytore::File<MetaValue> MetaFile_;
+// }}}
+// Cytore Helper Functions {{{
+static PackageValue *PackageFind(const char *name, size_t length, Cytore::Offset<PackageValue> *cache = NULL) {
+    SplitHash nhash = { hashlittle(name, length) };
+
+    PackageValue *metadata;
+
+    Cytore::Offset<PackageValue> *offset(&MetaFile_->packages_[nhash.u16[0]]);
+    offset: if (offset->IsNull()) {
+        *offset = MetaFile_.New<PackageValue>(length + 1);
+        metadata = &MetaFile_.Get(*offset);
+
+        memcpy(metadata->name_, name, length + 1);
+        metadata->nhash_ = nhash.u16[1];
+    } else {
+        metadata = &MetaFile_.Get(*offset);
+
+        if (metadata->nhash_ != nhash.u16[1] || strncmp(metadata->name_, name, length + 1) != 0) {
+            offset = &metadata->next_;
+            goto offset;
+        }
+    }
+
+    if (cache != NULL)
+        *cache = *offset;
+
+    return metadata;
+}
+
+static void PackageImport(const void *key, const void *value, void *context) {
+    char buffer[1024];
+    if (!CFStringGetCString((CFStringRef) key, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+        NSLog(@"failed to import package %@", key);
+        return;
+    }
+
+    PackageValue *metadata(PackageFind(buffer, strlen(buffer)));
+    NSDictionary *package((NSDictionary *) value);
+
+    if (NSNumber *subscribed = [package objectForKey:@"IsSubscribed"])
+        if ([subscribed boolValue])
+            metadata->subscribed_ = true;
+
+    if (NSDate *date = [package objectForKey:@"FirstSeen"]) {
+        time_t time([date timeIntervalSince1970]);
+        if (metadata->first_ > time || metadata->first_ == 0)
+            metadata->first_ = time;
+    }
+
+    if (NSDate *date = [package objectForKey:@"LastSeen"]) {
+        time_t time([date timeIntervalSince1970]);
+        if (metadata->last_ < time || metadata->last_ == 0) {
+            metadata->last_ = time;
+            goto last;
+        }
+    } else if (metadata->last_ == 0) last: {
+        NSString *version([package objectForKey:@"LastVersion"]);
+        if (CFStringGetCString((CFStringRef) version, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+            size_t length(strlen(buffer));
+            uint16_t vhash(hashlittle(buffer, length));
+
+            size_t capped(std::min<size_t>(8, length));
+            char *latest(buffer + length - capped);
+
+            strncpy(metadata->version_, latest, sizeof(metadata->version_));
+            metadata->vhash_ = vhash;
+        }
+    }
+}
+// }}}
+
 /* Source Class {{{ */
 @interface Source : NSObject {
     CYString depiction_;
@@ -1735,10 +1846,8 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     NSMutableArray *tags_;
     NSString *role_;
 
-    NSMutableDictionary *metadata_;
-    time_t firstSeen_;
-    time_t lastSeen_;
-    bool subscribed_;
+    Cytore::Offset<PackageValue> metadata_;
+
     bool ignored_;
 }
 
@@ -1762,9 +1871,12 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (NSString *) shortDescription;
 - (unichar) index;
 
-- (NSMutableDictionary *) metadata;
+- (PackageValue *) metadata;
 - (time_t) seen;
-- (BOOL) subscribed;
+
+- (bool) subscribed;
+- (bool) setSubscribed:(bool)subscribed;
+
 - (BOOL) ignored;
 
 - (NSString *) latest;
@@ -1972,9 +2084,6 @@ struct PackageNameOrdering :
     if (role_ != nil)
         [role_ release];
 
-    if (metadata_ != nil)
-        [metadata_ release];
-
     [super dealloc];
 }
 
@@ -2123,52 +2232,26 @@ struct PackageNameOrdering :
             }
         _end
 
-        bool changed(false);
-
         _profile(Package$initWithVersion$Metadata)
-            metadata_ = [Packages_ objectForKey:id_];
+            PackageValue *metadata(PackageFind(id_.data(), id_.size(), &metadata_));
 
-            if (metadata_ == nil) {
-                firstSeen_ = now_;
+            const char *latest(version_.VerStr());
+            size_t length(strlen(latest));
 
-                metadata_ = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                    [NSDate dateWithTimeIntervalSince1970:firstSeen_], @"FirstSeen",
-                    static_cast<id>(latest_), @"LastVersion",
-                nil] mutableCopy];
+            uint16_t vhash(hashlittle(latest, length));
 
-                changed = true;
-            } else {
-                firstSeen_ = [[metadata_ objectForKey:@"FirstSeen"] timeIntervalSince1970];
-                lastSeen_ = [[metadata_ objectForKey:@"LastSeen"] timeIntervalSince1970];
+            size_t capped(std::min<size_t>(8, length));
+            latest = latest + length - capped;
 
-                if (NSNumber *subscribed = [metadata_ objectForKey:@"IsSubscribed"])
-                    subscribed_ = [subscribed boolValue];
+            if (metadata->first_ == 0)
+                metadata->first_ = now_;
 
-                NSString *version([metadata_ objectForKey:@"LastVersion"]);
-
-                if (firstSeen_ == 0) {
-                    firstSeen_ = lastSeen_ == 0 ? now_ : lastSeen_;
-                    [metadata_ setObject:[NSDate dateWithTimeIntervalSince1970:firstSeen_] forKey:@"FirstSeen"];
-                    changed = true;
-                }
-
-                if (version == nil) {
-                    [metadata_ setObject:latest_ forKey:@"LastVersion"];
-                    changed = true;
-                } else if (![version isEqualToString:latest_]) {
-                    [metadata_ setObject:latest_ forKey:@"LastVersion"];
-                    lastSeen_ = now_;
-                    [metadata_ setObject:[NSDate dateWithTimeIntervalSince1970:lastSeen_] forKey:@"LastSeen"];
-                    changed = true;
-                }
-            }
-
-            metadata_ = [metadata_ retain];
-
-            if (changed) {
-                [Packages_ setObject:metadata_ forKey:id_];
-                Changed_ = true;
-            }
+            if (metadata->vhash_ != vhash || strncmp(metadata->version_, latest, sizeof(metadata->version_)) != 0) {
+                metadata->last_ = now_;
+                strncpy(metadata->version_, latest, sizeof(metadata->version_));
+                metadata->vhash_ = vhash;
+            } else if (metadata->last_ == 0)
+                metadata->last_ = metadata->first_;
         _end
 
         _profile(Package$initWithVersion$Section)
@@ -2303,16 +2386,25 @@ struct PackageNameOrdering :
     _end
 }
 
-- (NSMutableDictionary *) metadata {
-    return metadata_;
+- (PackageValue *) metadata {
+    return &MetaFile_.Get(metadata_);
 }
 
 - (time_t) seen {
-    return subscribed_ ? lastSeen_ : firstSeen_;
+    PackageValue *metadata([self metadata]);
+    return metadata->subscribed_ ? metadata->last_ : metadata->first_;
 }
 
-- (BOOL) subscribed {
-    return subscribed_;
+- (bool) subscribed {
+    return [self metadata]->subscribed_;
+}
+
+- (bool) setSubscribed:(bool)subscribed {
+    PackageValue *metadata([self metadata]);
+    if (metadata->subscribed_ == subscribed)
+        return false;
+    metadata->subscribed_ = subscribed;
+    return true;
 }
 
 - (BOOL) ignored {
@@ -7205,34 +7297,19 @@ freeing the view controllers on tab change */
     if (package_ == nil)
         return 0;
 
-    return 1;
+    return 2;
 }
 
 - (NSString *) tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     return UCLocalize("SHOW_ALL_CHANGES_EX");
 }
 
-- (void) onSomething:(BOOL)value withKey:(NSString *)key {
+- (void) onSubscribed:(id)control {
+    bool value([control isOn]);
     if (package_ == nil)
         return;
-
-    NSMutableDictionary *metadata([package_ metadata]);
-
-    BOOL before;
-    if (NSNumber *number = [metadata objectForKey:key])
-        before = [number boolValue];
-    else
-        before = NO;
-
-    if (value != before) {
-        [metadata setObject:[NSNumber numberWithBool:value] forKey:key];
-        Changed_ = true;
+    if ([package_ setSubscribed:value])
         [delegate_ updateData];
-    }
-}
-
-- (void) onSubscribed:(id)control {
-    [self onSomething:(int) [control isOn] withKey:@"IsSubscribed"];
 }
 
 - (void) onIgnored:(id)control {
@@ -9001,11 +9078,6 @@ int main(int argc, char *argv[]) { _pooled
     if (Settings_ != nil)
         Role_ = [Settings_ objectForKey:@"Role"];
 
-    if (Packages_ == nil) {
-        Packages_ = [[[NSMutableDictionary alloc] initWithCapacity:128] autorelease];
-        [Metadata_ setObject:Packages_ forKey:@"Packages"];
-    }
-
     if (Sections_ == nil) {
         Sections_ = [[[NSMutableDictionary alloc] initWithCapacity:32] autorelease];
         [Metadata_ setObject:Sections_ forKey:@"Sections"];
@@ -9016,6 +9088,18 @@ int main(int argc, char *argv[]) { _pooled
         [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
     /* }}} */
+
+    _trace();
+    MetaFile_.Open("/var/lib/cydia/metadata.cb0");
+    _trace();
+
+    if (Packages_ != nil) {
+        CFDictionaryApplyFunction((CFDictionaryRef) Packages_, &PackageImport, NULL);
+        _trace();
+        [Metadata_ removeObjectForKey:@"Packages"];
+        Packages_ = nil;
+        Changed_ = true;
+    }
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 

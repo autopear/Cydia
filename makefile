@@ -56,7 +56,7 @@ clean:
 %.o: %.c
 	$(cycc) -c -o $@ -x c $<
 
-MobileCydia: MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm iPhonePrivate.h lookup3.o
+MobileCydia: MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm iPhonePrivate.h lookup3.o Cytore.hpp
 	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(flags) $(link) $(uikit)
 	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 

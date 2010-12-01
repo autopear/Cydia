@@ -7504,7 +7504,13 @@ freeing the view controllers on tab change */
         search_ = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] bounds].size.width, 44.0f)];
         [search_ layoutSubviews];
         [search_ setPlaceholder:UCLocalize("SEARCH_EX")];
-        UITextField *textField = [search_ searchField];
+
+        UITextField *textField;
+        if ([search_ respondsToSelector:@selector(searchField)])
+            textField = [search_ searchField];
+        else
+            textField = MSHookIvar<UITextField *>(search_, "_searchField");
+
         [textField setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [search_ setDelegate:self];
         [textField setEnablesReturnKeyAutomatically:NO];

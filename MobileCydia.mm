@@ -1101,9 +1101,7 @@ NSString *SizeString(double size) {
 
 static _finline const char *StripVersion_(const char *version) {
     const char *colon(strchr(version, ':'));
-    if (colon != NULL)
-        version = colon + 1;
-    return version;
+    return colon == NULL ? version : colon + 1;
 }
 
 NSString *LocalizeSection(NSString *section) {

@@ -1497,25 +1497,32 @@ static void PackageImport(const void *key, const void *value, void *context) {
             metadata->first_ = time;
     }
 
+    bool versioned(false);
+
     if (NSDate *date = [package objectForKey:@"LastSeen"]) {
         time_t time([date timeIntervalSince1970]);
         if (metadata->last_ < time || metadata->last_ == 0) {
             metadata->last_ = time;
-            goto last;
+            versioned = true;
         }
-    } else if (metadata->last_ == 0) last: {
-        NSString *version([package objectForKey:@"LastVersion"]);
-        if (CFStringGetCString((CFStringRef) version, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
-            size_t length(strlen(buffer));
-            uint16_t vhash(hashlittle(buffer, length));
-
-            size_t capped(std::min<size_t>(8, length));
-            char *latest(buffer + length - capped);
-
-            strncpy(metadata->version_, latest, sizeof(metadata->version_));
-            metadata->vhash_ = vhash;
-        }
+    } else if (metadata->last_ == 0) {
+        metadata->last_ = metadata->first_;
+        if (metadata->version_[0] == '\0')
+            versioned = true;
     }
+
+    if (versioned)
+        if (NSString *version = [package objectForKey:@"LastVersion"])
+            if (CFStringGetCString((CFStringRef) version, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+                size_t length(strlen(buffer));
+                uint16_t vhash(hashlittle(buffer, length));
+
+                size_t capped(std::min<size_t>(8, length));
+                char *latest(buffer + length - capped);
+
+                strncpy(metadata->version_, latest, sizeof(metadata->version_));
+                metadata->vhash_ = vhash;
+            }
 }
 // }}}
 
@@ -2259,12 +2266,15 @@ struct PackageNameOrdering :
             if (metadata->first_ == 0)
                 metadata->first_ = now_;
 
+            if (metadata->last_ == 0)
+                metadata->last_ = metadata->first_;
+
             if (metadata->vhash_ != vhash || strncmp(metadata->version_, latest, sizeof(metadata->version_)) != 0) {
-                metadata->last_ = now_;
+                if (metadata->version_[0] != '\0')
+                    metadata->last_ = now_;
                 strncpy(metadata->version_, latest, sizeof(metadata->version_));
                 metadata->vhash_ = vhash;
-            } else if (metadata->last_ == 0)
-                metadata->last_ = metadata->first_;
+            }
         _end
 
         _profile(Package$initWithVersion$Section)

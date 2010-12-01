@@ -276,8 +276,6 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 }
 
 - (id) yieldToSelector:(SEL)selector withObject:(id)object {
-    /*return [self performSelector:selector withObject:object];*/
-
     volatile bool stopped(false);
 
     NSMutableArray *context([NSMutableArray arrayWithObjects:
@@ -1968,9 +1966,6 @@ uint32_t PackageChangesRadix(Package *self, void *) {
     return _not(uint32_t) - value.key;
 }
 
-_finline static void Stifle(uint8_t &value) {
-}
-
 uint32_t PackagePrefixRadix(Package *self, void *context) {
     size_t offset(reinterpret_cast<size_t>(context));
     CYString &name([self cyname]);
@@ -1992,8 +1987,6 @@ uint32_t PackagePrefixRadix(Package *self, void *context) {
     }
 
     uint8_t data[4];
-
-    // 0.607997
 
     if (offset == 0 && zeros != 0) {
         memset(data, '0', zeros);

@@ -432,8 +432,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (request_ != nil)
         [request_ release];
 
-    //NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-
     if (custom_ != nil)
         [custom_ release];
     if (style_ != nil)

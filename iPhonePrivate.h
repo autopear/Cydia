@@ -90,6 +90,9 @@ typedef enum {
 - (void) setText:(NSString *)text;
 @end
 
+@interface UITransitionView : UIView
+@end
+
 @interface UIWebDocumentView : UIView
 - (CGRect) documentBounds;
 - (void) enableReachability;
@@ -233,6 +236,10 @@ typedef enum {
 
 @interface UISearchBar (Apple)
 - (UITextField *) searchField;
+@end
+
+@interface UITabBarController (Apple)
+- (UITransitionView *) _transitionView;
 @end
 
 @interface UITabBarItem (Apple)

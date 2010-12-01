@@ -6613,9 +6613,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @class CYNavigationController;
 
 /* Cydia Tab Bar Controller {{{ */
-@interface CYTabBarController : UITabBarController {
+@interface CYTabBarController : UITabBarController <
+    ProgressDelegate
+> {
     _transient Database *database_;
+    RefreshBar *refreshbar_;
+
+    bool dropped_;
+    bool updating_;
+    // XXX: ok, "updatedelegate_"?...
+    _transient NSObject<CydiaDelegate> *updatedelegate_;
+
+    id root_;
 }
+
+- (void) dropBar:(BOOL)animated;
+- (void) beginUpdate;
+- (void) raiseBar:(BOOL)animated;
+- (BOOL) updating;
 
 @end
 
@@ -6635,7 +6650,231 @@ freeing the view controllers on tab change */
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
+
+        [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(statusBarFrameChanged:) name:UIApplicationDidChangeStatusBarFrameNotification object:nil];
+
+        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
     } return self;
+}
+
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    return ![updatedelegate_ hudIsShowing] && (IsWildcat_ || orientation == UIInterfaceOrientationPortrait);
+}
+
+- (void) setUpdate:(NSDate *)date {
+    [self beginUpdate];
+}
+
+- (void) beginUpdate {
+    [self dropBar:YES];
+    [refreshbar_ start];
+
+    updating_ = true;
+
+    [NSThread
+        detachNewThreadSelector:@selector(performUpdate)
+        toTarget:self
+        withObject:nil
+    ];
+}
+
+- (void) performUpdate { _pooled
+    Status status;
+    status.setDelegate(self);
+    [database_ updateWithStatus:status];
+
+    [self
+        performSelectorOnMainThread:@selector(completeUpdate)
+        withObject:nil
+        waitUntilDone:NO
+    ];
+}
+
+- (void) completeUpdate {
+    if (!updating_)
+        return;
+    updating_ = false;
+
+    [self raiseBar:YES];
+    [refreshbar_ stop];
+    [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+}
+
+- (void) cancelUpdate {
+    updating_ = false;
+    [self raiseBar:YES];
+    [refreshbar_ stop];
+    [updatedelegate_ performSelector:@selector(updateData) withObject:nil afterDelay:0];
+}
+
+- (void) cancelPressed {
+    [self cancelUpdate];
+}
+
+- (BOOL) updating {
+    return updating_;
+}
+
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
+    [refreshbar_ setPrompt:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
+}
+
+- (void) startProgress {
+}
+
+- (void) setProgressTitle:(NSString *)title {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressTitle:)
+        withObject:title
+        waitUntilDone:YES
+    ];
+}
+
+- (bool) isCancelling:(size_t)received {
+    return !updating_;
+}
+
+- (void) setProgressPercent:(float)percent {
+    [self
+        performSelectorOnMainThread:@selector(_setProgressPercent:)
+        withObject:[NSNumber numberWithFloat:percent]
+        waitUntilDone:YES
+    ];
+}
+
+- (void) addProgressOutput:(NSString *)output {
+    [self
+        performSelectorOnMainThread:@selector(_addProgressOutput:)
+        withObject:output
+        waitUntilDone:YES
+    ];
+}
+
+- (void) _setProgressTitle:(NSString *)title {
+    [refreshbar_ setPrompt:title];
+}
+
+- (void) _setProgressPercent:(NSNumber *)percent {
+    [refreshbar_ setProgress:[percent floatValue]];
+}
+
+- (void) _addProgressOutput:(NSString *)output {
+}
+
+- (void) setUpdateDelegate:(id)delegate {
+    updatedelegate_ = delegate;
+}
+
+- (CGFloat) statusBarHeight {
+    if (UIInterfaceOrientationIsPortrait([self interfaceOrientation])) {
+        return [[UIApplication sharedApplication] statusBarFrame].size.height;
+    } else {
+        return [[UIApplication sharedApplication] statusBarFrame].size.width;
+    }
+}
+
+- (UIView *) transitionView {
+    if ([self respondsToSelector:@selector(_transitionView)])
+        return [self _transitionView];
+    else
+        return MSHookIvar<id>(self, "_viewControllerTransitionView");
+}
+
+- (void) dropBar:(BOOL)animated {
+    if (dropped_)
+        return;
+    dropped_ = true;
+
+    UIView *transition([self transitionView]);
+    [[self view] addSubview:refreshbar_];
+
+    CGRect barframe([refreshbar_ frame]);
+
+    if (false) // XXX: _UIApplicationLinkedOnOrAfter(4)
+        barframe.origin.y = [self statusBarHeight];
+    else
+        barframe.origin.y = 0;
+
+    [refreshbar_ setFrame:barframe];
+
+    if (animated)
+        [UIView beginAnimations:nil context:NULL];
+
+    CGRect viewframe = [transition frame];
+    viewframe.origin.y += barframe.size.height;
+    viewframe.size.height -= barframe.size.height;
+    [transition setFrame:viewframe];
+
+    if (animated)
+        [UIView commitAnimations];
+
+    // Ensure bar has the proper width for our view, it might have changed
+    barframe.size.width = viewframe.size.width;
+    [refreshbar_ setFrame:barframe];
+
+    // XXX: fix Apple's layout bug
+    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void) raiseBar:(BOOL)animated {
+    if (!dropped_)
+        return;
+    dropped_ = false;
+
+    UIView *transition([self transitionView]);
+    [refreshbar_ removeFromSuperview];
+
+    CGRect barframe([refreshbar_ frame]);
+
+    if (animated)
+        [UIView beginAnimations:nil context:NULL];
+
+    CGRect viewframe = [transition frame];
+    viewframe.origin.y -= barframe.size.height;
+    viewframe.size.height += barframe.size.height;
+    [transition setFrame:viewframe];
+
+    if (animated)
+        [UIView commitAnimations];
+
+    // XXX: fix Apple's layout bug
+    // SRK [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+#if 0
+- (void) willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
+    // XXX: fix Apple's layout bug
+    // SRK [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+#endif
+
+- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    bool dropped(dropped_);
+
+    if (dropped)
+        [self raiseBar:NO];
+
+    [super didRotateFromInterfaceOrientation:fromInterfaceOrientation];
+
+    if (dropped)
+        [self dropBar:NO];
+
+    // XXX: fix Apple's layout bug
+    // SRK [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
+}
+
+- (void) statusBarFrameChanged:(NSNotification *)notification {
+    if (dropped_) {
+        [self raiseBar:NO];
+        [self dropBar:NO];
+    }
+}
+
+- (void) dealloc {
+    [refreshbar_ release];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [super dealloc];
 }
 
 @end
@@ -7696,273 +7935,6 @@ freeing the view controllers on tab change */
 @end
 /* }}} */
 
-/* Cydia Container {{{ */
-@interface CYContainer : UIViewController <ProgressDelegate> {
-    _transient Database *database_;
-    RefreshBar *refreshbar_;
-
-    bool dropped_;
-    bool updating_;
-    // XXX: ok, "updatedelegate_"?...
-    _transient NSObject<CydiaDelegate> *updatedelegate_;
-    // XXX: can't we query for this variable when we need it?
-    _transient UITabBarController *root_;
-}
-
-- (void) setTabBarController:(UITabBarController *)controller;
-
-- (void) dropBar:(BOOL)animated;
-- (void) beginUpdate;
-- (void) raiseBar:(BOOL)animated;
-- (BOOL) updating;
-
-@end
-
-@implementation CYContainer
-
-- (BOOL) _reallyWantsFullScreenLayout {
-    return YES;
-}
-
-// NOTE: UIWindow only sends the top controller these messages,
-//       So we have to forward them on.
-
-- (void) viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    [root_ viewDidAppear:animated];
-}
-
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-    [root_ viewWillAppear:animated];
-}
-
-- (void) viewDidDisappear:(BOOL)animated {
-    [super viewDidDisappear:animated];
-    [root_ viewDidDisappear:animated];
-}
-
-- (void) viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-    [root_ viewWillDisappear:animated];
-}
-
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return ![updatedelegate_ hudIsShowing] && (IsWildcat_ || orientation == UIInterfaceOrientationPortrait);
-}
-
-- (void) setTabBarController:(UITabBarController *)controller {
-    root_ = controller;
-    [[self view] addSubview:[root_ view]];
-}
-
-- (void) setUpdate:(NSDate *)date {
-    [self beginUpdate];
-}
-
-- (void) beginUpdate {
-    [self dropBar:YES];
-    [refreshbar_ start];
-
-    updating_ = true;
-
-    [NSThread
-        detachNewThreadSelector:@selector(performUpdate)
-        toTarget:self
-        withObject:nil
-    ];
-}
-
-- (void) performUpdate { _pooled
-    Status status;
-    status.setDelegate(self);
-    [database_ updateWithStatus:status];
-
-    [self
-        performSelectorOnMainThread:@selector(completeUpdate)
-        withObject:nil
-        waitUntilDone:NO
-    ];
-}
-
-- (void) completeUpdate {
-    if (!updating_)
-        return;
-    updating_ = false;
-
-    [self raiseBar:YES];
-    [refreshbar_ stop];
-    [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
-}
-
-- (void) cancelUpdate {
-    updating_ = false;
-    [self raiseBar:YES];
-    [refreshbar_ stop];
-    [updatedelegate_ performSelector:@selector(updateData) withObject:nil afterDelay:0];
-}
-
-- (void) cancelPressed {
-    [self cancelUpdate];
-}
-
-- (BOOL) updating {
-    return updating_;
-}
-
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    [refreshbar_ setPrompt:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
-}
-
-- (void) startProgress {
-}
-
-- (void) setProgressTitle:(NSString *)title {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressTitle:)
-        withObject:title
-        waitUntilDone:YES
-    ];
-}
-
-- (bool) isCancelling:(size_t)received {
-    return !updating_;
-}
-
-- (void) setProgressPercent:(float)percent {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressPercent:)
-        withObject:[NSNumber numberWithFloat:percent]
-        waitUntilDone:YES
-    ];
-}
-
-- (void) addProgressOutput:(NSString *)output {
-    [self
-        performSelectorOnMainThread:@selector(_addProgressOutput:)
-        withObject:output
-        waitUntilDone:YES
-    ];
-}
-
-- (void) _setProgressTitle:(NSString *)title {
-    [refreshbar_ setPrompt:title];
-}
-
-- (void) _setProgressPercent:(NSNumber *)percent {
-    [refreshbar_ setProgress:[percent floatValue]];
-}
-
-- (void) _addProgressOutput:(NSString *)output {
-}
-
-- (void) setUpdateDelegate:(id)delegate {
-    updatedelegate_ = delegate;
-}
-
-- (CGFloat) statusBarHeight {
-    if (UIInterfaceOrientationIsPortrait([self interfaceOrientation])) {
-        return [[UIApplication sharedApplication] statusBarFrame].size.height;
-    } else {
-        return [[UIApplication sharedApplication] statusBarFrame].size.width;
-    }
-}
-
-- (void) dropBar:(BOOL)animated {
-    if (dropped_)
-        return;
-    dropped_ = true;
-
-    [[self view] addSubview:refreshbar_];
-
-    CGFloat sboffset = [self statusBarHeight];
-
-    CGRect barframe = [refreshbar_ frame];
-    barframe.origin.y = sboffset;
-    [refreshbar_ setFrame:barframe];
-
-    if (animated)
-        [UIView beginAnimations:nil context:NULL];
-    CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y += barframe.size.height + sboffset;
-    viewframe.size.height -= barframe.size.height + sboffset;
-    [[root_ view] setFrame:viewframe];
-    if (animated)
-        [UIView commitAnimations];
-
-    // Ensure bar has the proper width for our view, it might have changed
-    barframe.size.width = viewframe.size.width;
-    [refreshbar_ setFrame:barframe];
-
-    // XXX: fix Apple's layout bug
-    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-
-- (void) raiseBar:(BOOL)animated {
-    if (!dropped_)
-        return;
-    dropped_ = false;
-
-    [refreshbar_ removeFromSuperview];
-
-    CGFloat sboffset = [self statusBarHeight];
-
-    if (animated)
-        [UIView beginAnimations:nil context:NULL];
-    CGRect barframe = [refreshbar_ frame];
-    CGRect viewframe = [[root_ view] frame];
-    viewframe.origin.y -= barframe.size.height + sboffset;
-    viewframe.size.height += barframe.size.height + sboffset;
-    [[root_ view] setFrame:viewframe];
-    if (animated)
-        [UIView commitAnimations];
-
-    // XXX: fix Apple's layout bug
-    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-
-- (void) willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
-    // XXX: fix Apple's layout bug
-    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-
-- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
-    if (dropped_) {
-        [self raiseBar:NO];
-        [self dropBar:NO];
-    }
-
-    // XXX: fix Apple's layout bug
-    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-
-- (void) statusBarFrameChanged:(NSNotification *)notification {
-    if (dropped_) {
-        [self raiseBar:NO];
-        [self dropBar:NO];
-    }
-}
-
-- (void) dealloc {
-    [refreshbar_ release];
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [super dealloc];
-}
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-
-        [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(statusBarFrameChanged:) name:UIApplicationDidChangeStatusBarFrameNotification object:nil];
-
-        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
-    } return self;
-}
-
-@end
-/* }}} */
-
 typedef enum {
     kCydiaTag = 0,
     kSectionsTag = 1,
@@ -7983,7 +7955,6 @@ typedef enum {
     // XXX: evaluate all fields for _transient
 
     UIWindow *window_;
-    CYContainer *container_;
     CYTabBarController *tabbar_;
 
     NSMutableArray *essential_;
@@ -8024,11 +7995,11 @@ static _finline void _setHomePage(Cydia *self) {
 @implementation Cydia
 
 - (void) beginUpdate {
-    [container_ beginUpdate];
+    [tabbar_ beginUpdate];
 }
 
 - (BOOL) updating {
-    return [container_ updating];
+    return [tabbar_ updating];
 }
 
 - (UIView *) rotatingContentViewForWindow:(UIWindow *)window {
@@ -8162,7 +8133,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     // If we can reach the server, auto-refresh!
     if (reachable)
-        [container_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
+        [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
 
     [pool release];
 }
@@ -8251,7 +8222,7 @@ static _finline void _setHomePage(Cydia *self) {
     CYNavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
     if (IsWildcat_)
         [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-    [container_ presentModalViewController:navigation animated:YES];
+    [tabbar_ presentModalViewController:navigation animated:YES];
 
     [progress
         detachNewThreadSelector:@selector(update_)
@@ -8290,7 +8261,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     if (IsWildcat_)
         [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
-    [container_ presentModalViewController:confirm_ animated:YES];
+    [tabbar_ presentModalViewController:confirm_ animated:YES];
 
     return true;
 }
@@ -8359,7 +8330,7 @@ static _finline void _setHomePage(Cydia *self) {
         navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
         if (IsWildcat_)
             [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-        [container_ presentModalViewController:navigation animated:YES];
+        [tabbar_ presentModalViewController:navigation animated:YES];
     }
 
     [progress
@@ -8465,7 +8436,7 @@ static _finline void _setHomePage(Cydia *self) {
     CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
     if (IsWildcat_)
         [nav setModalPresentationStyle:UIModalPresentationFormSheet];
-    [container_ presentModalViewController:nav animated:YES];
+    [tabbar_ presentModalViewController:nav animated:YES];
 }
 
 - (void) setPackageController:(PackageController *)view {
@@ -8592,7 +8563,7 @@ static _finline void _setHomePage(Cydia *self) {
     [window_ setUserInteractionEnabled:NO];
     [hud show:YES];
 
-    UIViewController *target = container_;
+    UIViewController *target = tabbar_;
     while ([target modalViewController] != nil) target = [target modalViewController];
     [[target view] addSubview:hud];
 
@@ -8692,8 +8663,8 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationWillResignActive:(UIApplication *)application {
     // Stop refreshing if you get a phone call or lock the device.
-    if ([container_ updating])
-        [container_ cancelUpdate];
+    if ([tabbar_ updating])
+        [tabbar_ cancelUpdate];
 
     if ([[self superclass] instancesRespondToSelector:@selector(applicationWillResignActive:)])
         [super applicationWillResignActive:application];
@@ -8805,14 +8776,11 @@ _trace();
     database_ = [Database sharedInstance];
 
     [self setupTabBarController];
-
-    container_ = [[CYContainer alloc] initWithDatabase:database_];
-    [container_ setUpdateDelegate:self];
-    [container_ setTabBarController:tabbar_];
-    [window_ addSubview:[container_ view]];
+    [tabbar_ setUpdateDelegate:self];
+    [window_ addSubview:[tabbar_ view]];
 
     // Show pinstripes while loading data.
-    [[container_ view] setBackgroundColor:[UIColor pinStripeColor]];
+    [[tabbar_ view] setBackgroundColor:[UIColor pinStripeColor]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -8864,7 +8832,7 @@ _trace();
     [container setFrame:containrect];
     [spinner setFrame:spinrect];
     [label setFrame:textrect];
-    [[container_ view] addSubview:container];
+    [[tabbar_ view] addSubview:container];
 
     [self reloadData];
     PrintTimes();
@@ -8881,7 +8849,7 @@ _trace();
     [window_ setUserInteractionEnabled:YES];
 
     // XXX: does this actually slow anything down?
-    [[container_ view] setBackgroundColor:[UIColor clearColor]];
+    [[tabbar_ view] setBackgroundColor:[UIColor clearColor]];
     [container removeFromSuperview];
 }
 

@@ -1926,6 +1926,8 @@ struct ParsedPackage {
 - (NSArray *) purposes;
 - (bool) isCommercial;
 
+- (void) setIndex:(size_t)index;
+
 - (CYString &) cyname;
 
 - (uint32_t) compareBySection:(NSArray *)sections;
@@ -2784,6 +2786,11 @@ struct PackageNameOrdering :
     return [self hasTag:@"cydia::commercial"];
 }
 
+- (void) setIndex:(size_t)index {
+    if (metadata_->index_ != index)
+        metadata_->index_ = index;
+}
+
 - (CYString &) cyname {
     return name_.empty() ? id_ : name_;
 }
@@ -3465,6 +3472,12 @@ static NSString *Warning_;
         CFArrayInsertionSortValues(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
 
         //[packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
+
+        _trace();
+
+        size_t count(CFArrayGetCount(packages_));
+        for (size_t index(0); index != count; ++index)
+            [(Package *) CFArrayGetValueAtIndex(packages_, index) setIndex:index];
 
         _trace();
     }

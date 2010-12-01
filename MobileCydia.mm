@@ -2295,12 +2295,26 @@ struct PackageNameOrdering :
     if (version.end())
         return nil;
 
-    return [[[Package alloc]
-        initWithVersion:version
-        withZone:zone
-        inPool:pool
-        database:database
-    ] autorelease];
+    Package *package;
+
+    _profile(Package$packageWithIterator$Allocate)
+        package = [Package allocWithZone:zone];
+    _end
+
+    _profile(Package$packageWithIterator$Initialize)
+        package = [package
+            initWithVersion:version
+            withZone:zone
+            inPool:pool
+            database:database
+        ];
+    _end
+
+    _profile(Package$packageWithIterator$Autorelease)
+        package = [package autorelease];
+    _end
+
+    return package;
 }
 
 - (pkgCache::PkgIterator) iterator {

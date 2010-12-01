@@ -1447,6 +1447,7 @@ struct PackageValue :
 struct MetaValue :
     Cytore::Block
 {
+    uint32_t active_;
     Cytore::Offset<PackageValue> packages_[1 << 16];
 };
 
@@ -3154,7 +3155,13 @@ static NSString *Warning_;
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
         apr_pool_create(&pool_, NULL);
 
-        packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
+        size_t capacity(MetaFile_->active_);
+        if (capacity == 0)
+            capacity = 16384;
+        else
+            capacity += 1024;
+
+        packages_ = CFArrayCreateMutable(kCFAllocatorDefault, capacity, NULL);
 
         int fds[2];
 
@@ -3477,6 +3484,8 @@ static NSString *Warning_;
         _trace();
 
         size_t count(CFArrayGetCount(packages_));
+        MetaFile_->active_ = count;
+
         for (size_t index(0); index != count; ++index)
             [(Package *) CFArrayGetValueAtIndex(packages_, index) setIndex:index];
 

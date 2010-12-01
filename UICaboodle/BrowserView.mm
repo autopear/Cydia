@@ -335,8 +335,10 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 - (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     id<CYWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:)])
-        // XXX: check delegate
-        if ([delegate webView:view shouldRunJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame])
+        if (
+            ![delegate respondsToSelector:@selector(webView:shouldRunJavaScriptAlertPanelWithMessage:initiatedByFrame:)] ||
+            [delegate webView:view shouldRunJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame]
+        )
             [super webView:view runJavaScriptAlertPanelWithMessage:message initiatedByFrame:frame];
 }
 // }}}
@@ -344,8 +346,10 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 - (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
     id<CYWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:)])
-        // XXX: check delegate
-        if ([delegate webView:view shouldRunJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame])
+        if (
+            ![delegate respondsToSelector:@selector(webView:shouldRunJavaScriptConfirmPanelWithMessage:initiatedByFrame:)] ||
+            [delegate webView:view shouldRunJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame]
+        )
             return [super webView:view runJavaScriptConfirmPanelWithMessage:message initiatedByFrame:frame];
     return NO;
 }
@@ -354,8 +358,10 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 - (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame {
     id<CYWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)])
-        // XXX: check delegate
-        if ([delegate webView:view shouldRunJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame])
+        if (
+            ![delegate respondsToSelector:@selector(webView:shouldRunJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)] ||
+            [delegate webView:view shouldRunJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame]
+        )
             return [super webView:view runJavaScriptTextInputPanelWithPrompt:prompt defaultText:text initiatedByFrame:frame];
     return nil;
 }

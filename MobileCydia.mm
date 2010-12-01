@@ -8009,6 +8009,9 @@ typedef enum {
 - (void) setPage:(CYViewController *)page;
 - (void) loadData;
 
+// XXX: I hate prototypes
+- (id) queueBadgeController;
+
 @end
 
 static _finline void _setHomePage(Cydia *self) {
@@ -8093,6 +8096,9 @@ static _finline void _setHomePage(Cydia *self) {
         [search_ reloadData];
 
     [(CYNavigationController *)[tabbar_ selectedViewController] reloadData];
+
+    [queueDelegate_ queueStatusDidChange];
+    [[[self queueBadgeController] tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
 }
 
 - (int)indexOfTabWithTag:(int)tag {
@@ -8340,6 +8346,8 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
+    Queuing_ = false;
+
     ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
 
     if (navigation != nil) {
@@ -8484,18 +8492,12 @@ static _finline void _setHomePage(Cydia *self) {
     @synchronized (self) {
         if (clear) {
             [database_ clear];
-
-            // Stop queuing.
             Queuing_ = false;
-            [[[self queueBadgeController] tabBarItem] setBadgeValue:nil];
         } else {
-            // Start queuing.
             Queuing_ = true;
-            [[[self queueBadgeController] tabBarItem] setBadgeValue:UCLocalize("Q_D")];
         }
 
         [self _updateData];
-        [queueDelegate_ queueStatusDidChange];
     }
 }
 

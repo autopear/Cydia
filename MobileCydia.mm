@@ -1430,7 +1430,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 struct PackageValue :
     Cytore::Block
 {
-    Cytore::Offset<void> reserved_;
     Cytore::Offset<PackageValue> next_;
 
     uint32_t index_ : 23;
@@ -1450,7 +1449,6 @@ struct PackageValue :
 struct MetaValue :
     Cytore::Block
 {
-    Cytore::Offset<void> reserved_;
     Cytore::Offset<PackageValue> packages_[1 << 16];
 };
 

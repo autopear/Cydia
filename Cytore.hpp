@@ -52,9 +52,6 @@ struct Header {
     uint32_t reserved_;
 };
 
-struct Block {
-};
-
 template <typename Target_>
 class Offset {
   private:
@@ -83,6 +80,10 @@ class Offset {
     bool IsNull() const {
         return offset_ == 0;
     }
+};
+
+struct Block {
+    Cytore::Offset<void> reserved_;
 };
 
 template <typename Type_>

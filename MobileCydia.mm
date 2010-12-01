@@ -8754,6 +8754,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
+_trace();
     [CYBrowserController _initialize];
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];

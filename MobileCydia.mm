@@ -8062,21 +8062,24 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) _saveConfig {
+    _trace();
+    MetaFile_.Sync();
+    _trace();
+
     if (Changed_) {
-        _trace();
         NSString *error(nil);
+
         if (NSData *data = [NSPropertyListSerialization dataFromPropertyList:Metadata_ format:NSPropertyListBinaryFormat_v1_0 errorDescription:&error]) {
             _trace();
             NSError *error(nil);
             if (![data writeToFile:@"/var/lib/cydia/metadata.plist" options:NSAtomicWrite error:&error])
                 NSLog(@"failure to save metadata data: %@", error);
             _trace();
+
+            Changed_ = false;
         } else {
             NSLog(@"failure to serialize metadata: %@", error);
-            return;
         }
-
-        Changed_ = false;
     }
 }
 

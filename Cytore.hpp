@@ -100,7 +100,23 @@ class File {
 
   private:
     int file_;
-    std::vector<uint8_t *> blocks_;
+
+    typedef std::vector<uint8_t *> BlockVector_;
+    BlockVector_ blocks_;
+
+    struct Mapping_ {
+        uint8_t *data_;
+        size_t size_;
+
+        Mapping_(uint8_t *data, size_t size) :
+            data_(data),
+            size_(size)
+        {
+        }
+    };
+
+    typedef std::vector<Mapping_> MappingVector_;
+    MappingVector_ maps_;
 
     Header &Header_() {
         return *reinterpret_cast<Header *>(blocks_[0]);
@@ -115,8 +131,11 @@ class File {
         size_t extend(size - before);
 
         void *data(mmap(NULL, extend, PROT_READ | PROT_WRITE, MAP_FILE | MAP_SHARED, file_, before));
+        uint8_t *bytes(reinterpret_cast<uint8_t *>(data));
+
+        maps_.push_back(Mapping_(bytes,extend));
         for (size_t i(0); i != extend >> Shift_; ++i)
-            blocks_.push_back(reinterpret_cast<uint8_t *>(data) + Block_ * i);
+            blocks_.push_back(bytes + Block_ * i);
     }
 
     void Truncate_(size_t capacity) {
@@ -138,8 +157,14 @@ class File {
     }
 
     ~File() {
-        // XXX: this object is never deconstructed. if it were, this should unmap the memory
+        for (typename MappingVector_::const_iterator map(maps_.begin()); map != maps_.end(); ++map)
+            munmap(map->data_, map->size_);
         close(file_);
+    }
+
+    void Sync() {
+        for (typename MappingVector_::const_iterator map(maps_.begin()); map != maps_.end(); ++map)
+            msync(map->data_, map->size_, MS_SYNC);
     }
 
     size_t Capacity() const {

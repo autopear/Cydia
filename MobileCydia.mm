@@ -1826,34 +1826,35 @@ struct ParsedPackage {
 };
 
 @interface Package : NSObject {
-    unsigned era_;
+    uint32_t era_ : 29;
+    uint32_t essential_ : 1;
+    uint32_t obsolete_ : 1;
+    uint32_t ignored_ : 1;
+
     apr_pool_t *pool_;
+
+    _transient Database *database_;
 
     pkgCache::VerIterator version_;
     pkgCache::PkgIterator iterator_;
-    _transient Database *database_;
     pkgCache::VerFileIterator file_;
-
-    Source *source_;
-    ParsedPackage *parsed_;
-
-    CYString section_;
-    _transient NSString *section$_;
-    bool essential_;
-    bool obsolete_;
-
-    CYString latest_;
-    CYString installed_;
 
     CYString id_;
     CYString name_;
 
-    NSMutableArray *tags_;
-    NSString *role_;
+    CYString latest_;
+    CYString installed_;
+
+    CYString section_;
+    _transient NSString *section$_;
+
+    Source *source_;
 
     PackageValue *metadata_;
+    ParsedPackage *parsed_;
 
-    bool ignored_;
+    NSMutableArray *tags_;
+    NSString *role_;
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
@@ -2184,27 +2185,17 @@ struct PackageNameOrdering :
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
-        era_ = [database era];
         pool_ = pool;
+
+        database_ = database;
+        era_ = [database era];
 
         version_ = version;
 
-        _profile(Package$initWithVersion$ParentPkg)
-            iterator_ = version.ParentPkg();
-        _end
+        pkgCache::PkgIterator iterator(version.ParentPkg());
+        iterator_ = iterator;
 
-        database_ = database;
-
-        _profile(Package$initWithVersion$Latest)
-            latest_.set(NULL, StripVersion_(version_.VerStr()));
-        _end
-
-        pkgCache::VerIterator current;
-        _profile(Package$initWithVersion$Versions)
-            current = iterator_.CurrentVer();
-            if (!current.end())
-                installed_.set(NULL, StripVersion_(current.VerStr()));
-
+        _profile(Package$initWithVersion$Version)
             if (!version_.end())
                 file_ = version_.FileList();
             else {
@@ -2213,12 +2204,18 @@ struct PackageNameOrdering :
             }
         _end
 
-        _profile(Package$initWithVersion$Name)
-            id_.set(NULL, iterator_.Name());
-            name_.set(NULL, iterator_.Display());
+        _profile(Package$initWithVersion$Cache)
+            id_.set(NULL, iterator.Name());
+            name_.set(NULL, iterator.Display());
+
+            latest_.set(NULL, StripVersion_(version_.VerStr()));
+
+            pkgCache::VerIterator current(iterator.CurrentVer());
+            if (!current.end())
+                installed_.set(NULL, StripVersion_(current.VerStr()));
         _end
 
-        _profile(Package$initWithVersion$lowercaseString)
+        _profile(Package$initWithVersion$Lower)
             // XXX: do not use tolower() as this is not locale-specific? :(
             char *data(id_.data());
             for (size_t i(0), e(id_.size()); i != e; ++i)
@@ -2232,7 +2229,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Tags)
-            pkgCache::TagIterator tag(iterator_.TagList());
+            pkgCache::TagIterator tag(iterator.TagList());
             if (!tag.end()) {
                 tags_ = [[NSMutableArray alloc] initWithCapacity:8];
                 do {
@@ -2278,14 +2275,13 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Section)
-            section_.set(NULL, iterator_.Section());
+            section_.set(NULL, iterator.Section());
         _end
 
-        _profile(Package$initWithVersion$hasTag)
-            essential_ |= ((iterator_->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES);
+        _profile(Package$initWithVersion$Flags)
+            essential_ |= ((iterator->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES);
+            ignored_ = iterator->SelectedState == pkgCache::State::Hold;
         _end
-
-        ignored_ = iterator_->SelectedState == pkgCache::State::Hold;
     _end } return self;
 }
 

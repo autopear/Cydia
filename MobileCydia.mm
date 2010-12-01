@@ -5001,14 +5001,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) onSwitch:(id)sender {
-    NSMutableDictionary *metadata = [Sections_ objectForKey:basic_];
+    NSMutableDictionary *metadata([Sections_ objectForKey:basic_]);
     if (metadata == nil) {
         metadata = [NSMutableDictionary dictionaryWithCapacity:2];
         [Sections_ setObject:metadata forKey:basic_];
     }
 
-    Changed_ = true;
     [metadata setObject:[NSNumber numberWithBool:([switch_ isOn] == NO)] forKey:@"Hidden"];
+    Changed_ = true;
 }
 
 - (void) setSection:(Section *)section editing:(BOOL)editing {
@@ -7560,7 +7560,6 @@ freeing the view controllers on tab change */
         nil];
 
         [Metadata_ setObject:Settings_ forKey:@"Settings"];
-
         Changed_ = true;
 
         if (rolling)

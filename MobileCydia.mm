@@ -4912,12 +4912,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     if (badge_ != nil) {
-        CGSize size = [badge_ size];
+        CGRect rect;
+        rect.size = [badge_ size];
 
-        [badge_ drawAtPoint:CGPointMake(
-            36 - size.width / 2,
-            36 - size.height / 2
-        )];
+        rect.size.width /= 2;
+        rect.size.height /= 2;
+
+        rect.origin.x = 36 - rect.size.width / 2;
+        rect.origin.y = 36 - rect.size.height / 2;
+
+        [badge_ drawInRect:rect];
     }
 
     if (highlighted)

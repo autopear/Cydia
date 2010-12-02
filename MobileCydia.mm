@@ -1197,7 +1197,6 @@ bool isSectionVisible(NSString *section) {
 - (void) syncData;
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
-- (BOOL) hudIsShowing;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (CYViewController *) pageForPackage:(NSString *)name;
 - (PackageController *) packageController;
@@ -7989,7 +7988,7 @@ typedef enum {
     Database *database_;
 
     int tag_;
-    int hudcount_;
+    unsigned locked_;
     NSURL *starturl_;
 
     SectionsController *sections_;
@@ -8365,9 +8364,12 @@ static _finline void _setHomePage(Cydia *self) {
         withObject:nil
         title:UCLocalize("RUNNING")
     ];
+
+    ++locked_;
 }
 
 - (void) progressControllerIsComplete:(ProgressController *)progress {
+    --locked_;
     [self complete];
 }
 
@@ -8554,13 +8556,10 @@ static _finline void _setHomePage(Cydia *self) {
     [super applicationWillSuspend];
 }
 
-- (BOOL) hudIsShowing {
-    return (hudcount_ > 0);
-}
-
-- (void) applicationSuspend:(__GSEvent *)event {
+- (BOOL) isSafeToSuspend {
     // Use external process status API internally.
     // This is probably a really bad idea.
+    // XXX: what is the point of this? does this solve anything at all?
     uint64_t status = 0;
     int notify_token;
     if (notify_register_check("com.saurik.Cydia.status", &notify_token) == NOTIFY_STATUS_OK) {
@@ -8568,17 +8567,21 @@ static _finline void _setHomePage(Cydia *self) {
         notify_cancel(notify_token);
     }
 
-    if (![self hudIsShowing] && status == 0)
+    return locked_ == 0 && status == 0;
+}
+
+- (void) applicationSuspend:(__GSEvent *)event {
+    if ([self isSafeToSuspend])
         [super applicationSuspend:event];
 }
 
 - (void) _animateSuspension:(BOOL)arg0 duration:(double)arg1 startTime:(double)arg2 scale:(float)arg3 {
-    if (![self hudIsShowing])
+    if ([self isSafeToSuspend])
         [super _animateSuspension:arg0 duration:arg1 startTime:arg2 scale:arg3];
 }
 
 - (void) _setSuspended:(BOOL)value {
-    if (![self hudIsShowing])
+    if ([self isSafeToSuspend])
         [super _setSuspended:value];
 }
 
@@ -8593,7 +8596,7 @@ static _finline void _setHomePage(Cydia *self) {
     while ([target modalViewController] != nil) target = [target modalViewController];
     [[target view] addSubview:hud];
 
-    hudcount_++;
+    ++locked_;
     return hud;
 }
 
@@ -8601,7 +8604,7 @@ static _finline void _setHomePage(Cydia *self) {
     [hud show:NO];
     [hud removeFromSuperview];
     [window_ setUserInteractionEnabled:YES];
-    hudcount_--;
+    --locked_;
 }
 
 - (CYViewController *) pageForPackage:(NSString *)name {
@@ -8697,6 +8700,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) addStashController {
+    ++locked_;
     stash_ = [[CYStashController alloc] init];
     [window_ addSubview:[stash_ view]];
 }
@@ -8704,6 +8708,7 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) removeStashController {
     [[stash_ view] removeFromSuperview];
     [stash_ release];
+    --locked_;
 }
 
 - (void) stash {

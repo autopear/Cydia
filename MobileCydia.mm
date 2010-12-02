@@ -3363,7 +3363,9 @@ static NSString *Warning_;
     cache_.Close();
 
     apr_pool_clear(pool_);
+
     NSRecycleZone(zone_);
+    zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
 
     int chk(creat("/tmp/cydia.chk", 0644));
     if (chk != -1)

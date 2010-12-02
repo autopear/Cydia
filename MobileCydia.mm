@@ -4674,8 +4674,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _addProgressOutput:(NSString *)output {
     [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
     CGSize size = [output_ contentSize];
-    CGRect rect = {{0, size.height}, {size.width, 0}};
-    [output_ scrollRectToVisible:rect animated:YES];
+    CGPoint offset = [output_ contentOffset];
+    if (size.height - offset.y < [output_ frame].size.height + 20.f) {
+        CGRect rect = {{0, size.height-1}, {size.width, 1}};
+        [output_ scrollRectToVisible:rect animated:YES];
+    }
 }
 
 - (BOOL) isRunning {

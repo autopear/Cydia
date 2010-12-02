@@ -66,8 +66,8 @@ $(function () {
     $("#icon").css("background-image", 'url("' + icon + '")');
     //$("#reflection").src("cydia://package-icon/" + idc);
 
-    $("#name").html(name);
-    space("#latest", package.latest, 96);
+    $("#name").html($.xml(name));
+    space("#latest", $.xml(package.latest), 96);
 
     $.xhr(capi + 'package/' + idc, 'GET', {}, null, {
         success: function (value) {
@@ -177,7 +177,7 @@ $(function () {
     if (author == null)
         $(".author").addClass("deleted");
     else {
-        space("#author", author.name, 160);
+        space("#author", $.xml(author.name), 160);
         if (author.address == null)
             $("#author-icon").addClass("deleted");
         else if (support == null)
@@ -223,18 +223,18 @@ $(function () {
     if (installed == null)
         $(".installed").addClass("deleted");
     else {
-        $("#installed").html(installed);
+        $("#installed").html($.xml(installed));
         $("#files-href").href("cydia://files/" + idc);
     }
 
-    space("#id", id, 220);
+    space("#id", $.xml(id), 220);
 
     var section = package.longSection;
     if (section == null)
         $(".section").addClass("deleted");
     else {
         $("#section-src").src("cydia://section-icon/" + encodeURIComponent(section));
-        $("#section").html(section);
+        $("#section").html($.xml(section));
     }
 
     var size = package.size;
@@ -247,7 +247,7 @@ $(function () {
     if (maintainer == null)
         $(".maintainer").addClass("deleted");
     else {
-        space("#maintainer", maintainer.name, 153);
+        space("#maintainer", $.xml(maintainer.name), 153);
         if (maintainer.address == null)
             $("#maintainer-icon").addClass("deleted");
         else if (support == null)
@@ -260,7 +260,7 @@ $(function () {
     if (sponsor == null)
         $(".sponsor").addClass("deleted");
     else {
-        space("#sponsor", sponsor.name, 152);
+        space("#sponsor", $.xml(sponsor.name), 152);
         $("#sponsor-href").href(sponsor.address);
     }
 
@@ -272,7 +272,7 @@ $(function () {
         var host = source.host;
 
         $("#source-src").src("cydia://source-icon/" + encodeURIComponent(host));
-        $("#source-name").html(source.name);
+        $("#source-name").html($.xml(source.name));
 
         if (source.trusted)
             $("#trusted").href("cydia://package-signature/" + idc);

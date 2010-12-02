@@ -451,6 +451,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (title_ != nil)
         [title_ release];
 
+    if ([loading_ count] != 0)
+        [delegate_ releaseNetworkActivityIndicator];
     [loading_ release];
 
     [reloaditem_ release];
@@ -904,11 +906,16 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
 - (void) _didStartLoading {
     [self applyRightButton];
+
+    if ([loading_ count] != 1)
+        return;
+    [delegate_ retainNetworkActivityIndicator];
 }
 
 - (void) _didFinishLoading {
     if ([loading_ count] != 0)
         return;
+    [delegate_ releaseNetworkActivityIndicator];
 
     [self applyRightButton];
 

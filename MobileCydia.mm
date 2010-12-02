@@ -1184,6 +1184,8 @@ bool isSectionVisible(NSString *section) {
 @class PackageController;
 
 @protocol CydiaDelegate
+- (void) retainNetworkActivityIndicator;
+- (void) releaseNetworkActivityIndicator;
 - (void) setPackageController:(PackageController *)view;
 - (void) clearPackage:(Package *)package;
 - (void) installPackage:(Package *)package;
@@ -1202,6 +1204,8 @@ bool isSectionVisible(NSString *section) {
 - (PackageController *) packageController;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 @end
+
+static id<CydiaDelegate> CydiaApp;
 /* }}} */
 
 /* Status Delegation {{{ */
@@ -3580,6 +3584,8 @@ static NSString *Warning_;
         return;
     }
 
+    [CydiaApp retainNetworkActivityIndicator];
+
     bool failed = false;
     for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {
         if ((*item)->Status == pkgAcquire::Item::StatDone && (*item)->Complete)
@@ -3600,6 +3606,8 @@ static NSString *Warning_;
             waitUntilDone:YES
         ];
     }
+
+    [CydiaApp releaseNetworkActivityIndicator];
 
     if (failed) {
         _trace();
@@ -6684,9 +6692,10 @@ freeing the view controllers on tab change */
 }
 
 - (void) beginUpdate {
-    [self dropBar:YES];
     [refreshbar_ start];
+    [self dropBar:YES];
 
+    [updatedelegate_ retainNetworkActivityIndicator];
     updating_ = true;
 
     [NSThread
@@ -6708,21 +6717,24 @@ freeing the view controllers on tab change */
     ];
 }
 
+- (void) stopUpdateWithSelector:(SEL)selector {
+    updating_ = false;
+    [updatedelegate_ releaseNetworkActivityIndicator];
+
+    [self raiseBar:YES];
+    [refreshbar_ stop];
+
+    [updatedelegate_ performSelector:selector withObject:nil afterDelay:0];
+}
+
 - (void) completeUpdate {
     if (!updating_)
         return;
-    updating_ = false;
-
-    [self raiseBar:YES];
-    [refreshbar_ stop];
-    [updatedelegate_ performSelector:@selector(reloadData) withObject:nil afterDelay:0];
+    [self stopUpdateWithSelector:@selector(reloadData)];
 }
 
 - (void) cancelUpdate {
-    updating_ = false;
-    [self raiseBar:YES];
-    [refreshbar_ stop];
-    [updatedelegate_ performSelector:@selector(updateData) withObject:nil afterDelay:0];
+    [self stopUpdateWithSelector:@selector(updateData)];
 }
 
 - (void) cancelPressed {
@@ -7991,9 +8003,11 @@ typedef enum {
 
     Database *database_;
 
-    int tag_;
-    unsigned locked_;
     NSURL *starturl_;
+    int tag_;
+
+    unsigned locked_;
+    unsigned activity_;
 
     SectionsController *sections_;
     ChangesController *changes_;
@@ -8471,6 +8485,16 @@ static _finline void _setHomePage(Cydia *self) {
     [tabbar_ presentModalViewController:nav animated:YES];
 }
 
+- (void) retainNetworkActivityIndicator {
+    if (activity_++ == 0)
+        [self setNetworkActivityIndicatorVisible:YES];
+}
+
+- (void) releaseNetworkActivityIndicator {
+    if (--activity_ == 0)
+        [self setNetworkActivityIndicatorVisible:NO];
+}
+
 - (void) setPackageController:(PackageController *)view {
     WebThreadLock();
     [view setPackage:nil];
@@ -8766,6 +8790,8 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
+    CydiaApp = self;
+
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288
         diskCapacity:10485760

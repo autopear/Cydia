@@ -50,6 +50,8 @@
 @end
 
 @protocol BrowserControllerDelegate
+- (void) retainNetworkActivityIndicator;
+- (void) releaseNetworkActivityIndicator;
 - (CYViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag;
 @end
 

@@ -890,11 +890,15 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if ([self isLoading]) {
         [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
         [self performSelector:@selector(layoutRightButton) withObject:nil afterDelay:0];
+
+        [indicator_ startAnimating];
         [self applyLoadingTitle];
-    } else if (custom_ != nil) {
-        [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
     } else {
-        [[self navigationItem] setRightBarButtonItem:[self rightButton] animated:YES];
+        [indicator_ stopAnimating];
+
+        [[self navigationItem] setRightBarButtonItem:(
+            custom_ != nil ? [self customButton] : [self rightButton]
+        ) animated:YES];
     }
 }
 
@@ -1009,7 +1013,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite]; 
         [indicator_ setFrame:CGRectMake(15, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
-        [indicator_ startAnimating];
 
         [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];

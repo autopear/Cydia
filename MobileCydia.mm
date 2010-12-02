@@ -5415,6 +5415,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
+    unsigned era_;
     NSMutableArray *packages_;
     NSMutableArray *sections_;
     UITableView *list_;
@@ -5472,11 +5473,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (Package *) packageAtIndexPath:(NSIndexPath *)path {
+@synchronized (database_) {
+    if ([database_ era] != era_)
+        return nil;
+
     Section *section([sections_ objectAtIndex:[path section]]);
     NSInteger row([path row]);
     Package *package([packages_ objectAtIndex:([section row] + row)]);
-    return package;
-}
+    return [[package retain] autorelease];
+} }
 
 - (UITableViewCell *) tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     PackageCell *cell((PackageCell *) [table dequeueReusableCellWithIdentifier:@"Package"]);
@@ -5541,6 +5546,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
+    era_ = [database_ era];
     NSArray *packages = [database_ packages];
 
     [packages_ removeAllObjects];
@@ -6667,7 +6673,7 @@ freeing the view controllers on tab change */
 }
 
 - (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return ![updatedelegate_ hudIsShowing] && (IsWildcat_ || orientation == UIInterfaceOrientationPortrait);
+    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
 }
 
 - (void) setUpdate:(NSDate *)date {
@@ -7246,6 +7252,7 @@ freeing the view controllers on tab change */
     UITableViewDelegate
 > {
     _transient Database *database_;
+    unsigned era_;
     CFMutableArrayRef packages_;
     NSMutableArray *sections_;
     UITableView *list_;
@@ -7303,10 +7310,14 @@ freeing the view controllers on tab change */
 }
 
 - (Package *) packageAtIndexPath:(NSIndexPath *)path {
+@synchronized (database_) {
+    if ([database_ era] != era_)
+        return nil;
+
     Section *section([sections_ objectAtIndex:[path section]]);
     NSInteger row([path row]);
-    return [self packageAtIndex:([section row] + row)];
-}
+    return [[[self packageAtIndex:([section row] + row)] retain] autorelease];
+} }
 
 - (UITableViewCell *) tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     PackageCell *cell((PackageCell *) [table dequeueReusableCellWithIdentifier:@"Package"]);
@@ -7373,6 +7384,7 @@ freeing the view controllers on tab change */
 }
 
 - (void) reloadData {
+    era_ = [database_ era];
     NSArray *packages = [database_ packages];
 
     CFArrayRemoveAllValues(packages_);

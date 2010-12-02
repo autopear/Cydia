@@ -1,9 +1,11 @@
-ifeq (o,O)
-ios := 2.0
-gcc := 4.0
-else
+sdks := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs
+
+ifeq ($(findstring iPhoneOS2.0.sdk,$(wildcard $(sdks)/iPhoneOS*.sdk)),)
 ios := 3.2
 gcc := 4.2
+else
+ios := 2.0
+gcc := 4.0
 endif
 
 flags := 
@@ -12,7 +14,7 @@ link :=
 #dpkg := /Library/Cydia/bin/dpkg-deb -Zlzma
 dpkg := dpkg-deb
 
-sdk := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$(ios).sdk
+sdk := $(sdks)/iPhoneOS$(ios).sdk
 
 flags += -F$(sdk)/System/Library/PrivateFrameworks
 flags += -I. -isystem sysroot/usr/include -Lsysroot/usr/lib

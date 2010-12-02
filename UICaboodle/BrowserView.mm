@@ -881,11 +881,15 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [[self navigationItem] setTitle:UCLocalize("LOADING")];
 }
 
+- (void) layoutRightButton {
+    [[loadingitem_ view] addSubview:indicator_];
+    [[loadingitem_ view] bringSubviewToFront:indicator_];
+}
+
 - (void) applyRightButton {
     if ([self isLoading]) {
         [[self navigationItem] setRightBarButtonItem:loadingitem_ animated:YES];
-        // XXX: why do we do this again here? (if we don't, just remove indicator_)
-        [[loadingitem_ view] addSubview:indicator_];
+        [self performSelector:@selector(layoutRightButton) withObject:nil afterDelay:0];
         [self applyLoadingTitle];
     } else if (custom_ != nil) {
         [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
@@ -1006,7 +1010,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite]; 
         [indicator_ setFrame:CGRectMake(15, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
         [indicator_ startAnimating];
-        [[loadingitem_ view] addSubview:indicator_];
 
         [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];

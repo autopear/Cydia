@@ -8210,24 +8210,20 @@ static _finline void _setHomePage(Cydia *self) {
         }
     }
 
+    NSLog(@"changes:#%u", changes);
+
     UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem];
     if (changes != 0) {
+        _trace();
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
         [changesItem setBadgeValue:badge];
         [changesItem setAnimatedBadge:([essential_ count] > 0)];
-
-        if ([self respondsToSelector:@selector(setApplicationBadge:)])
-            [self setApplicationBadge:badge];
-        else
-            [self setApplicationBadgeString:badge];
+        [self setApplicationIconBadgeNumber:changes];
     } else {
+        _trace();
         [changesItem setBadgeValue:nil];
         [changesItem setAnimatedBadge:NO];
-
-        if ([self respondsToSelector:@selector(removeApplicationBadge)])
-            [self removeApplicationBadge];
-        else // XXX: maybe use setApplicationBadgeString also?
-            [self setApplicationIconBadgeNumber:0];
+        [self setApplicationIconBadgeNumber:0];
     }
 
     [self _updateData];

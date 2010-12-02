@@ -195,9 +195,6 @@ typedef enum {
 - (void) applicationWillResignActive:(UIApplication *)application;
 - (void) applicationWillSuspend;
 - (void) launchApplicationWithIdentifier:(NSString *)identifier suspended:(BOOL)suspended;
-- (void) removeApplicationBadge;
-- (void) setApplicationBadge:(NSString *)badge;
-- (void) setApplicationBadgeString:(NSString *)badge;
 - (void) setStatusBarShowsProgress:(BOOL)shows;
 - (void) _setSuspended:(BOOL)suspended;
 - (void) terminateWithSuccess;

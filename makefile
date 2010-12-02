@@ -56,8 +56,8 @@ clean:
 %.o: %.c
 	$(cycc) -c -o $@ -x c $<
 
-MobileCydia: MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm iPhonePrivate.h lookup3.o Cytore.hpp
-	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(flags) $(link) $(uikit)
+MobileCydia: MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
+	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(foreach m,$(filter %.m,$^),-x objective-c++ $(m)) $(flags) $(link) $(uikit)
 	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm

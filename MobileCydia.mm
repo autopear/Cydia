@@ -121,6 +121,7 @@ extern "C" {
 #include <Cytore.hpp>
 
 #include "UICaboodle/BrowserView.h"
+#include "SDURLCache/SDURLCache.h"
 
 #include "substrate.h"
 /* }}} */
@@ -8744,6 +8745,12 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
+    [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
+        initWithMemoryCapacity:524288
+        diskCapacity:10485760
+        diskPath:[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia/SDURLCache", @"/var/root"]
+    ] autorelease]];
+
     [CYBrowserController _initialize];
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];

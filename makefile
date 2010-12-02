@@ -30,6 +30,7 @@ link += -framework GraphicsServices
 link += -framework IOKit
 link += -framework JavaScriptCore
 link += -framework QuartzCore
+link += -framework SpringBoardServices
 link += -framework SystemConfiguration
 link += -framework WebCore
 link += -framework WebKit

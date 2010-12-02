@@ -4449,7 +4449,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         break;
 
         case 4:
-            system("reboot");
+            if (void (*SBReboot)(mach_port_t) = reinterpret_cast<void (*)(mach_port_t)>(dlsym(RTLD_DEFAULT, "SBReboot")))
+                SBReboot(SBSSpringBoardServerPort());
+            else
+                system("reboot");
         break;
     }
 }

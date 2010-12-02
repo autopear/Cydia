@@ -15,7 +15,6 @@
 @class NSURL;
 @class NSURLRequest;
 
-@class UIProgressIndicator;
 @class UIScroller;
 @class UIDocumentWebView;
 
@@ -62,7 +61,7 @@
     _transient CYWebView *webview_;
     _transient UIScrollView *scroller_;
 
-    UIProgressIndicator *indicator_;
+    UIActivityIndicatorView *indicator_;
     IndirectDelegate *indirect_;
     NSURLAuthenticationChallenge *challenge_;
 

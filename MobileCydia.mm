@@ -2206,7 +2206,6 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Cache)
-            id_.set(NULL, iterator.Name());
             name_.set(NULL, iterator.Display());
 
             latest_.set(NULL, StripVersion_(version_.VerStr()));
@@ -2214,19 +2213,6 @@ struct PackageNameOrdering :
             pkgCache::VerIterator current(iterator.CurrentVer());
             if (!current.end())
                 installed_.set(NULL, StripVersion_(current.VerStr()));
-        _end
-
-        _profile(Package$initWithVersion$Lower)
-            // XXX: do not use tolower() as this is not locale-specific? :(
-            char *data(id_.data());
-            for (size_t i(0), e(id_.size()); i != e; ++i)
-                if ((data[i] & 0x20) == 0) {
-                    id_.copy(pool);
-                    data = id_.data();
-                    for (; i != e; ++i)
-                        data[i] |= 0x20;
-                    break;
-                }
         _end
 
         _profile(Package$initWithVersion$Tags)
@@ -2253,8 +2239,18 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Metadata)
-            PackageValue *metadata(PackageFind(id_.data(), id_.size()));
+            const char *mixed(iterator.Name());
+            size_t size(strlen(mixed));
+            char lower[size + 1];
+
+            for (size_t i(0); i != size; ++i)
+                lower[i] = mixed[i] | 0x20;
+            lower[size] = '\0';
+
+            PackageValue *metadata(PackageFind(lower, size));
             metadata_ = metadata;
+
+            id_.set(NULL, metadata->name_, size);
 
             const char *latest(version_.VerStr());
             size_t length(strlen(latest));

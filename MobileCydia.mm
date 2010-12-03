@@ -3508,7 +3508,9 @@ static NSString *Warning_;
 
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
+    _trace();
     system([dpkg UTF8String]);
+    _trace();
 }
 
 - (bool) clean {
@@ -4442,16 +4444,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         break;
 
         case 2:
+            _trace();
             goto reload;
 
         case 3:
+            _trace();
             goto reload;
 
         reload:
             system("/usr/bin/sbreload");
+            _trace();
         break;
 
         case 4:
+            _trace();
             if (void (*SBReboot)(mach_port_t) = reinterpret_cast<void (*)(mach_port_t)>(dlsym(RTLD_DEFAULT, "SBReboot")))
                 SBReboot(SBSSpringBoardServerPort());
             else
@@ -4504,7 +4510,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 4: [close_ setTitle:UCLocalize("REBOOT_DEVICE")]; break;
     }
 
+    _trace();
     system("su -c /usr/bin/uicache mobile");
+    _trace();
 
     UpdateExternalStatus(Finish_ == 0 ? 2 : 0);
 
@@ -8578,7 +8586,9 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) system:(NSString *)command { _pooled
+    _trace();
     system([command UTF8String]);
+    _trace();
 }
 
 - (void) applicationWillSuspend {

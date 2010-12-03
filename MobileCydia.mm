@@ -6544,6 +6544,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) positionViews {
     CGRect frame = [cancel_ frame];
+    frame.size = [cancel_ sizeThatFits:frame.size];
     frame.origin.x = [self frame].size.width - frame.size.width - 5;
     frame.origin.y = ([self frame].size.height - frame.size.height) / 2;
     [cancel_ setFrame:frame];
@@ -6578,7 +6579,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithFrame:frame])) {
         [self setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 
-        [self setTintColor:[UIColor colorWithRed:0.23 green:0.23 blue:0.23 alpha:1]];
         [self setBarStyle:UIBarStyleBlack];
 
         UIBarStyle barstyle([self _barStyle:NO]);

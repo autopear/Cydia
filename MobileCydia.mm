@@ -1011,9 +1011,6 @@ class CYColor {
 
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
-static const int ButtonBarWidth_ = 60;
-static const int ButtonBarHeight_ = 48;
-static const float KeyboardTime_ = 0.3f;
 
 static int Finish_;
 static NSArray *Finishes_;

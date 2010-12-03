@@ -4442,11 +4442,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         break;
 
         case 2:
-            system("launchctl stop com.apple.SpringBoard");
-        break;
+            goto reload;
 
         case 3:
-            system("launchctl unload "SpringBoard_"; launchctl load "SpringBoard_);
+            goto reload;
+
+        reload:
+            system("/usr/bin/sbreload");
         break;
 
         case 4:

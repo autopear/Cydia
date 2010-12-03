@@ -61,6 +61,7 @@
 "ESSENTIAL_UPGRADES" = "%d Essential Upgrades";
 "ESSENTIAL_UPGRADE_EX" = "One or more essential packages are currently out of date. If these upgrades are not performed you are likely to encounter errors.";
 "EXCLAMATION" = "%@!";
+"EXIT_WHEN_COMPLETE" = "(Cydia will exit when complete.)";
 "EXPANDED_SIZE" = "Expanded Size";
 "EXPERT" = "Expert";
 "FEATURED_PACKAGES" = "Featured Packages";
@@ -129,6 +130,7 @@
 "PASSWORD" = "password";
 "PERFORM_SELECTIONS" = "Perform Selections";
 "PREPARE_ARCHIVES" = "Prepare Archives";
+"PREPARING_FILESYSTEM" = "Preparing Filesystem";
 "PRODUCTS" = "Products";
 "PURGE" = "Purge";
 "Q_D" = "Q'd";

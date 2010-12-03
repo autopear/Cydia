@@ -7944,7 +7944,7 @@ freeing the view controllers on tab change */
         captrect.origin.x = 0;
         captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
         caption_ = [[[UILabel alloc] initWithFrame:captrect] autorelease];
-        [caption_ setText:@"Initializing Filesystem"];
+        [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
         [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
         [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
         [caption_ setTextColor:[UIColor whiteColor]];
@@ -7960,7 +7960,7 @@ freeing the view controllers on tab change */
         statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
         status_ = [[[UILabel alloc] initWithFrame:statusrect] autorelease];
         [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
-        [status_ setText:@"(Cydia will exit when complete.)"];
+        [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
         [status_ setFont:[UIFont systemFontOfSize:16.0f]];
         [status_ setTextColor:[UIColor whiteColor]];
         [status_ setBackgroundColor:[UIColor clearColor]];

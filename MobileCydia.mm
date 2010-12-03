@@ -7575,7 +7575,7 @@ freeing the view controllers on tab change */
 @end
 /* }}} */
 /* Settings Controller {{{ */
-@interface SettingsController : CYViewController <
+@interface CYPackageSettingsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7593,7 +7593,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation SettingsController
+@implementation CYPackageSettingsController
 
 - (void) dealloc {
     [name_ release];
@@ -7742,7 +7742,7 @@ freeing the view controllers on tab change */
 /* }}} */
 
 /* Role Controller {{{ */
-@interface RoleController : CYViewController <
+@interface CYSettingsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7759,7 +7759,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation RoleController
+@implementation CYSettingsController
 - (void) dealloc {
     [table_ release];
     [segment_ release];
@@ -8481,7 +8481,7 @@ static _finline void _setHomePage(Cydia *self) {
 }
 
 - (void) showSettings {
-    RoleController *role = [[[RoleController alloc] initWithDatabase:database_ delegate:self] autorelease];
+    CYSettingsController *role = [[[CYSettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
     CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
     if (IsWildcat_)
         [nav setModalPresentationStyle:UIModalPresentationFormSheet];
@@ -8681,7 +8681,7 @@ static _finline void _setHomePage(Cydia *self) {
     else if ([path hasPrefix:@"/launch/"])
         [self launchApplicationWithIdentifier:[path substringFromIndex:8] suspended:NO];
     else if ([path hasPrefix:@"/package-settings/"])
-        return [[[SettingsController alloc] initWithDatabase:database_ package:[path substringFromIndex:18]] autorelease];
+        return [[[CYPackageSettingsController alloc] initWithDatabase:database_ package:[path substringFromIndex:18]] autorelease];
     else if ([path hasPrefix:@"/package-signature/"])
         return [[[SignatureController alloc] initWithDatabase:database_ package:[path substringFromIndex:19]] autorelease];
     else if ([path hasPrefix:@"/package/"])

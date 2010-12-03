@@ -307,6 +307,7 @@ typedef enum {
 // #ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER {{{
 #ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
 #define AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+// XXX: this is a random jumble of garbage
 
 typedef enum {
     UIModalPresentationFullScreen,
@@ -316,7 +317,6 @@ typedef enum {
 } UIModalPresentationStyle;
 
 #define kSCNetworkReachabilityFlagsConnectionOnTraffic kSCNetworkReachabilityFlagsConnectionAutomatic
-#define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
 
 #define UIBarStyleBlack UIBarStyleBlackOpaque
 
@@ -342,6 +342,13 @@ typedef enum {
 extern float const UIScrollViewDecelerationRateNormal;
 
 #endif//AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+// }}}
+// #if __IPHONE_OS_VERSION_MIN_REQUIRED < 30000 {{{
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 30000
+
+#define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
+
+#endif
 // }}}
 
 // extern *; {{{

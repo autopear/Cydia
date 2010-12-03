@@ -1,11 +1,12 @@
 sdks := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs
 
-ifeq ($(findstring iPhoneOS2.0.sdk,$(wildcard $(sdks)/iPhoneOS*.sdk)),)
 ios := 3.2
-gcc := 4.2
-else
-ios := 2.0
+#ios := 2.0
+
+ifeq ($(patsubst 2%,2,$(ios)),2)
 gcc := 4.0
+else
+gcc := 4.2
 endif
 
 flags := 
@@ -49,7 +50,7 @@ backrow += -FAppleTV -framework BackRow -framework AppleTV
 
 #cycc = cycc -r4.2 -i$(ios) -o$@
 gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
-cycc = $(gxx) -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=$(ios) -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
+cycc = $(gxx) -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
 
 all: MobileCydia
 

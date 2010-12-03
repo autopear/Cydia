@@ -350,6 +350,7 @@ extern float const UIWebViewGrowsAndShrinksToFitHeight;
 extern float const UIWebViewScalesToFitScale;
 // }}}
 // extern "C" *(); {{{
+extern "C" void *reboot2(uint64_t flags);
 extern "C" mach_port_t SBSSpringBoardServerPort();
 extern "C" UIImage *_UIImageWithName(NSString *name);
 extern "C" void UISetColor(CGColorRef color);

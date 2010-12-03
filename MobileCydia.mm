@@ -102,6 +102,7 @@
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <sys/mount.h>
+#include <sys/reboot.h>
 
 #include <fcntl.h>
 #include <notify.h>
@@ -4452,7 +4453,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             if (void (*SBReboot)(mach_port_t) = reinterpret_cast<void (*)(mach_port_t)>(dlsym(RTLD_DEFAULT, "SBReboot")))
                 SBReboot(SBSSpringBoardServerPort());
             else
-                system("reboot");
+                reboot2(RB_AUTOBOOT);
         break;
     }
 }

@@ -7062,7 +7062,7 @@ freeing the view controllers on tab change */
 /* }}} */
 
 /* Sections Controller {{{ */
-@interface SectionsController : CYViewController <
+@interface CYSectionsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7082,7 +7082,7 @@ freeing the view controllers on tab change */
 
 @end
 
-@implementation SectionsController
+@implementation CYSectionsController
 
 - (void) dealloc {
     [list_ setDataSource:nil];
@@ -7095,9 +7095,25 @@ freeing the view controllers on tab change */
     [super dealloc];
 }
 
+- (void) setEditing:(BOOL)editing {
+    if ((editing_ = editing))
+        [list_ reloadData];
+    else
+        [delegate_ updateData];
+
+    [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
+    [[[self navigationItem] rightBarButtonItem] setTitle:[sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT")];
+    [[[self navigationItem] rightBarButtonItem] setStyle:editing_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain];
+}
+
 - (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [self setEditing:NO];
 }
 
 - (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {
@@ -7248,15 +7264,8 @@ freeing the view controllers on tab change */
         [self editButtonClicked];
 }
 
-- (void) editButtonClicked {
-    if ((editing_ = !editing_))
-        [list_ reloadData];
-    else
-        [delegate_ updateData];
-
-    [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
-    [[[self navigationItem] rightBarButtonItem] setTitle:[sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT")];
-    [[[self navigationItem] rightBarButtonItem] setStyle:editing_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain];
+- (void)editButtonClicked {
+    [self setEditing:!editing_];
 }
 
 - (UIView *) accessoryView {
@@ -8013,7 +8022,7 @@ typedef enum {
     unsigned locked_;
     unsigned activity_;
 
-    SectionsController *sections_;
+    CYSectionsController *sections_;
     ChangesController *changes_;
     ManageController *manage_;
     SearchController *search_;
@@ -8407,9 +8416,9 @@ static _finline void _setHomePage(Cydia *self) {
     return browser;
 }
 
-- (SectionsController *) sectionsController {
+- (CYSectionsController *) sectionsController {
     if (sections_ == nil)
-        sections_ = [[SectionsController alloc] initWithDatabase:database_];
+        sections_ = [[CYSectionsController alloc] initWithDatabase:database_];
     return sections_;
 }
 

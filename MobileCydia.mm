@@ -7113,7 +7113,7 @@ freeing the view controllers on tab change */
 
 - (void) viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    [self setEditing:NO];
+    if (editing_) [self setEditing:NO];
 }
 
 - (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {

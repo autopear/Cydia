@@ -1830,7 +1830,8 @@ struct ParsedPackage {
 };
 
 @interface Package : NSObject {
-    uint32_t era_ : 29;
+    uint32_t era_ : 26;
+    uint32_t role_ : 3;
     uint32_t essential_ : 1;
     uint32_t obsolete_ : 1;
     uint32_t ignored_ : 1;
@@ -1858,7 +1859,6 @@ struct ParsedPackage {
     ParsedPackage *parsed_;
 
     NSMutableArray *tags_;
-    NSString *role_;
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
@@ -1920,7 +1920,6 @@ struct ParsedPackage {
 - (NSArray *) applications;
 
 - (Source *) source;
-- (NSString *) role;
 
 - (BOOL) matches:(NSString *)text;
 
@@ -2081,15 +2080,10 @@ struct PackageNameOrdering :
 - (void) dealloc {
     if (parsed_ != NULL)
         delete parsed_;
-
     if (source_ != nil)
         [source_ release];
-
     if (tags_ != nil)
         [tags_ release];
-    if (role_ != nil)
-        [role_ release];
-
     [super dealloc];
 }
 
@@ -2223,8 +2217,18 @@ struct PackageNameOrdering :
                     const char *name(tag.Name());
                     [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
 
-                    if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
-                        role_ = (NSString *) CYStringCreate(name + 6);
+                    if (role_ == 0 && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/) {
+                        if (strcmp(name + 6, "enduser") == 0)
+                            role_ = 1;
+                        else if (strcmp(name + 6, "hacker") == 0)
+                            role_ = 2;
+                        else if (strcmp(name + 6, "developer") == 0)
+                            role_ = 3;
+                        else if (strcmp(name + 6, "cydia") == 0)
+                            role_ = 7;
+                        else
+                            role_ = 4;
+                    }
 
                     if (strncmp(name, "cydia::", 7) == 0) {
                         if (strcmp(name + 7, "essential") == 0)
@@ -2717,10 +2721,6 @@ struct PackageNameOrdering :
     return source_ == (Source *) [NSNull null] ? nil : source_;
 }
 
-- (NSString *) role {
-    return role_;
-}
-
 - (BOOL) matches:(NSString *)text {
     if (text == nil)
         return NO;
@@ -2743,17 +2743,17 @@ struct PackageNameOrdering :
 }
 
 - (bool) hasSupportingRole {
-    if (role_ == nil)
+    if (role_ == 0)
         return true;
-    if ([role_ isEqualToString:@"enduser"])
+    if (role_ == 1)
         return true;
     if ([Role_ isEqualToString:@"User"])
         return false;
-    if ([role_ isEqualToString:@"hacker"])
+    if (role_ == 2)
         return true;
     if ([Role_ isEqualToString:@"Hacker"])
         return false;
-    if ([role_ isEqualToString:@"developer"])
+    if (role_ == 3)
         return true;
     if ([Role_ isEqualToString:@"Developer"])
         return false;
@@ -2875,7 +2875,7 @@ struct PackageNameOrdering :
 }
 
 - (bool) isInstalledAndUnfiltered:(NSNumber *)number {
-    return ![self uninstalled] && (![number boolValue] && ![role_ isEqualToString:@"cydia"] || [self unfiltered]);
+    return ![self uninstalled] && (![number boolValue] && role_ != 7 || [self unfiltered]);
 }
 
 - (bool) isVisibleInSection:(NSString *)name {

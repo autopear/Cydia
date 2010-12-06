@@ -8117,15 +8117,25 @@ static _finline void _setHomePage(Cydia *self) {
 - (void) _updateData {
     [self _saveConfig];
 
-    /* XXX: this is just stupid */
-    if (tag_ != 1 && sections_ != nil)
-        [sections_ reloadData];
-    if (tag_ != 2 && changes_ != nil)
-        [changes_ reloadData];
-    if (tag_ != 4 && search_ != nil)
-        [search_ reloadData];
+    NSMutableSet *tabs([[[NSMutableSet alloc] initWithCapacity:10] autorelease]);
 
-    [(CYNavigationController *)[tabbar_ selectedViewController] reloadData];
+    [tabs addObject:[tabbar_ selectedViewController]];
+
+    if (sections_ != nil)
+        [tabs addObject:sections_];
+    if (changes_ != nil)
+        [tabs addObject:changes_];
+    if (manage_ != nil)
+        [tabs addObject:manage_];
+    if (search_ != nil)
+        [tabs addObject:search_];
+    if (sources_ != nil)
+        [tabs addObject:sources_];
+    if (installed_ != nil)
+        [tabs addObject:installed_];
+
+    for (CYNavigationController *tab in tabs)
+        [tab reloadData];
 
     [queueDelegate_ queueStatusDidChange];
     [[[self queueBadgeController] tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];

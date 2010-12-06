@@ -1355,6 +1355,8 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     int cydiafd_;
     int statusfd_;
     FILE *input_;
+
+    std::map<const char *, _H<NSString> > sections_;
 }
 
 + (Database *) sharedInstance;
@@ -1388,6 +1390,9 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (void) setDelegate:(id)delegate;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file;
+
+- (NSString *) mappedSectionForPointer:(const char *)pointer;
+
 @end
 /* }}} */
 /* Delegate Helpers {{{ */
@@ -1844,7 +1849,7 @@ struct ParsedPackage {
     CYString latest_;
     CYString installed_;
 
-    CYString section_;
+    const char *section_;
     _transient NSString *section$_;
 
     Source *source_;
@@ -2267,7 +2272,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Section)
-            section_.set(NULL, iterator.Section());
+            section_ = iterator.Section();
         _end
 
         _profile(Package$initWithVersion$Flags)
@@ -2315,13 +2320,11 @@ struct PackageNameOrdering :
 
 - (NSString *) section {
     if (section$_ == nil) {
-        if (section_.empty())
+        if (section_ == NULL)
             return nil;
 
-        _profile(Package$section)
-            std::replace(section_.data(), section_.data() + section_.size(), '_', ' ');
-            NSString *name(section_);
-            section$_ = [SectionMap_ objectForKey:name] ?: name;
+        _profile(Package$section$mappedSectionForPointer)
+            section$_ = [database_ mappedSectionForPointer:section_];
         _end
     } return section$_;
 }
@@ -2487,7 +2490,11 @@ struct PackageNameOrdering :
     if (![self unfiltered])
         return false;
 
-    NSString *section([self section]);
+    NSString *section;
+
+    _profile(Package$visible$section)
+        section = [self section];
+    _end
 
     _profile(Package$visible$isSectionVisible)
         if (section != nil && !isSectionVisible(section))
@@ -3675,6 +3682,31 @@ static NSString *Warning_;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file {
     SourceMap::const_iterator i(sources_.find(file->ID));
     return i == sources_.end() ? nil : i->second;
+}
+
+- (NSString *) mappedSectionForPointer:(const char *)section {
+    _H<NSString> &mapped(sections_[section]);
+
+    if (mapped == NULL) {
+        size_t length(strlen(section));
+        char spaced[length + 1];
+
+        _profile(Database$mappedSectionForPointer$Replace)
+            for (size_t index(0); index != length; ++index)
+                spaced[index] = section[index] == '_' ? ' ' : section[index];
+            spaced[length] = '\0';
+        _end
+
+        NSString *string;
+
+        _profile(Database$mappedSectionForPointer$stringWithUTF8String)
+            string = [NSString stringWithUTF8String:spaced];
+        _end
+
+        _profile(Database$mappedSectionForPointer$Map)
+            mapped = [SectionMap_ objectForKey:string] ?: string;
+        _end
+    } return mapped;
 }
 
 @end

@@ -7546,12 +7546,15 @@ freeing the view controllers on tab change */
     packages_ = CFArrayCreateMutable(kCFAllocatorDefault, [packages count], NULL);
 
     _trace();
-    for (Package *package in packages)
-        if ([package upgradableAndEssential:YES] || [package visible])
-            CFArrayAppendValue(packages_, package);
-
+    _profile(ChangesController$_reloadPackages$Filter)
+        for (Package *package in packages)
+            if ([package upgradableAndEssential:YES] || [package visible])
+                CFArrayAppendValue(packages_, package);
+    _end
     _trace();
-    [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
+    _profile(ChangesController$_reloadPackages$radixSort)
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
+    _end
     _trace();
 }
 
@@ -7649,6 +7652,8 @@ freeing the view controllers on tab change */
             target:self
             action:@selector(refreshButtonClicked)
         ] autorelease]];
+
+    PrintTimes();
 } }
 
 @end

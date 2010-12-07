@@ -7542,6 +7542,9 @@ freeing the view controllers on tab change */
 }
 
 - (void) _reloadPackages:(NSArray *)packages {
+    CFRelease(packages_);
+    packages_ = CFArrayCreateMutable(kCFAllocatorDefault, [packages count], NULL);
+
     _trace();
     for (Package *package in packages)
         if ([package upgradableAndEssential:YES] || [package visible])
@@ -7555,8 +7558,6 @@ freeing the view controllers on tab change */
 - (void) reloadData {
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
-
-    CFArrayRemoveAllValues(packages_);
 
     [sections_ removeAllObjects];
 

@@ -7556,6 +7556,7 @@ freeing the view controllers on tab change */
 }
 
 - (void) reloadData {
+@synchronized (database_) {
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
 
@@ -7648,7 +7649,7 @@ freeing the view controllers on tab change */
             target:self
             action:@selector(refreshButtonClicked)
         ] autorelease]];
-}
+} }
 
 @end
 /* }}} */

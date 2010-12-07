@@ -5176,7 +5176,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool highlighted(highlighted_);
+    bool highlighted(highlighted_ && !editing_);
 
     [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
 

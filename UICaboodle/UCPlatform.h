@@ -54,3 +54,9 @@ while (false)
     default: \
         _assume(false); \
         throw;
+
+#define _likely(expr) \
+    __builtin_expect(expr, 1)
+
+#define _unlikely(expr) \
+    __builtin_expect(expr, 0)

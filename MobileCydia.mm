@@ -2478,12 +2478,12 @@ struct PackageNameOrdering :
 
 - (BOOL) unfiltered {
     _profile(Package$unfiltered$obsolete)
-        if (obsolete_)
+        if (_unlikely(obsolete_))
             return false;
     _end
 
     _profile(Package$unfiltered$hasSupportingRole)
-        if (![self hasSupportingRole])
+        if (_unlikely(![self hasSupportingRole]))
             return false;
     _end
 

@@ -3685,9 +3685,13 @@ static NSString *Warning_;
 }
 
 - (NSString *) mappedSectionForPointer:(const char *)section {
-    _H<NSString> &mapped(sections_[section]);
+    _H<NSString> *mapped;
 
-    if (mapped == NULL) {
+    _profile(Database$mappedSectionForPointer$Cache)
+        mapped = &sections_[section];
+    _end
+
+    if (*mapped == NULL) {
         size_t length(strlen(section));
         char spaced[length + 1];
 
@@ -3704,9 +3708,11 @@ static NSString *Warning_;
         _end
 
         _profile(Database$mappedSectionForPointer$Map)
-            mapped = [SectionMap_ objectForKey:string] ?: string;
+            string = [SectionMap_ objectForKey:string] ?: string;
         _end
-    } return mapped;
+
+        *mapped = string;
+    } return *mapped;
 }
 
 @end

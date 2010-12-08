@@ -61,6 +61,7 @@
 "ESSENTIAL_UPGRADES" = "%d wichtige Aktualisierungen";
 "ESSENTIAL_UPGRADE_EX" = "Ein oder mehr wichtige Pakete sind veraltet. Um Fehler zu vermeiden, wird empfohlen die Aktualisierungen zu installieren.";
 "EXCLAMATION" = "%@!";
+"EXIT_WHEN_COMPLETE" = "(Cydia wird danach beendet.)";
 "EXPANDED_SIZE" = "Entpackte Größe";
 "EXPERT" = "Experte";
 "FEATURED_PACKAGES" = "Paketempfehlungen";
@@ -129,6 +130,7 @@
 "PASSWORD" = "Passwort";
 "PERFORM_SELECTIONS" = "Führe Auswahl durch";
 "PREPARE_ARCHIVES" = "Bereite Archive vor";
+"PREPARING_FILESYSTEM" = "Dateisystem vorbereiten";
 "PRODUCTS" = "Produkte";
 "PURGE" = "Völlig entfernen";
 "Q_D" = "S";

@@ -3933,6 +3933,71 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* @ Loading... Indicator {{{ */
+@interface CYLoadingIndicator : UIView {
+    UIActivityIndicatorView *spinner_;
+    UILabel *label_;
+    UIView *container_;
+}
+
+@property (readonly, nonatomic) UILabel *label;
+@property (readonly, nonatomic) UIActivityIndicatorView *activityIndicatorView;
+
+@end
+
+@implementation CYLoadingIndicator
+
+- (id)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame])) {
+        container_ = [[[UIView alloc] init] autorelease];
+        [container_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
+
+        spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray] autorelease];
+        [spinner_ startAnimating];
+        [container_ addSubview:spinner_];
+
+        label_ = [[[UILabel alloc] init] autorelease];
+        [label_ setFont:[UIFont boldSystemFontOfSize:15.0f]];
+        [label_ setBackgroundColor:[UIColor clearColor]];
+        [label_ setTextColor:[UIColor blackColor]];
+        [label_ setShadowColor:[UIColor whiteColor]];
+        [label_ setShadowOffset:CGSizeMake(0, 1)];
+        [label_ setText:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil]];
+        [container_ addSubview:label_];
+
+        CGSize viewsize = frame.size;
+        CGSize spinnersize = [spinner_ bounds].size;
+        CGSize textsize = [[label_ text] sizeWithFont:[label_ font]];
+        float bothwidth = spinnersize.width + textsize.width + 5.0f;
+
+        CGRect containrect = {
+            CGPointMake(floorf((viewsize.width / 2) - (bothwidth / 2)), floorf((viewsize.height / 2) - (spinnersize.height / 2))),
+            CGSizeMake(bothwidth, spinnersize.height)
+        };
+        CGRect textrect = {
+            CGPointMake(spinnersize.width + 5.0f, floorf((spinnersize.height / 2) - (textsize.height / 2))),
+            textsize
+        };
+        CGRect spinrect = {
+            CGPointZero,
+            spinnersize
+        };
+
+        [container_ setFrame:containrect];
+        [spinner_ setFrame:spinrect];
+        [label_ setFrame:textrect];
+        [self addSubview:container_];
+    }
+
+    return self;
+}
+
+- (UILabel *)label { return label_; }
+- (UIActivityIndicatorView *)activityIndicatorView { return spinner_; }
+
+@end
+/* }}} */
+
 /* Cydia Browser Controller {{{ */
 @interface CYBrowserController : BrowserController {
     CydiaObject *cydia_;
@@ -8867,46 +8932,13 @@ _trace();
         return;
     }
 
+    CGRect fixframe = [[tabbar_ view] frame];
+    if (UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication] statusBarOrientation]))
+        fixframe.size = CGSizeMake(fixframe.size.height, fixframe.size.width);
+    CYLoadingIndicator *loading = [[[CYLoadingIndicator alloc] initWithFrame:fixframe] autorelease];
+    [loading setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [[tabbar_ view] addSubview:loading];
     [window_ setUserInteractionEnabled:NO];
-
-    UIView *container = [[[UIView alloc] init] autorelease];
-    [container setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
-
-    UIActivityIndicatorView *spinner = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray] autorelease];
-    [spinner startAnimating];
-    [container addSubview:spinner];
-
-    UILabel *label = [[[UILabel alloc] init] autorelease];
-    [label setFont:[UIFont boldSystemFontOfSize:15.0f]];
-    [label setBackgroundColor:[UIColor clearColor]];
-    [label setTextColor:[UIColor blackColor]];
-    [label setShadowColor:[UIColor whiteColor]];
-    [label setShadowOffset:CGSizeMake(0, 1)];
-    [label setText:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil]];
-    [container addSubview:label];
-
-    CGSize viewsize = [[tabbar_ view] frame].size;
-    CGSize spinnersize = [spinner bounds].size;
-    CGSize textsize = [[label text] sizeWithFont:[label font]];
-    float bothwidth = spinnersize.width + textsize.width + 5.0f;
-
-    CGRect containrect = {
-        CGPointMake(floorf((viewsize.width / 2) - (bothwidth / 2)), floorf((viewsize.height / 2) - (spinnersize.height / 2))),
-        CGSizeMake(bothwidth, spinnersize.height)
-    };
-    CGRect textrect = {
-        CGPointMake(spinnersize.width + 5.0f, floorf((spinnersize.height / 2) - (textsize.height / 2))),
-        textsize
-    };
-    CGRect spinrect = {
-        CGPointZero,
-        spinnersize
-    };
-
-    [container setFrame:containrect];
-    [spinner setFrame:spinrect];
-    [label setFrame:textrect];
-    [[tabbar_ view] addSubview:container];
 
     [self reloadData];
     PrintTimes();
@@ -8926,7 +8958,7 @@ _trace();
 
     // XXX: does this actually slow anything down?
     [[tabbar_ view] setBackgroundColor:[UIColor clearColor]];
-    [container removeFromSuperview];
+    [loading removeFromSuperview];
 }
 
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {

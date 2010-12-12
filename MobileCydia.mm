@@ -8039,10 +8039,6 @@ static _finline void _setHomePage(Cydia *self) {
     return [tabbar_ updating];
 }
 
-- (UIView *) rotatingContentViewForWindow:(UIWindow *)window {
-    return window_;
-}
-
 - (void) _loaded {
     if ([broken_ count] != 0) {
         int count = [broken_ count];
@@ -8287,10 +8283,6 @@ static _finline void _setHomePage(Cydia *self) {
     resolver->InstallProtect();
     if (!resolver->Resolve(true))
         _error->Discard();
-}
-
-- (CGRect) popUpBounds {
-    return [[tabbar_ view] bounds];
 }
 
 - (bool) perform {

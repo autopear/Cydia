@@ -8667,10 +8667,10 @@ static _finline void _setHomePage(Cydia *self) {
     if (![path hasPrefix:@"/"])
         path = [@"/" stringByAppendingString:path];
 
-    if ([path isEqualToString:@"/add-source"])
-        return [[[AddSourceController alloc] initWithDatabase:database_] autorelease];
-    else if ([path isEqualToString:@"/storage"])
+    if ([path isEqualToString:@"/storage"])
         return [self _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]] withClass:[CYBrowserController class]];
+    /*else if ([path isEqualToString:@"/add-source"])
+        return [[[AddSourceController alloc] initWithDatabase:database_] autorelease];*/
     else if ([path isEqualToString:@"/sources"])
         return [[[SourceTable alloc] initWithDatabase:database_] autorelease];
     else if ([path isEqualToString:@"/packages"])

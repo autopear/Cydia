@@ -1,18 +1,25 @@
 $(function () {
     if (issues == null) {
         $(".issues").remove();
+        var removed = 0;
 
         var downloading = sizes[0];
-        if (downloading == "0.0 B")
+        if (downloading == "0.0 B") {
             $(".downloading").remove();
-        else
-        $("#downloading").html($.xml(downloading));
+            removed += 1;
+        } else {
+            $("#downloading").html($.xml(downloading));
+        }
 
         var resuming = sizes[1];
-        if (resuming == "0.0 B")
+        if (resuming == "0.0 B") {
             $(".resuming").remove();
-        else
-        $("#resuming").html($.xml(resuming));
+            removed += 1;
+        } else {
+            $("#resuming").html($.xml(resuming));
+        }
+
+        if (removed >= 2) $(".statistics").remove();
     } else for (var i = 0; i != issues.length; ++i) {
         document.title = cydia.localize("CANNOT_COMPLY");
 

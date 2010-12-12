@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ABOUT</key>
+	<string>Σχετικά</string>
+	<key>ABOUT_CYDIA</key>
+	<string>Σχετικά με το Cydia Installer</string>
+	<key>ACCEPT_NEW_COPY</key>
+	<string>Αποδοχή νέου αντιγράφου</string>
+	<key>ADD</key>
+	<string>Προσθήκη</string>
+	<key>ADD_ANYWAY</key>
+	<string>Προσθήκη παρόλα αυτά</string>
+	<key>ADD_SOURCE</key>
+	<string>Προσθήκη Source</string>
+	<key>ADMINISTRATIVE_INFORMATION</key>
+	<string>Πληροφορίες διαχείρισης</string>
+	<key>ADVANCED_SEARCH</key>
+	<string>Εκτεταμένη αναζήτηση</string>
+	<key>ALL_PACKAGES</key>
+	<string>Όλα τα πακέτα</string>
+	<key>APPLE</key>
+	<string>Apple</string>
+	<key>AUTHOR</key>
+	<string>Δημιουργός</string>
+	<key>AVAILABLE_UPGRADES</key>
+	<string>Διαθέσιμες αναβαθμίσεις</string>
+	<key>BROWSER</key>
+	<string>Περιηγητής</string>
+	<key>BY</key>
+	<string>κατά %@</string>
+	<key>CANCEL</key>
+	<string>Άκυρο</string>
+	<key>CANCEL_CLEAR</key>
+	<string>Άκυρο και καθαρισμός</string>
+	<key>CANCEL_OPERATION</key>
+	<string>Ακύρωση διεργασίας</string>
+	<key>CANNOT_COMPLY</key>
+	<string>Δεν είναι δυνατό να εκτελεσθεί</string>
+	<key>CANNOT_COMPLY_EX</key>
+	<string>Οι ζητούμενες αλλαγές δεν μπορούν να εφαρμοσθούν λόγω απαιτουμένων εξαρτήσεων ή διενέξεων που δεν μπορούν να βρεθούν αυτόματα ή να διορθωθούν.</string>
+	<key>CANNOT_LOCATE_PACKAGE</key>
+	<string>Αδυναμία εντοπισμού πακέτου</string>
+	<key>CHANGES</key>
+	<string>Αλλαγές</string>
+	<key>CHANGE_PACKAGE_SETTINGS</key>
+	<string>Αλλαγή ρυθμίσεων πακέτου</string>
+	<key>CLEAN_ARCHIVES</key>
+	<string>Καθαρισμός συμπιεσμένων αρχείων</string>
+	<key>CLEAR</key>
+	<string>Καθαρισμός</string>
+	<key>CLOSE</key>
+	<string>Κλείσιμο</string>
+	<key>CLOSE_CYDIA</key>
+	<string>Κλείσιμο Cydia (Επανεκκίνηση)</string>
+	<key>COLON_DELIMITED</key>
+	<string>%@: %@</string>
+	<key>COMING_SOON</key>
+	<string>Έρχεται σύντομα!</string>
+	<key>COMMA_DELIMITED</key>
+	<string>%@, %@</string>
+	<key>COMMERCIAL_APPLICATIONS</key>
+	<string>Εμπορικές Εφαρμογές</string>
+	<key>COMPLETE</key>
+	<string>Ολοκλήρωση</string>
+	<key>COMPLETE_UPGRADE</key>
+	<string>Ολοκλήρωση αναβάθμισης</string>
+	<key>CONFIGURATION_UPGRADE</key>
+	<string>Αναβάθμιση σύνθεσης</string>
+	<key>CONFIGURATION_UPGRADE_EX</key>
+	<string>Το ακόλουθο αρχείο έχει τροποποιηθεί από τον διαχειριστή του και από εσάς.(ή για εσάς από κάποιο script).</string>
+	<key>CONFIRM</key>
+	<string>Επιβεβαίωση</string>
+	<key>CONSOLE_PACKAGE</key>
+	<string>Αυτό είναι πακέτο κονσόλας!</string>
+	<key>CONSOLE_UTILITIES_DAEMONS</key>
+	<string>Εργαλεία κονσόλας &amp; Daemons</string>
+	<key>CONTINUE_QUEUING</key>
+	<string>Συνέχιση προσθήκης σε ουρά</string>
+	<key>COUNTS_NONZERO_EX</key>
+	<string>So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.</string>
+	<key>CREDITS</key>
+	<string>Credits</string>
+	<key>CYDIA_STORE</key>
+	<string>Κατάστημα Cydia</string>
+	<key>DATABASE</key>
+	<string>Βάση δεδομένων</string>
+	<key>DETAILS</key>
+	<string>Λεπτομέρειες</string>
+	<key>DEVELOPER</key>
+	<string>Developer</string>
+	<key>DEVELOPERS_ONLY</key>
+	<string>Developers Μόνο</string>
+	<key>DEVELOPER_EX</key>
+	<string>Τα πάντα, ακόμη και τρομακτικά πράγματα.</string>
+	<key>DISK_FREEING</key>
+	<string>Ελευθερώνοντας δίσκο</string>
+	<key>DISK_USING</key>
+	<string>Χρησιμοποιώντας δίσκο</string>
+	<key>DONATE_USING</key>
+	<string>Κάντε δωρεά μέσω %@</string>
+	<key>DONE</key>
+	<string>Τέλος</string>
+	<key>DOUBLE_QUOTED</key>
+	<string>“%@”</string>
+	<key>DOWNGRADE</key>
+	<string>Υποβάθμιση</string>
+	<key>DOWNLOADING</key>
+	<string>Λήψη</string>
+	<key>DOWNLOADING_</key>
+	<string>Λήψη %@</string>
+	<key>EDIT</key>
+	<string>Διόρθωση</string>
+	<key>ELISION</key>
+	<string>%@...</string>
+	<key>ENTERED_BY_USER</key>
+	<string>Εισήχθησαν από χρήστη</string>
+	<key>ENTER_APT_URL</key>
+	<string>Εισάγετε Cydia/APT URL</string>
+	<key>ERROR</key>
+	<string>Σφάλμα</string>
+	<key>ESSENTIAL_UPGRADE</key>
+	<string>Απαραίτητη Αναβάθμιση</string>
+	<key>ESSENTIAL_UPGRADES</key>
+	<string>%d Απαραίτητες Αναβαθμίσεις</string>
+	<key>ESSENTIAL_UPGRADE_EX</key>
+	<string>Ένα ή περισσότερα απαραίτητα πακέτα έχουν λήξει. Εάν αυτές οι αναβαθμίσεις δεν εκτελεσθούν, πιθανόν να αντιμετωπίσετε σφάλματα.</string>
+	<key>EXCLAMATION</key>
+	<string>%@!</string>
+	<key>EXIT_WHEN_COMPLETE</key>
+	<string>(Το Cydia θα κλείσει μόλις ολοκληρωθεί.)</string>
+	<key>EXPANDED_SIZE</key>
+	<string>Αποσυμπιεσμένο μέγεθος</string>
+	<key>EXPERT</key>
+	<string>Ειδικός</string>
+	<key>FAQ</key>
+	<string>Συχνές Ερωτήσεις</string>
+	<key>FEATURED_PACKAGES</key>
+	<string>Προβαλλόμενα πακέτα</string>
+	<key>FILES</key>
+	<string>Αρχεία</string>
+	<key>FILESYSTEM_CONTENT</key>
+	<string>Περιεχόμενα αρχεία</string>
+	<key>FILES_INSTALLED_TO</key>
+	<string>αρχεία εγκαθίστανται στο %@</string>
+	<key>FOLLOW_ON_TWITTER</key>
+	<string>Ακολουθείστε τον/την %@ στο Twitter</string>
+	<key>FORCE_REMOVAL</key>
+	<string>Αφαίρεση μετά βίας</string>
+	<key>FORCIBLY_CLEAR</key>
+	<string>Καθαρισμός μετά βίας</string>
+	<key>FREE_APPLICATIONS</key>
+	<string>Δωρεάν Εφαρμογές</string>
+	<key>FREE_EXTENSIONS</key>
+	<string>Δωρεάν Επεκτάσεις</string>
+	<key>FREQUENTLY_ASKED_QUESTIONS</key>
+	<string>Συχνές Ερωτήσεις</string>
+	<key>FROM</key>
+	<string>από %@</string>
+	<key>FROWNY_PANTS</key>
+	<string>Frowny Pants</string>
+	<key>FUTURE_FEATURE_ROADMAP</key>
+	<string>Δρομολόγηση Μελλοντικών Χαρακτηριστικών</string>
+	<key>HACKER</key>
+	<string>Hacker</string>
+	<key>HACKER_EX</key>
+	<string>Προσθέτει εργαλεία Γραμμής Εντολών.</string>
+	<key>HALFINSTALLED_PACKAGE</key>
+	<string>Μισο-εγκατεστημένο Πακέτο</string>
+	<key>HALFINSTALLED_PACKAGES</key>
+	<string>%d Μισο-εγκατεστημένα Πακέτα</string>
+	<key>HALFINSTALLED_PACKAGE_EX</key>
+	<string>Όταν τα shell scripts που είναι συσχετισμένα με τα πακέτα αποτυγχάνουν, παραμένουν σε κακή κατάσταση γνωστά ως είτε μισο-ρυθμισμένα ή μισο-εγκατεστημένα. Αυτά τα σφάλματα δεν απομακρύνονται και αντιθέτως συνεχίζουν να δημιουργούν προβλήματα. Αυτά τα scripts μπορούν να διαγραφούν και τα πακέτα να απεγκατασταθούν μετά βίας.</string>
+	<key>HOME</key>
+	<string>Αρχή</string>
+	<key>ID</key>
+	<string>ID</string>
+	<key>IGNORED_UPGRADES</key>
+	<string>Αγνοημένες Αναβαθμίσεις</string>
+	<key>IGNORE_UPGRADES</key>
+	<string>Αγνοήστε τις Αναβαθμίσεις</string>
+	<key>ILLEGAL_PACKAGE_IDENTIFIER</key>
+	<string>Μη αποδεκτό Αναγνωριστικό Πακέτου</string>
+	<key>INSTALL</key>
+	<string>Εγκατάσταση</string>
+	<key>INSTALLED</key>
+	<string>Εγκατεστημένο</string>
+	<key>INSTALLED_BY_PACKAGE</key>
+	<string>Εγκατεστημένα ανά Πακέτο</string>
+	<key>INSTALLED_DETAILS</key>
+	<string>Εγκατεστημένο Πακέτο</string>
+	<key>INSTALLED_FILES</key>
+	<string>Εγκατεστημένα Αρχεία</string>
+	<key>KEEP_OLD_COPY</key>
+	<string>Διατήρησε το παλιό μου αντίγραφο</string>
+	<key>LOADING</key>
+	<string>Φόρτωση</string>
+	<key>LOADING_DATA</key>
+	<string>Φόρτωση Δεδομένων</string>
+	<key>LOCAL</key>
+	<string>Τοπικό</string>
+	<key>LOGIN</key>
+	<string>Login</string>
+	<key>MAILING_LISTS</key>
+	<string>Λίστες Αλληλογραφίας</string>
+	<key>MAINTAINER</key>
+	<string>Επικοινωνία</string>
+	<key>MANAGE</key>
+	<string>Διαχείριση</string>
+	<key>MODIFICATIONS</key>
+	<string>Τροποποιήσεις</string>
+	<key>MODIFY</key>
+	<string>Τροποποίηση</string>
+	<key>MORE_INFORMATION</key>
+	<string>Περισσότερες Πληροφορίες</string>
+	<key>MORE_PACKAGE_SOURCES</key>
+	<string>Περισσότερα Sources Πακέτων</string>
+	<key>NAME</key>
+	<string>Όνομα</string>
+	<key>NETWORK_ERROR</key>
+	<string>Σφάλμα δικτύου</string>
+	<key>NEVER_OR_UNKNOWN</key>
+	<string>Ποτέ ή άγνωστο</string>
+	<key>NEW</key>
+	<string>Νέα</string>
+	<key>NEW_AT</key>
+	<string>Νέα την %@</string>
+	<key>NEW_INSTALL</key>
+	<string>Νέα εγκατάσταση</string>
+	<key>NO</key>
+	<string>Όχι</string>
+	<key>NOTE</key>
+	<string>Σημείωση</string>
+	<key>NOT_RATED</key>
+	<string>Μή βαθμολογημένο</string>
+	<key>NOT_REPOSITORY</key>
+	<string>Δεν βρέθηκε το Repository</string>
+	<key>NOT_REPOSITORY_EX</key>
+	<string>Το εν λόγω repository δεν βρέθηκε. Αυτό ίσως συμβαίνει επειδή προσπαθείτε να προσθέσετε ένα απαρχαιωμένο repository του Installer (αυτά δεν υποστηρίζονται). Επίσης, αυτό το σύστημα είναι ικανό να δουλέψει μόνο με ακριβή URLs των repository . Εάν φιλοξενείτε κάποιο repository και αντιμετωπίζετε προβλήματα, παρακαλούμε επικοινωνήστε με τον δημιουργό του Cydia με τις τυχόν ερωτήσεις σας.</string>
+	<key>NO_SECTION</key>
+	<string>(Χωρίς Κατηγορία)</string>
+	<key>OK</key>
+	<string>OK</string>
+	<key>OKAY</key>
+	<string>Εντάξει</string>
+	<key>PACKAGES</key>
+	<string>Πακέτα</string>
+	<key>PACKAGES_EX</key>
+	<string>Προβολή ή αφαίρεση πακέτων που έχετε εγκαταστήσει.</string>
+	<key>PACKAGE_CANNOT_BE_FOUND</key>
+	<string>Το πακέτο %@ δεν μπορεί να βρεθεί στα τρέχοντα sources σας. Θα πρότεινα ίσως την προσθήκη περισσότερων sources (προελεύσεις).</string>
+	<key>PACKAGE_CANNOT_BE_FOUND_EX</key>
+	<string>Αυτό το πρόβλημα μπορεί επίσης να οφείλεται σε έναν αριθμό διαφόρων άλλων παραγόντων. Ο πιό κοινός είναι ότι ο κατάλογος των πακέτων σας δεν είναι ενημερωμένος. Για χειροκίνητη ανανέωση, κάντε click στο κουμπί Ανανέωση στο ταμπελάκι Αλλαγές. Αυτό το πακέτο μπορεί απλώς να μην υπάρχει πλέον. Είναι επίσης πιθανό να χρησιμοποιείτε παλιά έκδοση firmware: Οι χρήστες θα πρέπει να προσπαθούν να συντρέχουν με την τρέχουσα εκδόση firmware της Apple .</string>
+	<key>PACKAGE_DAMAGED</key>
+	<string>Πακέτο Κατεστραμμένο</string>
+	<key>PACKAGE_DETAILS</key>
+	<string>Λεπτομέρειες πακέτου</string>
+	<key>PACKAGE_QUEUE</key>
+	<string>Ουρά πακέτων</string>
+	<key>PARENTHETICAL</key>
+	<string>%@ (%@)</string>
+	<key>PASSWORD</key>
+	<string>password</string>
+	<key>PERFORM_SELECTIONS</key>
+	<string>Εκτέλεση επιλογών</string>
+	<key>PREPARE_ARCHIVES</key>
+	<string>Προετοιμασία συμπιεσμένων αρχείων</string>
+	<key>PREPARING_FILESYSTEM</key>
+	<string>Προετοιμασία συστήματος αρχείων</string>
+	<key>PRODUCTS</key>
+	<string>Προϊόντα</string>
+	<key>PURGE</key>
+	<string>Διαγραφή</string>
+	<key>QUESTION</key>
+	<string>%@?</string>
+	<key>QUEUE</key>
+	<string>Ουρά</string>
+	<key>QUEUED_FOR</key>
+	<string>Στην ουρά για %@</string>
+	<key>Q_D</key>
+	<string>Στην ουρά</string>
+	<key>REBOOT_DEVICE</key>
+	<string>Επανεκκίνηση συσκευής</string>
+	<key>RECENT_CHANGES_UPDATES</key>
+	<string>Πρόσφατες Αλλαγές/Ενημερώσεις</string>
+	<key>RECOMMENDED_BOOKS</key>
+	<string>Προτεινόμενα Βιβλία</string>
+	<key>REFRESH</key>
+	<string>Ανανέωση</string>
+	<key>REFRESHING_DATA</key>
+	<string>Ανανέωση Δεδομένων</string>
+	<key>REINSTALL</key>
+	<string>Επανεγκατάσταση</string>
+	<key>RELOAD</key>
+	<string>Επαναφόρτωση</string>
+	<key>RELOADING_DATA</key>
+	<string>Επαναφόρτωση Δεδομένων</string>
+	<key>RELOAD_SPRINGBOARD</key>
+	<string>Επανεκκίνηση SpringBoard</string>
+	<key>REMOVE</key>
+	<string>Αφαίρεση</string>
+	<key>REMOVING_ESSENTIALS</key>
+	<string>Αφαίρεση Απαραιτήτων</string>
+	<key>REMOVING_ESSENTIALS_EX</key>
+	<string>Αυτή η διαδικασία θα αφαιρέσει ένα η περισσότερα πακέτα που απαιτούνται για την ομαλή λειτουργία είτε του Cydia ή του iOS σας. Εάν συνεχίσετε, ίσως να μην μπορείτε να χρησιμοποιήσετε το Cydia για να επιδιορθώσετε οποιαδήποτε βλάβη.</string>
+	<key>REPAIRING</key>
+	<string>Επιδιόρθωση</string>
+	<key>REPOSITORY_SIGNATURE</key>
+	<string>Προβολή Υπογραφής Repository</string>
+	<key>REQUEST_ADVERTISING_SPACE</key>
+	<string>Ζητήστε χώρο διαφήμισης</string>
+	<key>REQUIREMENTS_FOR_LISTING</key>
+	<string>Απαιτήσεις για εμφάνιση</string>
+	<key>RESTART_SPRINGBOARD</key>
+	<string>Επανεκκίνηση SpringBoard</string>
+	<key>RESUBMIT_FORM</key>
+	<string>Είστε σίγουροι πως θέλετε να στείλετε πάλι την φόρμα;</string>
+	<key>RESUMING_AT</key>
+	<string>Συνέχιση σε</string>
+	<key>RETURN_TO_CYDIA</key>
+	<string>Επιστροφή στο Cydia</string>
+	<key>ROLE_EX</key>
+	<string>Δεν είναι όλα τα πακέτα που είναι διαθέσιμα στο Cydia σχεδιασμένα για χρήση από όλους τους χρήστες. Παρακαλούμε κατηγοριοποιήστε τον εαυτό σας ώστε να μπορέσει το Cydia να εφαρμόσει τα ανάλογα βοηθητικά φίλτρα.
+
+Αυτή η επιλογή μπορεί να αλλαχθεί από τις "Ρυθμίσεις" στην ταμπέλα "Διαχείριση" (στο iPhone ή iPod touch), ή από την ταμπέλα "Sources" (στο iPad).</string>
+	<key>RUNNING</key>
+	<string>Εκτελείται</string>
+	<key>SAFE</key>
+	<string>Ασφαλές</string>
+	<key>SAMPLE</key>
+	<string>Δείγμα</string>
+	<key>SCREENSHOT</key>
+	<string>Στιγμιότυπο εικόνας</string>
+	<key>SCREENSHOTS</key>
+	<string>Στιγμιότυπα εικόνας</string>
+	<key>SEARCH</key>
+	<string>Αναζήτηση</string>
+	<key>SEARCH_EX</key>
+	<string>Ονόματα Πακέτων &amp; Περιγραφές</string>
+	<key>SECTION</key>
+	<string>Τομέας</string>
+	<key>SECTIONS</key>
+	<string>Τομείς</string>
+	<key>SECTION_VISIBILITY</key>
+	<string>Ορατότητα τομέων</string>
+	<key>SEE_WHAT_CHANGED</key>
+	<string>Δείτε τί άλλαξε</string>
+	<key>SETTINGS</key>
+	<string>Ρυθμίσεις</string>
+	<key>SHOW_ALL_CHANGES</key>
+	<string>Προβολή αλλαγών</string>
+	<key>SHOW_ALL_CHANGES_EX</key>
+	<string>Οι αλλαγές δείχνουν μόνο αναβαθμίσεις σε εγκατεστημένα πακέτα, ώστε να μειωθεί το spam από packagers. Ενεργοποιήστε το για να βλέπετε αναβαθμίσεις για αυτό το πακέτο, ακόμη και εάν δεν είναι εγκατεστημένο.</string>
+	<key>SIGNED_PACKAGE</key>
+	<string>Το πακέτο έχει υπογραφθεί.</string>
+	<key>SIMPLE</key>
+	<string>Απλό</string>
+	<key>SINGLE_QUOTED</key>
+	<string>‘%@’</string>
+	<key>SLASH_DELIMITED</key>
+	<string>%@ / %@</string>
+	<key>SOURCES</key>
+	<string>Sources</string>
+	<key>SOURCES_EX</key>
+	<string>Δείτε τρέχοντα sources και προσθέστε sources που γνωρίζετε.</string>
+	<key>SOURCE_DETAILS</key>
+	<string>Πληροφορίες Source</string>
+	<key>SOURCE_WARNING</key>
+	<string>Προειδοποίηση Source</string>
+	<key>SPONSOR</key>
+	<string>Σπόνσορας</string>
+	<key>SPONSORING_PRODUCTS</key>
+	<string>Προϊόντα Sponsoring</string>
+	<key>STATISTICS</key>
+	<string>Στατιστικά</string>
+	<key>STILL_BROKEN_EX</key>
+	<string>Η προσπάθεια διόρθωσης κατεστραμμένων επιλογών δεν φαίνεται να βοήθησε.</string>
+	<key>STORAGE</key>
+	<string>Χώρος</string>
+	<key>STORAGE_EX</key>
+	<string>Δείτε πόσος διαθέσιμος χώρος υπάρχει για νέα πακέτα.</string>
+	<key>SUBMIT</key>
+	<string>Αποστολή</string>
+	<key>SUPPORT_KNOWN_ISSUES</key>
+	<string>Υποστήριξη &amp; Γνωστά Προβλήματα</string>
+	<key>TEMPORARY_IGNORE</key>
+	<string>Αγνόηση (Προσωρινά)</string>
+	<key>THANK_YOU</key>
+	<string>Ευχαριστούμε</string>
+	<key>UNABLE_TO_COMPLY</key>
+	<string>Αδυναμία εκτέλεσης</string>
+	<key>UNABLE_TO_COMPLY_EX</key>
+	<string>Αυτή η διαδικασία θα αφαιρέσει ένα η περισσότερα πακέτα που απαιτούνται για την ομαλή λειτουργία είτε του Cydia ή του iOS σας. Προκειμένου να συνεχίσετε και να επιβάλλετε μετά βίας αυτή τη διαδικασία , θα πρέπει να ενεργοποιήσετε την κατάσταση Για Προχωρημένους στις Ρυθμίσεις.</string>
+	<key>UNABLE_TO_LOAD</key>
+	<string>Αδυναμία φόρτωσης</string>
+	<key>UNKNOWN</key>
+	<string>Αγνωστο</string>
+	<key>UNSAFE</key>
+	<string>Μη ασφαλές</string>
+	<key>UPDATING_DATABASE</key>
+	<string>Ενημέρωση Βάσης Δεδομένων</string>
+	<key>UPDATING_SOURCES</key>
+	<string>Ενημέρωση Sources</string>
+	<key>UPGRADE</key>
+	<string>Αναβάθμιση</string>
+	<key>UPGRADE_ESSENTIAL</key>
+	<string>Αναβάθμιση απαραιτήτων</string>
+	<key>UPGRADING_TO_READ_THIS</key>
+	<string>Αναβαθμίζετε σε %@? Διαβάστε αυτό</string>
+	<key>USER</key>
+	<string>Χρήστης</string>
+	<key>USERNAME</key>
+	<string>username</string>
+	<key>USER_EX</key>
+	<string>Εφαρμογές,Βελτιώσεις,Θέματα.</string>
+	<key>USER_GUIDES</key>
+	<string>Οδηγοί χρήσης</string>
+	<key>VERIFICATION_ERROR</key>
+	<string>Σφάλμα επιβεβαίωσης</string>
+	<key>VERIFYING_URL</key>
+	<string>Επιβεβαιώνεται το URL</string>
+	<key>VERSION</key>
+	<string>Έκδοση</string>
+	<key>WARNING</key>
+	<string>Προειδοποίηση</string>
+	<key>WELCOME_TO_CYDIA</key>
+	<string>Καλώς ήλθες στο Cydia™</string>
+	<key>WHO_ARE_YOU</key>
+	<string>Ποιός είσαι?</string>
+	<key>YES</key>
+	<string>Ναι</string>
+</dict>
+</plist>

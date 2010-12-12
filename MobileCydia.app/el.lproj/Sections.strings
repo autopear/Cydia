@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Addons</key>
+	<string>Προσθήκες</string>
+	<key>Administration</key>
+	<string>Διαχείριση</string>
+	<key>App Addons</key>
+	<string>Προσθήκες εφαρμογών</string>
+	<key>Archiving</key>
+	<string>Συμπίεση</string>
+	<key>Battery</key>
+	<string>Μπαταρία</string>
+	<key>Books</key>
+	<string>Βιβλία</string>
+	<key>Carrier Bundles</key>
+	<string>Πακέτα Παρόχων</string>
+	<key>Carriers</key>
+	<string>Πάροχοι</string>
+	<key>Complete</key>
+	<string>Ολοκληρωμένα</string>
+	<key>Data Storage</key>
+	<string>Αποθήκευση δεδομένων</string>
+	<key>Development</key>
+	<string>Ανάπτυξη εφαρμογών</string>
+	<key>Dialer</key>
+	<string>Dialer</string>
+	<key>Dictionaries</key>
+	<string>Λεξικά</string>
+	<key>Dock</key>
+	<string>Dock</string>
+	<key>Education</key>
+	<string>Εκπαίδευση</string>
+	<key>Emulation</key>
+	<string>Εξομοίωση</string>
+	<key>Entertainment</key>
+	<string>Διασκέδαση</string>
+	<key>Fonts</key>
+	<string>Γραμματοσειρές</string>
+	<key>Games</key>
+	<string>Παιχνίδια</string>
+	<key>Icy</key>
+	<string>Icy</string>
+	<key>Java</key>
+	<string>Java</string>
+	<key>Keyboards</key>
+	<string>Πληκτρολόγια</string>
+	<key>Localization</key>
+	<string>Τοπικές ρυθμίσεις</string>
+	<key>LockScreen</key>
+	<string>Οθόνη Κλειδώματος</string>
+	<key>Messaging</key>
+	<string>Μηνύματα</string>
+	<key>Multimedia</key>
+	<string>Πολυμέσα</string>
+	<key>Navigation</key>
+	<string>Πλοήγηση</string>
+	<key>Networking</key>
+	<string>Δικτύωση</string>
+	<key>Notifications</key>
+	<string>Ειδοποιήσεις</string>
+	<key>Packaging</key>
+	<string>Packaging</string>
+	<key>Productivity</key>
+	<string>Δημιουργικότητα</string>
+	<key>Repositories</key>
+	<string>Repositories</string>
+	<key>Ringtones</key>
+	<string>Ήχοι κλήσης</string>
+	<key>SMS</key>
+	<string>SMS</string>
+	<key>Scripting</key>
+	<string>Scripting</string>
+	<key>Security</key>
+	<string>Ασφάλεια</string>
+	<key>Sliders</key>
+	<string>Sliders</string>
+	<key>Social</key>
+	<string>Κοινωνικά</string>
+	<key>System</key>
+	<string>Σύστημα</string>
+	<key>Terminal Support</key>
+	<string>Υποστήριξη Τερματικού</string>
+	<key>Text Editors</key>
+	<string>Επεξεργαστές Κειμένου</string>
+	<key>Themes</key>
+	<string>Θέματα</string>
+	<key>Toys</key>
+	<string>Παιχνιδάκια</string>
+	<key>Tweaks</key>
+	<string>Βελτιώσεις</string>
+	<key>Utilities</key>
+	<string>Εργαλεία</string>
+	<key>Wallpaper</key>
+	<string>Ταπετσαρία</string>
+	<key>Weather</key>
+	<string>Καιρός</string>
+	<key>WebClips</key>
+	<string>WebClips</string>
+	<key>Widgets</key>
+	<string>Widgets</string>
+	<key>eBooks</key>
+	<string>eBooks</string>
+</dict>
+</plist>

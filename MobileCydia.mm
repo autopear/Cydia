@@ -5535,13 +5535,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
++ (BOOL) hasIndexedCollation {
+    return NO; // XXX: objc_getClass("UILocalizedIndexedCollation") != nil;
+}
+
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
     NSInteger count([sections_ count]);
     return count == 0 ? 1 : count;
 }
 
 - (NSString *) tableView:(UITableView *)list titleForHeaderInSection:(NSInteger)section {
-    if ([sections_ count] == 0)
+    if ([sections_ count] == 0 || [[sections_ objectAtIndex:section] count] == 0)
         return nil;
     return [[sections_ objectAtIndex:section] name];
 }
@@ -5587,10 +5591,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
+    // XXX: is 20 the most optimal number here?
     return [packages_ count] > 20 ? index_ : nil;
 }
 
-- (NSInteger)tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index {
+- (NSInteger) tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index {
+    if ([[self class] hasIndexedCollation]) {
+        return [[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionForSectionIndexTitleAtIndex:index];
+    }
+
     return index;
 }
 
@@ -5601,7 +5610,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target_ = target;
         action_ = action;
 
-        index_ = [[NSMutableArray alloc] initWithCapacity:32];
+        index_ = [[self class] hasIndexedCollation]
+            ? [[[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles] retain]
+            : [[NSMutableArray alloc] initWithCapacity:32];
         indices_ = [[NSMutableDictionary alloc] initWithCapacity:32];
 
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
@@ -5638,37 +5649,70 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [packages_ addObject:package];
     _end
 
-    [index_ removeAllObjects];
     [indices_ removeAllObjects];
 
     Section *section = nil;
 
-    _profile(PackageTable$reloadData$Section)
-        for (size_t offset(0), end([packages_ count]); offset != end; ++offset) {
-            Package *package;
-            unichar index;
+    if ([[self class] hasIndexedCollation]) {
+        id collation = [objc_getClass("UILocalizedIndexedCollation") currentCollation];
+        NSArray *titles = [collation sectionIndexTitles];
+        int secidx = -1;
 
-            _profile(PackageTable$reloadData$Section$Package)
-                package = [packages_ objectAtIndex:offset];
-                index = [package index];
-            _end
+        _profile(PackageTable$reloadData$Section)
+            for (size_t offset(0), end([packages_ count]); offset != end; ++offset) {
+                Package *package;
+                int index;
 
-            if (section == nil || [section index] != index) {
-                _profile(PackageTable$reloadData$Section$Allocate)
-                    section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
+                _profile(PackageTable$reloadData$Section$Package)
+                    package = [packages_ objectAtIndex:offset];
+                    index = [collation sectionForObject:package collationStringSelector:@selector(name)];
                 _end
 
-                [index_ addObject:[section name]];
-                //[indices_ setObject:[NSNumber numberForInt:[sections_ count]] forKey:index];
+                while (secidx < index) {
+                    secidx += 1;
 
-                _profile(PackageTable$reloadData$Section$Add)
-                    [sections_ addObject:section];
-                _end
+                    _profile(PackageTable$reloadData$Section$Allocate)
+                        section = [[[Section alloc] initWithName:[titles objectAtIndex:secidx] row:offset localize:NO] autorelease];
+                    _end
+
+                    _profile(PackageTable$reloadData$Section$Add)
+                        [sections_ addObject:section];
+                    _end
+                }
+
+                [section addToCount];
             }
+        _end
+    } else {
+        [index_ removeAllObjects];
 
-            [section addToCount];
-        }
-    _end
+        _profile(PackageTable$reloadData$Section)
+            for (size_t offset(0), end([packages_ count]); offset != end; ++offset) {
+                Package *package;
+                unichar index;
+
+                _profile(PackageTable$reloadData$Section$Package)
+                    package = [packages_ objectAtIndex:offset];
+                    index = [package index];
+                _end
+
+                if (section == nil || [section index] != index) {
+                    _profile(PackageTable$reloadData$Section$Allocate)
+                        section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
+                    _end
+
+                    [index_ addObject:[section name]];
+                    //[indices_ setObject:[NSNumber numberForInt:[sections_ count]] forKey:index];
+
+                    _profile(PackageTable$reloadData$Section$Add)
+                        [sections_ addObject:section];
+                    _end
+                }
+
+                [section addToCount];
+            }
+        _end
+    }
 
     _profile(PackageTable$reloadData$List)
         [list_ reloadData];

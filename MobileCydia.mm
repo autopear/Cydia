@@ -6977,6 +6977,8 @@ freeing the view controllers on tab change */
     // Inherit autorotation settings for modal parents.
     if ([self parentViewController] && [[self parentViewController] modalViewController] == self) {
         return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
+    } else if ([self parentViewController]) {
+        return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
     } else {
         return [super shouldAutorotateToInterfaceOrientation:orientation];
     }
@@ -8759,8 +8761,6 @@ static _finline void _setHomePage(Cydia *self) {
     CYViewController *page = nil;
     int tag = 0;
 
-    NSLog(@"open url: %@", url);
-
     if ((page = [self pageForURL:url hasTag:&tag])) {
         [self setPage:page];
         tag_ = tag;
@@ -8772,7 +8772,7 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
-    NSLog(@"first: %@", url);
+
     if (!loaded_) starturl_ = [url retain];
     else [self openCydiaURL:url];
 }

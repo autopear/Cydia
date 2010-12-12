@@ -715,7 +715,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                             UIColor *uic(nil);
 
                             if (red == 0xc7 && green == 0xce && blue == 0xd5)
-                                uic = [UIColor pinStripeColor];
+                                uic = [UIColor groupTableViewBackgroundColor];
                             else if (alpha != 0)
                                 uic = [UIColor
                                     colorWithRed:(red / 255)
@@ -732,7 +732,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                     }
 
                     if (!colored)
-                        [scroller_ setBackgroundColor:[UIColor pinStripeColor]];
+                        [scroller_ setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
                     break;
                 }
     }
@@ -995,7 +995,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         }
 
         [scroller_ setFixedBackgroundPattern:YES];
-        [scroller_ setBackgroundColor:[UIColor pinStripeColor]];
+        [scroller_ setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
         [scroller_ setClipsSubviews:YES];
 
         [scroller_ setBounces:YES];

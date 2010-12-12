@@ -5754,25 +5754,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* }}} */
 
-/* Add Source Controller {{{ */
-@interface AddSourceController : CYViewController {
-    _transient Database *database_;
-}
-
-- (id) initWithDatabase:(Database *)database;
-
-@end
-
-@implementation AddSourceController
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-    } return self;
-}
-
-@end
-/* }}} */
 /* Source Cell {{{ */
 @interface SourceCell : CYTableViewCell <
     ContentDelegate

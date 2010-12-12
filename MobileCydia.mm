@@ -8782,6 +8782,20 @@ static _finline void _setHomePage(Cydia *self) {
     [tabbar_ setViewControllers:controllers];
 }
 
+- (void)showFakeTabBarInView:(UIView *)view {
+    static UITabBar *fake = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)];
+    if (view != nil) {
+        CGRect frame = [fake frame];
+        frame.origin.y = [view frame].size.height - frame.size.height;
+        frame.size.width = [view frame].size.width;
+        [fake setFrame:frame];
+        [fake setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin];
+        [view addSubview:fake];
+    } else {
+        [fake removeFromSuperview];
+    }
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
     CydiaApp = self;
@@ -8807,9 +8821,7 @@ _trace();
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
-    UIScreen *screen([UIScreen mainScreen]);
-
-    window_ = [[UIWindow alloc] initWithFrame:[screen bounds]];
+    window_ = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
@@ -8842,6 +8854,7 @@ _trace();
 
     // Show pinstripes while loading data.
     [[tabbar_ view] setBackgroundColor:[UIColor pinStripeColor]];
+    [self showFakeTabBarInView:[tabbar_ tabBar]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -8903,6 +8916,8 @@ _trace();
         [tabbar_ setSelectedIndex:0];
         _setHomePage(self);
     }
+
+    [self showFakeTabBarInView:nil];
 
     [starturl_ release];
     starturl_ = nil;

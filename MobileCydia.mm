@@ -5844,7 +5844,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Source Table {{{ */
-@interface SourceTable : CYViewController <
+@interface SourceController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -5872,7 +5872,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation SourceTable
+@implementation SourceController
 
 - (void) _releaseConnection:(NSURLConnection *)connection {
     if (connection != nil) {
@@ -8007,7 +8007,7 @@ typedef enum {
     ChangesController *changes_;
     ManageController *manage_;
     SearchController *search_;
-    SourceTable *sources_;
+    SourceController *sources_;
     InstalledController *installed_;
     id queueDelegate_;
 
@@ -8437,9 +8437,9 @@ static _finline void _setHomePage(Cydia *self) {
     return search_;
 }
 
-- (SourceTable *) sourcesController {
+- (SourceController *) sourcesController {
     if (sources_ == nil)
-        sources_ = [[SourceTable alloc] initWithDatabase:database_];
+        sources_ = [[SourceController alloc] initWithDatabase:database_];
     return sources_;
 }
 
@@ -8672,7 +8672,7 @@ static _finline void _setHomePage(Cydia *self) {
     /*else if ([path isEqualToString:@"/add-source"])
         return [[[AddSourceController alloc] initWithDatabase:database_] autorelease];*/
     else if ([path isEqualToString:@"/sources"])
-        return [[[SourceTable alloc] initWithDatabase:database_] autorelease];
+        return [[[SourceController alloc] initWithDatabase:database_] autorelease];
     else if ([path isEqualToString:@"/packages"])
         return [[[InstalledController alloc] initWithDatabase:database_] autorelease];
     else if ([path hasPrefix:@"/url/"])

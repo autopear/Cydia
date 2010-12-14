@@ -12,8 +12,16 @@ endif
 flags := 
 link := 
 
-#dpkg := /Library/Cydia/bin/dpkg-deb -Zlzma
+ifeq (o,O) # gzip is actually better
+dpkg := /Library/Cydia/bin/dpkg-deb
+ifeq ($(wildcard $(dpkg)),$(dpkg))
+dpkg := $(dpkg) -zlzma
+else
+dpkg := dpkg-deb -zbzip2
+endif
+else
 dpkg := dpkg-deb
+endif
 
 sdk := $(sdks)/iPhoneOS$(ios).sdk
 

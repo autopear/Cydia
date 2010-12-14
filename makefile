@@ -107,6 +107,6 @@ package: MobileCydia
 	mkdir -p debs
 	ln -sf debs/cydia_$$(./version.sh)_iphoneos-arm.deb Cydia.deb
 	$(dpkg) -b _ Cydia.deb
-	readlink Cydia.deb
+	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
 
 .PHONY: all clean sign

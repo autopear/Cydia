@@ -100,6 +100,8 @@ package: MobileCydia
 	mkdir -p _/DEBIAN
 	./control.sh _ >_/DEBIAN/control
 	
+	find _ -name '*.png' -exec ./pngcrush.sh '{}' ';'
+	
 	sudo chown -R 0 _
 	sudo chgrp -R 0 _
 	sudo chmod 6755 _/Applications/Cydia.app/MobileCydia

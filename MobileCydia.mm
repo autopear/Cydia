@@ -5406,7 +5406,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadButtonClicked {
-    // Don't reload a package view by clicking the button.
+    // Don't reload a commerical package by tapping the loading button,
+    // but if it's not an Install button, we should forward it on.
+    if (![package_ uninstalled])
+        [self _customButtonClicked];
 }
 
 - (void) applyLoadingTitle {

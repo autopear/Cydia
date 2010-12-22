@@ -8965,6 +8965,9 @@ static _finline void _setHomePage(Cydia *self) {
 _trace();
     CydiaApp = self;
 
+    if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
+        [self setApplicationSupportsShakeToEdit:NO];
+
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288
         diskCapacity:10485760

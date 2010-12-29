@@ -6501,6 +6501,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation HomeController
 
++ (BOOL)shouldHideNavigationBar {
+    return NO;
+}
+
 - (void) _setMoreHeaders:(NSMutableURLRequest *)request {
     [super _setMoreHeaders:request];
 
@@ -6531,12 +6535,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    //[[self navigationController] setNavigationBarHidden:YES animated:animated];
+
+    if ([[self class] shouldHideNavigationBar])
+        [[self navigationController] setNavigationBarHidden:YES animated:animated];
 }
 
 - (void) viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    //[[self navigationController] setNavigationBarHidden:NO animated:animated];
+
+    if ([[self class] shouldHideNavigationBar])
+        [[self navigationController] setNavigationBarHidden:NO animated:animated];
 }
 
 - (id) init {

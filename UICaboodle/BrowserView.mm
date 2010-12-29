@@ -904,24 +904,33 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     }
 }
 
+- (void) didStartLoading {
+    // Overridden in subclasses.
+}
+
 - (void) _didStartLoading {
     [self applyRightButton];
 
     if ([loading_ count] != 1)
         return;
+
     [delegate_ retainNetworkActivityIndicator];
+    [self didStartLoading];
+}
+
+- (void) didFinishLoading {
+    // Overridden in subclasses.
 }
 
 - (void) _didFinishLoading {
     if ([loading_ count] != 0)
         return;
-    [delegate_ releaseNetworkActivityIndicator];
 
     [self applyRightButton];
+    [[self navigationItem] setTitle:title_];
 
-    // XXX: wtf?
-    if (![self isLoading])
-        [[self navigationItem] setTitle:title_];
+    [delegate_ releaseNetworkActivityIndicator];
+    [self didFinishLoading];
 }
 
 - (bool) isLoading {

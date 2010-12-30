@@ -117,7 +117,7 @@ $(function () {
         }
     });
 
-    $("#settings").href("cydia://package-settings/" + idc);
+    $("#settings").href("cydia://package/" + idc + "/settings");
 
     var mode = package.mode;
     if (mode == null)
@@ -275,7 +275,7 @@ $(function () {
         $("#source-name").html($.xml(source.name));
 
         if (source.trusted)
-            $("#trusted").href("cydia://package-signature/" + idc);
+            $("#trusted").href("cydia://package/" + idc + "/signature");
         else
             $(".trusted").addClass("deleted");
 

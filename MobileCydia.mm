@@ -5913,7 +5913,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 > {
     UIImage *icon_;
     NSString *origin_;
-    NSString *description_;
     NSString *label_;
 }
 
@@ -5926,12 +5925,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) clearSource {
     [icon_ release];
     [origin_ release];
-    [description_ release];
     [label_ release];
 
     icon_ = nil;
     origin_ = nil;
-    description_ = nil;
     label_ = nil;
 }
 
@@ -5946,7 +5943,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     origin_ = [[source name] retain];
     label_ = [[source uri] retain];
-    description_ = [[source description] retain];
 
     [content_ setNeedsDisplay];
 }
@@ -5988,10 +5984,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (!highlighted)
         UISetColor(Blue_);
     [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
-
-    if (!highlighted)
-        UISetColor(Gray_);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 40) withFont:Font14_ lineBreakMode:UILineBreakModeTailTruncation];
 }
 
 @end
@@ -6091,11 +6083,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         _nodefault
     }
     return [sources_ objectAtIndex:idx];
-}
-
-- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source = [self sourceAtIndexPath:indexPath];
-    return [source description] == nil ? 56 : 73;
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -6354,6 +6341,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [list_ setRowHeight:56];
         [[self view] addSubview:list_];
 
         [list_ setDataSource:self];

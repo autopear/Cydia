@@ -4887,7 +4887,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (PackageCell *) init;
 - (void) setPackage:(Package *)package;
 
-+ (int) heightForPackage:(Package *)package;
 - (void) drawContentRect:(CGRect)rect;
 
 @end
@@ -5065,10 +5064,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (placard_ != nil)
         [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
-}
-
-+ (int) heightForPackage:(Package *)package {
-    return 73;
 }
 
 @end
@@ -5631,10 +5626,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) deselectWithAnimation:(BOOL)animated {
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
-
-/*- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
-    return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
-}*/
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
@@ -7510,10 +7501,6 @@ freeing the view controllers on tab change */
     [cell setPackage:[self packageAtIndexPath:path]];
     return cell;
 }
-
-/*- (CGFloat) tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
-    return [PackageCell heightForPackage:[self packageAtIndexPath:path]];
-}*/
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);

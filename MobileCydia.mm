@@ -1346,6 +1346,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     pkgSourceList *list_;
 
     SourceMap sources_;
+    CFMutableArrayRef deadSources_;
     CFMutableArrayRef packages_;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
@@ -3040,6 +3041,8 @@ static NSString *Warning_;
 - (void) dealloc {
     // XXX: actually implement this thing
     _assert(false);
+    if (deadSources_)
+	    CFRelease(deadSources_);
     [self releasePackages];
     apr_pool_destroy(pool_);
     NSRecycleZone(zone_);
@@ -3157,6 +3160,7 @@ static NSString *Warning_;
             capacity += 1024;
 
         packages_ = CFArrayCreateMutable(kCFAllocatorDefault, capacity, NULL);
+        deadSources_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
 
         int fds[2];
 
@@ -3231,6 +3235,7 @@ static NSString *Warning_;
     NSMutableArray *sources([NSMutableArray arrayWithCapacity:sources_.size()]);
     for (SourceMap::const_iterator i(sources_.begin()); i != sources_.end(); ++i)
         [sources addObject:i->second];
+    [sources addObjectsFromArray:(NSArray *)deadSources_];
     return sources;
 }
 
@@ -3337,7 +3342,9 @@ static NSString *Warning_;
     ++era_;
 
     [self releasePackages];
+
     sources_.clear();
+    CFArrayRemoveAllValues(deadSources_);
 
     _error->Discard();
 
@@ -3427,14 +3434,19 @@ static NSString *Warning_;
     }
 
     for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+        bool found = false;
         std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
         for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
             // XXX: this could be more intelligent
             if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {
                 pkgCache::PkgFileIterator cached((*index)->FindInCache(cache_));
-                if (!cached.end())
+                if (!cached.end()) {
                     sources_[cached->ID] = [[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease];
+                    found = true;
+                }
             }
+        if (!found)
+            CFArrayAppendValue(deadSources_, [[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease]);
     }
 
     {

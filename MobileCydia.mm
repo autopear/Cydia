@@ -7483,7 +7483,10 @@ freeing the view controllers on tab change */
     if ([database_ era] != era_)
         return nil;
 
-    Section *section([sections_ objectAtIndex:[path section]]);
+    NSUInteger sectionIndex([path section]);
+    if (sectionIndex >= [sections_ count])
+        return nil;
+    Section *section([sections_ objectAtIndex:sectionIndex]);
     NSInteger row([path row]);
     return [[[self packageAtIndex:([section row] + row)] retain] autorelease];
 } }

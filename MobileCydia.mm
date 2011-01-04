@@ -7855,6 +7855,8 @@ freeing the view controllers on tab change */
         [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
         [ignoredCell_ setAccessoryView:ignoredSwitch_];
         [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
+        // FIXME: Ignored state is not saved.
+        [ignoredCell_ setUserInteractionEnabled:NO];
 
         [table_ setDataSource:self];
         [table_ setDelegate:self];

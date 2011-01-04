@@ -4047,6 +4047,45 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+/* Emulated Loading Controller {{{ */
+@interface CYEmulatedLoadingController : UIViewController {
+    CYLoadingIndicator *indicator_;
+    UITabBar *tabbar_;
+    UINavigationBar *navbar_;
+}
+@end
+
+@implementation CYEmulatedLoadingController
+
+- (CYEmulatedLoadingController *) init {
+    if ((self = [super init])) {
+        [[self view] setBackgroundColor:[UIColor pinStripeColor]];
+
+        indicator_ = [[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]];
+        [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [[self view] addSubview:indicator_];
+        [indicator_ release];
+
+        tabbar_ = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)];
+        [tabbar_ setFrame:CGRectMake(0.0f, [[self view] bounds].size.height - [tabbar_ bounds].size.height, [[self view] bounds].size.width, [tabbar_ bounds].size.height)];
+        [tabbar_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth];
+        [[self view] addSubview:tabbar_];
+        [tabbar_ release];
+
+        navbar_ = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)];
+        [navbar_ setFrame:CGRectMake(0.0f, 0.0f, [[self view] bounds].size.width, [navbar_ bounds].size.height)];
+        [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth];
+        [[self view] addSubview:navbar_];
+        [navbar_ release];
+    } return self;
+}
+
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    return (IsWildcat_ || orientation == UIInterfaceOrientationPortrait);
+}
+
+@end
+/* }}} */
 
 /* Cydia Browser Controller {{{ */
 @interface CYBrowserController : BrowserController {
@@ -9061,17 +9100,12 @@ static _finline void _setHomePage(Cydia *self) {
     [tabbar_ setViewControllers:controllers];
 }
 
-- (void)showFakeTabBarInView:(UIView *)view {
-    static UITabBar *fake = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)];
+- (void)showEmulatedLoadingControllerInView:(UIView *)view {
+    static CYEmulatedLoadingController *fake = [[CYEmulatedLoadingController alloc] init];
     if (view != nil) {
-        CGRect frame = [fake frame];
-        frame.origin.y = [view frame].size.height - frame.size.height;
-        frame.size.width = [view frame].size.width;
-        [fake setFrame:frame];
-        [fake setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin];
-        [view addSubview:fake];
+        [view addSubview:[fake view]];
     } else {
-        [fake removeFromSuperview];
+        [[fake view] removeFromSuperview];
     }
 }
 
@@ -9134,9 +9168,7 @@ _trace();
     [tabbar_ setUpdateDelegate:self];
     [window_ addSubview:[tabbar_ view]];
 
-    // Show pinstripes while loading data.
-    [[tabbar_ view] setBackgroundColor:[UIColor pinStripeColor]];
-    [self showFakeTabBarInView:[tabbar_ tabBar]];
+    [self showEmulatedLoadingControllerInView:window_];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -9149,12 +9181,6 @@ _trace();
         return;
     }
 
-    CGRect fixframe = [[tabbar_ view] frame];
-    if (UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication] statusBarOrientation]))
-        fixframe.size = CGSizeMake(fixframe.size.height, fixframe.size.width);
-    CYLoadingIndicator *loading = [[[CYLoadingIndicator alloc] initWithFrame:fixframe] autorelease];
-    [loading setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [[tabbar_ view] addSubview:loading];
     [window_ setUserInteractionEnabled:NO];
 
     [self reloadData];
@@ -9166,16 +9192,12 @@ _trace();
         _setHomePage(self);
     }
 
-    [self showFakeTabBarInView:nil];
-
     [starturl_ release];
     starturl_ = nil;
 
     [window_ setUserInteractionEnabled:YES];
 
-    // XXX: does this actually slow anything down?
-    [[tabbar_ view] setBackgroundColor:[UIColor clearColor]];
-    [loading removeFromSuperview];
+    [self showEmulatedLoadingControllerInView:nil];
 }
 
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {

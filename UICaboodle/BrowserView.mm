@@ -638,7 +638,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if ([scheme isEqualToString:@"mailto"])
         [self _openMailToURL:url];
 
-    CYViewController *page([delegate_ pageForURL:url hasTag:NULL]);
+    CYViewController *page([delegate_ pageForURL:url]);
 
     if (page == nil) {
         BrowserController *browser([[[class_ alloc] init] autorelease]);

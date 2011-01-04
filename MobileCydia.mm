@@ -6637,6 +6637,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) init {
     if ((self = [super init]) != nil) {
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"")]];
+
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("ABOUT")
             style:UIBarButtonItemStylePlain
@@ -6660,6 +6662,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) init {
     if ((self = [super init]) != nil) {
         [[self navigationItem] setTitle:UCLocalize("MANAGE")];
+
+        [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("SETTINGS")
@@ -8217,16 +8221,6 @@ freeing the view controllers on tab change */
 @end
 /* }}} */
 
-typedef enum {
-    kCydiaTag = 0,
-    kSectionsTag = 1,
-    kChangesTag = 2,
-    kManageTag = 3,
-    kInstalledTag = 4,
-    kSourcesTag = 5,
-    kSearchTag = 6
-} CYTabTag;
-
 @interface Cydia : UIApplication <
     ConfirmationControllerDelegate,
     ProgressControllerDelegate,
@@ -8245,36 +8239,19 @@ typedef enum {
     Database *database_;
 
     NSURL *starturl_;
-    int tag_;
 
     unsigned locked_;
     unsigned activity_;
-
-    SectionsController *sections_;
-    ChangesController *changes_;
-    ManageController *manage_;
-    SearchController *search_;
-    SourcesController *sources_;
-    InstalledController *installed_;
-    id queueDelegate_;
 
     CYStashController *stash_;
 
     bool loaded_;
 }
 
-- (CYViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class;
 - (void) setPage:(CYViewController *)page;
 - (void) loadData;
 
-// XXX: I hate prototypes
-- (id) queueBadgeController;
-
 @end
-
-static _finline void _setHomePage(Cydia *self) {
-    [self setPage:[self _pageForURL:[NSURL URLWithString:CydiaURL(@"")] withClass:[HomeController class]]];
-}
 
 @implementation Cydia
 
@@ -8338,42 +8315,26 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
+// Navigation controller for the queuing badge.
+- (CYNavigationController *) queueNavigationController {
+    NSArray *controllers = [tabbar_ viewControllers];
+    return [controllers objectAtIndex:3];
+}
+
 - (void) _updateData {
     [self _saveConfig];
 
-    NSMutableSet *tabs([[[NSMutableSet alloc] initWithCapacity:10] autorelease]);
+    for (CYNavigationController *controller in [tabbar_ viewControllers])
+        [controller reloadData];
 
-    [tabs addObject:[tabbar_ selectedViewController]];
+    CYNavigationController *navigation = [self queueNavigationController];
+    id queuedelegate = nil;
 
-    if (sections_ != nil)
-        [tabs addObject:sections_];
-    if (changes_ != nil)
-        [tabs addObject:changes_];
-    if (manage_ != nil)
-        [tabs addObject:manage_];
-    if (search_ != nil)
-        [tabs addObject:search_];
-    if (sources_ != nil)
-        [tabs addObject:sources_];
-    if (installed_ != nil)
-        [tabs addObject:installed_];
+    if ([[navigation viewControllers] count] > 0)
+        queuedelegate = [[navigation viewControllers] objectAtIndex:0];
 
-    for (CYNavigationController *tab in tabs)
-        [tab reloadData];
-
-    [queueDelegate_ queueStatusDidChange];
-    [[[self queueBadgeController] tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
-}
-
-- (int)indexOfTabWithTag:(int)tag {
-    int i = 0;
-    for (UINavigationController *controller in [tabbar_ viewControllers]) {
-        if ([[controller tabBarItem] tag] == tag)
-            return i;
-        i += 1;
-    }
-
-    return -1;
+    [queuedelegate queueStatusDidChange];
+    [[navigation tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
 }
 
 - (void) _refreshIfPossible {
@@ -8459,7 +8420,7 @@ static _finline void _setHomePage(Cydia *self) {
 
     NSLog(@"changes:#%u", changes);
 
-    UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem];
+    UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:2] tabBarItem];
     if (changes != 0) {
         _trace();
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
@@ -8640,80 +8601,39 @@ static _finline void _setHomePage(Cydia *self) {
             [page setViewControllers:nil];
 }
 
-- (CYViewController *) _pageForURL:(NSURL *)url withClass:(Class)_class {
-    CYBrowserController *browser = [[[_class alloc] init] autorelease];
-    [browser loadURL:url];
-    return browser;
-}
-
-- (SectionsController *) sectionsController {
-    if (sections_ == nil)
-        sections_ = [[SectionsController alloc] initWithDatabase:database_];
-    return sections_;
-}
-
-- (ChangesController *) changesController {
-    if (changes_ == nil)
-        changes_ = [[ChangesController alloc] initWithDatabase:database_ delegate:self];
-    return changes_;
-}
-
-- (ManageController *) manageController {
-    if (manage_ == nil) {
-        manage_ = (ManageController *) [[self
-            _pageForURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]
-            withClass:[ManageController class]
-        ] retain];
-        if (!IsWildcat_)
-            queueDelegate_ = manage_;
-    }
-    return manage_;
-}
-
-- (SearchController *) searchController {
-    if (search_ == nil)
-        search_ = [[SearchController alloc] initWithDatabase:database_];
-    return search_;
-}
-
-- (SourcesController *) sourcesController {
-    if (sources_ == nil)
-        sources_ = [[SourcesController alloc] initWithDatabase:database_];
-    return sources_;
-}
-
-- (InstalledController *) installedController {
-    if (installed_ == nil) {
-        installed_ = [[InstalledController alloc] initWithDatabase:database_];
-        if (IsWildcat_)
-            queueDelegate_ = installed_;
-    }
-    return installed_;
-}
-
 - (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
-    int tag = [[viewController tabBarItem] tag];
-    if (tag == tag_) {
-        [(CYNavigationController *)[tabbar_ selectedViewController] popToRootViewControllerAnimated:YES];
-        return;
-    } else if (tag_ == 1) {
-        [[self sectionsController] resetView];
+    CYNavigationController *controller = (CYNavigationController *) viewController;
+
+    if ([[controller viewControllers] count] == 0) {
+        int index = [tabbar_ selectedIndex];
+        CYViewController *root = nil;
+
+        if (index == 0)
+            root = [[[HomeController alloc] init] autorelease];
+        else if (index == 1)
+            root = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
+        else if (index == 2)
+            root = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
+
+        if (IsWildcat_) {
+            if (index == 3)
+                root = [[[InstalledController alloc] initWithDatabase:database_] autorelease];
+            else if (index == 4)
+                root = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
+            else if (index == 5)
+                root = [[[SearchController alloc] initWithDatabase:database_] autorelease];
+        } else {
+            if (index == 3)
+                root = [[[ManageController alloc] init] autorelease];
+            else if (index == 4)
+                root = [[[SearchController alloc] initWithDatabase:database_] autorelease];
+        }
+
+        [root setDelegate:self];
+
+        if (root != nil)
+            [controller setViewControllers:[NSArray arrayWithObject:root]];
     }
-
-    switch (tag) {
-        case kCydiaTag: _setHomePage(self); break;
-
-        case kSectionsTag: [self setPage:[self sectionsController]]; break;
-        case kChangesTag: [self setPage:[self changesController]]; break;
-        case kManageTag: [self setPage:[self manageController]]; break;
-        case kInstalledTag: [self setPage:[self installedController]]; break;
-        case kSourcesTag: [self setPage:[self sourcesController]]; break;
-        case kSearchTag: [self setPage:[self searchController]]; break;
-
-        _nodefault
-    }
-
-    tag_ = tag;
 }
 
 - (void) showSettings {
@@ -8746,15 +8666,6 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (PackageController *) packageController {
     return [self _packageController];
-}
-
-// Returns the navigation controller for the queuing badge.
-- (id) queueBadgeController {
-    int index = [self indexOfTabWithTag:kManageTag];
-    if (index == -1)
-        index = [self indexOfTabWithTag:kInstalledTag];
-
-    return [[tabbar_ viewControllers] objectAtIndex:index];
 }
 
 - (void) cancelAndClear:(bool)clear {
@@ -8884,14 +8795,13 @@ static _finline void _setHomePage(Cydia *self) {
     } else {
         NSURL *url([NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"unknown" ofType:@"html"]]);
         url = [NSURL URLWithString:[[url absoluteString] stringByAppendingString:[NSString stringWithFormat:@"?%@", name]]];
-        return [self _pageForURL:url withClass:[CYBrowserController class]];
+        CYBrowserController *controller = [[[CYBrowserController alloc] init] autorelease];
+        [controller loadURL:url];
+        return controller;
     }
 }
 
-- (CYViewController *) pageForURL:(NSURL *)url hasTag:(int *)tag {
-    if (tag != NULL)
-        *tag = -1;
-
+- (CYViewController *) pageForURL:(NSURL *)url {
     NSString *scheme([[url scheme] lowercaseString]);
     if ([[url absoluteString] length] <= [scheme length] + 3)
         return nil;
@@ -9007,13 +8917,9 @@ static _finline void _setHomePage(Cydia *self) {
 
 - (BOOL) openCydiaURL:(NSURL *)url {
     CYViewController *page = nil;
-    int tag = 0;
 
-    if ((page = [self pageForURL:url hasTag:&tag])) {
+    if ((page = [self pageForURL:url]))
         [self setPage:page];
-        tag_ = tag;
-        [tabbar_ setSelectedViewController:(tag_ == -1 ? nil : [[tabbar_ viewControllers] objectAtIndex:tag_])];
-    }
 
     return !!page;
 }
@@ -9066,22 +8972,22 @@ static _finline void _setHomePage(Cydia *self) {
     }
 }
 
-- (void) setupTabBarController {
+- (void) setupViewControllers {
     tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
     [tabbar_ setDelegate:self];
 
     NSMutableArray *items([NSMutableArray arrayWithObjects:
-        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:kChangesTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:0] autorelease],
     nil]);
 
     if (IsWildcat_) {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:kInstalledTag] autorelease] atIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:0] autorelease] atIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
     } else {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
     }
 
     NSMutableArray *controllers([NSMutableArray array]);
@@ -9093,6 +8999,9 @@ static _finline void _setHomePage(Cydia *self) {
     }
 
     [tabbar_ setViewControllers:controllers];
+    [tabbar_ setUpdateDelegate:self];
+    [window_ addSubview:[tabbar_ view]];
+
 }
 
 - (void)showEmulatedLoadingControllerInView:(UIView *)view {
@@ -9127,8 +9036,6 @@ _trace();
     Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
     Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
 
-    tag_ = 0;
-
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
@@ -9159,10 +9066,7 @@ _trace();
 
     database_ = [Database sharedInstance];
 
-    [self setupTabBarController];
-    [tabbar_ setUpdateDelegate:self];
-    [window_ addSubview:[tabbar_ view]];
-
+    [window_ setUserInteractionEnabled:NO];
     [self showEmulatedLoadingControllerInView:window_];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
@@ -9176,23 +9080,23 @@ _trace();
         return;
     }
 
-    [window_ setUserInteractionEnabled:NO];
-
     [self reloadData];
     PrintTimes();
 
-    // Show the initial page
-    if (starturl_ == nil || ![self openCydiaURL:starturl_]) {
-        [tabbar_ setSelectedIndex:0];
-        _setHomePage(self);
-    }
-
-    [starturl_ release];
-    starturl_ = nil;
-
+    [self setupViewControllers];
+    [self showEmulatedLoadingControllerInView:nil];
     [window_ setUserInteractionEnabled:YES];
 
-    [self showEmulatedLoadingControllerInView:nil];
+    // Show the home page.
+    CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:0];
+    [navigation setViewControllers:[NSArray arrayWithObject:[[[HomeController alloc] init] autorelease]]];
+
+    // (Try to) show the startup URL.
+    if (starturl_ != nil) {
+        [self openCydiaURL:starturl_];
+        [starturl_ release];
+        starturl_ = nil;
+    }
 }
 
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {

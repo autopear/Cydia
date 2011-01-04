@@ -6461,11 +6461,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) addButtonClicked {
-    /*[book_ pushPage:[[[AddSourcesController alloc]
-        initWithBook:book_
-        database:database_
-    ] autorelease]];*/
-
     [self showAddSourcePrompt];
 }
 

@@ -12,8 +12,16 @@ endif
 flags := 
 link := 
 
-#dpkg := /Library/Cydia/bin/dpkg-deb -Zlzma
+ifeq (o,O) # gzip is actually better
+dpkg := /Library/Cydia/bin/dpkg-deb
+ifeq ($(wildcard $(dpkg)),$(dpkg))
+dpkg := $(dpkg) -zlzma
+else
+dpkg := dpkg-deb -zbzip2
+endif
+else
 dpkg := dpkg-deb
+endif
 
 sdk := $(sdks)/iPhoneOS$(ios).sdk
 
@@ -50,7 +58,7 @@ backrow += -FAppleTV -framework BackRow -framework AppleTV
 
 #cycc = cycc -r4.2 -i$(ios) -o$@
 gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
-cycc = $(gxx) -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
+cycc = $(gxx) -mthumb -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
 
 all: MobileCydia
 
@@ -92,6 +100,8 @@ package: MobileCydia
 	mkdir -p _/DEBIAN
 	./control.sh _ >_/DEBIAN/control
 	
+	find _ -name '*.png' -exec ./pngcrush.sh '{}' ';'
+	
 	sudo chown -R 0 _
 	sudo chgrp -R 0 _
 	sudo chmod 6755 _/Applications/Cydia.app/MobileCydia
@@ -99,6 +109,6 @@ package: MobileCydia
 	mkdir -p debs
 	ln -sf debs/cydia_$$(./version.sh)_iphoneos-arm.deb Cydia.deb
 	$(dpkg) -b _ Cydia.deb
-	readlink Cydia.deb
+	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
 
 .PHONY: all clean sign

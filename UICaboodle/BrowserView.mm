@@ -835,19 +835,13 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"submit"]) {
-        switch (button) {
-            case 1:
-            break;
-
-            case 2:
-                if (request_ != nil) {
-                    WebThreadLock();
-                    [webview_ loadRequest:request_];
-                    WebThreadUnlock();
-                }
-            break;
-
-            _nodefault
+        if (button == [alert cancelButtonIndex]) {
+        } else if (button == [alert firstOtherButtonIndex]) {
+            if (request_ != nil) {
+                WebThreadLock();
+                [webview_ loadRequest:request_];
+                WebThreadUnlock();
+            }
         }
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];

@@ -1345,6 +1345,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     pkgSourceList *list_;
 
     SourceMap sources_;
+    CFMutableArrayRef deadSources_;
     CFMutableArrayRef packages_;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
@@ -1354,6 +1355,8 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     int cydiafd_;
     int statusfd_;
     FILE *input_;
+
+    std::map<const char *, _H<NSString> > sections_;
 }
 
 + (Database *) sharedInstance;
@@ -1387,6 +1390,9 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (void) setDelegate:(id)delegate;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file;
+
+- (NSString *) mappedSectionForPointer:(const char *)pointer;
+
 @end
 /* }}} */
 /* Delegate Helpers {{{ */
@@ -1824,7 +1830,8 @@ struct ParsedPackage {
 };
 
 @interface Package : NSObject {
-    uint32_t era_ : 29;
+    uint32_t era_ : 26;
+    uint32_t role_ : 3;
     uint32_t essential_ : 1;
     uint32_t obsolete_ : 1;
     uint32_t ignored_ : 1;
@@ -1843,7 +1850,7 @@ struct ParsedPackage {
     CYString latest_;
     CYString installed_;
 
-    CYString section_;
+    const char *section_;
     _transient NSString *section$_;
 
     Source *source_;
@@ -1852,7 +1859,6 @@ struct ParsedPackage {
     ParsedPackage *parsed_;
 
     NSMutableArray *tags_;
-    NSString *role_;
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
@@ -1914,7 +1920,6 @@ struct ParsedPackage {
 - (NSArray *) applications;
 
 - (Source *) source;
-- (NSString *) role;
 
 - (BOOL) matches:(NSString *)text;
 
@@ -2075,15 +2080,10 @@ struct PackageNameOrdering :
 - (void) dealloc {
     if (parsed_ != NULL)
         delete parsed_;
-
     if (source_ != nil)
         [source_ release];
-
     if (tags_ != nil)
         [tags_ release];
-    if (role_ != nil)
-        [role_ release];
-
     [super dealloc];
 }
 
@@ -2217,8 +2217,18 @@ struct PackageNameOrdering :
                     const char *name(tag.Name());
                     [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
 
-                    if (role_ == nil && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/)
-                        role_ = (NSString *) CYStringCreate(name + 6);
+                    if (role_ == 0 && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/) {
+                        if (strcmp(name + 6, "enduser") == 0)
+                            role_ = 1;
+                        else if (strcmp(name + 6, "hacker") == 0)
+                            role_ = 2;
+                        else if (strcmp(name + 6, "developer") == 0)
+                            role_ = 3;
+                        else if (strcmp(name + 6, "cydia") == 0)
+                            role_ = 7;
+                        else
+                            role_ = 4;
+                    }
 
                     if (strncmp(name, "cydia::", 7) == 0) {
                         if (strcmp(name + 7, "essential") == 0)
@@ -2266,7 +2276,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Section)
-            section_.set(NULL, iterator.Section());
+            section_ = iterator.Section();
         _end
 
         _profile(Package$initWithVersion$Flags)
@@ -2314,13 +2324,11 @@ struct PackageNameOrdering :
 
 - (NSString *) section {
     if (section$_ == nil) {
-        if (section_.empty())
+        if (section_ == NULL)
             return nil;
 
-        _profile(Package$section)
-            std::replace(section_.data(), section_.data() + section_.size(), '_', ' ');
-            NSString *name(section_);
-            section$_ = [SectionMap_ objectForKey:name] ?: name;
+        _profile(Package$section$mappedSectionForPointer)
+            section$_ = [database_ mappedSectionForPointer:section_];
         _end
     } return section$_;
 }
@@ -2470,12 +2478,12 @@ struct PackageNameOrdering :
 
 - (BOOL) unfiltered {
     _profile(Package$unfiltered$obsolete)
-        if (obsolete_)
+        if (_unlikely(obsolete_))
             return false;
     _end
 
     _profile(Package$unfiltered$hasSupportingRole)
-        if (![self hasSupportingRole])
+        if (_unlikely(![self hasSupportingRole]))
             return false;
     _end
 
@@ -2486,7 +2494,11 @@ struct PackageNameOrdering :
     if (![self unfiltered])
         return false;
 
-    NSString *section([self section]);
+    NSString *section;
+
+    _profile(Package$visible$section)
+        section = [self section];
+    _end
 
     _profile(Package$visible$isSectionVisible)
         if (section != nil && !isSectionVisible(section))
@@ -2709,10 +2721,6 @@ struct PackageNameOrdering :
     return source_ == (Source *) [NSNull null] ? nil : source_;
 }
 
-- (NSString *) role {
-    return role_;
-}
-
 - (BOOL) matches:(NSString *)text {
     if (text == nil)
         return NO;
@@ -2735,17 +2743,17 @@ struct PackageNameOrdering :
 }
 
 - (bool) hasSupportingRole {
-    if (role_ == nil)
+    if (role_ == 0)
         return true;
-    if ([role_ isEqualToString:@"enduser"])
+    if (role_ == 1)
         return true;
     if ([Role_ isEqualToString:@"User"])
         return false;
-    if ([role_ isEqualToString:@"hacker"])
+    if (role_ == 2)
         return true;
     if ([Role_ isEqualToString:@"Hacker"])
         return false;
-    if ([role_ isEqualToString:@"developer"])
+    if (role_ == 3)
         return true;
     if ([Role_ isEqualToString:@"Developer"])
         return false;
@@ -2867,7 +2875,7 @@ struct PackageNameOrdering :
 }
 
 - (bool) isInstalledAndUnfiltered:(NSNumber *)number {
-    return ![self uninstalled] && (![number boolValue] && ![role_ isEqualToString:@"cydia"] || [self unfiltered]);
+    return ![self uninstalled] && (![number boolValue] && role_ != 7 || [self unfiltered]);
 }
 
 - (bool) isVisibleInSection:(NSString *)name {
@@ -3032,6 +3040,8 @@ static NSString *Warning_;
 - (void) dealloc {
     // XXX: actually implement this thing
     _assert(false);
+    if (deadSources_)
+	    CFRelease(deadSources_);
     [self releasePackages];
     apr_pool_destroy(pool_);
     NSRecycleZone(zone_);
@@ -3149,6 +3159,7 @@ static NSString *Warning_;
             capacity += 1024;
 
         packages_ = CFArrayCreateMutable(kCFAllocatorDefault, capacity, NULL);
+        deadSources_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
 
         int fds[2];
 
@@ -3223,6 +3234,7 @@ static NSString *Warning_;
     NSMutableArray *sources([NSMutableArray arrayWithCapacity:sources_.size()]);
     for (SourceMap::const_iterator i(sources_.begin()); i != sources_.end(); ++i)
         [sources addObject:i->second];
+    [sources addObjectsFromArray:(NSArray *)deadSources_];
     return sources;
 }
 
@@ -3329,7 +3341,9 @@ static NSString *Warning_;
     ++era_;
 
     [self releasePackages];
+
     sources_.clear();
+    CFArrayRemoveAllValues(deadSources_);
 
     _error->Discard();
 
@@ -3419,14 +3433,19 @@ static NSString *Warning_;
     }
 
     for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+        bool found = false;
         std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
         for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
             // XXX: this could be more intelligent
             if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {
                 pkgCache::PkgFileIterator cached((*index)->FindInCache(cache_));
-                if (!cached.end())
+                if (!cached.end()) {
                     sources_[cached->ID] = [[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease];
+                    found = true;
+                }
             }
+        if (!found)
+            CFArrayAppendValue(deadSources_, [[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease]);
     }
 
     {
@@ -3674,6 +3693,37 @@ static NSString *Warning_;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file {
     SourceMap::const_iterator i(sources_.find(file->ID));
     return i == sources_.end() ? nil : i->second;
+}
+
+- (NSString *) mappedSectionForPointer:(const char *)section {
+    _H<NSString> *mapped;
+
+    _profile(Database$mappedSectionForPointer$Cache)
+        mapped = &sections_[section];
+    _end
+
+    if (*mapped == NULL) {
+        size_t length(strlen(section));
+        char spaced[length + 1];
+
+        _profile(Database$mappedSectionForPointer$Replace)
+            for (size_t index(0); index != length; ++index)
+                spaced[index] = section[index] == '_' ? ' ' : section[index];
+            spaced[length] = '\0';
+        _end
+
+        NSString *string;
+
+        _profile(Database$mappedSectionForPointer$stringWithUTF8String)
+            string = [NSString stringWithUTF8String:spaced];
+        _end
+
+        _profile(Database$mappedSectionForPointer$Map)
+            string = [SectionMap_ objectForKey:string] ?: string;
+        _end
+
+        *mapped = string;
+    } return *mapped;
 }
 
 @end
@@ -5180,7 +5230,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool highlighted(highlighted_);
+    bool highlighted(highlighted_ && !editing_);
 
     [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
 
@@ -7505,7 +7555,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([database_ era] != era_)
         return nil;
 
-    Section *section([sections_ objectAtIndex:[path section]]);
+    NSUInteger sectionIndex([path section]);
+    if (sectionIndex >= [sections_ count])
+        return nil;
+    Section *section([sections_ objectAtIndex:sectionIndex]);
     NSInteger row([path row]);
     return [[[self packageAtIndex:([section row] + row)] retain] autorelease];
 } }
@@ -7564,21 +7617,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _reloadPackages:(NSArray *)packages {
-    _trace();
-    for (Package *package in packages)
-        if ([package upgradableAndEssential:YES] || [package visible])
-            CFArrayAppendValue(packages_, package);
+    CFRelease(packages_);
+    packages_ = CFArrayCreateMutable(kCFAllocatorDefault, [packages count], NULL);
 
     _trace();
-    [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
+    _profile(ChangesController$_reloadPackages$Filter)
+        for (Package *package in packages)
+            if ([package upgradableAndEssential:YES] || [package visible])
+                CFArrayAppendValue(packages_, package);
+    _end
+    _trace();
+    _profile(ChangesController$_reloadPackages$radixSort)
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
+    _end
     _trace();
 }
 
 - (void) reloadData {
+@synchronized (database_) {
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
-
-    CFArrayRemoveAllValues(packages_);
 
     [sections_ removeAllObjects];
 
@@ -7669,7 +7727,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             target:self
             action:@selector(refreshButtonClicked)
         ] autorelease]];
-}
+
+    PrintTimes();
+} }
 
 @end
 /* }}} */
@@ -7866,6 +7926,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
         [ignoredCell_ setAccessoryView:ignoredSwitch_];
         [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
+        // FIXME: Ignored state is not saved.
+        [ignoredCell_ setUserInteractionEnabled:NO];
 
         [table_ setDataSource:self];
         [table_ setDelegate:self];
@@ -8951,6 +9013,9 @@ typedef enum {
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
     CydiaApp = self;
+
+    if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
+        [self setApplicationSupportsShakeToEdit:NO];
 
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288

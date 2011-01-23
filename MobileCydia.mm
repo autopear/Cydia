@@ -8763,7 +8763,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *path([[url absoluteString] substringFromIndex:[scheme length] + 3]);
     NSArray *components([path pathComponents]);
 
-    if ([scheme isEqualToString:@"apptapp"] && [components count] && [[components objectAtIndex:0] isEqualToString:@"package"])
+    if ([scheme isEqualToString:@"apptapp"] && [components count] > 0 && [[components objectAtIndex:0] isEqualToString:@"package"])
         return [self pageForPackage:[components objectAtIndex:1]];
 
     if ([components count] < 1 || ![scheme isEqualToString:@"cydia"])
@@ -8771,82 +8771,72 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSString *base([components objectAtIndex:0]);
 
+    CYViewController *controller = nil;
+
     if ([components count] == 1) {
         if ([base isEqualToString:@"storage"]) {
-            CYBrowserController *browser = [[[CYBrowserController alloc] init] autorelease];
-            [browser loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]]];
-            return browser;
+            controller = [[[CYBrowserController alloc] init] autorelease];
+            [(CYBrowserController *)controller loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]]];
         }
 
         if ([base isEqualToString:@"sources"]) {
-            SourcesController *source = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
-            return source;
+            controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
         }
 
         if ([base isEqualToString:@"home"]) {
-            HomeController *home = [[[HomeController alloc] init] autorelease];
-            return home;
+            controller = [[[HomeController alloc] init] autorelease];
         }
 
         if ([base isEqualToString:@"sections"]) {
-            SectionsController *sections = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
-            return sections;
+            controller = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
         }
 
         if ([base isEqualToString:@"search"]) {
-            SearchController *search = [[[SearchController alloc] initWithDatabase:database_] autorelease];
-            return search;
+            controller = [[[SearchController alloc] initWithDatabase:database_] autorelease];
         }
 
         if ([base isEqualToString:@"changes"]) {
-            ChangesController *changes = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
-            return changes;
+            controller = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
         }
 
         if ([base isEqualToString:@"installed"]) {
-            InstalledController *installed = [[[InstalledController alloc] initWithDatabase:database_] autorelease];
-            return installed;
+            controller = [[[InstalledController alloc] initWithDatabase:database_] autorelease];
         }
     } else if ([components count] == 2) {
         NSString *argument = [components objectAtIndex:1];
 
         if ([base isEqualToString:@"package"]) {
-            CYViewController *package = [self pageForPackage:argument];
-            return package;
+            controller = [self pageForPackage:argument];
         }
 
         if ([base isEqualToString:@"search"]) {
-            SearchController *search = [[[SearchController alloc] initWithDatabase:database_] autorelease];
-            [search setSearchTerm:argument];
-            return search;
+            controller = [[[SearchController alloc] initWithDatabase:database_] autorelease];
+            [(SearchController *)controller setSearchTerm:argument];
         }
 
         if ([base isEqualToString:@"sections"]) {
             if ([argument isEqualToString:@"all"])
                 argument = nil;
-            SectionController *section = [[[SectionController alloc] initWithDatabase:database_ section:argument] autorelease];
-            [section setDelegate:self];
-            return section;
+            controller = [[[SectionController alloc] initWithDatabase:database_ section:argument] autorelease];
         }
 
         if ([base isEqualToString:@"sources"]) {
             if ([argument isEqualToString:@"add"]) {
-                SourcesController *source = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
-                [source showAddSourcePrompt];
-                return source;
+                controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
+                [(SourcesController *)controller showAddSourcePrompt];
             } else {
                 // XXX: Create page of the source specfified.
             }
         }
 
         if ([base isEqualToString:@"url"]) {
-            CYBrowserController *browser = [[[CYBrowserController alloc] init] autorelease];
-            [browser loadURL:[NSURL URLWithString:argument]];
-            return browser;
+            controller = [[[CYBrowserController alloc] init] autorelease];
+            [(CYBrowserController *)controller loadURL:[NSURL URLWithString:argument]];
         }
 
         if ([base isEqualToString:@"launch"]) {
             [self launchApplicationWithIdentifier:argument suspended:NO];
+            return nil;
         }
     } else if ([components count] == 3) {
         NSString *arg1 = [components objectAtIndex:1];
@@ -8854,20 +8844,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         if ([base isEqualToString:@"package"]) {
             if ([arg2 isEqualToString:@"settings"]) {
-                return [[[PackageSettingsController alloc] initWithDatabase:database_ package:arg1] autorelease];
+                controller = [[[PackageSettingsController alloc] initWithDatabase:database_ package:arg1] autorelease];
             } else if ([arg2 isEqualToString:@"signature"]) {
-                return [[[SignatureController alloc] initWithDatabase:database_ package:arg1] autorelease];
+                controller = [[[SignatureController alloc] initWithDatabase:database_ package:arg1] autorelease];
             } else if ([arg2 isEqualToString:@"files"]) {
                 if (Package *package = [database_ packageWithName:arg1]) {
-                    FileTable *files = [[[FileTable alloc] initWithDatabase:database_] autorelease];
-                    [files setPackage:package];
-                    return files;
+                    controller = [[[FileTable alloc] initWithDatabase:database_] autorelease];
+                    [(FileTable *)controller setPackage:package];
                 }
             }
         }
     }
 
-    return nil;
+    [controller setDelegate:self];
+    return controller;
 }
 
 - (BOOL) openCydiaURL:(NSURL *)url {
@@ -9045,7 +9035,7 @@ _trace();
 
     // Show the home page.
     CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:0];
-    [navigation setViewControllers:[NSArray arrayWithObject:[[[HomeController alloc] init] autorelease]]];
+    [navigation setViewControllers:[NSArray arrayWithObject:[self pageForURL:[NSURL URLWithString:@"cydia://home"]]]];
 
     // (Try to) show the startup URL.
     if (starturl_ != nil) {

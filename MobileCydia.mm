@@ -9029,6 +9029,7 @@ _trace();
     database_ = [Database sharedInstance];
 
     [window_ setUserInteractionEnabled:NO];
+    [self setupViewControllers];
     [self showEmulatedLoadingControllerInView:window_];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
@@ -9045,7 +9046,6 @@ _trace();
     [self reloadData];
     PrintTimes();
 
-    [self setupViewControllers];
     [self showEmulatedLoadingControllerInView:nil];
     [window_ setUserInteractionEnabled:YES];
 

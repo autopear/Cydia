@@ -237,6 +237,9 @@ typedef enum {
 
 @interface UITabBarController (Apple)
 - (UITransitionView *) _transitionView;
+- (UIViewController *) transientViewController;
+- (void) setTransientViewController:(UIViewController *)controller;
+- (void) setTransientViewController:(UIViewController *)controller animated:(BOOL)animated;
 @end
 
 @interface UITabBarItem (Apple)

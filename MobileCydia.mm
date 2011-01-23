@@ -6226,6 +6226,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CYNavigationController *page([[self viewControllers] objectAtIndex:(count - i - 1)]);
         [page reloadData];
     }
+
+    [(CYNavigationController *) [self transientViewController] reloadData];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -8221,7 +8223,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     bool loaded_;
 }
 
-- (void) setPage:(CYViewController *)page;
 - (void) loadData;
 
 @end
@@ -8563,13 +8564,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self complete];
 }
 
-- (void) setPage:(CYViewController *)page {
-    [page setDelegate:self];
-
-    CYNavigationController *navController = (CYNavigationController *) [tabbar_ selectedViewController];
-    [navController setViewControllers:[NSArray arrayWithObject:page]];
-}
-
 - (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
     CYNavigationController *controller = (CYNavigationController *) viewController;
 
@@ -8879,8 +8873,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (BOOL) openCydiaURL:(NSURL *)url {
     CYViewController *page([self pageForURL:url]);
 
-    if (page != nil)
-        [self setPage:page];
+    if (page != nil) {
+        CYNavigationController *nav = [[[CYNavigationController alloc] init] autorelease];
+        [nav setViewControllers:[NSArray arrayWithObject:page]];
+        [tabbar_ setTransientViewController:nav];
+    }
 
     return page != nil;
 }

@@ -3729,23 +3729,6 @@ static NSString *Warning_;
 @end
 /* }}} */
 
-/* Confirmation Controller {{{ */
-bool DepSubstrate(const pkgCache::VerIterator &iterator) {
-    if (!iterator.end())
-        for (pkgCache::DepIterator dep(iterator.DependsList()); !dep.end(); ++dep) {
-            if (dep->Type != pkgCache::Dep::Depends && dep->Type != pkgCache::Dep::PreDepends)
-                continue;
-            pkgCache::PkgIterator package(dep.TargetPkg());
-            if (package.end())
-                continue;
-            if (strcmp(package.Name(), "mobilesubstrate") == 0)
-                return true;
-        }
-
-    return false;
-}
-/* }}} */
-
 /* Web Scripting {{{ */
 @interface CydiaObject : NSObject {
     id indirect_;
@@ -4178,7 +4161,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Confirmation {{{ */
+/* Confirmation Controller {{{ */
+bool DepSubstrate(const pkgCache::VerIterator &iterator) {
+    if (!iterator.end())
+        for (pkgCache::DepIterator dep(iterator.DependsList()); !dep.end(); ++dep) {
+            if (dep->Type != pkgCache::Dep::Depends && dep->Type != pkgCache::Dep::PreDepends)
+                continue;
+            pkgCache::PkgIterator package(dep.TargetPkg());
+            if (package.end())
+                continue;
+            if (strcmp(package.Name(), "mobilesubstrate") == 0)
+                return true;
+        }
+
+    return false;
+}
+
 @protocol ConfirmationControllerDelegate
 - (void) cancelAndClear:(bool)clear;
 - (void) confirmWithNavigationController:(UINavigationController *)navigation;
@@ -4908,6 +4906,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+
 /* Package Cell {{{ */
 @interface PackageCell : CYTableViewCell <
     ContentDelegate
@@ -5575,6 +5574,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+
 /* Package Table {{{ */
 @interface PackageTable : UIView <
     UITableViewDataSource,
@@ -5877,7 +5877,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-
 /* Filtered Package Controller {{{ */
 @interface FilteredPackageController : CYViewController {
     _transient Database *database_;
@@ -5943,660 +5942,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-/* }}} */
-
-/* Source Cell {{{ */
-@interface SourceCell : CYTableViewCell <
-    ContentDelegate
-> {
-    UIImage *icon_;
-    NSString *origin_;
-    NSString *label_;
-}
-
-- (void) setSource:(Source *)source;
-
-@end
-
-@implementation SourceCell
-
-- (void) clearSource {
-    [icon_ release];
-    [origin_ release];
-    [label_ release];
-
-    icon_ = nil;
-    origin_ = nil;
-    label_ = nil;
-}
-
-- (void) setSource:(Source *)source {
-    [self clearSource];
-
-    if (icon_ == nil)
-        icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
-    if (icon_ == nil)
-        icon_ = [UIImage applicationImageNamed:@"unknown.png"];
-    icon_ = [icon_ retain];
-
-    origin_ = [[source name] retain];
-    label_ = [[source uri] retain];
-
-    [content_ setNeedsDisplay];
-}
-
-- (void) dealloc {
-    [self clearSource];
-    [super dealloc];
-}
-
-- (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
-    if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
-        UIView *content([self contentView]);
-        CGRect bounds([content bounds]);
-
-        content_ = [[ContentView alloc] initWithFrame:bounds];
-        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [content_ setBackgroundColor:[UIColor whiteColor]];
-        [content addSubview:content_];
-
-        [content_ setDelegate:self];
-        [content_ setOpaque:YES];
-    } return self;
-}
-
-- (void) drawContentRect:(CGRect)rect {
-    bool highlighted(highlighted_);
-    float width(rect.size.width);
-
-    if (icon_ != nil)
-        [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
-
-    if (highlighted)
-        UISetColor(White_);
-
-    if (!highlighted)
-        UISetColor(Black_);
-    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
-
-    if (!highlighted)
-        UISetColor(Blue_);
-    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
-}
-
-@end
-/* }}} */
-/* Source Table {{{ */
-@interface SourcesController : CYViewController <
-    UITableViewDataSource,
-    UITableViewDelegate
-> {
-    _transient Database *database_;
-    UITableView *list_;
-    NSMutableArray *sources_;
-    int offset_;
-
-    NSString *href_;
-    UIProgressHUD *hud_;
-    NSError *error_;
-
-    //NSURLConnection *installer_;
-    NSURLConnection *trivial_;
-    NSURLConnection *trivial_bz2_;
-    NSURLConnection *trivial_gz_;
-    //NSURLConnection *automatic_;
-
-    BOOL cydia_;
-}
-
-- (id) initWithDatabase:(Database *)database;
-
-- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated;
-
-@end
-
-@implementation SourcesController
-
-- (void) _releaseConnection:(NSURLConnection *)connection {
-    if (connection != nil) {
-        [connection cancel];
-        //[connection setDelegate:nil];
-        [connection release];
-    }
-}
-
-- (void) dealloc {
-    if (href_ != nil)
-        [href_ release];
-    if (hud_ != nil)
-        [hud_ release];
-    if (error_ != nil)
-        [error_ release];
-
-    //[self _releaseConnection:installer_];
-    [self _releaseConnection:trivial_];
-    [self _releaseConnection:trivial_gz_];
-    [self _releaseConnection:trivial_bz2_];
-    //[self _releaseConnection:automatic_];
-
-    [sources_ release];
-    [list_ release];
-    [super dealloc];
-}
-
-- (void) viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
-}
-
-- (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
-    return offset_ == 0 ? 1 : 2;
-}
-
-- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    switch (section + (offset_ == 0 ? 1 : 0)) {
-        case 0: return UCLocalize("ENTERED_BY_USER");
-        case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
-
-        _nodefault
-    }
-}
-
-- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    int count = [sources_ count];
-    switch (section) {
-        case 0: return (offset_ == 0 ? count : offset_);
-        case 1: return count - offset_;
-
-        _nodefault
-    }
-}
-
-- (Source *) sourceAtIndexPath:(NSIndexPath *)indexPath {
-    unsigned idx = 0;
-    switch (indexPath.section) {
-        case 0: idx = indexPath.row; break;
-        case 1: idx = indexPath.row + offset_; break;
-
-        _nodefault
-    }
-    return [sources_ objectAtIndex:idx];
-}
-
-- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *cellIdentifier = @"SourceCell";
-
-    SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
-    if(cell == nil) cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
-    [cell setSource:[self sourceAtIndexPath:indexPath]];
-
-    return cell;
-}
-
-- (UITableViewCellAccessoryType) tableView:(UITableView *)tableView accessoryTypeForRowWithIndexPath:(NSIndexPath *)indexPath {
-    return UITableViewCellAccessoryDisclosureIndicator;
-}
-
-- (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source = [self sourceAtIndexPath:indexPath];
-
-    FilteredPackageController *packages = [[[FilteredPackageController alloc]
-        initWithDatabase:database_
-        title:[source label]
-        filter:@selector(isVisibleInSource:)
-        with:source
-    ] autorelease];
-
-    [packages setDelegate:delegate_];
-
-    [[self navigationController] pushViewController:packages animated:YES];
-}
-
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source = [self sourceAtIndexPath:indexPath];
-    return [source record] != nil;
-}
-
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source = [self sourceAtIndexPath:indexPath];
-    [Sources_ removeObjectForKey:[source key]];
-    [delegate_ syncData];
-}
-
-- (void) complete {
-    [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
-        @"deb", @"Type",
-        href_, @"URI",
-        @"./", @"Distribution",
-    nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href_]];
-
-    [delegate_ syncData];
-}
-
-- (NSString *) getWarning {
-    NSString *href(href_);
-    NSRange colon([href rangeOfString:@"://"]);
-    if (colon.location != NSNotFound)
-        href = [href substringFromIndex:(colon.location + 3)];
-    href = [href stringByAddingPercentEscapes];
-    href = [CydiaURL(@"api/repotag/") stringByAppendingString:href];
-    href = [href stringByCachingURLWithCurrentCDN];
-
-    NSURL *url([NSURL URLWithString:href]);
-
-    NSStringEncoding encoding;
-    NSError *error(nil);
-
-    if (NSString *warning = [NSString stringWithContentsOfURL:url usedEncoding:&encoding error:&error])
-        return [warning length] == 0 ? nil : warning;
-    return nil;
-}
-
-- (void) _endConnection:(NSURLConnection *)connection {
-    // XXX: the memory management in this method is horribly awkward
-
-    NSURLConnection **field = NULL;
-    if (connection == trivial_)
-        field = &trivial_;
-    else if (connection == trivial_bz2_)
-        field = &trivial_bz2_;
-    else if (connection == trivial_gz_)
-        field = &trivial_gz_;
-    _assert(field != NULL);
-    [connection release];
-    *field = nil;
-
-    if (
-        trivial_ == nil &&
-        trivial_bz2_ == nil &&
-        trivial_gz_ == nil
-    ) {
-        bool defer(false);
-
-        if (cydia_) {
-            if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
-                defer = true;
-
-                UIAlertView *alert = [[[UIAlertView alloc]
-                    initWithTitle:UCLocalize("SOURCE_WARNING")
-                    message:warning
-                    delegate:self
-                    cancelButtonTitle:UCLocalize("CANCEL")
-                    otherButtonTitles:UCLocalize("ADD_ANYWAY"), nil
-                ] autorelease];
-
-                [alert setContext:@"warning"];
-                [alert setNumberOfRows:1];
-                [alert show];
-            } else
-                [self complete];
-        } else if (error_ != nil) {
-            UIAlertView *alert = [[[UIAlertView alloc]
-                initWithTitle:UCLocalize("VERIFICATION_ERROR")
-                message:[error_ localizedDescription]
-                delegate:self
-                cancelButtonTitle:UCLocalize("OK")
-                otherButtonTitles:nil
-            ] autorelease];
-
-            [alert setContext:@"urlerror"];
-            [alert show];
-        } else {
-            UIAlertView *alert = [[[UIAlertView alloc]
-                initWithTitle:UCLocalize("NOT_REPOSITORY")
-                message:UCLocalize("NOT_REPOSITORY_EX")
-                delegate:self
-                cancelButtonTitle:UCLocalize("OK")
-                otherButtonTitles:nil
-            ] autorelease];
-
-            [alert setContext:@"trivial"];
-            [alert show];
-        }
-
-        [delegate_ setStatusBarShowsProgress:NO];
-        [delegate_ removeProgressHUD:hud_];
-
-        [hud_ autorelease];
-        hud_ = nil;
-
-        if (!defer) {
-            [href_ release];
-            href_ = nil;
-        }
-
-        if (error_ != nil) {
-            [error_ release];
-            error_ = nil;
-        }
-    }
-}
-
-- (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {
-    switch ([response statusCode]) {
-        case 200:
-            cydia_ = YES;
-    }
-}
-
-- (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    lprintf("connection:\"%s\" didFailWithError:\"%s\"", [href_ UTF8String], [[error localizedDescription] UTF8String]);
-    if (error_ != nil)
-        error_ = [error retain];
-    [self _endConnection:connection];
-}
-
-- (void) connectionDidFinishLoading:(NSURLConnection *)connection {
-    [self _endConnection:connection];
-}
-
-- (NSString *) title { return UCLocalize("SOURCES"); }
-
-- (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
-    NSMutableURLRequest *request = [NSMutableURLRequest
-        requestWithURL:[NSURL URLWithString:href]
-        cachePolicy:NSURLRequestUseProtocolCachePolicy
-        timeoutInterval:120.0
-    ];
-
-    [request setHTTPMethod:method];
-
-    if (Machine_ != NULL)
-        [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (UniqueID_ != nil)
-        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-    if (Role_ != nil)
-        [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
-
-    return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
-}
-
-- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
-    NSString *context([alert context]);
-
-    if ([context isEqualToString:@"source"]) {
-        switch (button) {
-            case 1: {
-                NSString *href = [[alert textField] text];
-
-                //installer_ = [[self _requestHRef:href method:@"GET"] retain];
-
-                if (![href hasSuffix:@"/"])
-                    href_ = [href stringByAppendingString:@"/"];
-                else
-                    href_ = href;
-                href_ = [href_ retain];
-
-                trivial_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
-                trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
-                trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
-                //trivial_bz2_ = [[self _requestHRef:[href stringByAppendingString:@"dists/Release"] method:@"HEAD"] retain];
-
-                cydia_ = false;
-
-                // XXX: this is stupid
-                hud_ = [[delegate_ addProgressHUD] retain];
-                [hud_ setText:UCLocalize("VERIFYING_URL")];
-            } break;
-
-            case 0:
-            break;
-
-            _nodefault
-        }
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    } else if ([context isEqualToString:@"trivial"])
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    else if ([context isEqualToString:@"urlerror"])
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    else if ([context isEqualToString:@"warning"]) {
-        switch (button) {
-            case 1:
-                [self complete];
-            break;
-
-            case 0:
-            break;
-
-            _nodefault
-        }
-
-        [href_ release];
-        href_ = nil;
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    }
-}
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        [[self navigationItem] setTitle:UCLocalize("SOURCES")];
-        [self updateButtonsForEditingStatus:NO animated:NO];
-
-        database_ = database;
-        sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
-
-        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [list_ setRowHeight:56];
-        [[self view] addSubview:list_];
-
-        [list_ setDataSource:self];
-        [list_ setDelegate:self];
-
-        [self reloadData];
-    } return self;
-}
-
-- (void) reloadData {
-    pkgSourceList list;
-    if (!list.ReadMainList())
-        return;
-
-    [sources_ removeAllObjects];
-    [sources_ addObjectsFromArray:[database_ sources]];
-    _trace();
-    [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
-    _trace();
-
-    int count([sources_ count]);
-    offset_ = 0;
-    for (int i = 0; i != count; i++) {
-        if ([[sources_ objectAtIndex:i] record] == nil)
-            break;
-        offset_++;
-    }
-
-    [list_ setEditing:NO];
-    [self updateButtonsForEditingStatus:NO animated:NO];
-    [list_ reloadData];
-}
-
-- (void) showAddSourcePrompt {
-    UIAlertView *alert = [[[UIAlertView alloc]
-        initWithTitle:UCLocalize("ENTER_APT_URL")
-        message:nil
-        delegate:self
-        cancelButtonTitle:UCLocalize("CANCEL")
-        otherButtonTitles:UCLocalize("ADD_SOURCE"), nil
-    ] autorelease];
-
-    [alert setContext:@"source"];
-    [alert setTransform:CGAffineTransformTranslate([alert transform], 0.0, 100.0)];
-
-    [alert setNumberOfRows:1];
-    [alert addTextFieldWithValue:@"http://" label:@""];
-
-    UITextInputTraits *traits = [[alert textField] textInputTraits];
-    [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
-    [traits setKeyboardType:UIKeyboardTypeURL];
-    // XXX: UIReturnKeyDone
-    [traits setReturnKeyType:UIReturnKeyNext];
-
-    [alert show];
-}
-
-- (void) addButtonClicked {
-    [self showAddSourcePrompt];
-}
-
-- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated {
-    [[self navigationItem] setLeftBarButtonItem:(editing ? [[[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("ADD")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(addButtonClicked)
-    ] autorelease] : [[self navigationItem] backBarButtonItem]) animated:animated];
-
-    [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
-        initWithTitle:(editing ? UCLocalize("DONE") : UCLocalize("EDIT"))
-        style:(editing ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
-        target:self
-        action:@selector(editButtonClicked)
-    ] autorelease] animated:animated];
-
-    if (IsWildcat_ && !editing)
-        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("SETTINGS")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(settingsButtonClicked)
-        ] autorelease]];
-}
-
-- (void) settingsButtonClicked {
-    [delegate_ showSettings];
-}
-
-- (void) editButtonClicked {
-    [list_ setEditing:![list_ isEditing] animated:YES];
-
-    [self updateButtonsForEditingStatus:[list_ isEditing] animated:YES];
-}
-
-@end
-/* }}} */
-
-/* Installed Controller {{{ */
-@interface InstalledController : FilteredPackageController {
-    BOOL expert_;
-}
-
-- (id) initWithDatabase:(Database *)database;
-
-- (void) updateRoleButton;
-- (void) queueStatusDidChange;
-
-@end
-
-@implementation InstalledController
-
-- (void) dealloc {
-    [super dealloc];
-}
-
-- (NSString *) title { return UCLocalize("INSTALLED"); }
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndUnfiltered:) with:[NSNumber numberWithBool:YES]]) != nil) {
-        [self updateRoleButton];
-        [self queueStatusDidChange];
-    } return self;
-}
-
-#if !AlwaysReload
-- (void) queueButtonClicked {
-    [delegate_ queue];
-}
-#endif
-
-- (void) queueStatusDidChange {
-#if !AlwaysReload
-    if (IsWildcat_) {
-        if (Queuing_) {
-            [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
-                initWithTitle:UCLocalize("QUEUE")
-                style:UIBarButtonItemStyleDone
-                target:self
-                action:@selector(queueButtonClicked)
-            ] autorelease]];
-        } else {
-            [[self navigationItem] setLeftBarButtonItem:nil];
-        }
-    }
-#endif
-}
-
-- (void) reloadData {
-    [packages_ reloadData];
-}
-
-- (void) updateRoleButton {
-    if (Role_ != nil && ![Role_ isEqualToString:@"Developer"])
-        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:(expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE"))
-            style:(expert_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
-            target:self
-            action:@selector(roleButtonClicked)
-        ] autorelease]];
-}
-
-- (void) roleButtonClicked {
-    [packages_ setObject:[NSNumber numberWithBool:expert_]];
-    [packages_ reloadData];
-    expert_ = !expert_;
-
-    [self updateRoleButton];
-}
-
-- (void) setDelegate:(id)delegate {
-    [super setDelegate:delegate];
-    [packages_ setDelegate:delegate];
-}
-
-@end
-/* }}} */
-/* Section Controller {{{ */
-@interface CYSectionController : FilteredPackageController {
-}
-
-- (id) initWithDatabase:(Database *)database section:(NSString *)section;
-
-@end
-
-@implementation CYSectionController
-
-- (void) dealloc {
-    [super dealloc];
-}
-
-- (id) initWithDatabase:(Database *)database section:(NSString *)name {
-    NSString *title;
-
-    if (name == nil) {
-        title = UCLocalize("ALL_PACKAGES");
-    } else if (![name isEqual:@""]) {
-        title = [[NSBundle mainBundle] localizedStringForKey:Simplify(name) value:nil table:@"Sections"];
-    } else {
-        title = UCLocalize("NO_SECTION");
-    }
-
-    if ((self = [super initWithDatabase:database title:title filter:@selector(isVisibleInSection:) with:name]) != nil) {
-    } return self;
-}
-
-- (void) reloadData {
-    [packages_ reloadData];
-}
-
-- (void) setDelegate:(id)delegate {
-    [super setDelegate:delegate];
-    [packages_ setDelegate:delegate];
-}
-
-@end
 /* }}} */
 
 /* Home Controller {{{ */
@@ -7119,7 +6464,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-
 /* Cydia Navigation Controller {{{ */
 @interface CYNavigationController : UINavigationController {
     _transient Database *database_;
@@ -7169,6 +6513,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+
 /* Cydia:// Protocol {{{ */
 @interface CydiaURLProtocol : NSURLProtocol {
 }
@@ -7822,7 +7167,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Settings Controller {{{ */
+/* Package Settings Controller {{{ */
 @interface PackageSettingsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
@@ -7997,8 +7342,622 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Role Controller {{{ */
-@interface CYSettingsController : CYViewController <
+/* Installed Controller {{{ */
+@interface InstalledController : FilteredPackageController {
+    BOOL expert_;
+}
+
+- (id) initWithDatabase:(Database *)database;
+
+- (void) updateRoleButton;
+- (void) queueStatusDidChange;
+
+@end
+
+@implementation InstalledController
+
+- (void) dealloc {
+    [super dealloc];
+}
+
+- (NSString *) title { return UCLocalize("INSTALLED"); }
+
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndUnfiltered:) with:[NSNumber numberWithBool:YES]]) != nil) {
+        [self updateRoleButton];
+        [self queueStatusDidChange];
+    } return self;
+}
+
+#if !AlwaysReload
+- (void) queueButtonClicked {
+    [delegate_ queue];
+}
+#endif
+
+- (void) queueStatusDidChange {
+#if !AlwaysReload
+    if (IsWildcat_) {
+        if (Queuing_) {
+            [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+                initWithTitle:UCLocalize("QUEUE")
+                style:UIBarButtonItemStyleDone
+                target:self
+                action:@selector(queueButtonClicked)
+            ] autorelease]];
+        } else {
+            [[self navigationItem] setLeftBarButtonItem:nil];
+        }
+    }
+#endif
+}
+
+- (void) reloadData {
+    [packages_ reloadData];
+}
+
+- (void) updateRoleButton {
+    if (Role_ != nil && ![Role_ isEqualToString:@"Developer"])
+        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:(expert_ ? UCLocalize("EXPERT") : UCLocalize("SIMPLE"))
+            style:(expert_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
+            target:self
+            action:@selector(roleButtonClicked)
+        ] autorelease]];
+}
+
+- (void) roleButtonClicked {
+    [packages_ setObject:[NSNumber numberWithBool:expert_]];
+    [packages_ reloadData];
+    expert_ = !expert_;
+
+    [self updateRoleButton];
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [packages_ setDelegate:delegate];
+}
+
+@end
+/* }}} */
+
+/* Source Cell {{{ */
+@interface SourceCell : CYTableViewCell <
+    ContentDelegate
+> {
+    UIImage *icon_;
+    NSString *origin_;
+    NSString *label_;
+}
+
+- (void) setSource:(Source *)source;
+
+@end
+
+@implementation SourceCell
+
+- (void) clearSource {
+    [icon_ release];
+    [origin_ release];
+    [label_ release];
+
+    icon_ = nil;
+    origin_ = nil;
+    label_ = nil;
+}
+
+- (void) setSource:(Source *)source {
+    [self clearSource];
+
+    if (icon_ == nil)
+        icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
+    if (icon_ == nil)
+        icon_ = [UIImage applicationImageNamed:@"unknown.png"];
+    icon_ = [icon_ retain];
+
+    origin_ = [[source name] retain];
+    label_ = [[source uri] retain];
+
+    [content_ setNeedsDisplay];
+}
+
+- (void) dealloc {
+    [self clearSource];
+    [super dealloc];
+}
+
+- (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
+        UIView *content([self contentView]);
+        CGRect bounds([content bounds]);
+
+        content_ = [[ContentView alloc] initWithFrame:bounds];
+        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [content_ setBackgroundColor:[UIColor whiteColor]];
+        [content addSubview:content_];
+
+        [content_ setDelegate:self];
+        [content_ setOpaque:YES];
+    } return self;
+}
+
+- (void) drawContentRect:(CGRect)rect {
+    bool highlighted(highlighted_);
+    float width(rect.size.width);
+
+    if (icon_ != nil)
+        [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
+
+    if (highlighted)
+        UISetColor(White_);
+
+    if (!highlighted)
+        UISetColor(Black_);
+    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
+
+    if (!highlighted)
+        UISetColor(Blue_);
+    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
+}
+
+@end
+/* }}} */
+/* Source Table {{{ */
+@interface SourcesController : CYViewController <
+    UITableViewDataSource,
+    UITableViewDelegate
+> {
+    _transient Database *database_;
+    UITableView *list_;
+    NSMutableArray *sources_;
+    int offset_;
+
+    NSString *href_;
+    UIProgressHUD *hud_;
+    NSError *error_;
+
+    //NSURLConnection *installer_;
+    NSURLConnection *trivial_;
+    NSURLConnection *trivial_bz2_;
+    NSURLConnection *trivial_gz_;
+    //NSURLConnection *automatic_;
+
+    BOOL cydia_;
+}
+
+- (id) initWithDatabase:(Database *)database;
+
+- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated;
+
+@end
+
+@implementation SourcesController
+
+- (void) _releaseConnection:(NSURLConnection *)connection {
+    if (connection != nil) {
+        [connection cancel];
+        //[connection setDelegate:nil];
+        [connection release];
+    }
+}
+
+- (void) dealloc {
+    if (href_ != nil)
+        [href_ release];
+    if (hud_ != nil)
+        [hud_ release];
+    if (error_ != nil)
+        [error_ release];
+
+    //[self _releaseConnection:installer_];
+    [self _releaseConnection:trivial_];
+    [self _releaseConnection:trivial_gz_];
+    [self _releaseConnection:trivial_bz2_];
+    //[self _releaseConnection:automatic_];
+
+    [sources_ release];
+    [list_ release];
+    [super dealloc];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+}
+
+- (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
+    return offset_ == 0 ? 1 : 2;
+}
+
+- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    switch (section + (offset_ == 0 ? 1 : 0)) {
+        case 0: return UCLocalize("ENTERED_BY_USER");
+        case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
+
+        _nodefault
+    }
+}
+
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    int count = [sources_ count];
+    switch (section) {
+        case 0: return (offset_ == 0 ? count : offset_);
+        case 1: return count - offset_;
+
+        _nodefault
+    }
+}
+
+- (Source *) sourceAtIndexPath:(NSIndexPath *)indexPath {
+    unsigned idx = 0;
+    switch (indexPath.section) {
+        case 0: idx = indexPath.row; break;
+        case 1: idx = indexPath.row + offset_; break;
+
+        _nodefault
+    }
+    return [sources_ objectAtIndex:idx];
+}
+
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *cellIdentifier = @"SourceCell";
+
+    SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    if(cell == nil) cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
+    [cell setSource:[self sourceAtIndexPath:indexPath]];
+
+    return cell;
+}
+
+- (UITableViewCellAccessoryType) tableView:(UITableView *)tableView accessoryTypeForRowWithIndexPath:(NSIndexPath *)indexPath {
+    return UITableViewCellAccessoryDisclosureIndicator;
+}
+
+- (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
+
+    FilteredPackageController *packages = [[[FilteredPackageController alloc]
+        initWithDatabase:database_
+        title:[source label]
+        filter:@selector(isVisibleInSource:)
+        with:source
+    ] autorelease];
+
+    [packages setDelegate:delegate_];
+
+    [[self navigationController] pushViewController:packages animated:YES];
+}
+
+- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
+    return [source record] != nil;
+}
+
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source = [self sourceAtIndexPath:indexPath];
+    [Sources_ removeObjectForKey:[source key]];
+    [delegate_ syncData];
+}
+
+- (void) complete {
+    [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+        @"deb", @"Type",
+        href_, @"URI",
+        @"./", @"Distribution",
+    nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href_]];
+
+    [delegate_ syncData];
+}
+
+- (NSString *) getWarning {
+    NSString *href(href_);
+    NSRange colon([href rangeOfString:@"://"]);
+    if (colon.location != NSNotFound)
+        href = [href substringFromIndex:(colon.location + 3)];
+    href = [href stringByAddingPercentEscapes];
+    href = [CydiaURL(@"api/repotag/") stringByAppendingString:href];
+    href = [href stringByCachingURLWithCurrentCDN];
+
+    NSURL *url([NSURL URLWithString:href]);
+
+    NSStringEncoding encoding;
+    NSError *error(nil);
+
+    if (NSString *warning = [NSString stringWithContentsOfURL:url usedEncoding:&encoding error:&error])
+        return [warning length] == 0 ? nil : warning;
+    return nil;
+}
+
+- (void) _endConnection:(NSURLConnection *)connection {
+    // XXX: the memory management in this method is horribly awkward
+
+    NSURLConnection **field = NULL;
+    if (connection == trivial_)
+        field = &trivial_;
+    else if (connection == trivial_bz2_)
+        field = &trivial_bz2_;
+    else if (connection == trivial_gz_)
+        field = &trivial_gz_;
+    _assert(field != NULL);
+    [connection release];
+    *field = nil;
+
+    if (
+        trivial_ == nil &&
+        trivial_bz2_ == nil &&
+        trivial_gz_ == nil
+    ) {
+        bool defer(false);
+
+        if (cydia_) {
+            if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
+                defer = true;
+
+                UIAlertView *alert = [[[UIAlertView alloc]
+                    initWithTitle:UCLocalize("SOURCE_WARNING")
+                    message:warning
+                    delegate:self
+                    cancelButtonTitle:UCLocalize("CANCEL")
+                    otherButtonTitles:UCLocalize("ADD_ANYWAY"), nil
+                ] autorelease];
+
+                [alert setContext:@"warning"];
+                [alert setNumberOfRows:1];
+                [alert show];
+            } else
+                [self complete];
+        } else if (error_ != nil) {
+            UIAlertView *alert = [[[UIAlertView alloc]
+                initWithTitle:UCLocalize("VERIFICATION_ERROR")
+                message:[error_ localizedDescription]
+                delegate:self
+                cancelButtonTitle:UCLocalize("OK")
+                otherButtonTitles:nil
+            ] autorelease];
+
+            [alert setContext:@"urlerror"];
+            [alert show];
+        } else {
+            UIAlertView *alert = [[[UIAlertView alloc]
+                initWithTitle:UCLocalize("NOT_REPOSITORY")
+                message:UCLocalize("NOT_REPOSITORY_EX")
+                delegate:self
+                cancelButtonTitle:UCLocalize("OK")
+                otherButtonTitles:nil
+            ] autorelease];
+
+            [alert setContext:@"trivial"];
+            [alert show];
+        }
+
+        [delegate_ setStatusBarShowsProgress:NO];
+        [delegate_ removeProgressHUD:hud_];
+
+        [hud_ autorelease];
+        hud_ = nil;
+
+        if (!defer) {
+            [href_ release];
+            href_ = nil;
+        }
+
+        if (error_ != nil) {
+            [error_ release];
+            error_ = nil;
+        }
+    }
+}
+
+- (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {
+    switch ([response statusCode]) {
+        case 200:
+            cydia_ = YES;
+    }
+}
+
+- (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
+    lprintf("connection:\"%s\" didFailWithError:\"%s\"", [href_ UTF8String], [[error localizedDescription] UTF8String]);
+    if (error_ != nil)
+        error_ = [error retain];
+    [self _endConnection:connection];
+}
+
+- (void) connectionDidFinishLoading:(NSURLConnection *)connection {
+    [self _endConnection:connection];
+}
+
+- (NSString *) title { return UCLocalize("SOURCES"); }
+
+- (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
+    NSMutableURLRequest *request = [NSMutableURLRequest
+        requestWithURL:[NSURL URLWithString:href]
+        cachePolicy:NSURLRequestUseProtocolCachePolicy
+        timeoutInterval:120.0
+    ];
+
+    [request setHTTPMethod:method];
+
+    if (Machine_ != NULL)
+        [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    if (UniqueID_ != nil)
+        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+    if (Role_ != nil)
+        [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
+
+    return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
+}
+
+- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
+
+    if ([context isEqualToString:@"source"]) {
+        switch (button) {
+            case 1: {
+                NSString *href = [[alert textField] text];
+
+                //installer_ = [[self _requestHRef:href method:@"GET"] retain];
+
+                if (![href hasSuffix:@"/"])
+                    href_ = [href stringByAppendingString:@"/"];
+                else
+                    href_ = href;
+                href_ = [href_ retain];
+
+                trivial_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
+                trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
+                trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
+                //trivial_bz2_ = [[self _requestHRef:[href stringByAppendingString:@"dists/Release"] method:@"HEAD"] retain];
+
+                cydia_ = false;
+
+                // XXX: this is stupid
+                hud_ = [[delegate_ addProgressHUD] retain];
+                [hud_ setText:UCLocalize("VERIFYING_URL")];
+            } break;
+
+            case 0:
+            break;
+
+            _nodefault
+        }
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    } else if ([context isEqualToString:@"trivial"])
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    else if ([context isEqualToString:@"urlerror"])
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    else if ([context isEqualToString:@"warning"]) {
+        switch (button) {
+            case 1:
+                [self complete];
+            break;
+
+            case 0:
+            break;
+
+            _nodefault
+        }
+
+        [href_ release];
+        href_ = nil;
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    }
+}
+
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init]) != nil) {
+        [[self navigationItem] setTitle:UCLocalize("SOURCES")];
+        [self updateButtonsForEditingStatus:NO animated:NO];
+
+        database_ = database;
+        sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
+
+        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
+        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [list_ setRowHeight:56];
+        [[self view] addSubview:list_];
+
+        [list_ setDataSource:self];
+        [list_ setDelegate:self];
+
+        [self reloadData];
+    } return self;
+}
+
+- (void) reloadData {
+    pkgSourceList list;
+    if (!list.ReadMainList())
+        return;
+
+    [sources_ removeAllObjects];
+    [sources_ addObjectsFromArray:[database_ sources]];
+    _trace();
+    [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
+    _trace();
+
+    int count([sources_ count]);
+    offset_ = 0;
+    for (int i = 0; i != count; i++) {
+        if ([[sources_ objectAtIndex:i] record] == nil)
+            break;
+        offset_++;
+    }
+
+    [list_ setEditing:NO];
+    [self updateButtonsForEditingStatus:NO animated:NO];
+    [list_ reloadData];
+}
+
+- (void) showAddSourcePrompt {
+    UIAlertView *alert = [[[UIAlertView alloc]
+        initWithTitle:UCLocalize("ENTER_APT_URL")
+        message:nil
+        delegate:self
+        cancelButtonTitle:UCLocalize("CANCEL")
+        otherButtonTitles:UCLocalize("ADD_SOURCE"), nil
+    ] autorelease];
+
+    [alert setContext:@"source"];
+    [alert setTransform:CGAffineTransformTranslate([alert transform], 0.0, 100.0)];
+
+    [alert setNumberOfRows:1];
+    [alert addTextFieldWithValue:@"http://" label:@""];
+
+    UITextInputTraits *traits = [[alert textField] textInputTraits];
+    [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
+    [traits setKeyboardType:UIKeyboardTypeURL];
+    // XXX: UIReturnKeyDone
+    [traits setReturnKeyType:UIReturnKeyNext];
+
+    [alert show];
+}
+
+- (void) addButtonClicked {
+    [self showAddSourcePrompt];
+}
+
+- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated {
+    [[self navigationItem] setLeftBarButtonItem:(editing ? [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("ADD")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(addButtonClicked)
+    ] autorelease] : [[self navigationItem] backBarButtonItem]) animated:animated];
+
+    [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
+        initWithTitle:(editing ? UCLocalize("DONE") : UCLocalize("EDIT"))
+        style:(editing ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
+        target:self
+        action:@selector(editButtonClicked)
+    ] autorelease] animated:animated];
+
+    if (IsWildcat_ && !editing)
+        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("SETTINGS")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(settingsButtonClicked)
+        ] autorelease]];
+}
+
+- (void) settingsButtonClicked {
+    [delegate_ showSettings];
+}
+
+- (void) editButtonClicked {
+    [list_ setEditing:![list_ isEditing] animated:YES];
+
+    [self updateButtonsForEditingStatus:[list_ isEditing] animated:YES];
+}
+
+@end
+/* }}} */
+
+/* Settings Controller {{{ */
+@interface SettingsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -8015,7 +7974,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation CYSettingsController
+@implementation SettingsController
 - (void) dealloc {
     [table_ release];
     [segment_ release];
@@ -8175,7 +8134,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Stash Controller {{{ */
-@interface CYStashController : CYViewController {
+@interface StashController : CYViewController {
     // XXX: just delete these things
     _transient UIActivityIndicatorView *spinner_;
     _transient UILabel *status_;
@@ -8183,7 +8142,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 @end
 
-@implementation CYStashController
+@implementation StashController
 - (id) init {
     if ((self = [super init])) {
         [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
@@ -8257,7 +8216,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     unsigned locked_;
     unsigned activity_;
 
-    CYStashController *stash_;
+    StashController *stash_;
 
     bool loaded_;
 }
@@ -8650,7 +8609,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) showSettings {
-    CYSettingsController *role = [[[CYSettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
+    SettingsController *role = [[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
     CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
     if (IsWildcat_)
         [nav setModalPresentationStyle:UIModalPresentationFormSheet];
@@ -8947,7 +8906,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) addStashController {
     ++locked_;
-    stash_ = [[CYStashController alloc] init];
+    stash_ = [[StashController alloc] init];
     [window_ addSubview:[stash_ view]];
 }
 

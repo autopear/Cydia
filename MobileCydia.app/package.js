@@ -224,7 +224,7 @@ $(function () {
         $(".installed").addClass("deleted");
     else {
         $("#installed").html($.xml(installed));
-        $("#files-href").href("cydia://files/" + idc);
+        $("#files-href").href("cydia://package/" + idc + "/files");
     }
 
     space("#id", $.xml(id), 220);

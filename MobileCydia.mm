@@ -4046,6 +4046,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+/* Emulated Loading Controller {{{ */
 @interface CYEmulatedLoadingController : UIViewController {
     CYLoadingIndicator *indicator_;
     UITabBar *tabbar_;
@@ -4083,6 +4084,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 @end
+/* }}} */
 
 /* Cydia Browser Controller {{{ */
 @interface CYBrowserController : BrowserController {
@@ -6042,7 +6044,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Source Table {{{ */
-@interface CYSourcesController : CYViewController <
+@interface SourcesController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -6070,7 +6072,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation CYSourcesController
+@implementation SourcesController
 
 - (void) _releaseConnection:(NSURLConnection *)connection {
     if (connection != nil) {
@@ -6433,11 +6435,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) showAddSourcePrompt {
-    /*[book_ pushPage:[[[AddCYSourcesController alloc]
-        initWithBook:book_
-        database:database_
-    ] autorelease]];*/
-
     UIAlertView *alert = [[[UIAlertView alloc]
         initWithTitle:UCLocalize("ENTER_APT_URL")
         message:nil
@@ -6504,7 +6501,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Installed Controller {{{ */
-@interface CYInstalledController : FilteredPackageController {
+@interface InstalledController : FilteredPackageController {
     BOOL expert_;
 }
 
@@ -6515,7 +6512,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation CYInstalledController
+@implementation InstalledController
 
 - (void) dealloc {
     [super dealloc];
@@ -6624,12 +6621,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Home Controller {{{ */
-@interface CYHomeController : CYBrowserController {
+@interface HomeController : CYBrowserController {
 }
-
 @end
 
-@implementation CYHomeController
+@implementation HomeController
 
 + (BOOL)shouldHideNavigationBar {
     return NO;
@@ -6693,13 +6689,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Manage Controller {{{ */
-@interface CYManageController : CYBrowserController {
+@interface ManageController : CYBrowserController {
 }
 
 - (void) queueStatusDidChange;
 @end
 
-@implementation CYManageController
+@implementation ManageController
 
 - (id) init {
     if ((self = [super init]) != nil) {
@@ -7295,8 +7291,48 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* Section Controller {{{ */
+@interface SectionController : FilteredPackageController {
+}
+
+- (id) initWithDatabase:(Database *)database section:(NSString *)section;
+
+@end
+
+@implementation SectionController
+
+- (void) dealloc {
+    [super dealloc];
+}
+
+- (id) initWithDatabase:(Database *)database section:(NSString *)name {
+    NSString *title;
+
+    if (name == nil) {
+        title = UCLocalize("ALL_PACKAGES");
+    } else if (![name isEqual:@""]) {
+        title = [[NSBundle mainBundle] localizedStringForKey:Simplify(name) value:nil table:@"Sections"];
+    } else {
+        title = UCLocalize("NO_SECTION");
+    }
+
+    if ((self = [super initWithDatabase:database title:title filter:@selector(isVisibleInSection:) with:name]) != nil) {
+    } return self;
+}
+
+- (void) reloadData {
+    [packages_ reloadData];
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [packages_ setDelegate:delegate];
+}
+
+@end
+/* }}} */
 /* Sections Controller {{{ */
-@interface CYSectionsController : CYViewController <
+@interface SectionsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7316,7 +7352,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation CYSectionsController
+@implementation SectionsController
 
 - (void) dealloc {
     [list_ setDataSource:nil];
@@ -7381,7 +7417,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     Section *section = [self sectionAtIndexPath:indexPath];
 
-    CYSectionController *controller = [[[CYSectionController alloc]
+    SectionController *controller = [[[SectionController alloc]
         initWithDatabase:database_
         section:[section name]
     ] autorelease];
@@ -7487,8 +7523,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
+
 /* Changes Controller {{{ */
-@interface CYChangesController : CYViewController <
+@interface ChangesController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7506,7 +7543,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation CYChangesController
+@implementation ChangesController
 
 - (void) dealloc {
     [list_ setDelegate:nil];
@@ -7676,7 +7713,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 name = (NSString *) CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) [NSDate dateWithTimeIntervalSince1970:seen]);
                 [name autorelease];
 
-                _profile(CYChangesController$reloadData$Allocate)
+                _profile(ChangesController$reloadData$Allocate)
                     name = [NSString stringWithFormat:UCLocalize("NEW_AT"), name];
                     section = [[[Section alloc] initWithName:name row:offset localize:NO] autorelease];
                     [sections_ addObject:section];
@@ -7734,19 +7771,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Search Controller {{{ */
-@interface CYSearchController : FilteredPackageController <
+@interface SearchController : FilteredPackageController <
     UISearchBarDelegate
 > {
     UISearchBar *search_;
 }
 
-- (void) setSearchTerm:(NSString *)searchTerm;
 - (id) initWithDatabase:(Database *)database;
+- (void) setSearchTerm:(NSString *)term;
 - (void) reloadData;
 
 @end
 
-@implementation CYSearchController
+@implementation SearchController
 
 - (void) dealloc {
     [search_ release];
@@ -7767,8 +7804,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [packages_ setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
     [self reloadData];
 }
-
-- (NSString *) title { return nil; }
 
 - (id) initWithDatabase:(Database *)database {
     return [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil];
@@ -7798,7 +7833,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
-    _profile(CYSearchController$reloadData)
+    _profile(SearchController$reloadData)
         [packages_ reloadData];
     _end
     PrintTimes();
@@ -7813,7 +7848,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Settings Controller {{{ */
-@interface CYPackageSettingsController : CYViewController <
+@interface PackageSettingsController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7831,7 +7866,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 
-@implementation CYPackageSettingsController
+@implementation PackageSettingsController
 
 - (void) dealloc {
     [name_ release];
@@ -8225,16 +8260,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-typedef enum {
-    kCydiaTag,
-    kSectionsTag,
-    kChangesTag,
-    kManageTag,
-    kInstalledTag,
-    kSourcesTag,
-    kSearchTag
-} CYTabTag;
-
 @interface Cydia : UIApplication <
     ConfirmationControllerDelegate,
     ProgressControllerDelegate,
@@ -8257,8 +8282,6 @@ typedef enum {
     unsigned locked_;
     unsigned activity_;
 
-    id queueDelegate_;
-
     CYStashController *stash_;
 
     bool loaded_;
@@ -8266,9 +8289,6 @@ typedef enum {
 
 - (void) setPage:(CYViewController *)page;
 - (void) loadData;
-
-// XXX: I hate prototypes
-- (id) queueBadgeController;
 
 @end
 
@@ -8334,24 +8354,25 @@ typedef enum {
     }
 }
 
+// Navigation controller for the queuing badge.
+- (CYNavigationController *) queueNavigationController {
+    NSArray *controllers = [tabbar_ viewControllers];
+    return [controllers objectAtIndex:3];
+}
+
 - (void) _updateData {
     [self _saveConfig];
 
     [tabbar_ reloadData];
 
-    [queueDelegate_ queueStatusDidChange];
-    [[[self queueBadgeController] tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
-}
+    CYNavigationController *navigation = [self queueNavigationController];
 
-- (int)indexOfTabWithTag:(int)tag {
-    int i = 0;
-    for (UINavigationController *controller in [tabbar_ viewControllers]) {
-        if ([[controller tabBarItem] tag] == tag)
-            return i;
-        i += 1;
-    }
+    id queuedelegate = nil;
+    if ([[navigation viewControllers] count] > 0)
+        queuedelegate = [[navigation viewControllers] objectAtIndex:0];
 
-    return -1;
+    [queuedelegate queueStatusDidChange];
+    [[navigation tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
 }
 
 - (void) _refreshIfPossible {
@@ -8437,7 +8458,7 @@ typedef enum {
 
     NSLog(@"changes:#%u", changes);
 
-    UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:[self indexOfTabWithTag:kChangesTag]] tabBarItem];
+    UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:2] tabBarItem];
     if (changes != 0) {
         _trace();
         NSString *badge([[NSNumber numberWithInt:changes] stringValue]);
@@ -8613,7 +8634,44 @@ typedef enum {
 
     CYNavigationController *navController = (CYNavigationController *) [tabbar_ selectedViewController];
     [navController setViewControllers:[NSArray arrayWithObject:page]];
-    NSLog(@"page: %@ nav: %@", page, navController);
+    for (CYNavigationController *page in [tabbar_ viewControllers])
+        if (page != navController)
+            [page setViewControllers:nil];
+}
+
+- (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
+    CYNavigationController *controller = (CYNavigationController *) viewController;
+
+    if ([[controller viewControllers] count] == 0) {
+        int index = [tabbar_ selectedIndex];
+        CYViewController *root = nil;
+
+        if (index == 0)
+            root = [[[HomeController alloc] init] autorelease];
+        else if (index == 1)
+            root = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
+        else if (index == 2)
+            root = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
+
+        if (IsWildcat_) {
+            if (index == 3)
+                root = [[[InstalledController alloc] initWithDatabase:database_] autorelease];
+            else if (index == 4)
+                root = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
+            else if (index == 5)
+                root = [[[SearchController alloc] initWithDatabase:database_] autorelease];
+        } else {
+            if (index == 3)
+                root = [[[ManageController alloc] init] autorelease];
+            else if (index == 4)
+                root = [[[SearchController alloc] initWithDatabase:database_] autorelease];
+        }
+
+        [root setDelegate:self];
+
+        if (root != nil)
+            [controller setViewControllers:[NSArray arrayWithObject:root]];
+    }
 }
 
 - (void) showSettings {
@@ -8638,15 +8696,6 @@ typedef enum {
     WebThreadLock();
     [view setPackage:nil];
     WebThreadUnlock();
-}
-
-// Returns the navigation controller for the queuing badge.
-- (id) queueBadgeController {
-    int index = [self indexOfTabWithTag:kManageTag];
-    if (index == -1)
-        index = [self indexOfTabWithTag:kInstalledTag];
-
-    return [[tabbar_ viewControllers] objectAtIndex:index];
 }
 
 - (void) cancelAndClear:(bool)clear {
@@ -8805,32 +8854,32 @@ typedef enum {
         }
 
         if ([base isEqualToString:@"sources"]) {
-            CYSourcesController *source = [[[CYSourcesController alloc] initWithDatabase:database_] autorelease];
+            SourcesController *source = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
             return source;
         }
 
         if ([base isEqualToString:@"home"]) {
-            CYHomeController *home = [[[CYHomeController alloc] init] autorelease];
+            HomeController *home = [[[HomeController alloc] init] autorelease];
             return home;
         }
 
         if ([base isEqualToString:@"sections"]) {
-            CYSectionsController *sections = [[[CYSectionsController alloc] initWithDatabase:database_] autorelease];
+            SectionsController *sections = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
             return sections;
         }
 
         if ([base isEqualToString:@"search"]) {
-            CYSearchController *search = [[[CYSearchController alloc] initWithDatabase:database_] autorelease];
+            SearchController *search = [[[SearchController alloc] initWithDatabase:database_] autorelease];
             return search;
         }
 
         if ([base isEqualToString:@"changes"]) {
-            CYChangesController *changes = [[[CYChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
+            ChangesController *changes = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
             return changes;
         }
 
         if ([base isEqualToString:@"installed"]) {
-            CYInstalledController *installed = [[[CYInstalledController alloc] initWithDatabase:database_] autorelease];
+            InstalledController *installed = [[[InstalledController alloc] initWithDatabase:database_] autorelease];
             return installed;
         }
     } else if ([components count] == 2) {
@@ -8842,7 +8891,7 @@ typedef enum {
         }
 
         if ([base isEqualToString:@"search"]) {
-            CYSearchController *search = [[[CYSearchController alloc] initWithDatabase:database_] autorelease];
+            SearchController *search = [[[SearchController alloc] initWithDatabase:database_] autorelease];
             [search setSearchTerm:argument];
             return search;
         }
@@ -8850,14 +8899,14 @@ typedef enum {
         if ([base isEqualToString:@"sections"]) {
             if ([argument isEqualToString:@"all"])
                 argument = nil;
-            CYSectionController *section = [[[CYSectionController alloc] initWithDatabase:database_ section:argument] autorelease];
+            SectionController *section = [[[SectionController alloc] initWithDatabase:database_ section:argument] autorelease];
             [section setDelegate:self];
             return section;
         }
 
         if ([base isEqualToString:@"sources"]) {
             if ([argument isEqualToString:@"add"]) {
-                CYSourcesController *source = [[[CYSourcesController alloc] initWithDatabase:database_] autorelease];
+                SourcesController *source = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
                 [source showAddSourcePrompt];
                 return source;
             } else {
@@ -8880,7 +8929,7 @@ typedef enum {
 
         if ([base isEqualToString:@"package"]) {
             if ([arg2 isEqualToString:@"settings"]) {
-                return [[[CYPackageSettingsController alloc] initWithDatabase:database_ package:arg1] autorelease];
+                return [[[PackageSettingsController alloc] initWithDatabase:database_ package:arg1] autorelease];
             } else if ([arg2 isEqualToString:@"signature"]) {
                 return [[[SignatureController alloc] initWithDatabase:database_ package:arg1] autorelease];
             } else if ([arg2 isEqualToString:@"files"]) {
@@ -8958,45 +9007,27 @@ typedef enum {
     [tabbar_ setDelegate:self];
 
     NSMutableArray *items([NSMutableArray arrayWithObjects:
-        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:kCydiaTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:kSectionsTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:kChangesTag] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:kSearchTag] autorelease],
-    nil]);
-
-    NSMutableArray *pages([NSMutableArray arrayWithObjects:
-        [[[CYHomeController alloc] init] autorelease],
-        [[[CYSectionsController alloc] initWithDatabase:database_] autorelease],
-        [[[CYChangesController alloc] initWithDatabase:database_ delegate:self] autorelease],
-        [[[CYSearchController alloc] initWithDatabase:database_] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:0] autorelease],
     nil]);
 
     if (IsWildcat_) {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:kSourcesTag] autorelease] atIndex:3];
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:kInstalledTag] autorelease] atIndex:3];
-        [pages insertObject:[[[CYSourcesController alloc] initWithDatabase:database_] autorelease] atIndex:3];
-        [pages insertObject:[[[CYInstalledController alloc] initWithDatabase:database_] autorelease] atIndex:3];
-        queueDelegate_ = [pages objectAtIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:0] autorelease] atIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
     } else {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:kManageTag] autorelease] atIndex:3];
-        [pages insertObject:[[[CYManageController alloc] init] autorelease] atIndex:3];
-        queueDelegate_ = [pages objectAtIndex:3];
+        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
     }
 
     NSMutableArray *controllers([NSMutableArray array]);
-
-    for (unsigned int i = 0; i < [pages count]; i++) {
-        UITabBarItem *item = [items objectAtIndex:i];
-        CYViewController *page = [pages objectAtIndex:i];
-        [page setDelegate:self];
-
+    for (UITabBarItem *item in items) {
         CYNavigationController *controller([[[CYNavigationController alloc] initWithDatabase:database_] autorelease]);
-        [controller setViewControllers:[NSArray arrayWithObject:page]];
         [controller setTabBarItem:item];
         [controllers addObject:controller];
     }
-
     [tabbar_ setViewControllers:controllers];
+
     [tabbar_ setUpdateDelegate:self];
     [window_ addSubview:[tabbar_ view]];
 }
@@ -9063,6 +9094,7 @@ _trace();
 
     database_ = [Database sharedInstance];
 
+    [window_ setUserInteractionEnabled:NO];
     [self showEmulatedLoadingControllerInView:window_];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
@@ -9076,18 +9108,18 @@ _trace();
         return;
     }
 
-    [window_ setUserInteractionEnabled:NO];
     [self reloadData];
     PrintTimes();
-    [window_ setUserInteractionEnabled:YES];
 
     [self setupViewControllers];
-    [tabbar_ setSelectedIndex:0];
     [self showEmulatedLoadingControllerInView:nil];
-    // XXX: does this actually slow anything down?
-    [[tabbar_ view] setBackgroundColor:[UIColor clearColor]];
+    [window_ setUserInteractionEnabled:YES];
 
-    // Show the initial page
+    // Show the home page.
+    CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:0];
+    [navigation setViewControllers:[NSArray arrayWithObject:[[[HomeController alloc] init] autorelease]]];
+
+    // (Try to) show the startup URL.
     if (starturl_ != nil) {
         [self openCydiaURL:starturl_];
         [starturl_ release];

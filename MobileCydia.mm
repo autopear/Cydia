@@ -8568,9 +8568,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CYNavigationController *navController = (CYNavigationController *) [tabbar_ selectedViewController];
     [navController setViewControllers:[NSArray arrayWithObject:page]];
-    for (CYNavigationController *page in [tabbar_ viewControllers])
-        if (page != navController)
-            [page setViewControllers:nil];
 }
 
 - (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {

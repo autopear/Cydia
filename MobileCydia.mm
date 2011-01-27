@@ -7604,12 +7604,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
     if(cell == nil) cell = [[[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier] autorelease];
     [cell setSource:[self sourceAtIndexPath:indexPath]];
+    [cell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
 
     return cell;
-}
-
-- (UITableViewCellAccessoryType) tableView:(UITableView *)tableView accessoryTypeForRowWithIndexPath:(NSIndexPath *)indexPath {
-    return UITableViewCellAccessoryDisclosureIndicator;
 }
 
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {

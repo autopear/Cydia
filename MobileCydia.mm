@@ -6864,8 +6864,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL hasSentFirstLoad_;
 }
 
-- (id) initWithDatabase:(Database *)database delegate:(id)delegate;
-- (void) reloadData;
+- (id) initWithDatabase:(Database *)database;
 
 @end
 
@@ -6954,13 +6953,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSString *) title { return UCLocalize("CHANGES"); }
 
-- (id) initWithDatabase:(Database *)database delegate:(id)delegate {
+- (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
         [[self navigationItem] setTitle:UCLocalize("CHANGES")];
 
         packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
-
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
         list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
@@ -6970,8 +6968,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [list_ setDataSource:self];
         [list_ setDelegate:self];
-
-        delegate_ = delegate;
     } return self;
 }
 
@@ -8576,7 +8572,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         else if (index == 1)
             root = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
         else if (index == 2)
-            root = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
+            root = [[[ChangesController alloc] initWithDatabase:database_] autorelease];
 
         if (IsWildcat_) {
             if (index == 3)
@@ -8796,7 +8792,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
 
         if ([base isEqualToString:@"changes"]) {
-            controller = [[[ChangesController alloc] initWithDatabase:database_ delegate:self] autorelease];
+            controller = [[[ChangesController alloc] initWithDatabase:database_] autorelease];
         }
 
         if ([base isEqualToString:@"installed"]) {

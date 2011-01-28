@@ -6,12 +6,12 @@
 #import "RVBook.h"
 
 @implementation CYViewController
-- (void)setDelegate:(id)delegate {
+- (void) setDelegate:(id)delegate {
     delegate_ = delegate;
 }
 - (void) reloadData {
 }
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
     return (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad || orientation == UIInterfaceOrientationPortrait);
 }
 @end

@@ -4030,7 +4030,7 @@ static NSString *Warning_;
 @end
 /* }}} */
 /* Emulated Loading Controller {{{ */
-@interface CYEmulatedLoadingController : UIViewController {
+@interface CYEmulatedLoadingController : CYViewController {
     CYLoadingIndicator *indicator_;
     UITabBar *tabbar_;
     UINavigationBar *navbar_;
@@ -4060,10 +4060,6 @@ static NSString *Warning_;
         [[self view] addSubview:navbar_];
         [navbar_ release];
     } return self;
-}
-
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return (IsWildcat_ || orientation == UIInterfaceOrientationPortrait);
 }
 
 @end
@@ -6241,10 +6237,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
-}
-
 - (void) setUpdate:(NSDate *)date {
     [self beginUpdate];
 }
@@ -6479,17 +6471,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 
 @implementation CYNavigationController
-
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    // Inherit autorotation settings for modal parents.
-    if ([self parentViewController] && [[self parentViewController] modalViewController] == self) {
-        return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
-    } else if ([self parentViewController]) {
-        return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
-    } else {
-        return [super shouldAutorotateToInterfaceOrientation:orientation];
-    }
-}
 
 - (void) dealloc {
     [super dealloc];
@@ -8183,9 +8164,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
-}
 @end
 /* }}} */
 

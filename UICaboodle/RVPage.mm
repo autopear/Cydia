@@ -12,10 +12,6 @@
 - (void) reloadData {
 }
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    if ([self parentViewController]) {
-        return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
-    } else {
-        return [super shouldAutorotateToInterfaceOrientation:orientation];
-    }
+    return (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad || orientation == UIInterfaceOrientationPortrait);
 }
 @end

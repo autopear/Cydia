@@ -8918,7 +8918,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setViewControllers:controllers];
 
     [tabbar_ setUpdateDelegate:self];
-    [window_ addSubview:[tabbar_ view]];
 }
 
 - (void)showEmulatedLoadingControllerInView:(UIView *)view {
@@ -9001,6 +9000,7 @@ _trace();
     [self reloadData];
     PrintTimes();
 
+    [window_ addSubview:[tabbar_ view]];
     [self showEmulatedLoadingControllerInView:nil];
     [window_ setUserInteractionEnabled:YES];
 

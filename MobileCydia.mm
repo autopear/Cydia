@@ -6370,7 +6370,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CGRect barframe([refreshbar_ frame]);
 
-    if (false) // XXX: _UIApplicationLinkedOnOrAfter(4)
+    if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
         barframe.origin.y = [self statusBarHeight];
     else
         barframe.origin.y = 0;

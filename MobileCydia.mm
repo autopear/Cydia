@@ -8744,7 +8744,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CYViewController *controller = nil;
 
-    if ([components count] == 1) {
+    if ([base isEqualToString:@"url"]) {
+        controller = [[[CYBrowserController alloc] init] autorelease];
+        NSArray *arguments([components subarrayWithRange:NSMakeRange(1, [components count] - 1)]);
+        [(CYBrowserController *)controller loadURL:[NSURL URLWithString:[arguments componentsJoinedByString:@""]]];
+    } else if ([components count] == 1) {
         if ([base isEqualToString:@"storage"]) {
             controller = [[[CYBrowserController alloc] init] autorelease];
             [(CYBrowserController *)controller loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]]];
@@ -8798,11 +8802,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             } else {
                 // XXX: Create page of the source specfified.
             }
-        }
-
-        if ([base isEqualToString:@"url"]) {
-            controller = [[[CYBrowserController alloc] init] autorelease];
-            [(CYBrowserController *)controller loadURL:[NSURL URLWithString:argument]];
         }
 
         if ([base isEqualToString:@"launch"]) {

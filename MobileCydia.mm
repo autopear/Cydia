@@ -8745,9 +8745,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CYViewController *controller = nil;
 
     if ([base isEqualToString:@"url"]) {
+        // This kind of URL can contain slashes in the argument, so we can't parse them below.
+        NSString *destination = [[url absoluteString] substringFromIndex:([scheme length] + [@"://" length] + [base length] + [@"/" length])];
         controller = [[[CYBrowserController alloc] init] autorelease];
-        NSArray *arguments([components subarrayWithRange:NSMakeRange(1, [components count] - 1)]);
-        [(CYBrowserController *)controller loadURL:[NSURL URLWithString:[arguments componentsJoinedByString:@""]]];
+        [(CYBrowserController *)controller loadURL:[NSURL URLWithString:destination]];
     } else if ([components count] == 1) {
         if ([base isEqualToString:@"storage"]) {
             controller = [[[CYBrowserController alloc] init] autorelease];

@@ -6670,15 +6670,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) updateNavigationItem {
+    [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
+    if ([sections_ count] == 0) {
+        [[self navigationItem] setRightBarButtonItem:nil];
+    } else {
+        [[self navigationItem] setRightBarButtonItem:[[UIBarButtonItem alloc]
+            initWithBarButtonSystemItem:(editing_ ? UIBarButtonSystemItemDone : UIBarButtonSystemItemEdit)
+            target:self
+            action:@selector(editButtonClicked)
+        ] animated:([[self navigationItem] rightBarButtonItem] != nil)];
+    }
+}
+
 - (void) setEditing:(BOOL)editing {
     if ((editing_ = editing))
         [list_ reloadData];
     else
         [delegate_ updateData];
 
-    [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
-    [[[self navigationItem] rightBarButtonItem] setTitle:[sections_ count] == 0 ? nil : editing_ ? UCLocalize("DONE") : UCLocalize("EDIT")];
-    [[[self navigationItem] rightBarButtonItem] setStyle:editing_ ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain];
+    [self updateNavigationItem];
 }
 
 - (void) viewDidAppear:(BOOL)animated {
@@ -6802,13 +6813,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [filtered_ addObject:section];
     }
 
-    [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
-        initWithTitle:([sections_ count] == 0 ? nil : UCLocalize("EDIT"))
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(editButtonClicked)
-    ] autorelease] animated:([[self navigationItem] rightBarButtonItem] != nil)];
-
+    [self updateNavigationItem];
     [list_ reloadData];
     _trace();
 }

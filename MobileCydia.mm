@@ -6647,7 +6647,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
     UITableView *list_;
-    UIView *accessory_;
     BOOL editing_;
 }
 
@@ -6668,7 +6667,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sections_ release];
     [filtered_ release];
     [list_ release];
-    [accessory_ release];
     [super dealloc];
 }
 
@@ -6822,10 +6820,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void)editButtonClicked {
     [self setEditing:!editing_];
-}
-
-- (UIView *) accessoryView {
-    return accessory_;
 }
 
 @end

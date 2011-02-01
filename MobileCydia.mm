@@ -6223,7 +6223,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [page reloadData];
     }
 
-    [(CYNavigationController *) [self transientViewController] reloadData];
+    [(CYNavigationController *)[self transientViewController] reloadData];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -8538,7 +8538,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CYNavigationController *controller = (CYNavigationController *) viewController;
 
     if ([[controller viewControllers] count] == 0) {
-        int index = [tabbar_ selectedIndex];
+        int index = [[tabbar_ viewControllers] indexOfObjectIdenticalTo:controller];
         CYViewController *root = nil;
 
         if (index == 0)

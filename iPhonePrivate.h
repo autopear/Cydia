@@ -354,6 +354,7 @@ extern float const UIScrollViewDecelerationRateNormal;
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 30000
 
 #define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
+#define kCFCoreFoundationVersionNumber_iPhoneOS_3_0 478.47
 
 #endif
 // }}}

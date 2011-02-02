@@ -402,6 +402,7 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define ShowInternals (0 && !ForRelease)
 #define IgnoreInstall (0 && !ForRelease)
 #define AlwaysReload (0 && !ForRelease)
+#define TryIndexedCollation (0 && !ForRelease)
 
 #if !TraceLogging
 #undef _trace
@@ -5624,9 +5625,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+#if TryIndexedCollation
 + (BOOL) hasIndexedCollation {
     return NO; // XXX: objc_getClass("UILocalizedIndexedCollation") != nil;
 }
+#endif
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
     NSInteger count([sections_ count]);
@@ -5681,9 +5684,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSInteger) tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index {
+#if TryIndexedCollation
     if ([[self class] hasIndexedCollation]) {
         return [[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionForSectionIndexTitleAtIndex:index];
     }
+#endif
 
     return index;
 }
@@ -5695,9 +5700,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target_ = target;
         action_ = action;
 
-        index_ = [[self class] hasIndexedCollation]
-            ? [[[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles] retain]
-            : [[NSMutableArray alloc] initWithCapacity:32];
+#if TryIndexedCollation
+        if ([[self class] hasIndexedCollation])
+            index_ = [[[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles] retain]
+        else
+#endif
+            index_ = [[NSMutableArray alloc] initWithCapacity:32];
+
         indices_ = [[NSMutableDictionary alloc] initWithCapacity:32];
 
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
@@ -5738,6 +5747,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     Section *section = nil;
 
+#if TryIndexedCollation
     if ([[self class] hasIndexedCollation]) {
         id collation = [objc_getClass("UILocalizedIndexedCollation") currentCollation];
         NSArray *titles = [collation sectionIndexTitles];
@@ -5768,7 +5778,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [section addToCount];
             }
         _end
-    } else {
+    } else
+#endif
+    {
         [index_ removeAllObjects];
 
         _profile(PackageTable$reloadData$Section)

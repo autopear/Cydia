@@ -8927,13 +8927,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
-- (void)showEmulatedLoadingControllerInView:(UIView *)view {
+- (CYEmulatedLoadingController *)showEmulatedLoadingControllerInView:(UIView *)view {
     static CYEmulatedLoadingController *fake = [[CYEmulatedLoadingController alloc] init];
     if (view != nil) {
         [view addSubview:[fake view]];
     } else {
         [[fake view] removeFromSuperview];
     }
+
+    return fake;
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -9000,8 +9002,19 @@ _trace();
 - (void) loadData {
 _trace();
     if (Role_ == nil) {
-        [self showSettings];
+        [window_ setUserInteractionEnabled:YES];
+
+        SettingsController *role = [[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
+        CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
+        if (IsWildcat_)
+            [nav setModalPresentationStyle:UIModalPresentationFormSheet];
+        [[self showEmulatedLoadingControllerInView:window_] presentModalViewController:nav animated:YES];
+
         return;
+    } else {
+        if ([[self showEmulatedLoadingControllerInView:window_] modalViewController] != nil)
+            [[self showEmulatedLoadingControllerInView:window_] dismissModalViewControllerAnimated:YES];
+        [window_ setUserInteractionEnabled:NO];
     }
 
     [self reloadData];

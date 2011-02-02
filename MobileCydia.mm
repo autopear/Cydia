@@ -6608,10 +6608,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SectionController
 
-- (void) dealloc {
-    [super dealloc];
-}
-
 - (id) initWithDatabase:(Database *)database section:(NSString *)name {
     NSString *title;
 
@@ -6625,15 +6621,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ((self = [super initWithDatabase:database title:title filter:@selector(isVisibleInSection:) with:name]) != nil) {
     } return self;
-}
-
-- (void) reloadData {
-    [packages_ reloadData];
-}
-
-- (void) setDelegate:(id)delegate {
-    [super setDelegate:delegate];
-    [packages_ setDelegate:delegate];
 }
 
 @end
@@ -7481,7 +7468,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Source Table {{{ */
+/* Source Controller {{{ */
+@interface SourceController : FilteredPackageController {
+}
+
+- (id) initWithDatabase:(Database *)database source:(Source *)source;
+
+@end
+
+@implementation SourceController
+
+- (id) initWithDatabase:(Database *)database source:(Source *)source {
+    if ((self = [super initWithDatabase:database title:[source label] filter:@selector(isVisibleInSource:) with:source]) != nil) {
+    } return self;
+}
+
+@end
+/* }}} */
+/* Sources Controller {{{ */
 @interface SourcesController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
@@ -7592,16 +7596,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     Source *source = [self sourceAtIndexPath:indexPath];
 
-    FilteredPackageController *packages = [[[FilteredPackageController alloc]
+    SourceController *controller = [[[SourceController alloc]
         initWithDatabase:database_
-        title:[source label]
-        filter:@selector(isVisibleInSource:)
-        with:source
+        source:source
     ] autorelease];
 
-    [packages setDelegate:delegate_];
+    [controller setDelegate:delegate_];
 
-    [[self navigationController] pushViewController:packages animated:YES];
+    [[self navigationController] pushViewController:controller animated:YES];
 }
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -8800,7 +8802,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
                 [(SourcesController *)controller showAddSourcePrompt];
             } else {
-                // XXX: Create page of the source specfified.
+                NSArray *sources = [database_ sources];
+                for (Source *source in sources) {
+                    if ([[source name] caseInsensitiveCompare:argument] == NSOrderedSame) {
+                        controller = [[[SourceController alloc] initWithDatabase:database_ source:source] autorelease];
+                        break;
+                    }
+                }
             }
         }
 

@@ -4,8 +4,11 @@
 
 @interface CYViewController : UIViewController {
     id delegate_;
+    BOOL loaded_;
 }
-- (void)setDelegate:(id)delegate;
+- (NSURL *)navigationURL;
+- (void) setDelegate:(id)delegate;
 - (void) reloadData;
+- (void) releaseSubviews;
 @end
 

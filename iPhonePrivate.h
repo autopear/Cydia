@@ -334,6 +334,10 @@ typedef enum {
 - (void) setModalPresentationStyle:(UIModalPresentationStyle)style;
 @end
 
+@interface UIApplication (iOS_3_0)
+@property(nonatomic) BOOL applicationSupportsShakeToEdit;
+@end
+
 @interface UIScrollView (iOS_3_0)
 @property(assign, nonatomic) float decelerationRate;
 @end

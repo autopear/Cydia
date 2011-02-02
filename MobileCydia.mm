@@ -1071,7 +1071,7 @@ static _transient NSMutableDictionary *Sources_;
 static bool Changed_;
 static time_t now_;
 
-static bool IsWildcat_;
+bool IsWildcat_;
 /* }}} */
 
 /* Display Helpers {{{ */

@@ -4993,6 +4993,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setNeedsDisplay];
 }
 
+- (NSString *) accessibilityLabel {
+    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), name_, description_];
+}
+
 - (void) setPackage:(Package *)package {
     [self clearPackage];
     [package parse];
@@ -5219,6 +5223,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CGRect rect([switch_ frame]);
     [switch_ setFrame:CGRectMake(frame.size.width - 102, 9, rect.size.width, rect.size.height)];
+}
+
+- (NSString *) accessibilityLabel {
+    return name_;
 }
 
 - (void) drawContentRect:(CGRect)rect {
@@ -7445,6 +7453,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [content_ setDelegate:self];
         [content_ setOpaque:YES];
     } return self;
+}
+
+- (NSString *) accessibilityLabel {
+    return label_;
 }
 
 - (void) drawContentRect:(CGRect)rect {

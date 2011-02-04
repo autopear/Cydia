@@ -5010,6 +5010,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setNeedsDisplay];
 }
 
+- (NSString *) accessibilityLabel {
+    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), name_, description_];
+}
+
 - (void) setPackage:(Package *)package {
     [self clearPackage];
     [package parse];
@@ -5236,6 +5240,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CGRect rect([switch_ frame]);
     [switch_ setFrame:CGRectMake(frame.size.width - 102, 9, rect.size.width, rect.size.height)];
+}
+
+- (NSString *) accessibilityLabel {
+    return name_;
 }
 
 - (void) drawContentRect:(CGRect)rect {
@@ -7592,6 +7600,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
+- (NSString *) accessibilityLabel {
+    return label_;
+}
+
 - (void) drawContentRect:(CGRect)rect {
     bool highlighted(highlighted_);
     float width(rect.size.width);
@@ -9305,6 +9317,33 @@ MSHook(void, UIHardware$_playSystemSound$, Class self, SEL _cmd, int sound) {
     }
 }
 
+Class $UIApplication;
+
+MSHook(void, UIApplication$_updateApplicationAccessibility, UIApplication *self, SEL _cmd) {
+    static BOOL initialized = NO;
+    static BOOL started = NO;
+
+    NSDictionary *dict([[[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.apple.Accessibility.plist"] autorelease]);
+    BOOL enabled = [[dict objectForKey:@"VoiceOverTouchEnabled"] boolValue] || [[dict objectForKey:@"VoiceOverTouchEnabledByiTunes"] boolValue];
+
+    if ([self respondsToSelector:@selector(_accessibilityBundlePrincipalClass)]) {
+        id bundle = [self performSelector:@selector(_accessibilityBundlePrincipalClass)];
+        if (![bundle respondsToSelector:@selector(_accessibilityStopServer)]) return;
+        if (![bundle respondsToSelector:@selector(_accessibilityStartServer)]) return;
+
+        if (initialized && !enabled) {
+            initialized = NO;
+            [bundle performSelector:@selector(_accessibilityStopServer)];
+        } else if (enabled) {
+            initialized = YES;
+            if (!started) {
+                started = YES;
+                [bundle performSelector:@selector(_accessibilityStartServer)];
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
@@ -9331,6 +9370,13 @@ int main(int argc, char *argv[]) { _pooled
     if (UIHardware$_playSystemSound$ != NULL) {
         _UIHardware$_playSystemSound$ = reinterpret_cast<void (*)(Class, SEL, int)>(method_getImplementation(UIHardware$_playSystemSound$));
         method_setImplementation(UIHardware$_playSystemSound$, reinterpret_cast<IMP>(&$UIHardware$_playSystemSound$));
+    }
+
+    $UIApplication = objc_getClass("UIApplication");
+    Method UIApplication$_updateApplicationAccessibility(class_getInstanceMethod($UIApplication, @selector(_updateApplicationAccessibility)));
+    if (UIApplication$_updateApplicationAccessibility != NULL) {
+        _UIApplication$_updateApplicationAccessibility = reinterpret_cast<void (*)(UIApplication *, SEL)>(method_getImplementation(UIApplication$_updateApplicationAccessibility));
+        method_setImplementation(UIApplication$_updateApplicationAccessibility, reinterpret_cast<IMP>(&$UIApplication$_updateApplicationAccessibility));
     }
     /* }}} */
     /* Set Locale {{{ */

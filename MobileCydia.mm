@@ -4481,7 +4481,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         //[status_ setFont:font];
 
         output_ = [[UITextView alloc] init];
-
         [output_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         //[output_ setTextFont:@"Courier New"];
         [output_ setFont:[[output_ font] fontWithSize:12]];
@@ -4527,7 +4526,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         10,
         20,
         bounds.size.width - 20,
-        bounds.size.height - 62
+        bounds.size.height - 96
     )];
     [close_ setFrame:CGRectMake(
         (bounds.size.width - closewidth) / 2,

@@ -146,6 +146,9 @@
 
     <key>Cydgets (Lock)</key>
     <string>Addons (Cydget)</string>
+
+    <key>Themes (App Addons)</key>
+    <string>Themes (Addons)</string>
 </dict>
 
 </plist>

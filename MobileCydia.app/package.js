@@ -285,4 +285,6 @@ $(function () {
         else
             $("#source-description").html($.xml(description));
     }
+
+    $("body").removeClass("invisible");
 });

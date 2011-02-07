@@ -1185,7 +1185,6 @@ bool isSectionVisible(NSString *section) {
 @protocol CydiaDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
-- (void) setPackageController:(CYPackageController *)view;
 - (void) clearPackage:(Package *)package;
 - (void) installPackage:(Package *)package;
 - (void) installPackages:(NSArray *)packages;
@@ -5411,8 +5410,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) release {
-    if ([self retainCount] == 1)
-        [delegate_ setPackageController:self];
     [super release];
 }
 
@@ -8612,12 +8609,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) releaseNetworkActivityIndicator {
     if (--activity_ == 0)
         [self setNetworkActivityIndicatorVisible:NO];
-}
-
-- (void) setPackageController:(CYPackageController *)view {
-    WebThreadLock();
-    [view setPackage:nil];
-    WebThreadUnlock();
 }
 
 - (void) cancelAndClear:(bool)clear {

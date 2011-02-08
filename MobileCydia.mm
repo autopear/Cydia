@@ -4089,18 +4089,16 @@ static NSString *Warning_;
 
     WebDataSource *source([frame dataSource]);
     NSURLResponse *response([source response]);
+
     NSURL *url([response URL]);
     NSString *scheme([url scheme]);
-
-    NSHTTPURLResponse *http;
-    if (scheme != nil && ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]))
-        http = (NSHTTPURLResponse *) response;
-    else
-        http = nil;
-
-    NSDictionary *headers([http allHeaderFields]);
     NSString *host([url host]);
-    [self setHeaders:headers forHost:host];
+
+    if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSHTTPURLResponse *http((NSHTTPURLResponse *) response);
+        NSDictionary *headers([http allHeaderFields]);
+        [self setHeaders:headers forHost:host];
+    }
 
     if (
         [host isEqualToString:@"cydia.saurik.com"] ||

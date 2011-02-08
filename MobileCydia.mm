@@ -5508,7 +5508,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
-        [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"package" ofType:@"html"]]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/package/")]];
     } return self;
 }
 
@@ -6011,7 +6011,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"")]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/home/")]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("ABOUT")
@@ -6037,7 +6037,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         [[self navigationItem] setTitle:UCLocalize("MANAGE")];
 
-        [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/manage/")]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("SETTINGS")
@@ -8765,11 +8765,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         controller = [[[CYBrowserController alloc] init] autorelease];
         [(CYBrowserController *)controller loadURL:[NSURL URLWithString:destination]];
     } else if ([components count] == 1) {
-        if ([base isEqualToString:@"storage"]) {
-            controller = [[[CYBrowserController alloc] init] autorelease];
-            [(CYBrowserController *)controller loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]]];
-        }
-
         if ([base isEqualToString:@"sources"]) {
             controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
         }

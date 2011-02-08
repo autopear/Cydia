@@ -5,17 +5,15 @@
 
 #import "RVBook.h"
 
+extern bool IsWildcat_;
+
 @implementation CYViewController
-- (void)setDelegate:(id)delegate {
+- (void) setDelegate:(id)delegate {
     delegate_ = delegate;
 }
 - (void) reloadData {
 }
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
-    if ([self parentViewController]) {
-        return [[self parentViewController] shouldAutorotateToInterfaceOrientation:orientation];
-    } else {
-        return [super shouldAutorotateToInterfaceOrientation:orientation];
-    }
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    return IsWildcat_ || orientation == UIInterfaceOrientationPortrait;
 }
 @end

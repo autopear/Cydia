@@ -237,6 +237,9 @@ typedef enum {
 
 @interface UITabBarController (Apple)
 - (UITransitionView *) _transitionView;
+- (UIViewController *) transientViewController;
+- (void) setTransientViewController:(UIViewController *)controller;
+- (void) setTransientViewController:(UIViewController *)controller animated:(BOOL)animated;
 @end
 
 @interface UITabBarItem (Apple)
@@ -331,6 +334,10 @@ typedef enum {
 - (void) setModalPresentationStyle:(UIModalPresentationStyle)style;
 @end
 
+@interface UIApplication (iOS_3_0)
+@property(nonatomic) BOOL applicationSupportsShakeToEdit;
+@end
+
 @interface UIScrollView (iOS_3_0)
 @property(assign, nonatomic) float decelerationRate;
 @end
@@ -347,6 +354,7 @@ extern float const UIScrollViewDecelerationRateNormal;
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 30000
 
 #define kSCNetworkReachabilityFlagsConnectionOnDemand (1 << 5)
+#define kCFCoreFoundationVersionNumber_iPhoneOS_3_0 478.47
 
 #endif
 // }}}

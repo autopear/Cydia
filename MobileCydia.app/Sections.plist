@@ -40,7 +40,7 @@
     <string>Themes (LockScreen)</string>
 
     <key>Themes (Video)</key>
-    <string>Themes (Videos)</string>
+    <string>Themes (Apps)</string>
 
     <key>Utilites</key>
     <string>Utilities</string>
@@ -146,6 +146,9 @@
 
     <key>Cydgets (Lock)</key>
     <string>Addons (Cydget)</string>
+
+    <key>Themes (App Addons)</key>
+    <string>Themes (Addons)</string>
 </dict>
 
 </plist>

@@ -638,7 +638,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if ([scheme isEqualToString:@"mailto"])
         [self _openMailToURL:url];
 
-    CYViewController *page([delegate_ pageForURL:url hasTag:NULL]);
+    CYViewController *page([delegate_ pageForURL:url]);
 
     if (page == nil) {
         BrowserController *browser([[[class_ alloc] init] autorelease]);
@@ -653,12 +653,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
         [[self navigationController] pushViewController:page animated:YES];
     } else {
-        UCNavigationController *navigation([[[UCNavigationController alloc] init] autorelease]);
+        UCNavigationController *navigation([[[UCNavigationController alloc] initWithRootViewController:page] autorelease]);
 
         [navigation setHook:indirect_];
         [navigation setDelegate:delegate_];
-
-        [navigation setViewControllers:[NSArray arrayWithObject:page]];
 
         [[page navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CLOSE")

@@ -116,7 +116,7 @@
 "NOT_RATED" = "Not Rated";
 "NOTE" = "Note";
 "NOT_REPOSITORY" = "Did not Find Repository";
-"NOT_REPOSITORY_EX" = "The indicated repository could not be found. This could be because you are trying to add a legacy Installer repository (these are not supported). Also, this interface is only capable of working with exact repository URLs. If you host a repository and are having issues please contact the author of Cydia with any questions you have.";
+"NOT_REPOSITORY_EX" = "The indicated repository could not be found. This could be because you are trying to add a legacy Installer repository (these are not supported). Also, this interface is only capable of working with exact repository URLs.";
 "OK" = "OK";
 "OKAY" = "Okay";
 "PACKAGE_CANNOT_BE_FOUND" = "The package %@ cannot be found in your current sources. I might recommend installing more sources.";

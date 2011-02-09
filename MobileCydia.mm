@@ -5986,7 +5986,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert setCancelButtonIndex:0];
 
     [alert setMessage:
-        @"Copyright (C) 2008-2010\n"
+        @"Copyright (C) 2008-2011\n"
         "Jay Freeman (saurik)\n"
         "saurik@saurik.com\n"
         "http://www.saurik.com/"

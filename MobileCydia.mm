@@ -5576,8 +5576,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Package Table {{{ */
-@interface PackageTable : UIView <
+/* Package List Controller {{{ */
+@interface PackageListController : CYViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -5588,29 +5588,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableView *list_;
     NSMutableArray *index_;
     NSMutableDictionary *indices_;
-    // XXX: this target_ seems to be delegate_. :(
-    _transient id target_;
     SEL action_;
-    // XXX: why do we even have this delegate_?
-    _transient id delegate_;
+    NSString *title_;
 }
 
-- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action;
-
+- (id) initWithDatabase:(Database *)database title:(NSString *)title;
 - (void) setDelegate:(id)delegate;
-
-- (void) reloadData;
 - (void) resetCursor;
-
-- (UITableView *) list;
-
-- (void) setShouldHideHeaderInShortLists:(BOOL)hide;
-
-- (void) deselectWithAnimation:(BOOL)animated;
 
 @end
 
-@implementation PackageTable
+@implementation PackageListController
 
 - (void) dealloc {
     [packages_ release];
@@ -5618,8 +5606,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ release];
     [index_ release];
     [indices_ release];
+    [title_ release];
 
     [super dealloc];
+}
+
+- (void) deselectWithAnimation:(BOOL)animated {
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self deselectWithAnimation:animated];
+}
+
+- (void) didSelectPackage:(Package *)package {
+    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_] autorelease]);
+    [view setPackage:package];
+    [view setDelegate:delegate_];
+    [[self navigationController] pushViewController:view animated:YES];
 }
 
 #if TryIndexedCollation
@@ -5664,15 +5669,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return cell;
 }
 
-- (void) deselectWithAnimation:(BOOL)animated {
-    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
-}
-
-- (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
+- (void) tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
     package = [database_ packageWithName:[package id]];
-    [target_ performSelector:action_ withObject:package];
-    return path;
+    [self didSelectPackage:package];
 }
 
 - (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
@@ -5690,12 +5690,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return index;
 }
 
-- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action {
-    if ((self = [super initWithFrame:frame]) != nil) {
+- (id) initWithDatabase:(Database *)database title:(NSString *)title {
+    if ((self = [super init]) != nil) {
         database_ = database;
-
-        target_ = target;
-        action_ = action;
+        title_ = [title copy];
+        [[self navigationItem] setTitle:title_];
 
 #if TryIndexedCollation
         if ([[self class] hasIndexedCollation])
@@ -5709,10 +5708,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
 
-        list_ = [[UITableView alloc] initWithFrame:[self bounds] style:UITableViewStylePlain];
+        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [list_ setRowHeight:73];
-        [self addSubview:list_];
+        [[self view] addSubview:list_];
 
         [list_ setDataSource:self];
         [list_ setDelegate:self];
@@ -5817,18 +5816,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ scrollRectToVisible:CGRectMake(0, 0, 0, 0) animated:NO];
 }
 
-- (UITableView *) list {
-    return list_;
-}
-
-- (void) setShouldHideHeaderInShortLists:(BOOL)hide {
-    //XXX:[list_ setShouldHideHeaderInShortLists:hide];
-}
-
 @end
 /* }}} */
-/* Filtered Package Table {{{ */
-@interface FilteredPackageTable : PackageTable {
+/* Filtered Package List Controller {{{ */
+@interface FilteredPackageListController : PackageListController {
     SEL filter_;
     IMP imp_;
     id object_;
@@ -5837,11 +5828,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setObject:(id)object;
 - (void) setObject:(id)object forFilter:(SEL)filter;
 
-- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action filter:(SEL)filter with:(id)object;
+- (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
 
 @end
 
-@implementation FilteredPackageTable
+@implementation FilteredPackageListController
 
 - (void) dealloc {
     if (object_ != nil)
@@ -5879,81 +5870,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _end
 }
 
-- (id) initWithFrame:(CGRect)frame database:(Database *)database target:(id)target action:(SEL)action filter:(SEL)filter with:(id)object {
-    if ((self = [super initWithFrame:frame database:database target:target action:action]) != nil) {
+- (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
+    if ((self = [super initWithDatabase:database title:title]) != nil) {
         [self setFilter:filter];
-        object_ = [object retain];
+        [self setObject:object];
         [self reloadData];
     } return self;
 }
 
 @end
-/* }}} */
-/* Filtered Package Controller {{{ */
-@interface FilteredPackageController : CYViewController {
-    _transient Database *database_;
-    FilteredPackageTable *packages_;
-    NSString *title_;
-}
-
-- (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
-
-@end
-
-@implementation FilteredPackageController
-
-- (void) dealloc {
-    [packages_ release];
-    [title_ release];
-
-    [super dealloc];
-}
-
-- (void) viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    [packages_ deselectWithAnimation:animated];
-}
-
-- (void) didSelectPackage:(Package *)package {
-    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_] autorelease]);
-    [view setPackage:package];
-    [view setDelegate:delegate_];
-    [[self navigationController] pushViewController:view animated:YES];
-}
-
-- (NSString *) title { return title_; }
-
-- (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-        title_ = [title copy];
-        [[self navigationItem] setTitle:title_];
-
-        packages_ = [[FilteredPackageTable alloc]
-            initWithFrame:[[self view] bounds]
-            database:database
-            target:self
-            action:@selector(didSelectPackage:)
-            filter:filter
-            with:object
-        ];
-
-        [packages_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [[self view] addSubview:packages_];
-    } return self;
-}
-
-- (void) reloadData {
-    [packages_ reloadData];
-}
-
-- (void) setDelegate:(id)delegate {
-    [super setDelegate:delegate];
-    [packages_ setDelegate:delegate];
-}
-
-@end
-
 /* }}} */
 
 /* Home Controller {{{ */
@@ -6615,7 +6540,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Section Controller {{{ */
-@interface SectionController : FilteredPackageController {
+@interface SectionController : FilteredPackageListController {
 }
 
 - (id) initWithDatabase:(Database *)database section:(NSString *)section;
@@ -7072,7 +6997,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Search Controller {{{ */
-@interface SearchController : FilteredPackageController <
+@interface SearchController : FilteredPackageListController <
     UISearchBarDelegate
 > {
     UISearchBar *search_;
@@ -7096,13 +7021,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) searchBarSearchButtonClicked:(UISearchBar *)searchBar {
-    [packages_ setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+    [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [search_ resignFirstResponder];
     [self reloadData];
 }
 
 - (void) searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)text {
-    [packages_ setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
+    [self setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
     [self reloadData];
 }
 
@@ -7135,10 +7060,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     _profile(SearchController$reloadData)
-        [packages_ reloadData];
+        [super reloadData];
     _end
     PrintTimes();
-    [packages_ resetCursor];
+    [self resetCursor];
 }
 
 - (void) didSelectPackage:(Package *)package {
@@ -7324,7 +7249,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Installed Controller {{{ */
-@interface InstalledController : FilteredPackageController {
+@interface InstalledController : FilteredPackageListController {
     BOOL expert_;
 }
 
@@ -7373,10 +7298,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 }
 
-- (void) reloadData {
-    [packages_ reloadData];
-}
-
 - (void) updateRoleButton {
     if (Role_ != nil && ![Role_ isEqualToString:@"Developer"])
         [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
@@ -7388,16 +7309,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) roleButtonClicked {
-    [packages_ setObject:[NSNumber numberWithBool:expert_]];
-    [packages_ reloadData];
+    [self setObject:[NSNumber numberWithBool:expert_]];
+    [self reloadData];
     expert_ = !expert_;
 
     [self updateRoleButton];
-}
-
-- (void) setDelegate:(id)delegate {
-    [super setDelegate:delegate];
-    [packages_ setDelegate:delegate];
 }
 
 @end
@@ -7489,7 +7405,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Source Controller {{{ */
-@interface SourceController : FilteredPackageController {
+@interface SourceController : FilteredPackageListController {
 }
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source;

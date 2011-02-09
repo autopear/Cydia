@@ -191,7 +191,7 @@
 "THANK_YOU" = "Thank You";
 "QUEUE" = "Queue";
 "UNABLE_TO_COMPLY" = "Unable to Comply";
-"UNABLE_TO_COMPLY_EX" = "This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or iOS. In order to continue and force this operation you will need to be activate the Advanced mode under to continue and force this operation you will need to be activate the Advanced mode under Settings.";
+"UNABLE_TO_COMPLY_EX" = "This operation requires the removal of one or more packages that are required for the continued operation of either Cydia or iOS. In order to continue and force this operation you will need to be activate the Advanced under Settings.";
 "UNABLE_TO_LOAD" = "Unable to Load";
 "UNKNOWN" = "Unknown";
 "UNSAFE" = "Unsafe";

@@ -1427,7 +1427,7 @@ struct MetaValue :
 static Cytore::File<MetaValue> MetaFile_;
 // }}}
 // Cytore Helper Functions {{{
-static PackageValue *PackageFind(const char *name, size_t length) {
+static PackageValue *PackageFind(const char *name, size_t length, bool *fail = NULL) {
     SplitHash nhash = { hashlittle(name, length) };
 
     PackageValue *metadata;
@@ -1436,6 +1436,14 @@ static PackageValue *PackageFind(const char *name, size_t length) {
     offset: if (offset->IsNull()) {
         *offset = MetaFile_.New<PackageValue>(length + 1);
         metadata = &MetaFile_.Get(*offset);
+
+        if (metadata == NULL) {
+            if (fail != NULL)
+                *fail = true;
+
+            metadata = new PackageValue();
+            memset(metadata, 0, sizeof(*metadata));
+        }
 
         memcpy(metadata->name_, name, length + 1);
         metadata->nhash_ = nhash.u16[1];
@@ -1452,13 +1460,15 @@ static PackageValue *PackageFind(const char *name, size_t length) {
 }
 
 static void PackageImport(const void *key, const void *value, void *context) {
+    bool &fail(*reinterpret_cast<bool *>(context));
+
     char buffer[1024];
     if (!CFStringGetCString((CFStringRef) key, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
         NSLog(@"failed to import package %@", key);
         return;
     }
 
-    PackageValue *metadata(PackageFind(buffer, strlen(buffer)));
+    PackageValue *metadata(PackageFind(buffer, strlen(buffer), &fail));
     NSDictionary *package((NSDictionary *) value);
 
     if (NSNumber *subscribed = [package objectForKey:@"IsSubscribed"])
@@ -9463,11 +9473,15 @@ int main(int argc, char *argv[]) { _pooled
     _trace();
 
     if (Packages_ != nil) {
-        CFDictionaryApplyFunction((CFDictionaryRef) Packages_, &PackageImport, NULL);
+        bool fail(false);
+        CFDictionaryApplyFunction((CFDictionaryRef) Packages_, &PackageImport, &fail);
         _trace();
-        [Metadata_ removeObjectForKey:@"Packages"];
-        Packages_ = nil;
-        Changed_ = true;
+
+        if (!fail) {
+            [Metadata_ removeObjectForKey:@"Packages"];
+            Packages_ = nil;
+            Changed_ = true;
+        }
     }
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];

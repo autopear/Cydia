@@ -5395,6 +5395,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database;
+
+- (void) setPackage:(Package *)package withName:(NSString *)name;
 - (void) setPackage:(Package *)package;
 
 @end
@@ -5529,16 +5531,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) setPackage:(Package *)package {
+- (void) setPackage:(Package *)package withName:(NSString *)name {
     if (package_ != nil) {
         [package_ autorelease];
         package_ = nil;
     }
 
-    if (name_ != nil) {
-        [name_ release];
-        name_ = nil;
-    }
+    if (name_ != nil)
+        [name_ autorelease];
+    name_ = [[NSString alloc] initWithString:name];
 
     [buttons_ removeAllObjects];
 
@@ -5546,7 +5547,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [package parse];
 
         package_ = [package retain];
-        name_ = [[package id] retain];
         commercial_ = [package isCommercial];
 
         if ([package_ mode] != nil)
@@ -5579,7 +5579,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         action:@selector(customButtonClicked)
     ];
 
-    [self reloadURL];
+    [self loadURL:[NSURL URLWithString:CydiaURL([NSString stringWithFormat:@"ui/package/#!/%@", name])]];
+}
+
+- (void) setPackage:(Package *)package {
+    [self setPackage:package withName:[package id]];
 }
 
 - (bool) isLoading {
@@ -5588,8 +5592,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     [super reloadData];
-
-    [self setPackage:[database_ packageWithName:name_]];
+    [self setPackage:[database_ packageWithName:name_] withName:name_];
 }
 
 @end
@@ -8812,17 +8815,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (CYViewController *) pageForPackage:(NSString *)name {
-    if (Package *package = [database_ packageWithName:name]) {
-        CYPackageController *view = [[[CYPackageController alloc] initWithDatabase:database_] autorelease];
-        [view setPackage:package];
-        return view;
-    } else {
-        NSURL *url([NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"unknown" ofType:@"html"]]);
-        url = [NSURL URLWithString:[[url absoluteString] stringByAppendingString:[NSString stringWithFormat:@"?%@", name]]];
-        CYBrowserController *browser = [[[CYBrowserController alloc] init] autorelease];
-        [browser loadURL:url];
-        return browser;
-    }
+    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_] autorelease]);
+    [view setPackage:[database_ packageWithName:name] withName:name];
+    return view;
 }
 
 - (CYViewController *) pageForURL:(NSURL *)url {

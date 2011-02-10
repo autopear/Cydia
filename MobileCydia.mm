@@ -4321,7 +4321,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             SizeString([database_ fetcher].PartialPresent()),
         nil];
 
-        [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"confirm" ofType:@"html"]]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/confirm/")]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")

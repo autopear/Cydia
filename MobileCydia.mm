@@ -5453,11 +5453,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [super webView:view didClearWindowObject:window forFrame:frame];
-    [window setValue:package_ forKey:@"package"];
-}
-
 - (bool) _allowJavaScriptPanel {
     return commercial_;
 }

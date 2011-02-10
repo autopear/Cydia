@@ -5588,7 +5588,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableView *list_;
     NSMutableArray *index_;
     NSMutableDictionary *indices_;
-    SEL action_;
     NSString *title_;
 }
 
@@ -5613,6 +5612,69 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) deselectWithAnimation:(BOOL)animated {
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
+}
+
+- (void) resizeForKeyboardBounds:(CGRect)bounds duration:(NSTimeInterval)duration curve:(UIViewAnimationCurve)curve {
+    CGRect base = [[self view] bounds];
+    base.size.height -= bounds.size.height;
+    base.origin = [list_ frame].origin;
+
+    [UIView beginAnimations:nil context:NULL];
+    [UIView setAnimationBeginsFromCurrentState:YES];
+    [UIView setAnimationCurve:curve];
+    [UIView setAnimationDuration:duration];
+    [list_ setFrame:base];
+    [UIView commitAnimations];
+}
+
+- (void) resizeForKeyboardBounds:(CGRect)bounds duration:(NSTimeInterval)duration {
+    [self resizeForKeyboardBounds:bounds duration:duration curve:UIViewAnimationCurveLinear];
+}
+
+- (void) resizeForKeyboardBounds:(CGRect)bounds {
+    [self resizeForKeyboardBounds:bounds duration:0];
+}
+
+- (void) keyboardWillShow:(NSNotification *)notification {
+    CGRect bounds;
+    CGPoint center;
+    NSTimeInterval duration;
+    UIViewAnimationCurve curve;
+    [[[notification userInfo] objectForKey:UIKeyboardBoundsUserInfoKey] getValue:&bounds];
+    [[[notification userInfo] objectForKey:UIKeyboardCenterEndUserInfoKey] getValue:&center];
+    [[[notification userInfo] objectForKey:UIKeyboardAnimationCurveUserInfoKey] getValue:&curve];
+    [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
+
+    CGRect kbframe = CGRectMake(round(center.x - bounds.size.width / 2.0), round(center.y - bounds.size.height / 2.0), bounds.size.width, bounds.size.height);
+    CGRect viewframe = [[[self view] window] convertRect:[self view].frame fromView:[[self view] superview]];
+    CGRect intersection = CGRectIntersection(viewframe, kbframe);
+
+    [self resizeForKeyboardBounds:intersection duration:duration curve:curve];
+}
+
+- (void) keyboardWillHide:(NSNotification *)notification {
+    NSTimeInterval duration;
+    UIViewAnimationCurve curve;
+    [[[notification userInfo] objectForKey:UIKeyboardAnimationCurveUserInfoKey] getValue:&curve];
+    [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
+
+    [self resizeForKeyboardBounds:CGRectZero duration:duration curve:curve];
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+
+    [self resizeForKeyboardBounds:CGRectZero];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+
+    [self resizeForKeyboardBounds:CGRectZero];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
 }
 
 - (void) viewDidAppear:(BOOL)animated {

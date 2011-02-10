@@ -13,6 +13,8 @@ if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
     dpkg -i "${debs[@]}"
     rm -f "${debs[@]}"
     cache=
+
+    killall -9 Lowtide AppleTV
 fi
 
 if [[ ${cache+@} ]]; then

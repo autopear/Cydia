@@ -5646,7 +5646,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
 
     CGRect kbframe = CGRectMake(round(center.x - bounds.size.width / 2.0), round(center.y - bounds.size.height / 2.0), bounds.size.width, bounds.size.height);
-    CGRect viewframe = [[[self view] window] convertRect:[self view].frame fromView:[[self view] superview]];
+    UIViewController *base = self;
+    while ([base parentViewController] != nil)
+        base = [base parentViewController];
+    CGRect viewframe = [[base view] convertRect:[list_ frame] fromView:[list_ superview]];
     CGRect intersection = CGRectIntersection(viewframe, kbframe);
 
     [self resizeForKeyboardBounds:intersection duration:duration curve:curve];

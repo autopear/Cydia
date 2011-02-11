@@ -105,6 +105,9 @@
     <key>Dictionaries (Hunspell)</key>
     <string>Dictionaries</string>
 
+    <key>Addons (Bootlogo)</key>
+    <string>Addons (BootLogo)</key>
+
     <key>eBooks</key>
     <string>Books</string>
 

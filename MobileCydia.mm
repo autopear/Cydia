@@ -4315,7 +4315,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
-            // OLD: [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("CANCEL"), UCLocalize("QUEUE")]
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(cancelButtonClicked)
@@ -4328,7 +4327,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (issues_ == nil && ![self isLoading])
         [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CONFIRM")
-            style:UIBarButtonItemStylePlain
+            style:UIBarButtonItemStyleDone
             target:self
             action:@selector(confirmButtonClicked)
         ] autorelease]];

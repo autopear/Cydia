@@ -217,14 +217,6 @@ union SplitHash {
 
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
-void NSLogPoint(const char *fix, const CGPoint &point) {
-    NSLog(@"%s(%g,%g)", fix, point.x, point.y);
-}
-
-void NSLogRect(const char *fix, const CGRect &rect) {
-    NSLog(@"%s(%g,%g)+(%g,%g)", fix, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
-}
-
 static _finline NSString *CydiaURL(NSString *path) {
     char page[25];
     page[0] = 'h'; page[1] = 't'; page[2] = 't'; page[3] = 'p'; page[4] = ':';
@@ -309,15 +301,15 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 @end
 /* }}} */
 
-/* Cydia Action Sheet {{{ */
-@interface CYActionSheet : UIAlertView {
+/* Cydia Alert View {{{ */
+@interface CYAlertView : UIAlertView {
     unsigned button_;
 }
 
 - (int) yieldToPopupAlertAnimated:(BOOL)animated;
 @end
 
-@implementation CYActionSheet
+@implementation CYAlertView
 
 - (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
     if ((self = [super init])) {
@@ -362,32 +354,6 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive | kCFCompareNonliteral | kCFCompareLocalized | kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
-
-/* Information Dictionaries {{{ */
-@interface NSMutableArray (Cydia)
-- (void) addInfoDictionary:(NSDictionary *)info;
-@end
-
-@implementation NSMutableArray (Cydia)
-
-- (void) addInfoDictionary:(NSDictionary *)info {
-    [self addObject:info];
-}
-
-@end
-
-@interface NSMutableDictionary (Cydia)
-- (void) addInfoDictionary:(NSDictionary *)info;
-@end
-
-@implementation NSMutableDictionary (Cydia)
-
-- (void) addInfoDictionary:(NSDictionary *)info {
-    [self setObject:info forKey:[info objectForKey:@"CFBundleIdentifier"]];
-}
-
-@end
-/* }}} */
 
 #define lprintf(args...) fprintf(stderr, args)
 
@@ -4753,7 +4719,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    CYActionSheet *sheet([[[CYActionSheet alloc]
+    CYAlertView *sheet([[[CYAlertView alloc]
         initWithTitle:title
         buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
         defaultButtonIndex:0

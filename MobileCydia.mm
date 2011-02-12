@@ -4041,27 +4041,40 @@ static NSString *Warning_;
 
 @implementation CYEmulatedLoadingController
 
-- (CYEmulatedLoadingController *) init {
-    if ((self = [super init])) {
-        [[self view] setBackgroundColor:[UIColor pinStripeColor]];
+- (void) dealloc {
+    [self releaseSubviews];
 
-        indicator_ = [[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]];
-        [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [[self view] addSubview:indicator_];
-        [indicator_ release];
+    [super dealloc];
+}
 
-        tabbar_ = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)];
-        [tabbar_ setFrame:CGRectMake(0.0f, [[self view] bounds].size.height - [tabbar_ bounds].size.height, [[self view] bounds].size.width, [tabbar_ bounds].size.height)];
-        [tabbar_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth];
-        [[self view] addSubview:tabbar_];
-        [tabbar_ release];
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    [[self view] setBackgroundColor:[UIColor pinStripeColor]];
 
-        navbar_ = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)];
-        [navbar_ setFrame:CGRectMake(0.0f, 0.0f, [[self view] bounds].size.width, [navbar_ bounds].size.height)];
-        [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth];
-        [[self view] addSubview:navbar_];
-        [navbar_ release];
-    } return self;
+    indicator_ = [[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]];
+    [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [[self view] addSubview:indicator_];
+
+    tabbar_ = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)];
+    [tabbar_ setFrame:CGRectMake(0.0f, [[self view] bounds].size.height - [tabbar_ bounds].size.height, [[self view] bounds].size.width, [tabbar_ bounds].size.height)];
+    [tabbar_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth];
+    [[self view] addSubview:tabbar_];
+
+    navbar_ = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)];
+    [navbar_ setFrame:CGRectMake(0.0f, 0.0f, [[self view] bounds].size.width, [navbar_ bounds].size.height)];
+    [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth];
+    [[self view] addSubview:navbar_];
+}
+
+- (void) releaseSubviews {
+    [indicator_ release];
+    indicator_ = nil;
+
+    [tabbar_ release];
+    tabbar_ = nil;
+
+    [navbar_ release];
+    navbar_ = nil;
 }
 
 @end
@@ -4079,6 +4092,10 @@ static NSString *Warning_;
 - (void) dealloc {
     [cydia_ release];
     [super dealloc];
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[[webview_ request] URL] absoluteString]]];
 }
 
 - (void) setHeaders:(NSDictionary *)headers forHost:(NSString *)host {
@@ -5274,12 +5291,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation FileTable
 
 - (void) dealloc {
-    if (package_ != nil)
-        [package_ release];
-    if (name_ != nil)
-        [name_ release];
+    [self releaseSubviews];
+
+    [package_ release];
+    [name_ release];
     [files_ release];
-    [list_ release];
+
     [super dealloc];
 }
 
@@ -5305,21 +5322,35 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return cell;
 }
 
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/files", [package_ id]]];
+}
+
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
+    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [list_ setRowHeight:24.0f];
+    [list_ setDataSource:self];
+    [list_ setDelegate:self];
+    [[self view] addSubview:list_];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("INSTALLED_FILES")];
+}
+
+- (void) releaseSubviews {
+    [list_ release];
+    list_ = nil;
+}
+
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        [[self navigationItem] setTitle:UCLocalize("INSTALLED_FILES")];
-
         files_ = [[NSMutableArray arrayWithCapacity:32] retain];
-
-        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [list_ setRowHeight:24.0f];
-        [[self view] addSubview:list_];
-
-        [list_ setDataSource:self];
-        [list_ setDelegate:self];
     } return self;
 }
 
@@ -5369,6 +5400,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     [self setPackage:[database_ packageWithName:name_]];
 }
 
@@ -5409,6 +5442,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) release {
     [super release];
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", [package_ id]]];
 }
 
 /* XXX: this is not safe at all... localization of /fail/ */
@@ -5504,11 +5541,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 #endif
 
+- (void) viewWillAppear:(BOOL)animated {
+    if (![self hasLoaded])
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/package/")]];
+    [super viewWillAppear:animated];
+}
+
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/package/")]];
     } return self;
 }
 
@@ -5570,6 +5612,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     [self setPackage:[database_ packageWithName:name_]];
 }
 
@@ -5792,6 +5836,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
 
@@ -5953,8 +5999,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation HomeController
 
-+ (BOOL)shouldHideNavigationBar {
++ (BOOL) shouldHideNavigationBar {
     return NO;
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://home"];
 }
 
 - (void) _setMoreHeaders:(NSMutableURLRequest *)request {
@@ -5985,13 +6035,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert show];
 }
 
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-
-    if ([[self class] shouldHideNavigationBar])
-        [[self navigationController] setNavigationBarHidden:YES animated:animated];
-}
-
 - (void) viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
 
@@ -5999,17 +6042,23 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [[self navigationController] setNavigationBarHidden:NO animated:animated];
 }
 
-- (id) init {
-    if ((self = [super init]) != nil) {
+- (void) viewWillAppear:(BOOL)animated {
+    if (![self hasLoaded])
         [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/home/")]];
 
-        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("ABOUT")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(aboutButtonClicked)
-        ] autorelease]];
-    } return self;
+    [super viewWillAppear:animated];
+
+    if ([[self class] shouldHideNavigationBar])
+        [[self navigationController] setNavigationBarHidden:YES animated:animated];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("ABOUT")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(aboutButtonClicked)
+    ] autorelease]];
 }
 
 @end
@@ -6023,21 +6072,28 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation ManageController
 
-- (id) init {
-    if ((self = [super init]) != nil) {
-        [[self navigationItem] setTitle:UCLocalize("MANAGE")];
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://manage"];
+}
 
+- (void) viewWillAppear:(BOOL)animated {
+    if (![self hasLoaded])
         [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/manage/")]];
 
-        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("SETTINGS")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(settingsButtonClicked)
-        ] autorelease]];
+    [super viewWillAppear:animated];
+}
 
-        [self queueStatusDidChange];
-    } return self;
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("MANAGE")];
+
+    [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("SETTINGS")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(settingsButtonClicked)
+    ] autorelease]];
+
+    [self queueStatusDidChange];
 }
 
 - (void) settingsButtonClicked {
@@ -6050,11 +6106,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) applyLoadingTitle {
-    // No "Loading" title.
+    // Disable "Loading" title.
 }
 
 - (void) applyRightButton {
-    // No right button.
+    // Disable right button.
 }
 #endif
 
@@ -6074,6 +6130,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) isLoading {
+    // Never show as loading.
     return false;
 }
 
@@ -6213,6 +6270,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     id root_;
 }
 
+- (NSArray *) navigationURLCollection;
 - (void) dropBar:(BOOL)animated;
 - (void) beginUpdate;
 - (void) raiseBar:(BOOL)animated;
@@ -6222,14 +6280,31 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation CYTabBarController
 
-- (void) reloadData {
-    size_t count([[self viewControllers] count]);
-    for (size_t i(0); i != count; ++i) {
-        CYNavigationController *page([[self viewControllers] objectAtIndex:(count - i - 1)]);
-        [page reloadData];
+- (NSArray *) navigationURLCollection {
+    NSMutableArray *items([NSMutableArray array]);
+
+    // XXX: Should this deal with transient view controllers?
+    for (id navigation in [self viewControllers]) {
+        NSArray *stack = [navigation performSelector:@selector(navigationURLCollection)];
+        if (stack != nil)
+            [items addObject:stack];
     }
 
+    return items;
+}
+
+- (void) reloadData {
+    for (CYViewController *controller in [self viewControllers])
+        [controller reloadData];
+
     [(CYNavigationController *)[self transientViewController] reloadData];
+}
+
+- (void) dealloc {
+    [refreshbar_ release];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+
+    [super dealloc];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -6456,12 +6531,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) dealloc {
-    [refreshbar_ release];
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [super dealloc];
-}
-
 @end
 /* }}} */
 /* Cydia Navigation Controller {{{ */
@@ -6470,6 +6539,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient id<UINavigationControllerDelegate> delegate_;
 }
 
+- (NSArray *) navigationURLCollection;
 - (id) initWithDatabase:(Database *)database;
 - (void) reloadData;
 
@@ -6482,11 +6552,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (NSArray *) navigationURLCollection {
+    NSMutableArray *stack([NSMutableArray array]);
+
+    for (CYViewController *controller in [self viewControllers]) {
+        NSString *url = [[controller navigationURL] absoluteString];
+        if (url != nil)
+            [stack addObject:url];
+    }
+
+    return stack;
+}
+
 - (void) reloadData {
-    size_t count([[self viewControllers] count]);
-    for (size_t i(0); i != count; ++i) {
-        CYViewController *page([[self viewControllers] objectAtIndex:(count - i - 1)]);
-        [page reloadData];
+    for (CYViewController *page in [self viewControllers]) {
+        if ([page hasLoaded])
+            [page reloadData];
     }
 }
 
@@ -6606,6 +6687,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Section Controller {{{ */
 @interface SectionController : FilteredPackageListController {
+    NSString *section_;
 }
 
 - (id) initWithDatabase:(Database *)database section:(NSString *)section;
@@ -6613,6 +6695,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation SectionController
+
+- (NSURL *) navigationURL {
+    NSString *name = section_;
+    if (name == nil)
+        name = @"all";
+
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sections/%@", name]];
+}
 
 - (id) initWithDatabase:(Database *)database section:(NSString *)name {
     NSString *title;
@@ -6624,6 +6714,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else {
         title = UCLocalize("NO_SECTION");
     }
+
+    section_ = name;
 
     if ((self = [super initWithDatabase:database title:title filter:@selector(isVisibleInSection:) with:name]) != nil) {
     } return self;
@@ -6644,9 +6736,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database;
-- (void) reloadData;
-- (void) resetView;
-
 - (void) editButtonClicked;
 
 @end
@@ -6654,13 +6743,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SectionsController
 
 - (void) dealloc {
-    [list_ setDataSource:nil];
-    [list_ setDelegate:nil];
-
+    [self releaseSubviews];
     [sections_ release];
     [filtered_ release];
-    [list_ release];
+
     [super dealloc];
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://sections"];
 }
 
 - (void) updateNavigationItem {
@@ -6674,6 +6765,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             action:@selector(editButtonClicked)
         ] animated:([[self navigationItem] rightBarButtonItem] != nil)];
     }
+}
+
+- (BOOL) isEditing {
+    return editing_;
 }
 
 - (void) setEditing:(BOOL)editing {
@@ -6711,7 +6806,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *reuseIdentifier = @"SectionCell";
 
-    SectionCell *cell = (SectionCell *) [tableView dequeueReusableCellWithIdentifier:reuseIdentifier];
+    SectionCell *cell = (SectionCell *)[tableView dequeueReusableCellWithIdentifier:reuseIdentifier];
     if (cell == nil)
         cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
 
@@ -6735,28 +6830,38 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[self navigationController] pushViewController:controller animated:YES];
 }
 
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
+    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [list_ setRowHeight:45.0f];
+    [list_ setDataSource:self];
+    [list_ setDelegate:self];
+    [[self view] addSubview:list_];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("SECTIONS")];
+}
+
+- (void) releaseSubviews {
+    [list_ release];
+    list_ = nil;
+}
+
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        [[self navigationItem] setTitle:UCLocalize("SECTIONS")];
-
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
         filtered_ = [[NSMutableArray arrayWithCapacity:16] retain];
-
-        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [list_ setRowHeight:45.0f];
-        [[self view] addSubview:list_];
-
-        [list_ setDataSource:self];
-        [list_ setDelegate:self];
-
-        [self reloadData];
     } return self;
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     NSArray *packages = [database_ packages];
 
     [sections_ removeAllObjects];
@@ -6811,11 +6916,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
 }
 
-- (void) resetView {
-    if (editing_)
-        [self editButtonClicked];
-}
-
 - (void)editButtonClicked {
     [self setEditing:!editing_];
 }
@@ -6844,18 +6944,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation ChangesController
 
 - (void) dealloc {
-    [list_ setDelegate:nil];
-    [list_ setDataSource:nil];
-
+    [self releaseSubviews];
     CFRelease(packages_);
-
     [sections_ release];
-    [list_ release];
+
     [super dealloc];
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://changes"];
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    // Loads after it appears, so don't load beforehand.
+    loaded_ = YES;
+    [super viewWillAppear:animated];
 }
 
 - (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+
     if (!hasSentFirstLoad_) {
         hasSentFirstLoad_ = YES;
         [self performSelector:@selector(reloadData) withObject:nil afterDelay:0.0];
@@ -6924,23 +7032,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ distUpgrade];
 }
 
-- (NSString *) title { return UCLocalize("CHANGES"); }
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
+    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [list_ setRowHeight:73];
+    [list_ setDataSource:self];
+    [list_ setDelegate:self];
+    [[self view] addSubview:list_];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("CHANGES")];
+}
+
+- (void) releaseSubviews {
+    [list_ release];
+    list_ = nil;
+}
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-        [[self navigationItem] setTitle:UCLocalize("CHANGES")];
 
         packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
         sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
-
-        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [list_ setRowHeight:73];
-        [[self view] addSubview:list_];
-
-        [list_ setDataSource:self];
-        [list_ setDelegate:self];
     } return self;
 }
 
@@ -7066,6 +7183,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UISearchBarDelegate
 > {
     UISearchBar *search_;
+    BOOL searchloaded_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7081,8 +7199,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (NSURL *) navigationURL {
+    if ([search_ text] == nil || [[search_ text] isEqualToString:@""])
+        return [NSURL URLWithString:@"cydia://search"];
+    else
+        return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [search_ text]]];
+}
+
 - (void) setSearchTerm:(NSString *)searchTerm {
     [search_ setText:searchTerm];
+    [self reloadData];
 }
 
 - (void) searchBarSearchButtonClicked:(UISearchBar *)searchBar {
@@ -7097,13 +7223,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database {
-    return [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil];
+    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil])) {
+        search_ = [[UISearchBar alloc] init];
+    } return self;
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    if (!search_) {
-        search_ = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] bounds].size.width, 44.0f)];
+
+    if (!searchloaded_) {
+        searchloaded_ = YES;
+        [search_ setFrame:CGRectMake(0, 0, [[self view] bounds].size.width, 44.0f)];
         [search_ layoutSubviews];
         [search_ setPlaceholder:UCLocalize("SEARCH_EX")];
 
@@ -7120,14 +7250,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) _reloadData {
-}
-
 - (void) reloadData {
-    _profile(SearchController$reloadData)
-        [super reloadData];
-    _end
-    PrintTimes();
+    [self setObject:[search_ text]];
+    [super reloadData];
     [self resetCursor];
 }
 
@@ -7160,16 +7285,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation PackageSettingsController
 
 - (void) dealloc {
+    [self releaseSubviews];
     [name_ release];
-    if (package_ != nil)
-        [package_ release];
-    [table_ release];
-    [subscribedSwitch_ release];
-    [ignoredSwitch_ release];
-    [subscribedCell_ release];
-    [ignoredCell_ release];
+    [package_ release];
 
     [super dealloc];
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/settings", [package_ id]]];
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
@@ -7220,48 +7344,69 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return nil;
 }
 
-- (NSString *) title { return UCLocalize("SETTINGS"); }
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
+    [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [table_ setDataSource:self];
+    [table_ setDelegate:self];
+    [[self view] addSubview:table_];
+
+    subscribedSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+    [subscribedSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+    [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventValueChanged];
+
+    ignoredSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+    [ignoredSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
+    [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventValueChanged];
+    // Disable this switch, since it only reflects (not modifies) the ignored state.
+    [ignoredSwitch_ setUserInteractionEnabled:NO];
+
+    subscribedCell_ = [[UITableViewCell alloc] init];
+    [subscribedCell_ setText:UCLocalize("SHOW_ALL_CHANGES")];
+    [subscribedCell_ setAccessoryView:subscribedSwitch_];
+    [subscribedCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
+
+    ignoredCell_ = [[UITableViewCell alloc] init];
+    [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
+    [ignoredCell_ setAccessoryView:ignoredSwitch_];
+    [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
+    // FIXME: Ignored state is not saved.
+    [ignoredCell_ setUserInteractionEnabled:NO];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("SETTINGS")];
+}
+
+- (void) releaseSubviews {
+    [ignoredCell_ release];
+    ignoredCell_ = nil;
+
+    [subscribedCell_ release];
+    subscribedCell_ = nil;
+
+    [table_ release];
+    table_ = nil;
+
+    [ignoredSwitch_ release];
+    ignoredSwitch_ = nil;
+
+    [subscribedSwitch_ release];
+    subscribedSwitch_ = nil;
+}
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package {
     if ((self = [super init])) {
         database_ = database;
         name_ = [package retain];
-
-        [[self navigationItem] setTitle:UCLocalize("SETTINGS")];
-
-        table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
-        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [[self view] addSubview:table_];
-
-        subscribedSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
-        [subscribedSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-        [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventValueChanged];
-
-        ignoredSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
-        [ignoredSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-        [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventValueChanged];
-        // Disable this switch, since it only reflects (not modifies) the ignored state.
-        [ignoredSwitch_ setUserInteractionEnabled:NO];
-
-        subscribedCell_ = [[UITableViewCell alloc] init];
-        [subscribedCell_ setText:UCLocalize("SHOW_ALL_CHANGES")];
-        [subscribedCell_ setAccessoryView:subscribedSwitch_];
-        [subscribedCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
-
-        ignoredCell_ = [[UITableViewCell alloc] init];
-        [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
-        [ignoredCell_ setAccessoryView:ignoredSwitch_];
-        [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
-        // FIXME: Ignored state is not saved.
-        [ignoredCell_ setUserInteractionEnabled:NO];
-
-        [table_ setDataSource:self];
-        [table_ setDelegate:self];
-        [self reloadData];
     } return self;
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     if (package_ != nil)
         [package_ autorelease];
     package_ = [database_ packageWithName:name_];
@@ -7272,42 +7417,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     [table_ reloadData];
-}
-
-@end
-/* }}} */
-/* Signature Controller {{{ */
-@interface SignatureController : CYBrowserController {
-    _transient Database *database_;
-    NSString *package_;
-}
-
-- (id) initWithDatabase:(Database *)database package:(NSString *)package;
-
-@end
-
-@implementation SignatureController
-
-- (void) dealloc {
-    [package_ release];
-    [super dealloc];
-}
-
-- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    // XXX: dude!
-    [super webView:view didClearWindowObject:window forFrame:frame];
-}
-
-- (id) initWithDatabase:(Database *)database package:(NSString *)package {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-        package_ = [package retain];
-        [self reloadData];
-    } return self;
-}
-
-- (void) reloadData {
-    [self loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"signature" ofType:@"html"]]];
 }
 
 @end
@@ -7331,7 +7440,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (NSString *) title { return UCLocalize("INSTALLED"); }
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://installed"];
+}
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super initWithDatabase:database title:UCLocalize("INSTALLED") filter:@selector(isInstalledAndUnfiltered:) with:[NSNumber numberWithBool:YES]]) != nil) {
@@ -7471,6 +7582,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Source Controller {{{ */
 @interface SourceController : FilteredPackageListController {
+    Source *source_;
 }
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source;
@@ -7479,7 +7591,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SourceController
 
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sources/%@", [source_ name]]];
+}
+
 - (id) initWithDatabase:(Database *)database source:(Source *)source {
+    source_ = source;
+
     if ((self = [super initWithDatabase:database title:[source label] filter:@selector(isVisibleInSource:) with:source]) != nil) {
     } return self;
 }
@@ -7510,7 +7628,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database;
-
 - (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated;
 
 @end
@@ -7526,12 +7643,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) dealloc {
-    if (href_ != nil)
-        [href_ release];
-    if (hud_ != nil)
-        [hud_ release];
-    if (error_ != nil)
-        [error_ release];
+    [self releaseSubviews];
+
+    [href_ release];
+    [hud_ release];
+    [error_ release];
 
     //[self _releaseConnection:installer_];
     [self _releaseConnection:trivial_];
@@ -7540,8 +7656,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     //[self _releaseConnection:automatic_];
 
     [sources_ release];
-    [list_ release];
     [super dealloc];
+}
+
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://sources"];
 }
 
 - (void) viewDidAppear:(BOOL)animated {
@@ -7745,8 +7864,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self _endConnection:connection];
 }
 
-- (NSString *) title { return UCLocalize("SOURCES"); }
-
 - (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
     NSMutableURLRequest *request = [NSMutableURLRequest
         requestWithURL:[NSURL URLWithString:href]
@@ -7824,27 +7941,37 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
+    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [list_ setRowHeight:56];
+    [list_ setDataSource:self];
+    [list_ setDelegate:self];
+    [[self view] addSubview:list_];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("SOURCES")];
+    [self updateButtonsForEditingStatus:NO animated:NO];
+}
+
+- (void) releaseSubviews {
+    [list_ release];
+    list_ = nil;
+}
+
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
-        [[self navigationItem] setTitle:UCLocalize("SOURCES")];
-        [self updateButtonsForEditingStatus:NO animated:NO];
-
         database_ = database;
         sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
-
-        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [list_ setRowHeight:56];
-        [[self view] addSubview:list_];
-
-        [list_ setDataSource:self];
-        [list_ setDelegate:self];
-
-        [self reloadData];
     } return self;
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     pkgSourceList list;
     if (!list.ReadMainList())
         return;
@@ -7953,48 +8080,63 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation SettingsController
+
 - (void) dealloc {
-    [table_ release];
-    [segment_ release];
-    [container_ release];
+    [self releaseSubviews];
 
     [super dealloc];
+}
+
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
+    [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [table_ setDelegate:self];
+    [table_ setDataSource:self];
+    [[self view] addSubview:table_];
+
+    NSArray *items = [NSArray arrayWithObjects:
+        UCLocalize("USER"),
+        UCLocalize("HACKER"),
+        UCLocalize("DEVELOPER"),
+    nil];
+    segment_ = [[UISegmentedControl alloc] initWithItems:items];
+    container_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
+    [container_ addSubview:segment_];
+}
+
+- (void) viewDidLoad {
+    [[self navigationItem] setTitle:UCLocalize("WHO_ARE_YOU")];
+
+    int index = -1;
+    if ([Role_ isEqualToString:@"User"]) index = 0;
+    if ([Role_ isEqualToString:@"Hacker"]) index = 1;
+    if ([Role_ isEqualToString:@"Developer"]) index = 2;
+    if (index != -1) {
+        [segment_ setSelectedSegmentIndex:index];
+        [self showDoneButton];
+    }
+
+    [segment_ addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
+    [self resizeSegmentedControl];
+}
+
+- (void) releaseSubviews {
+    [table_ release];
+    table_ = nil;
+
+    [segment_ release];
+    segment_ = nil;
+
+    [container_ release];
+    container_ = nil;
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
     if ((self = [super init])) {
         database_ = database;
         roledelegate_ = delegate;
-
-        [[self navigationItem] setTitle:UCLocalize("WHO_ARE_YOU")];
-
-        NSArray *items = [NSArray arrayWithObjects:
-            UCLocalize("USER"),
-            UCLocalize("HACKER"),
-            UCLocalize("DEVELOPER"),
-        nil];
-        segment_ = [[UISegmentedControl alloc] initWithItems:items];
-        container_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
-        [container_ addSubview:segment_];
-
-        int index = -1;
-        if ([Role_ isEqualToString:@"User"]) index = 0;
-        if ([Role_ isEqualToString:@"Hacker"]) index = 1;
-        if ([Role_ isEqualToString:@"Developer"]) index = 2;
-        if (index != -1) {
-            [segment_ setSelectedSegmentIndex:index];
-            [self showDoneButton];
-        }
-
-        [segment_ addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
-        [self resizeSegmentedControl];
-
-        table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
-        [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [table_ setDelegate:self];
-        [table_ setDataSource:self];
-        [[self view] addSubview:table_];
-        [table_ reloadData];
     } return self;
 }
 
@@ -8109,61 +8251,82 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return section == 3 ? container_ : nil;
 }
 
+- (void) reloadData {
+    [super reloadData];
+    [table_ reloadData];
+}
+
 @end
 /* }}} */
 /* Stash Controller {{{ */
 @interface StashController : CYViewController {
-    // XXX: just delete these things
-    _transient UIActivityIndicatorView *spinner_;
-    _transient UILabel *status_;
-    _transient UILabel *caption_;
+    UIActivityIndicatorView *spinner_;
+    UILabel *status_;
+    UILabel *caption_;
 }
 @end
 
 @implementation StashController
-- (id) init {
-    if ((self = [super init])) {
-        [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
 
-        spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge] autorelease];
-        CGRect spinrect = [spinner_ frame];
-        spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
-        spinrect.origin.y = [[self view] frame].size.height - 80.0f;
-        [spinner_ setFrame:spinrect];
-        [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
-        [[self view] addSubview:spinner_];
-        [spinner_ startAnimating];
+- (void) dealloc {
+    [self releaseSubviews];
 
-        CGRect captrect;
-        captrect.size.width = [[self view] frame].size.width;
-        captrect.size.height = 40.0f;
-        captrect.origin.x = 0;
-        captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
-        caption_ = [[[UILabel alloc] initWithFrame:captrect] autorelease];
-        [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
-        [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
-        [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
-        [caption_ setTextColor:[UIColor whiteColor]];
-        [caption_ setBackgroundColor:[UIColor clearColor]];
-        [caption_ setShadowColor:[UIColor blackColor]];
-        [caption_ setTextAlignment:UITextAlignmentCenter];
-        [[self view] addSubview:caption_];
+    [super dealloc];
+}
 
-        CGRect statusrect;
-        statusrect.size.width = [[self view] frame].size.width;
-        statusrect.size.height = 30.0f;
-        statusrect.origin.x = 0;
-        statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
-        status_ = [[[UILabel alloc] initWithFrame:statusrect] autorelease];
-        [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
-        [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
-        [status_ setFont:[UIFont systemFontOfSize:16.0f]];
-        [status_ setTextColor:[UIColor whiteColor]];
-        [status_ setBackgroundColor:[UIColor clearColor]];
-        [status_ setShadowColor:[UIColor blackColor]];
-        [status_ setTextAlignment:UITextAlignmentCenter];
-        [[self view] addSubview:status_];
-    } return self;
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
+
+    spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge] autorelease];
+    CGRect spinrect = [spinner_ frame];
+    spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
+    spinrect.origin.y = [[self view] frame].size.height - 80.0f;
+    [spinner_ setFrame:spinrect];
+    [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
+    [[self view] addSubview:spinner_];
+    [spinner_ startAnimating];
+
+    CGRect captrect;
+    captrect.size.width = [[self view] frame].size.width;
+    captrect.size.height = 40.0f;
+    captrect.origin.x = 0;
+    captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
+    caption_ = [[[UILabel alloc] initWithFrame:captrect] autorelease];
+    [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
+    [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
+    [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
+    [caption_ setTextColor:[UIColor whiteColor]];
+    [caption_ setBackgroundColor:[UIColor clearColor]];
+    [caption_ setShadowColor:[UIColor blackColor]];
+    [caption_ setTextAlignment:UITextAlignmentCenter];
+    [[self view] addSubview:caption_];
+
+    CGRect statusrect;
+    statusrect.size.width = [[self view] frame].size.width;
+    statusrect.size.height = 30.0f;
+    statusrect.origin.x = 0;
+    statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
+    status_ = [[[UILabel alloc] initWithFrame:statusrect] autorelease];
+    [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
+    [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
+    [status_ setFont:[UIFont systemFontOfSize:16.0f]];
+    [status_ setTextColor:[UIColor whiteColor]];
+    [status_ setBackgroundColor:[UIColor clearColor]];
+    [status_ setShadowColor:[UIColor blackColor]];
+    [status_ setTextAlignment:UITextAlignmentCenter];
+    [[self view] addSubview:status_];
+}
+
+- (void) releaseSubviews {
+    [spinner_ release];
+    spinner_ = nil;
+
+    [status_ release];
+    status_ = nil;
+
+    [caption_ release];
+    caption_ = nil;
 }
 
 @end
@@ -8301,8 +8464,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (recently || loaded_ || ManualRefresh) {
         [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
 
-        // If we are cancelling due to ManualRefresh or a recent refresh
-        // we need to make sure it knows it's already loaded.
+        // If we are cancelling, we need to make sure it knows it's already loaded.
         loaded_ = true;
         return;
     } else {
@@ -8537,41 +8699,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self complete];
 }
 
-- (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
-    CYNavigationController *controller = (CYNavigationController *) viewController;
-
-    if ([[controller viewControllers] count] == 0) {
-        int index = [[tabbar_ viewControllers] indexOfObjectIdenticalTo:controller];
-        CYViewController *root = nil;
-
-        if (index == 0)
-            root = [[[HomeController alloc] init] autorelease];
-        else if (index == 1)
-            root = [[[SectionsController alloc] initWithDatabase:database_] autorelease];
-        else if (index == 2)
-            root = [[[ChangesController alloc] initWithDatabase:database_] autorelease];
-
-        if (IsWildcat_) {
-            if (index == 3)
-                root = [[[InstalledController alloc] initWithDatabase:database_] autorelease];
-            else if (index == 4)
-                root = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
-            else if (index == 5)
-                root = [[[SearchController alloc] initWithDatabase:database_] autorelease];
-        } else {
-            if (index == 3)
-                root = [[[ManageController alloc] init] autorelease];
-            else if (index == 4)
-                root = [[[SearchController alloc] initWithDatabase:database_] autorelease];
-        }
-
-        [root setDelegate:self];
-
-        if (root != nil)
-            [controller setViewControllers:[NSArray arrayWithObject:root]];
-    }
-}
-
 - (void) showSettings {
     SettingsController *role = [[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
     CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
@@ -8746,6 +8873,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         controller = [[[CYBrowserController alloc] init] autorelease];
         [(CYBrowserController *)controller loadURL:[NSURL URLWithString:destination]];
     } else if ([components count] == 1) {
+        if ([base isEqualToString:@"storage"]) {
+            controller = [[[CYBrowserController alloc] init] autorelease];
+            [(CYBrowserController *)controller loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]]];
+        }
+
+        if ([base isEqualToString:@"manage"]) {
+            controller = [[[ManageController alloc] init] autorelease];
+        }
+
         if ([base isEqualToString:@"sources"]) {
             controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
         }
@@ -8813,8 +8949,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ([base isEqualToString:@"package"]) {
             if ([arg2 isEqualToString:@"settings"]) {
                 controller = [[[PackageSettingsController alloc] initWithDatabase:database_ package:arg1] autorelease];
-            } else if ([arg2 isEqualToString:@"signature"]) {
-                controller = [[[SignatureController alloc] initWithDatabase:database_ package:arg1] autorelease];
             } else if ([arg2 isEqualToString:@"files"]) {
                 if (Package *package = [database_ packageWithName:arg1]) {
                     controller = [[[FileTable alloc] initWithDatabase:database_] autorelease];
@@ -8854,6 +8988,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([[self superclass] instancesRespondToSelector:@selector(applicationWillResignActive:)])
         [super applicationWillResignActive:application];
+}
+
+- (void) applicationWillTerminate:(UIApplication *)application {
+    Changed_ = true;
+    [Metadata_ setObject:[tabbar_ navigationURLCollection] forKey:@"InterfaceState"];
+    [Metadata_ setObject:[NSDate date] forKey:@"LastClosed"];
+    [Metadata_ setObject:[NSNumber numberWithInt:[tabbar_ selectedIndex]] forKey:@"InterfaceIndex"];
+
+    [self _saveConfig];
 }
 
 - (void) addStashController {
@@ -9014,9 +9157,51 @@ _trace();
     [self showEmulatedLoadingControllerInView:nil];
     [window_ setUserInteractionEnabled:YES];
 
-    // Show the home page.
-    CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:0];
-    [navigation setViewControllers:[NSArray arrayWithObject:[self pageForURL:[NSURL URLWithString:@"cydia://home"]]]];
+    int selectedIndex = 0;
+    NSMutableArray *items = nil;
+
+    bool recently = false;
+    NSDate *closed([Metadata_ objectForKey:@"LastClosed"]);
+    if (closed != nil) {
+        NSTimeInterval interval([closed timeIntervalSinceNow]);
+        // XXX: Is 15 minutes the optimal time here?
+        if (interval <= 0 && interval > -(15*60))
+            recently = true;
+    }
+
+    if (recently && [Metadata_ objectForKey:@"InterfaceState"]) {
+        items = [[Metadata_ objectForKey:@"InterfaceState"] mutableCopy];
+        selectedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
+    } else {
+        items = [NSMutableArray array];
+        [items addObject:[NSArray arrayWithObject:@"cydia://home"]];
+        [items addObject:[NSArray arrayWithObject:@"cydia://sections"]];
+        [items addObject:[NSArray arrayWithObject:@"cydia://changes"]];
+        if (!IsWildcat_) {
+            [items addObject:[NSArray arrayWithObject:@"cydia://manage"]];
+        } else {
+            [items addObject:[NSArray arrayWithObject:@"cydia://installed"]];
+            [items addObject:[NSArray arrayWithObject:@"cydia://sources"]];
+        }
+        [items addObject:[NSArray arrayWithObject:@"cydia://search"]];
+    }
+
+    [tabbar_ setSelectedIndex:selectedIndex];
+    for (unsigned int tab = 0; tab < [[tabbar_ viewControllers] count]; tab++) {
+        NSArray *stack = [items objectAtIndex:tab];
+        CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:tab];
+        NSMutableArray *current = [NSMutableArray array];
+
+        for (unsigned int nav = 0; nav < [stack count]; nav++) {
+            NSString *addr = [stack objectAtIndex:nav];
+            NSURL *url = [NSURL URLWithString:addr];
+            CYViewController *page = [self pageForURL:url];
+            if (page != nil)
+                [current addObject:page];
+        }
+
+        [navigation setViewControllers:current];
+    }
 
     // (Try to) show the startup URL.
     if (starturl_ != nil) {

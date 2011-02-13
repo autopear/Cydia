@@ -4321,7 +4321,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             SizeString([database_ fetcher].PartialPresent()),
         nil];
 
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/confirm/")]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/confirm/")]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
@@ -5528,7 +5528,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillAppear:(BOOL)animated {
     if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/package/")]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/package/")]];
     [super viewWillAppear:animated];
 }
 
@@ -5587,7 +5587,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         action:@selector(customButtonClicked)
     ];
 
-    [self loadURL:[NSURL URLWithString:CydiaURL([NSString stringWithFormat:@"ui/package/#!/%@", name])]];
+    [self loadURL:[NSURL URLWithString:CydiaURL([NSString stringWithFormat:@"ui/ios/package/#!/%@", name])]];
 }
 
 - (void) setPackage:(Package *)package {
@@ -6030,7 +6030,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillAppear:(BOOL)animated {
     if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/home/")]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/home/")]];
 
     [super viewWillAppear:animated];
 
@@ -6064,7 +6064,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillAppear:(BOOL)animated {
     if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/manage/")]];
+        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/manage/")]];
 
     [super viewWillAppear:animated];
 }

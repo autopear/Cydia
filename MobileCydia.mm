@@ -3353,7 +3353,7 @@ static NSString *Warning_;
     NSString *title(UCLocalize("DATABASE"));
 
     _trace();
-    if (!cache_.Open(progress_, true)) { pop:
+    while (!cache_.Open(progress_, true)) { pop:
         std::string error;
         bool warning(!_error->PopMessage(error));
         lprintf("cache_.Open():[%s]\n", error.c_str());
@@ -3363,15 +3363,17 @@ static NSString *Warning_;
         else if (error == "The package lists or status file could not be parsed or opened.")
             [delegate_ repairWithSelector:@selector(update)];
         // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
-        // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
+        else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
+            [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, Error_, title]];
         // else if (error == "The list of sources could not be read.")
-        else
+        else {
             [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, warning ? Warning_ : Error_, title]];
+            return;
+        }
 
         if (warning)
             goto pop;
         _error->Discard();
-        return;
     }
     _trace();
 
@@ -4008,7 +4010,11 @@ static NSString *Warning_;
 @end
 /* }}} */
 /* Emulated Loading Controller {{{ */
-@interface CYEmulatedLoadingController : CYViewController {
+@interface CYEmulatedLoadingController : CYViewController <
+    ProgressDelegate,
+    ConfigurationDelegate
+> {
+    _transient Database *database_;
     CYLoadingIndicator *indicator_;
     UITabBar *tabbar_;
     UINavigationBar *navbar_;
@@ -4019,8 +4025,42 @@ static NSString *Warning_;
 
 - (void) dealloc {
     [self releaseSubviews];
+    [database_ setDelegate:nil];
 
     [super dealloc];
+}
+
+- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
+    CYAlertView *sheet([[[CYAlertView alloc]
+        initWithTitle:title
+        buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
+        defaultButtonIndex:0
+    ] autorelease]);
+
+    [sheet setMessage:error];
+    [sheet yieldToPopupAlertAnimated:YES];
+    [sheet dismiss];
+}
+
+- (void) setProgressTitle:(NSString *)title { }
+- (void) setProgressPercent:(float)percent { }
+- (void) startProgress { }
+- (void) addProgressOutput:(NSString *)output { }
+- (bool) isCancelling:(size_t)received { return NO; }
+- (void) setConfigurationData:(NSString *)data { }
+
+- (void) repairWithSelector:(SEL)selector {
+    [[indicator_ label] performSelectorOnMainThread:@selector(setText:) withObject:[NSString stringWithFormat:Elision_, UCLocalize("REPAIRING"), nil] waitUntilDone:YES];
+    [database_ performSelector:selector];
+    sleep(10);
+    [[indicator_ label] performSelectorOnMainThread:@selector(setText:) withObject:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil] waitUntilDone:YES];
+}
+
+- (id) initWithDatabase:(Database *)database {
+    if ((self = [super init])) {
+        database_ = database;
+        [database_ setDelegate:self];
+    } return self;
 }
 
 - (void) loadView {
@@ -8717,7 +8757,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *context([alert context]);
 
     if ([context isEqualToString:@"fixhalf"]) {
-        if (button == [alert firstOtherButtonIndex]) {
+        if (button == [alert cancelButtonIndex]) {
             @synchronized (self) {
                 for (Package *broken in broken_) {
                     [broken remove];
@@ -8732,7 +8772,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [self resolve];
                 [self perform];
             }
-        } else if (button == [alert cancelButtonIndex]) {
+        } else if (button == [alert firstOtherButtonIndex]) {
             [broken_ removeAllObjects];
             [self _loaded];
         }
@@ -9036,11 +9076,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (CYEmulatedLoadingController *)showEmulatedLoadingControllerInView:(UIView *)view {
-    static CYEmulatedLoadingController *fake = [[CYEmulatedLoadingController alloc] init];
+    static CYEmulatedLoadingController *fake = nil;
+
     if (view != nil) {
+        if (fake == nil)
+            fake = [[CYEmulatedLoadingController alloc] initWithDatabase:database_];
         [view addSubview:[fake view]];
     } else {
         [[fake view] removeFromSuperview];
+        [fake release];
+        fake = nil;
     }
 
     return fake;
@@ -9144,10 +9189,15 @@ _trace();
             recently = true;
     }
 
-    if (recently && [Metadata_ objectForKey:@"InterfaceState"]) {
-        items = [[Metadata_ objectForKey:@"InterfaceState"] mutableCopy];
-        selectedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
-    } else {
+    items = [[Metadata_ objectForKey:@"InterfaceState"] mutableCopy];
+    selectedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
+
+    BOOL enough = YES;
+    for (NSArray *entry in items)
+        if ([entry count] <= 0)
+            enough = NO;
+
+    if (!recently || !items || !enough) {
         items = [NSMutableArray array];
         [items addObject:[NSArray arrayWithObject:@"cydia://home"]];
         [items addObject:[NSArray arrayWithObject:@"cydia://sections"]];

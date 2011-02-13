@@ -3929,7 +3929,7 @@ static NSString *Warning_;
     id values[count];
     for (unsigned i(0); i != count; ++i)
         values[i] = [arguments objectAtIndex:i];
-    return [[[NSString alloc] initWithFormat:format arguments:*(reinterpret_cast<va_list *>(&values))] autorelease];
+    return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
 }
 
 - (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {

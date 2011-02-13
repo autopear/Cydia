@@ -142,8 +142,11 @@ class File {
 
     bool Truncate_(size_t capacity) {
         capacity = Round(capacity, Block_);
+
         int error(ftruncate(file_, capacity));
-        _assert(error == 0);
+        if (error != 0)
+            return false;
+
         Map_(capacity);
         return true;
     }

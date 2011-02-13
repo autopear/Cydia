@@ -6679,18 +6679,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) initWithDatabase:(Database *)database section:(NSString *)name {
     NSString *title;
-
-    if (name == nil) {
+    if (name == nil)
         title = UCLocalize("ALL_PACKAGES");
-    } else if (![name isEqual:@""]) {
+    else if (![name isEqual:@""])
         title = [[NSBundle mainBundle] localizedStringForKey:Simplify(name) value:nil table:@"Sections"];
-    } else {
+    else
         title = UCLocalize("NO_SECTION");
-    }
-
-    section_ = name;
 
     if ((self = [super initWithDatabase:database title:title filter:@selector(isVisibleInSection:) with:name]) != nil) {
+        section_ = name;
     } return self;
 }
 

@@ -4972,18 +4972,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) _setBackgroundColor {
-    UIColor *color;
-    if (NSString *mode = [package_ mode]) {
-        bool remove([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]);
-        color = remove ? RemovingColor_ : InstallingColor_;
-    } else
-        color = [UIColor whiteColor];
-
-    [content_ setBackgroundColor:color];
-    [self setNeedsDisplay];
-}
-
 - (NSString *) accessibilityLabel {
     return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), name_, description_];
 }
@@ -5034,11 +5022,36 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ((badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]]) != nil)
             badge_ = [badge_ retain];
 
-    if ([package installed] != nil)
-        if ((placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/installed.png", App_]]) != nil)
+    UIColor *color;
+    NSString *placard;
+
+    if (NSString *mode = [package_ mode]) {
+        if ([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) {
+            color = RemovingColor_;
+            //placard = @"removing";
+        } else {
+            color = InstallingColor_;
+            //placard = @"installing";
+        }
+
+        // XXX: the removing/installing placards are not @2x
+        placard = nil;
+    } else {
+        color = [UIColor whiteColor];
+
+        if ([package installed] != nil)
+            placard = @"installed";
+        else
+            placard = nil;
+    }
+
+    [content_ setBackgroundColor:color];
+
+    if (placard != nil)
+        if ((placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]]) != nil)
             placard_ = [placard_ retain];
 
-    [self _setBackgroundColor];
+    [self setNeedsDisplay];
     [content_ setNeedsDisplay];
 }
 

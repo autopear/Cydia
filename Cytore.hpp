@@ -132,17 +132,20 @@ class File {
         size_t extend(size - before);
 
         void *data(mmap(NULL, extend, PROT_READ | PROT_WRITE, MAP_FILE | MAP_SHARED, file_, before));
+        _assert(data != MAP_FAILED);
         uint8_t *bytes(reinterpret_cast<uint8_t *>(data));
 
-        maps_.push_back(Mapping_(bytes,extend));
+        maps_.push_back(Mapping_(bytes, extend));
         for (size_t i(0); i != extend >> Shift_; ++i)
             blocks_.push_back(bytes + Block_ * i);
     }
 
-    void Truncate_(size_t capacity) {
+    bool Truncate_(size_t capacity) {
         capacity = Round(capacity, Block_);
-        ftruncate(file_, capacity);
+        int error(ftruncate(file_, capacity));
+        _assert(error == 0);
         Map_(capacity);
+        return true;
     }
 
   public:
@@ -175,35 +178,45 @@ class File {
     void Open(const char *path) {
         _assert(file_ == -1);
         file_ = open(path, O_RDWR | O_CREAT | O_EXLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        _assert(file_ != -1);
 
         struct stat stat;
-        fstat(file_, &stat);
+        _assert(fstat(file_, &stat) == 0);
 
         size_t core(sizeof(Header) + sizeof(Base_));
 
         size_t size(stat.st_size);
         if (size == 0) {
-            Truncate_(core);
+            _assert(Truncate_(core));
             Header_().magic_ = Magic;
             Size_() = core;
         } else {
             _assert(size >= core);
-            Truncate_(size);
+            // XXX: this involves an unneccessary call to ftruncate()
+            _assert(Truncate_(size));
             _assert(Header_().magic_ == Magic);
             _assert(Header_().version_ == 0);
         }
     }
 
-    void Reserve(size_t capacity) {
+    bool Reserve(size_t capacity) {
         if (capacity <= Capacity())
-            return;
+            return true;
+
+        uint8_t *block(blocks_.back());
         blocks_.pop_back();
-        Truncate_(capacity);
+
+        if (Truncate_(capacity))
+            return true;
+        else {
+            blocks_.push_back(block);
+            return false;
+        }
     }
 
     template <typename Target_>
     Target_ &Get(uint32_t offset) {
-        return *reinterpret_cast<Target_ *>(blocks_[offset >> Shift_] + (offset & Mask_));
+        return *reinterpret_cast<Target_ *>(offset == 0 ? NULL : blocks_[offset >> Shift_] + (offset & Mask_));
     }
 
     template <typename Target_>
@@ -219,9 +232,15 @@ class File {
     Offset<Target_> New(size_t extra = 0) {
         size_t size(sizeof(Target_) + extra);
         size = Round(size, sizeof(uintptr_t));
-        Reserve(Size_() + size);
-        uint32_t offset(Size_());
-        Size_() += size;
+
+        uint32_t offset;
+        if (!Reserve(Size_() + size))
+            offset = 0;
+        else {
+            offset = Size_();
+            Size_() += size;
+        }
+
         return Offset<Target_>(offset);
     }
 };

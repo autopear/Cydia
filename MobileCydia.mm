@@ -6863,7 +6863,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             section = [sections objectForKey:key];
             if (section == nil) {
                 _profile(SectionsView$reloadData$Section$Allocate)
-                    section = [[[Section alloc] initWithName:name localize:YES] autorelease];
+                    section = [[[Section alloc] initWithName:key localize:YES] autorelease];
                     [sections setObject:section forKey:key];
                 _end
             }

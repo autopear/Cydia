@@ -6283,6 +6283,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Cydia Tab Bar Controller {{{ */
 @interface CYTabBarController : UITabBarController <
+    UITabBarControllerDelegate,
     ProgressDelegate
 > {
     _transient Database *database_;
@@ -6294,6 +6295,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient NSObject<CydiaDelegate> *updatedelegate_;
 
     id root_;
+    UIViewController *remembered_;
+    _transient UIViewController *transient_;
 }
 
 - (NSArray *) navigationURLCollection;
@@ -6305,6 +6308,37 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation CYTabBarController
+
+- (void) setUnselectedViewController:(UIViewController *)transient {
+    NSMutableArray *controllers = [[self viewControllers] mutableCopy];
+    if (transient != nil) {
+        if (transient_ == nil)
+            remembered_ = [[controllers objectAtIndex:0] retain];
+        transient_ = transient;
+        [transient_ setTabBarItem:[remembered_ tabBarItem]];
+        [controllers replaceObjectAtIndex:0 withObject:transient_];
+        [self setSelectedIndex:0];
+        [self setViewControllers:controllers];
+        [self concealTabBarSelection];
+    } else if (remembered_ != nil) {
+        [remembered_ setTabBarItem:[transient_ tabBarItem]];
+        transient_ = transient;
+        [controllers replaceObjectAtIndex:0 withObject:remembered_];
+        [remembered_ release];
+        remembered_ = nil;
+        [self setViewControllers:controllers];
+        [self revealTabBarSelection];
+    }
+}
+
+- (UIViewController *) unselectedViewController {
+    return transient_;
+}
+
+- (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
+    if ([self unselectedViewController])
+        [self setUnselectedViewController:nil];
+}
 
 - (NSArray *) navigationURLCollection {
     NSMutableArray *items([NSMutableArray array]);
@@ -6323,7 +6357,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     for (CYViewController *controller in [self viewControllers])
         [controller reloadData];
 
-    [(CYNavigationController *)[self transientViewController] reloadData];
+    [(CYNavigationController *)[self unselectedViewController] reloadData];
 }
 
 - (void) dealloc {
@@ -6336,6 +6370,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
+        [self setDelegate:self];
 
         [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(statusBarFrameChanged:) name:UIApplicationDidChangeStatusBarFrameNotification object:nil];
@@ -8983,7 +9018,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (page != nil) {
         CYNavigationController *nav = [[[CYNavigationController alloc] init] autorelease];
         [nav setViewControllers:[NSArray arrayWithObject:page]];
-        [tabbar_ setTransientViewController:nav];
+        [tabbar_ setUnselectedViewController:nav];
     }
 
     return page != nil;
@@ -9048,7 +9083,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setupViewControllers {
     tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
-    [tabbar_ setDelegate:self];
 
     NSMutableArray *items([NSMutableArray arrayWithObjects:
         [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],

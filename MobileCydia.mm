@@ -5471,7 +5471,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSURL *) navigationURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", [package_ id]]];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", name_]];
 }
 
 /* XXX: this is not safe at all... localization of /fail/ */

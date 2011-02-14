@@ -338,11 +338,11 @@ typedef enum {
 @end
 
 @interface UIScrollView (iOS_3_0)
-@property(assign, nonatomic) float decelerationRate;
+@property(assign,nonatomic) float decelerationRate;
 @end
 
 @interface UIWebView (iOS_3_0)
-@property(assign, nonatomic) NSUInteger dataDetectorTypes;
+@property(assign,nonatomic) NSUInteger dataDetectorTypes;
 @end
 
 extern float const UIScrollViewDecelerationRateNormal;

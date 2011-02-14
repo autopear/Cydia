@@ -8897,11 +8897,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         controller = [[[CYBrowserController alloc] init] autorelease];
         [(CYBrowserController *)controller loadURL:[NSURL URLWithString:destination]];
     } else if ([components count] == 1) {
-        if ([base isEqualToString:@"storage"]) {
-            controller = [[[CYBrowserController alloc] init] autorelease];
-            [(CYBrowserController *)controller loadURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"storage" ofType:@"html"]]];
-        }
-
         if ([base isEqualToString:@"manage"]) {
             controller = [[[ManageController alloc] init] autorelease];
         }

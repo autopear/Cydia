@@ -91,6 +91,8 @@
 
 + (void) _initialize;
 
+- (void) setURL:(NSURL *)url;
+
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;
 - (void) loadURL:(NSURL *)url;
 
@@ -99,6 +101,7 @@
 - (bool) isLoading;
 
 - (id) init;
+- (id) initWithURL:(NSURL *)url;
 - (id) initWithWidth:(float)width;
 - (id) initWithWidth:(float)width ofClass:(Class)_class;
 

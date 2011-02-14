@@ -27,6 +27,7 @@ extern NSString * const kCAFilterNearest;
 #include "substrate.h"
 
 #define ForSaurik 0
+#define DefaultTimeout_ 120.0
 
 template <typename Type_>
 static inline void CYRelease(Type_ &value) {
@@ -463,11 +464,21 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [super dealloc];
 }
 
+- (void) setURL:(NSURL *)url {
+    _assert(request_ == nil);
+
+    request_ = [[NSURLRequest
+        requestWithURL:url
+        cachePolicy:NSURLRequestUseProtocolCachePolicy
+        timeoutInterval:DefaultTimeout_
+    ] retain];
+}
+
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
     [self loadRequest:[NSURLRequest
         requestWithURL:url
         cachePolicy:policy
-        timeoutInterval:120.0
+        timeoutInterval:DefaultTimeout_
     ]];
 }
 
@@ -505,6 +516,11 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         [alert setContext:@"submit"];
         [alert show];
     }
+}
+
+- (void) reloadData {
+    [super reloadData];
+    [self reloadURL];
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -1033,6 +1049,12 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
 - (id) init {
     return [self initWithWidth:0];
+}
+
+- (id) initWithURL:(NSURL *)url {
+    if ((self = [self init]) != nil) {
+        [self setURL:url];
+    } return self;
 }
 
 - (void) didDismissModalViewController {

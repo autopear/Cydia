@@ -358,6 +358,10 @@ extern float const UIScrollViewDecelerationRateNormal;
 #endif
 // }}}
 
+@interface UIScreen (iOS_4_0)
+@property(nonatomic,readonly) CGFloat scale;
+@end
+
 // extern *; {{{
 extern CFStringRef const kGSDisplayIdentifiersCapability;
 extern float const UIWebViewGrowsAndShrinksToFitHeight;

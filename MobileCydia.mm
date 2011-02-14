@@ -980,6 +980,8 @@ class CYColor {
 /* Random Global Variables {{{ */
 static const int PulseInterval_ = 50000;
 
+static const NSString *UI_;
+
 static int Finish_;
 static NSArray *Finishes_;
 
@@ -1039,6 +1041,7 @@ static bool Changed_;
 static time_t now_;
 
 bool IsWildcat_;
+static CGFloat ScreenScale_;
 /* }}} */
 
 /* Display Helpers {{{ */
@@ -4361,7 +4364,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             SizeString([database_ fetcher].PartialPresent()),
         nil];
 
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/confirm/")]];
+        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/confirm/", UI_]]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
@@ -5447,10 +5450,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIBarButtonItem *button_;
 }
 
-- (id) initWithDatabase:(Database *)database;
-
-- (void) setPackage:(Package *)package withName:(NSString *)name;
-- (void) setPackage:(Package *)package;
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name;
 
 @end
 
@@ -5567,35 +5567,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 
 - (void) viewWillAppear:(BOOL)animated {
-    if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/package/")]];
     [super viewWillAppear:animated];
 }
 
-- (id) initWithDatabase:(Database *)database {
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name {
     if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
+        name_ = [[NSString alloc] initWithString:name];
+        [self reloadData];
     } return self;
 }
 
-- (void) setPackage:(Package *)package withName:(NSString *)name {
-    if (package_ != nil) {
-        [package_ autorelease];
-        package_ = nil;
-    }
+- (void) reloadData {
+    [super reloadData];
 
-    if (name_ != nil)
-        [name_ autorelease];
-    name_ = [[NSString alloc] initWithString:name];
+    if (package_ != nil)
+        [package_ autorelease];
+    package_ = [database_ packageWithName:name_];
 
     [buttons_ removeAllObjects];
 
-    if (package != nil) {
-        [package parse];
+    if (package_ != nil) {
+        [package_ parse];
 
-        package_ = [package retain];
-        commercial_ = [package isCommercial];
+        package_ = [package_ retain];
+        commercial_ = [package_ isCommercial];
 
         if ([package_ mode] != nil)
             [buttons_ addObject:UCLocalize("CLEAR")];
@@ -5627,20 +5624,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         action:@selector(customButtonClicked)
     ];
 
-    [self loadURL:[NSURL URLWithString:CydiaURL([NSString stringWithFormat:@"ui/ios/package/#!/%@", name])]];
-}
-
-- (void) setPackage:(Package *)package {
-    [self setPackage:package withName:[package id]];
+    [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/package/#!/%@", UI_, name_]]];
 }
 
 - (bool) isLoading {
     return commercial_ ? [super isLoading] : false;
-}
-
-- (void) reloadData {
-    [super reloadData];
-    [self setPackage:[database_ packageWithName:name_] withName:name_];
 }
 
 @end
@@ -5756,8 +5744,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) didSelectPackage:(Package *)package {
-    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_] autorelease]);
-    [view setPackage:package];
+    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id]] autorelease]);
     [view setDelegate:delegate_];
     [[self navigationController] pushViewController:view animated:YES];
 }
@@ -6070,7 +6057,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillAppear:(BOOL)animated {
     if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/home/")]];
+        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/home/", UI_]]];
 
     [super viewWillAppear:animated];
 
@@ -6104,7 +6091,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillAppear:(BOOL)animated {
     if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:CydiaURL(@"ui/ios/manage/")]];
+        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/manage/", UI_]]];
 
     [super viewWillAppear:animated];
 }
@@ -7074,9 +7061,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
-    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_] autorelease]);
+    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id]] autorelease]);
     [view setDelegate:delegate_];
-    [view setPackage:package];
     [[self navigationController] pushViewController:view animated:YES];
     return path;
 }
@@ -8895,9 +8881,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (CYViewController *) pageForPackage:(NSString *)name {
-    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_] autorelease]);
-    [view setPackage:[database_ packageWithName:name] withName:name];
-    return view;
+    return [[[CYPackageController alloc] initWithDatabase:database_ forPackage:name] autorelease];
 }
 
 - (CYViewController *) pageForURL:(NSURL *)url {
@@ -9358,6 +9342,18 @@ int main(int argc, char *argv[]) { _pooled
         IsWildcat_ = [device respondsToSelector:@selector(isWildcat)] && [device isWildcat];
     } else
         IsWildcat_ = false;
+
+    UIScreen *screen([UIScreen mainScreen]);
+    if ([screen respondsToSelector:@selector(scale)])
+        ScreenScale_ = [screen scale];
+    else
+        ScreenScale_ = 1;
+
+    NSMutableArray *parts([NSMutableArray arrayWithCapacity:2]);
+    if (ScreenScale_ > 1)
+        [parts addObject:@"@2x"];
+    [parts addObject:(IsWildcat_ ? @"~ipad" : @"~iphone")];
+    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios%@", [parts componentsJoinedByString:@""]]);
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 

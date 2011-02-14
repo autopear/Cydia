@@ -28,6 +28,8 @@ extern bool IsWildcat_;
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
 
+    // Load on first appearance. We don't need to set the loaded flag here
+    // because it is set for us the first time -reloadData is called.
     if (![self hasLoaded])
         [self reloadData];
 }
@@ -41,6 +43,8 @@ extern bool IsWildcat_;
 }
 
 - (void) setView:(UIView *)view {
+    // Nasty hack for 2.x-compatibility. In 3.0+, we can and
+    // should just override -viewDidUnload instead.
     if (view == nil)
         [self releaseSubviews];
 
@@ -48,6 +52,10 @@ extern bool IsWildcat_;
 }
 
 - (void) reloadData {
+    // This is called automatically on the first appearance of a controller,
+    // or any other time it needs to reload the information shown. However (!),
+    // this is not called by any tab bar or navigation controller's -reloadData
+    // method unless this controller returns YES from -hadLoaded.
     loaded_ = YES;
 }
 

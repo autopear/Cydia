@@ -5470,10 +5470,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (void) release {
-    [super release];
-}
-
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", [package_ id]]];
 }
@@ -5566,16 +5562,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 #endif
 
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-}
-
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name {
     if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
         name_ = [[NSString alloc] initWithString:name];
-        [self reloadData];
     } return self;
 }
 

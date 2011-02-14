@@ -6596,10 +6596,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation CYNavigationController
 
-- (void) dealloc {
-    [super dealloc];
-}
-
 - (NSArray *) navigationURLCollection {
     NSMutableArray *stack([NSMutableArray array]);
 
@@ -6614,6 +6610,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     for (CYViewController *page in [self viewControllers]) {
+        // Only reload controllers that have already loaded.
+        // This prevents a page from accidentally loading too
+        // early if it hasn't been shown on the screen yet.
         if ([page hasLoaded])
             [page reloadData];
     }

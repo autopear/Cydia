@@ -9200,6 +9200,7 @@ _trace();
             enough = NO;
 
     if (!recently || !items || !enough) {
+        selectedIndex = 0;
         items = [NSMutableArray array];
         [items addObject:[NSArray arrayWithObject:@"cydia://home"]];
         [items addObject:[NSArray arrayWithObject:@"cydia://sections"]];

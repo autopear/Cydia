@@ -366,7 +366,6 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive |
 #define TrackResize (0 && !ForRelease)
 #define ManualRefresh (1 && !ForRelease)
 #define ShowInternals (0 && !ForRelease)
-#define IgnoreInstall (0 && !ForRelease)
 #define AlwaysReload (0 && !ForRelease)
 #define TryIndexedCollation (0 && !ForRelease)
 
@@ -4376,7 +4375,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) applyRightButton {
-#if !AlwaysReload && !IgnoreInstall
+#if !AlwaysReload
     if (issues_ == nil && ![self isLoading])
         [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CONFIRM")
@@ -4398,9 +4397,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if !AlwaysReload
 - (void) confirmButtonClicked {
-#if IgnoreInstall
-    return;
-#endif
     if (essential_ != nil)
         [essential_ show];
     else {

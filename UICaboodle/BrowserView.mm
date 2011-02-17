@@ -29,6 +29,11 @@ extern NSString * const kCAFilterNearest;
 #define ForSaurik 0
 #define DefaultTimeout_ 120.0
 
+#define ShowInternals 0
+#define LogBrowser 0
+
+#define lprintf(args...) fprintf(stderr, args)
+
 template <typename Type_>
 static inline void CYRelease(Type_ &value) {
     if (value != nil) {
@@ -86,18 +91,28 @@ float CYScrollViewDecelerationRateNormal;
 - (BOOL) respondsToSelector:(SEL)sel {
     if ([super respondsToSelector:sel])
         return YES;
+
     // XXX: WebThreadCreateNSInvocation returns nil
-    //fprintf(stderr, "[%s]R?%s\n", class_getName(self->isa), sel_getName(sel));
+
+#if ShowInternals
+    fprintf(stderr, "[%s]R?%s\n", class_getName(self->isa), sel_getName(sel));
+#endif
+
     return delegate_ == nil ? NO : [delegate_ respondsToSelector:sel];
 }
 
 - (NSMethodSignature *) methodSignatureForSelector:(SEL)sel {
     if (NSMethodSignature *method = [super methodSignatureForSelector:sel])
         return method;
-    //fprintf(stderr, "[%s]S?%s\n", class_getName(self->isa), sel_getName(sel));
+
+#if ShowInternals
+    fprintf(stderr, "[%s]S?%s\n", class_getName(self->isa), sel_getName(sel));
+#endif
+
     if (delegate_ != nil)
         if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
             return sig;
+
     // XXX: I fucking hate Apple so very very bad
     return [NSMethodSignature signatureWithObjCTypes:"v@:"];
 }
@@ -197,6 +212,10 @@ enum CYWebPolicyDecision {
 // }}}
 
 @implementation CYWebView : UIWebView
+
+#if ShowInternals
+#include "UICaboodle/UCInternal.h"
+#endif
 
 - (id) initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame]) != nil) {
@@ -402,11 +421,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 @end
-
-#define ShowInternals 0
-#define LogBrowser 0
-
-#define lprintf(args...) fprintf(stderr, args)
 
 @implementation BrowserController
 

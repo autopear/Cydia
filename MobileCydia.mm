@@ -4282,8 +4282,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        [[self navigationItem] setTitle:UCLocalize("CONFIRM")];
-
         NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
         NSMutableArray *reinstalling = [NSMutableArray arrayWithCapacity:16];
         NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
@@ -6087,8 +6085,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
-    [[self navigationItem] setTitle:UCLocalize("MANAGE")];
-
     [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("SETTINGS")
         style:UIBarButtonItemStylePlain

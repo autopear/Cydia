@@ -31,6 +31,7 @@ extern NSString * const kCAFilterNearest;
 
 #define ShowInternals 0
 #define LogBrowser 0
+#define LogMessages 0
 
 #define lprintf(args...) fprintf(stderr, args)
 
@@ -46,6 +47,7 @@ float CYScrollViewDecelerationRateNormal;
 
 @interface WebView (Apple)
 - (void) _setLayoutInterval:(float)interval;
+- (void) _setAllowsMessaging:(BOOL)allows;
 @end
 
 @interface WebPreferences (Apple)
@@ -240,6 +242,21 @@ enum CYWebPolicyDecision {
     return created;
 }*/
 
+// webView:addMessageToConsole: (X.Xx) {{{
+static void $UIWebViewWebViewDelegate$webView$addMessageToConsole$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, NSDictionary *message) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webView:addMessageToConsole:)])
+        [uiWebView webView:view addMessageToConsole:message];
+}
+
+- (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
+    id<CYWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:addMessageToConsole:)])
+        [delegate webView:view addMessageToConsole:message];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:addMessageToConsole:)])
+        [super webView:view addMessageToConsole:message];
+}
+// }}}
 // webView:decidePolicyForNavigationAction:request:frame:decisionListener: (2.0+) {{{
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
     id<CYWebViewDelegate> delegate([self delegate]);
@@ -412,6 +429,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
 + (void) initialize {
     if (Class $UIWebViewWebViewDelegate = objc_getClass("UIWebViewWebViewDelegate")) {
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webView:addMessageToConsole:), (IMP) &$UIWebViewWebViewDelegate$webView$addMessageToConsole$, "v16@0:4@8@12");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:), (IMP) &$UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$request$newFrameName$decisionListener$, "v28@0:4@8@12@16@20@24");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didClearWindowObject:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$, "v20@0:4@8@12@16");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didReceiveTitle:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$, "v20@0:4@8@12@16");
@@ -635,6 +653,12 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 // CYWebViewDelegate {{{
+- (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
+#if LogMessages
+    NSLog(@"addMessageToConsole:%@", message);
+#endif
+}
+
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
 #if LogBrowser
     NSLog(@"decidePolicyForNavigationAction:%@ request:%@ frame:%@", action, request, frame);
@@ -998,6 +1022,13 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
         [preferences setCacheModel:WebCacheModelDocumentBrowser];
         [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+#if LogMessages
+        if ([document respondsToSelector:@selector(setAllowsMessaging:)])
+            [document setAllowsMessaging:YES];
+        if ([webview respondsToSelector:@selector(_setAllowsMessaging:)])
+            [webview _setAllowsMessaging:YES];
+#endif
 
         if ([webview_ respondsToSelector:@selector(_scrollView)]) {
             scroller_ = [webview_ _scrollView];

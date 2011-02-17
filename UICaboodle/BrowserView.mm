@@ -553,7 +553,9 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
             message:nil
             delegate:self
             cancelButtonTitle:UCLocalize("CANCEL")
-            otherButtonTitles:UCLocalize("SUBMIT"), nil
+            otherButtonTitles:
+                UCLocalize("SUBMIT"),
+            nil
         ] autorelease];
 
         [alert setContext:@"submit"];

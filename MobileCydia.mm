@@ -4330,7 +4330,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 message:UCLocalize("REMOVING_ESSENTIALS_EX")
                 delegate:self
                 cancelButtonTitle:[NSString stringWithFormat:parenthetical, UCLocalize("CANCEL_OPERATION"), UCLocalize("SAFE")]
-                otherButtonTitles:[NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")], nil
+                otherButtonTitles:
+                    [NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")],
+                nil
             ];
 
             [essential_ setContext:@"remove"];
@@ -4825,8 +4827,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         message:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]
         delegate:self
         cancelButtonTitle:UCLocalize("KEEP_OLD_COPY")
-        otherButtonTitles:UCLocalize("ACCEPT_NEW_COPY"),
-        // XXX: UCLocalize("SEE_WHAT_CHANGED"),
+        otherButtonTitles:
+            UCLocalize("ACCEPT_NEW_COPY"),
+            // XXX: UCLocalize("SEE_WHAT_CHANGED"),
         nil
     ] autorelease];
 
@@ -7826,7 +7829,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     message:warning
                     delegate:self
                     cancelButtonTitle:UCLocalize("CANCEL")
-                    otherButtonTitles:UCLocalize("ADD_ANYWAY"), nil
+                    otherButtonTitles:
+                        UCLocalize("ADD_ANYWAY"),
+                    nil
                 ] autorelease];
 
                 [alert setContext:@"warning"];
@@ -8031,7 +8036,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         message:nil
         delegate:self
         cancelButtonTitle:UCLocalize("CANCEL")
-        otherButtonTitles:UCLocalize("ADD_SOURCE"), nil
+        otherButtonTitles:
+            UCLocalize("ADD_SOURCE"),
+        nil
     ] autorelease];
 
     [alert setContext:@"source"];
@@ -8412,7 +8419,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             message:UCLocalize("HALFINSTALLED_PACKAGE_EX")
             delegate:self
             cancelButtonTitle:UCLocalize("FORCIBLY_CLEAR")
-            otherButtonTitles:UCLocalize("TEMPORARY_IGNORE"), nil
+            otherButtonTitles:
+                UCLocalize("TEMPORARY_IGNORE"),
+            nil
         ] autorelease];
 
         [alert setContext:@"fixhalf"];
@@ -8425,7 +8434,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             message:UCLocalize("ESSENTIAL_UPGRADE_EX")
             delegate:self
             cancelButtonTitle:UCLocalize("TEMPORARY_IGNORE")
-            otherButtonTitles:UCLocalize("UPGRADE_ESSENTIAL"), UCLocalize("COMPLETE_UPGRADE"), nil
+            otherButtonTitles:
+                UCLocalize("UPGRADE_ESSENTIAL"),
+                UCLocalize("COMPLETE_UPGRADE"),
+            nil
         ] autorelease];
 
         [alert setContext:@"upgrade"];

@@ -35,6 +35,18 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
+// WebThreadLocked {{{
+struct WebThreadLocked {
+    _finline WebThreadLocked() {
+        WebThreadLock();
+    }
+
+    _finline ~WebThreadLocked() {
+        WebThreadUnlock();
+    }
+};
+// }}}
+
 template <typename Type_>
 static inline void CYRelease(Type_ &value) {
     if (value != nil) {
@@ -525,9 +537,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
     error_ = false;
 
-    WebThreadLock();
+    WebThreadLocked lock;
     [webview_ loadRequest:request];
-    WebThreadUnlock();
 }
 
 - (void) reloadURL {
@@ -892,9 +903,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         if (button == [alert cancelButtonIndex]) {
         } else if (button == [alert firstOtherButtonIndex]) {
             if (request_ != nil) {
-                WebThreadLock();
+                WebThreadLocked lock;
                 [webview_ loadRequest:request_];
-                WebThreadUnlock();
             }
         }
 
@@ -1108,7 +1118,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (void) callFunction:(WebScriptObject *)function {
-    WebThreadLock();
+    WebThreadLocked lock;
 
     WebView *webview([[webview_ _documentView] webView]);
     WebFrame *frame([webview mainFrame]);
@@ -1141,8 +1151,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         settings->setJavaScriptCanOpenWindowsAutomatically(no);*/
 
     [preferences setJavaScriptCanOpenWindowsAutomatically:maybe];
-
-    WebThreadUnlock();
 }
 
 - (void) reloadButtonClicked {

@@ -3488,12 +3488,11 @@ static NSString *Warning_;
     delete resolver_;
     resolver_ = new pkgProblemResolver(cache_);
 
-    for (pkgCache::PkgIterator iterator(cache_->PkgBegin()); !iterator.end(); ++iterator) {
-        if (!cache_[iterator].Keep()) {
+    for (pkgCache::PkgIterator iterator(cache_->PkgBegin()); !iterator.end(); ++iterator)
+        if (!cache_[iterator].Keep())
             cache_->MarkKeep(iterator, false);
+        else if ((cache_[iterator].iFlags & pkgDepCache::ReInstall) != 0)
             cache_->SetReInstall(iterator, false);
-        }
-    }
 } }
 
 - (void) configure {

@@ -1174,4 +1174,47 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     return 980;
 }
 
+- (void) dispatchEvent:(NSString *)event {
+    WebThreadLocked lock;
+
+    NSString *script([NSString stringWithFormat:@
+        "(function() {"
+            "var event = this.document.createEvent('Events');"
+            "event.initEvent('%@', false, false);"
+            "this.document.dispatchEvent(event);"
+        "})();"
+    , event]);
+
+    NSMutableArray *frames([NSMutableArray arrayWithObjects:
+        [[[webview_ _documentView] webView] mainFrame]
+    , nil]);
+
+    while (WebFrame *frame = [frames lastObject]) {
+        WebScriptObject *object([frame windowObject]);
+        [object evaluateWebScript:script];
+        [frames removeLastObject];
+        [frames addObjectsFromArray:[frame childFrames]];
+    }
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    [self dispatchEvent:@"CydiaViewWillAppear"];
+    [super viewWillAppear:animated];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [self dispatchEvent:@"CydiaViewDidAppear"];
+    [super viewDidAppear:animated];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    [self dispatchEvent:@"CydiaViewWillDisappear"];
+    [super viewWillDisappear:animated];
+}
+
+- (void) viewDidDisappear:(BOOL)animated {
+    [self dispatchEvent:@"CydiaViewDidDisappear"];
+    [super viewDidDisappear:animated];
+}
+
 @end

@@ -126,4 +126,6 @@
 
 - (void) close;
 
+- (void) dispatchEvent:(NSString *)event;
+
 @end

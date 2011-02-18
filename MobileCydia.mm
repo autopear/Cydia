@@ -8675,6 +8675,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) perform {
+    // XXX: this is a really crappy way of doing this.
+    // like, seriously: this state machine is still broken, and cancelling this here doesn't really /fix/ that.
+    // for one, the user can still /start/ a reloading data event while they have a queue, which is stupid
+    // for two, this just means there is a race condition between the refresh completing and the confirmation controller appearing.
+    if ([tabbar_ updating])
+        [tabbar_ cancelUpdate];
+
     if (![database_ prepare])
         return false;
 

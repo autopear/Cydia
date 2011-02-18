@@ -1048,23 +1048,6 @@ inline float Interpolate(float begin, float end, float fraction) {
     return (end - begin) * fraction + begin;
 }
 
-/* XXX: localize this! */
-NSString *SizeString(double size) {
-    bool negative = size < 0;
-    if (negative)
-        size = -size;
-
-    unsigned power = 0;
-    while (size > 1024) {
-        size /= 1024;
-        ++power;
-    }
-
-    static const char *powers_[] = {"B", "kB", "MB", "GB"};
-
-    return [NSString stringWithFormat:@"%s%.1f %s", (negative ? "-" : ""), size, powers_[power]];
-}
-
 static _finline const char *StripVersion_(const char *version) {
     const char *colon(strchr(version, ':'));
     return colon == NULL ? version : colon + 1;
@@ -3218,72 +3201,6 @@ static NSString *Warning_;
     return sources;
 }
 
-- (NSArray *) issues {
-    if (cache_->BrokenCount() == 0)
-        return nil;
-
-    NSMutableArray *issues([NSMutableArray arrayWithCapacity:4]);
-
-    for (Package *package in [self packages]) {
-        if (![package broken])
-            continue;
-        pkgCache::PkgIterator pkg([package iterator]);
-
-        NSMutableArray *entry([NSMutableArray arrayWithCapacity:4]);
-        [entry addObject:[package name]];
-        [issues addObject:entry];
-
-        pkgCache::VerIterator ver(cache_[pkg].InstVerIter(cache_));
-        if (ver.end())
-            continue;
-
-        for (pkgCache::DepIterator dep(ver.DependsList()); !dep.end(); ) {
-            pkgCache::DepIterator start;
-            pkgCache::DepIterator end;
-            dep.GlobOr(start, end); // ++dep
-
-            if (!cache_->IsImportantDep(end))
-                continue;
-            if ((cache_[end] & pkgDepCache::DepGInstall) != 0)
-                continue;
-
-            NSMutableArray *failure([NSMutableArray arrayWithCapacity:4]);
-            [entry addObject:failure];
-            [failure addObject:[NSString stringWithUTF8String:start.DepType()]];
-
-            NSString *name([NSString stringWithUTF8String:start.TargetPkg().Name()]);
-            if (Package *package = [self packageWithName:name])
-                name = [package name];
-            [failure addObject:name];
-
-            pkgCache::PkgIterator target(start.TargetPkg());
-            if (target->ProvidesList != 0)
-                [failure addObject:@"?"];
-            else {
-                pkgCache::VerIterator ver(cache_[target].InstVerIter(cache_));
-                if (!ver.end())
-                    [failure addObject:[NSString stringWithUTF8String:ver.VerStr()]];
-                else if (!cache_[target].CandidateVerIter(cache_).end())
-                    [failure addObject:@"-"];
-                else if (target->ProvidesList == 0)
-                    [failure addObject:@"!"];
-                else
-                    [failure addObject:@"%"];
-            }
-
-            _forever {
-                if (start.TargetVer() != 0)
-                    [failure addObject:[NSString stringWithFormat:@"%s %s", start.CompType(), start.TargetVer()]];
-                if (start == end)
-                    break;
-                ++start;
-            }
-        }
-    }
-
-    return issues;
-}
-
 - (bool) popErrorWithTitle:(NSString *)title {
     bool fatal(false);
     std::string message;
@@ -4251,10 +4168,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @interface ConfirmationController : CYBrowserController {
     _transient Database *database_;
+
     UIAlertView *essential_;
-    NSArray *changes_;
-    NSArray *issues_;
-    NSArray *sizes_;
+
+    NSDictionary *changes_;
+    NSMutableArray *issues_;
+    NSDictionary *sizes_;
+
     BOOL substrate_;
 }
 
@@ -4266,11 +4186,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [changes_ release];
-    if (issues_ != nil)
-        [issues_ release];
+    [issues_ release];
     [sizes_ release];
+
     if (essential_ != nil)
         [essential_ release];
+
     [super dealloc];
 }
 
@@ -4307,9 +4228,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:view didClearWindowObject:window forFrame:frame];
-    [window setValue:changes_ forKey:@"changes"];
-    [window setValue:issues_ forKey:@"issues"];
-    [window setValue:sizes_ forKey:@"sizes"];
+
+    [window setValue:[changes_ Cydia$webScriptObjectInContext:window] forKey:@"changes"];
+    [window setValue:[issues_ Cydia$webScriptObjectInContext:window] forKey:@"issues"];
+    [window setValue:[sizes_ Cydia$webScriptObjectInContext:window] forKey:@"sizes"];
+
     [window setValue:self forKey:@"queue"];
 }
 
@@ -4317,37 +4240,107 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        NSMutableArray *installing = [NSMutableArray arrayWithCapacity:16];
-        NSMutableArray *reinstalling = [NSMutableArray arrayWithCapacity:16];
-        NSMutableArray *upgrading = [NSMutableArray arrayWithCapacity:16];
-        NSMutableArray *downgrading = [NSMutableArray arrayWithCapacity:16];
-        NSMutableArray *removing = [NSMutableArray arrayWithCapacity:16];
+        NSMutableArray *installs([NSMutableArray arrayWithCapacity:16]);
+        NSMutableArray *reinstalls([NSMutableArray arrayWithCapacity:16]);
+        NSMutableArray *upgrades([NSMutableArray arrayWithCapacity:16]);
+        NSMutableArray *downgrades([NSMutableArray arrayWithCapacity:16]);
+        NSMutableArray *removes([NSMutableArray arrayWithCapacity:16]);
 
         bool remove(false);
 
+        pkgCacheFile &cache([database_ cache]);
+        NSArray *packages([database_ packages]);
         pkgDepCache::Policy *policy([database_ policy]);
 
-        pkgCacheFile &cache([database_ cache]);
-        NSArray *packages = [database_ packages];
+        issues_ = [[NSMutableArray arrayWithCapacity:4] retain];
+
         for (Package *package in packages) {
-            pkgCache::PkgIterator iterator = [package iterator];
+            pkgCache::PkgIterator iterator([package iterator]);
+            NSString *name([package id]);
+
+            if ([package broken]) {
+                NSMutableArray *reasons([NSMutableArray arrayWithCapacity:4]);
+
+                [issues_ addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                    name, @"package",
+                    reasons, @"reasons",
+                nil]];
+
+                pkgCache::VerIterator ver(cache[iterator].InstVerIter(cache));
+                if (ver.end())
+                    continue;
+
+                for (pkgCache::DepIterator dep(ver.DependsList()); !dep.end(); ) {
+                    pkgCache::DepIterator start;
+                    pkgCache::DepIterator end;
+                    dep.GlobOr(start, end); // ++dep
+
+                    if (!cache->IsImportantDep(end))
+                        continue;
+                    if ((cache[end] & pkgDepCache::DepGInstall) != 0)
+                        continue;
+
+                    _forever {
+                        NSString *reason, *installed((NSString *) [WebUndefined undefined]);
+
+                        pkgCache::PkgIterator target(start.TargetPkg());
+                        if (target->ProvidesList != 0)
+                            reason = @"missing";
+                        else {
+                            pkgCache::VerIterator ver(cache[target].InstVerIter(cache));
+                            if (!ver.end()) {
+                                reason = @"installed";
+                                installed = [NSString stringWithUTF8String:ver.VerStr()];
+                            } else if (!cache[target].CandidateVerIter(cache).end())
+                                reason = @"uninstalled";
+                            else if (target->ProvidesList == 0)
+                                reason = @"uninstallable";
+                            else
+                                reason = @"virtual";
+                        }
+
+                        NSDictionary *version(start.TargetVer() == 0 ? [NSNull null] : [NSDictionary dictionaryWithObjectsAndKeys:
+                            [NSString stringWithUTF8String:start.CompType()], @"operator",
+                            [NSString stringWithUTF8String:start.TargetVer()], @"value",
+                        nil]);
+
+                        [reasons addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                            [NSString stringWithUTF8String:start.DepType()], @"relation",
+                            [NSString stringWithUTF8String:start.TargetPkg().Name()], @"package",
+                            version, @"version",
+                            reason, @"reason",
+                            installed, @"installed",
+                        nil]];
+
+                        // yes, seriously. (wtf?)
+                        if (start == end)
+                            break;
+                        ++start;
+                    }
+                }
+            }
+
             pkgDepCache::StateCache &state(cache[iterator]);
 
-            NSString *name([package name]);
+            static Pcre special_r("^(firmware$|gsc\\.|cy\\+)");
 
             if (state.NewInstall())
-                [installing addObject:name];
+                [installs addObject:name];
             else if (!state.Delete() && (state.iFlags & pkgDepCache::ReInstall) == pkgDepCache::ReInstall)
-                [reinstalling addObject:name];
+                [reinstalls addObject:name];
             else if (state.Upgrade())
-                [upgrading addObject:name];
+                [upgrades addObject:name];
             else if (state.Downgrade())
-                [downgrading addObject:name];
-            else if (state.Delete()) {
+                [downgrades addObject:name];
+            else if (!state.Delete())
+                continue;
+            else if (special_r(name)) {
+                // XXX: sad
+            } else {
                 if ([package essential])
                     remove = true;
-                [removing addObject:name];
-            } else continue;
+                [removes addObject:name];
+            }
 
             substrate_ |= DepSubstrate(policy->GetCandidateVer(iterator));
             substrate_ |= DepSubstrate(iterator.CurrentVer());
@@ -4381,21 +4374,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [essential_ setContext:@"unable"];
         }
 
-        changes_ = [[NSArray alloc] initWithObjects:
-            installing,
-            reinstalling,
-            upgrading,
-            downgrading,
-            removing,
+        changes_ = [[NSDictionary alloc] initWithObjectsAndKeys:
+            installs, @"installs",
+            reinstalls, @"reinstalls",
+            upgrades, @"upgrades",
+            downgrades, @"downgrades",
+            removes, @"removes",
         nil];
 
-        issues_ = [database_ issues];
-        if (issues_ != nil)
-            issues_ = [issues_ retain];
-
-        sizes_ = [[NSArray alloc] initWithObjects:
-            SizeString([database_ fetcher].FetchNeeded()),
-            SizeString([database_ fetcher].PartialPresent()),
+        sizes_ = [[NSDictionary alloc] initWithObjectsAndKeys:
+            [NSNumber numberWithInteger:[database_ fetcher].FetchNeeded()], @"downloading",
+            [NSNumber numberWithInteger:[database_ fetcher].PartialPresent()], @"resuming",
         nil];
 
         [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/confirm/", UI_]]];
@@ -4411,7 +4400,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if !AlwaysReload
 - (void) applyRightButton {
-    if (issues_ == nil && ![self isLoading])
+    if ([issues_ count] == 0 && ![self isLoading])
         [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CONFIRM")
             style:UIBarButtonItemStyleDone

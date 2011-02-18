@@ -1329,6 +1329,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (pkgSourceList &) list;
 - (NSArray *) packages;
 - (NSArray *) sources;
+- (Source *) sourceWithKey:(NSString *)key;
 - (void) reloadData;
 
 - (void) configure;
@@ -3199,6 +3200,13 @@ static NSString *Warning_;
         [sources addObject:i->second];
     [sources addObjectsFromArray:(NSArray *)deadSources_];
     return sources;
+}
+
+- (Source *) sourceWithKey:(NSString *)key {
+    for (Source *source in [self sources]) {
+        if ([[source key] isEqualToString:key])
+            return source;
+    } return nil;
 }
 
 - (bool) popErrorWithTitle:(NSString *)title {
@@ -7666,16 +7674,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
-    NSArray *sources = [database_ sources];
-    for (Source *source in sources) {
-        if ([[source key] isEqual:key_]) {
-            source_ = source;
-            [key_ release];
-            key_ = [[source key] retain];
-            break;
-        }
-    }
-
+    source_ = [database_ sourceWithKey:key_];
+    [key_ release];
+    key_ = [[source_ key] retain];
     [self setObject:source_];
 
     [super reloadData];
@@ -9007,13 +9008,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
                 [(SourcesController *)controller showAddSourcePrompt];
             } else {
-                NSArray *sources = [database_ sources];
-                for (Source *source in sources) {
-                    if ([[source key] isEqual:argument]) {
-                        controller = [[[SourceController alloc] initWithDatabase:database_ source:source] autorelease];
-                        break;
-                    }
-                }
+                Source *source = [database_ sourceWithKey:argument];
+                controller = [[[SourceController alloc] initWithDatabase:database_ source:source] autorelease];
             }
         }
 

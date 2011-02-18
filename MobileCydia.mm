@@ -904,7 +904,10 @@ class Pcre {
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"address", @"name", nil];
+    return [NSArray arrayWithObjects:
+        @"address",
+        @"name",
+    nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -1575,7 +1578,19 @@ static void PackageImport(const void *key, const void *value, void *context) {
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"description", @"distribution", @"host", @"key", @"label", @"name", @"origin", @"trusted", @"type", @"uri", @"version", nil];
+    return [NSArray arrayWithObjects:
+        @"description",
+        @"distribution",
+        @"host",
+        @"key",
+        @"label",
+        @"name",
+        @"origin",
+        @"trusted",
+        @"type",
+        @"uri",
+        @"version",
+    nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -2050,7 +2065,8 @@ struct PackageNameOrdering :
 }
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (selector == @selector(hasTag:))
+    if (false);
+    else if (selector == @selector(hasTag:))
         return @"hasTag";
     else
         return nil;
@@ -2061,7 +2077,32 @@ struct PackageNameOrdering :
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"applications", @"author", @"depiction", @"longDescription", @"essential", @"homepage", @"icon", @"id", @"installed", @"latest", @"longSection", @"maintainer", @"mode", @"name", @"purposes", @"section", @"shortDescription", @"shortSection", @"simpleSection", @"size", @"source", @"sponsor", @"support", @"warnings", nil];
+    return [NSArray arrayWithObjects:
+        @"applications",
+        @"author",
+        @"depiction",
+        @"essential",
+        @"homepage",
+        @"icon",
+        @"id",
+        @"installed",
+        @"latest",
+        @"longDescription",
+        @"longSection",
+        @"maintainer",
+        @"mode",
+        @"name",
+        @"purposes",
+        @"section",
+        @"shortDescription",
+        @"shortSection",
+        @"simpleSection",
+        @"size",
+        @"source",
+        @"sponsor",
+        @"support",
+        @"warnings",
+    nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -3662,7 +3703,13 @@ static NSString *Warning_;
 }
 
 + (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:@"device", @"firewire", @"imei", @"mac", @"serial", nil];
+    return [NSArray arrayWithObjects:
+        @"device",
+        @"firewire",
+        @"imei",
+        @"mac",
+        @"serial",
+    nil];
 }
 
 - (NSArray *) attributeKeys {
@@ -3700,14 +3747,21 @@ static NSString *Warning_;
 #endif
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (selector == @selector(close))
+    if (false);
+    else if (selector == @selector(close))
         return @"close";
+    else if (selector == @selector(du:))
+        return @"du";
+    else if (selector == @selector(stringWithFormat:arguments:))
+        return @"format";
     else if (selector == @selector(getInstalledPackages))
         return @"getInstalledPackages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
     else if (selector == @selector(installPackages:))
         return @"installPackages";
+    else if (selector == @selector(localizedStringForKey:value:table:))
+        return @"localize";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -3720,16 +3774,10 @@ static NSString *Warning_;
         return @"setToken";
     else if (selector == @selector(setViewportWidth:))
         return @"setViewportWidth";
-    else if (selector == @selector(supports:))
-        return @"supports";
-    else if (selector == @selector(stringWithFormat:arguments:))
-        return @"format";
-    else if (selector == @selector(localizedStringForKey:value:table:))
-        return @"localize";
-    else if (selector == @selector(du:))
-        return @"du";
     else if (selector == @selector(statfs:))
         return @"statfs";
+    else if (selector == @selector(supports:))
+        return @"supports";
     else
         return nil;
 }

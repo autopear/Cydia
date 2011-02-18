@@ -307,12 +307,13 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 }
 
 - (int) yieldToPopupAlertAnimated:(BOOL)animated;
+
 @end
 
 @implementation CYAlertView
 
 - (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
-    if ((self = [super init])) {
+    if ((self = [super init]) != nil) {
         [self setTitle:title];
         [self setDelegate:self];
         for (NSString *button in buttons) [self addButtonWithTitle:button];
@@ -871,6 +872,7 @@ class Pcre {
 
 + (Address *) addressWithString:(NSString *)string;
 - (Address *) initWithString:(NSString *)string;
+
 @end
 
 @implementation Address
@@ -3052,7 +3054,7 @@ static NSString *Warning_;
     // XXX: actually implement this thing
     _assert(false);
     if (deadSources_)
-	    CFRelease(deadSources_);
+        CFRelease(deadSources_);
     [self releasePackages];
     apr_pool_destroy(pool_);
     NSRecycleZone(zone_);
@@ -3689,6 +3691,7 @@ static NSString *Warning_;
 }
 
 - (id) initWithDelegate:(IndirectDelegate *)indirect;
+
 @end
 
 @implementation CydiaObject
@@ -3939,8 +3942,8 @@ static NSString *Warning_;
 
 @implementation CYLoadingIndicator
 
-- (id)initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame])) {
+- (id) initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame]) != nil) {
         container_ = [[[UIView alloc] init] autorelease];
         [container_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
 
@@ -3979,13 +3982,16 @@ static NSString *Warning_;
         [spinner_ setFrame:spinrect];
         [label_ setFrame:textrect];
         [self addSubview:container_];
-    }
-
-    return self;
+    } return self;
 }
 
-- (UILabel *)label { return label_; }
-- (UIActivityIndicatorView *)activityIndicatorView { return spinner_; }
+- (UILabel *) label {
+    return label_;
+}
+
+- (UIActivityIndicatorView *) activityIndicatorView {
+    return spinner_;
+}
 
 @end
 /* }}} */
@@ -3999,6 +4005,7 @@ static NSString *Warning_;
     UITabBar *tabbar_;
     UINavigationBar *navbar_;
 }
+
 @end
 
 @implementation CYEmulatedLoadingController
@@ -4037,7 +4044,7 @@ static NSString *Warning_;
 }
 
 - (id) initWithDatabase:(Database *)database {
-    if ((self = [super init])) {
+    if ((self = [super init]) != nil) {
         database_ = database;
         [database_ setDelegate:self];
     } return self;
@@ -4517,6 +4524,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (SEL) selector;
 - (id) target;
 - (id) object;
+
 @end
 
 @implementation ProgressData
@@ -4669,7 +4677,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self positionViews];
 }
 
-- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     [self positionViews];
 }
 
@@ -6090,6 +6098,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Home Controller {{{ */
 @interface HomeController : CYBrowserController {
 }
+
 @end
 
 @implementation HomeController
@@ -6163,6 +6172,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) queueStatusDidChange;
+
 @end
 
 @implementation ManageController
@@ -6277,14 +6287,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [prompt_ setFrame:prmrect];
 }
 
-- (void)setFrame:(CGRect)frame {
+- (void) setFrame:(CGRect)frame {
     [super setFrame:frame];
-
     [self positionViews];
 }
 
 - (id) initWithFrame:(CGRect)frame delegate:(id)delegate {
-    if ((self = [super initWithFrame:frame])) {
+    if ((self = [super initWithFrame:frame]) != nil) {
         [self setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
 
         [self setBarStyle:UIBarStyleBlack];
@@ -7040,8 +7049,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
 }
 
-- (void)editButtonClicked {
-    [self setEditing:!editing_];
+- (void) editButtonClicked {
+    [self setEditing:(!editing_)];
 }
 
 @end
@@ -7351,7 +7360,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void)viewDidAppear:(BOOL)animated {
+- (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
 
     if (!searchloaded_) {
@@ -7521,7 +7530,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package {
-    if ((self = [super init])) {
+    if ((self = [super init]) != nil) {
         database_ = database;
         name_ = [package retain];
     } return self;
@@ -7860,12 +7869,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[self navigationController] pushViewController:controller animated:YES];
 }
 
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
+- (BOOL) tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
     Source *source = [self sourceAtIndexPath:indexPath];
     return [source record] != nil;
 }
 
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+- (void) tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     Source *source = [self sourceAtIndexPath:indexPath];
     [Sources_ removeObjectForKey:[source key]];
     [delegate_ syncData];
@@ -8019,7 +8028,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
 }
 
-- (void)alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
 
     if ([context isEqualToString:@"source"]) {
@@ -8272,7 +8281,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
-    if ((self = [super init])) {
+    if ((self = [super init]) != nil) {
         database_ = database;
         roledelegate_ = delegate;
     } return self;
@@ -8364,7 +8373,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return 0; // :(
 }
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     return nil; // This method is required by the protocol.
 }
 
@@ -8402,6 +8411,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UILabel *status_;
     UILabel *caption_;
 }
+
 @end
 
 @implementation StashController
@@ -9188,7 +9198,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
-- (CYEmulatedLoadingController *)showEmulatedLoadingControllerInView:(UIView *)view {
+- (CYEmulatedLoadingController *) showEmulatedLoadingControllerInView:(UIView *)view {
     static CYEmulatedLoadingController *fake = nil;
 
     if (view != nil) {

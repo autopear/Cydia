@@ -9,7 +9,7 @@
 @interface UCNavigationController : UINavigationController {
     _transient id<HookProtocol> hook_;
 }
+
 - (void) setHook:(id<HookProtocol>)hook;
+
 @end
-
-

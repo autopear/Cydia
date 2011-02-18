@@ -4409,8 +4409,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) applyRightButton {
 #if !AlwaysReload
+- (void) applyRightButton {
     if (issues_ == nil && ![self isLoading])
         [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CONFIRM")
@@ -4419,11 +4419,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             action:@selector(confirmButtonClicked)
         ] autorelease]];
     else
-        [super applyRightButton];
-#else
-    [[self navigationItem] setRightBarButtonItem:nil];
-#endif
+        [[self navigationItem] setRightBarButtonItem:nil];
 }
+#endif
 
 - (void) cancelButtonClicked {
     [self dismissModalViewControllerAnimated:YES];

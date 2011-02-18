@@ -4480,7 +4480,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                         nil]);
 
                         [reasons addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                            [NSString stringWithUTF8String:start.DepType()], @"relation",
+                            [NSString stringWithUTF8String:start.DepType()], @"relationship",
                             [NSString stringWithUTF8String:start.TargetPkg().Name()], @"package",
                             version, @"version",
                             reason, @"reason",

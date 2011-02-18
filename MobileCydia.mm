@@ -7644,7 +7644,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Source Controller {{{ */
 @interface SourceController : FilteredPackageListController {
     _transient Source *source_;
-    NSString *uri_;
+    NSString *key_;
 }
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source;
@@ -7659,7 +7659,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source {
     source_ = source;
-    uri_ = [source uri];
+    key_ = [[source key] retain];
 
     if ((self = [super initWithDatabase:database title:[source label] filter:@selector(isVisibleInSource:) with:source]) != nil) {
     } return self;
@@ -7668,9 +7668,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) reloadData {
     NSArray *sources = [database_ sources];
     for (Source *source in sources) {
-        if ([[source uri] isEqual:uri_]) {
+        if ([[source key] isEqual:key_]) {
             source_ = source;
-            uri_ = [source uri];
+            [key_ release];
+            key_ = [[source key] retain];
             break;
         }
     }
@@ -9008,7 +9009,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             } else {
                 NSArray *sources = [database_ sources];
                 for (Source *source in sources) {
-                    if ([[source name] caseInsensitiveCompare:argument] == NSOrderedSame) {
+                    if ([[source key] isEqual:argument]) {
                         controller = [[[SourceController alloc] initWithDatabase:database_ source:source] autorelease];
                         break;
                     }

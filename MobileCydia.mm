@@ -7666,10 +7666,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source {
-    source_ = source;
-    key_ = [[source key] retain];
-
-    if ((self = [super initWithDatabase:database title:[source_ label] filter:@selector(isVisibleInSource:) with:source_]) != nil) {
+    if ((self = [super initWithDatabase:database title:[source label] filter:@selector(isVisibleInSource:) with:source]) != nil) {
+        source_ = source;
+        key_ = [[source key] retain];
     } return self;
 }
 

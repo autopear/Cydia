@@ -2066,8 +2066,14 @@ struct PackageNameOrdering :
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (false);
+    else if (selector == @selector(clear))
+        return @"clear";
     else if (selector == @selector(hasTag:))
         return @"hasTag";
+    else if (selector == @selector(install))
+        return @"install";
+    else if (selector == @selector(remove))
+        return @"remove";
     else
         return nil;
 }

@@ -1757,37 +1757,117 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 @end
 /* }}} */
-/* Relationship Class {{{ */
-@interface Relationship : NSObject {
-    NSString *type_;
-    NSString *id_;
+/* CydiaOperation Class {{{ */
+@interface CydiaOperation : NSObject {
+    NSString *operator_;
+    NSString *value_;
 }
 
-- (NSString *) type;
-- (NSString *) id;
-- (NSString *) name;
+- (NSString *) operator;
+- (NSString *) value;
 
 @end
 
-@implementation Relationship
+@implementation CydiaOperation
 
 - (void) dealloc {
-    [type_ release];
-    [id_ release];
+    [operator_ release];
+    [value_ release];
     [super dealloc];
 }
 
-- (NSString *) type {
-    return type_;
+- (id) initWithOperator:(const char *)_operator value:(const char *)value {
+    if ((self = [super init]) != nil) {
+        operator_ = [[NSString alloc] initWithUTF8String:_operator];
+        value_ = [[NSString alloc] initWithUTF8String:value];
+    } return self;
 }
 
-- (NSString *) id {
-    return id_;
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:
+        @"operator",
+        @"value",
+    nil];
 }
 
-- (NSString *) name {
-    _assert(false);
-    return nil;
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (NSString *) operator {
+    return operator_;
+}
+
+- (NSString *) value {
+    return value_;
+}
+
+@end
+/* }}} */
+/* CydiaRelation Class {{{ */
+@interface CydiaRelation : NSObject {
+    NSString *relationship_;
+    NSString *package_;
+    CydiaOperation *version_;
+}
+
+- (NSString *) relationship;
+- (NSString *) package;
+- (CydiaOperation *) version;
+
+@end
+
+@implementation CydiaRelation
+
+- (void) dealloc {
+    [relationship_ release];
+    [package_ release];
+    [version_ release];
+    [super dealloc];
+}
+
+- (id) initWithIterator:(pkgCache::DepIterator &)dep {
+    if ((self = [super init]) != nil) {
+        relationship_ = [[NSString alloc] initWithUTF8String:dep.DepType()];
+        package_ = [[NSString alloc] initWithUTF8String:dep.TargetPkg().Name()];
+
+        if (const char *version = dep.TargetVer())
+            version_ = [[CydiaOperation alloc] initWithOperator:dep.CompType() value:version];
+        else
+            version_ = [[NSNull null] retain];
+    } return self;
+}
+
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:
+        @"package",
+        @"relationship",
+        @"version",
+    nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (NSString *) relationship {
+    return relationship_;
+}
+
+- (NSString *) package {
+    return package_;
+}
+
+- (CydiaOperation *) version {
+    return version_;
 }
 
 @end
@@ -2101,6 +2181,7 @@ struct PackageNameOrdering :
         @"mode",
         @"name",
         @"purposes",
+        @"relations",
         @"section",
         @"shortDescription",
         @"shortSection",
@@ -2120,6 +2201,31 @@ struct PackageNameOrdering :
 + (BOOL) isKeyExcludedFromWebScript:(const char *)name {
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
+
+- (NSArray *) relations {
+@synchronized (database_) {
+    NSMutableArray *relations([NSMutableArray arrayWithCapacity:16]);
+
+    for (pkgCache::DepIterator dep(version_.DependsList()); !dep.end(); ++dep) {
+        pkgCache::DepIterator start;
+        pkgCache::DepIterator end;
+        dep.GlobOr(start, end); // ++dep
+
+        NSMutableArray *ors([NSMutableArray arrayWithCapacity:2]);
+        [relations addObject:ors];
+
+        _forever {
+            [ors addObject:[[[CydiaRelation alloc] initWithIterator:start] autorelease]];
+
+            // yes, seriously. (wtf?)
+            if (start == end)
+                break;
+            ++start;
+        }
+    }
+
+    return relations;
+} }
 
 - (void) parse {
     if (parsed_ != NULL)

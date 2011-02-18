@@ -8937,7 +8937,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[[CYPackageController alloc] initWithDatabase:database_ forPackage:name] autorelease];
 }
 
-- (CYViewController *) pageForURL:(NSURL *)url {
+- (CYViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external {
     NSString *scheme([[url scheme] lowercaseString]);
     if ([[url absoluteString] length] <= [scheme length] + 3)
         return nil;
@@ -8958,7 +8958,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         // This kind of URL can contain slashes in the argument, so we can't parse them below.
         NSString *destination = [[url absoluteString] substringFromIndex:([scheme length] + [@"://" length] + [base length] + [@"/" length])];
         controller = [[[CYBrowserController alloc] initWithURL:[NSURL URLWithString:destination]] autorelease];
-    } else if ([components count] == 1) {
+    } else if (!external && [components count] == 1) {
         if ([base isEqualToString:@"manage"]) {
             controller = [[[ManageController alloc] init] autorelease];
         }
@@ -8993,18 +8993,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             controller = [self pageForPackage:argument];
         }
 
-        if ([base isEqualToString:@"search"]) {
+        if (!external && [base isEqualToString:@"search"]) {
             controller = [[[SearchController alloc] initWithDatabase:database_] autorelease];
             [(SearchController *)controller setSearchTerm:argument];
         }
 
-        if ([base isEqualToString:@"sections"]) {
+        if (!external && [base isEqualToString:@"sections"]) {
             if ([argument isEqualToString:@"all"])
                 argument = nil;
             controller = [[[SectionController alloc] initWithDatabase:database_ section:argument] autorelease];
         }
 
-        if ([base isEqualToString:@"sources"]) {
+        if (!external && [base isEqualToString:@"sources"]) {
             if ([argument isEqualToString:@"add"]) {
                 controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
                 [(SourcesController *)controller showAddSourcePrompt];
@@ -9014,11 +9014,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             }
         }
 
-        if ([base isEqualToString:@"launch"]) {
+        if (!external && [base isEqualToString:@"launch"]) {
             [self launchApplicationWithIdentifier:argument suspended:NO];
             return nil;
         }
-    } else if ([components count] == 3) {
+    } else if (!external && [components count] == 3) {
         NSString *arg1 = [components objectAtIndex:1];
         NSString *arg2 = [components objectAtIndex:2];
 
@@ -9038,8 +9038,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return controller;
 }
 
-- (BOOL) openCydiaURL:(NSURL *)url {
-    CYViewController *page([self pageForURL:url]);
+- (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external {
+    CYViewController *page([self pageForURL:url forExternal:external]);
 
     if (page != nil) {
         CYNavigationController *nav = [[[CYNavigationController alloc] init] autorelease];
@@ -9054,7 +9054,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super applicationOpenURL:url];
 
     if (!loaded_) starturl_ = [url retain];
-    else [self openCydiaURL:url];
+    else [self openCydiaURL:url forExternal:YES];
 }
 
 - (void) applicationWillResignActive:(UIApplication *)application {
@@ -9281,7 +9281,7 @@ _trace();
         for (unsigned int nav = 0; nav < [stack count]; nav++) {
             NSString *addr = [stack objectAtIndex:nav];
             NSURL *url = [NSURL URLWithString:addr];
-            CYViewController *page = [self pageForURL:url];
+            CYViewController *page = [self pageForURL:url forExternal:NO];
             if (page != nil)
                 [current addObject:page];
         }
@@ -9291,7 +9291,7 @@ _trace();
 
     // (Try to) show the startup URL.
     if (starturl_ != nil) {
-        [self openCydiaURL:starturl_];
+        [self openCydiaURL:starturl_ forExternal:NO];
         [starturl_ release];
         starturl_ = nil;
     }

@@ -53,7 +53,7 @@
 @protocol BrowserControllerDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
-- (CYViewController *) pageForURL:(NSURL *)url;
+- (CYViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external;
 @end
 
 @interface BrowserController : CYViewController <

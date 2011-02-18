@@ -705,7 +705,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if ([scheme isEqualToString:@"mailto"])
         [self _openMailToURL:url];
 
-    CYViewController *page([delegate_ pageForURL:url]);
+    // XXX: filter to internal usage?
+    CYViewController *page([delegate_ pageForURL:url forExternal:NO]);
 
     if (page == nil) {
         BrowserController *browser([[[class_ alloc] init] autorelease]);

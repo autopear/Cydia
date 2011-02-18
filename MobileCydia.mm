@@ -4334,9 +4334,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [downgrades addObject:name];
             else if (!state.Delete())
                 continue;
-            else if (special_r(name)) {
-                // XXX: sad
-            } else {
+            else if (special_r(name))
+                [issues_ addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSNull null], @"package",
+                    [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObjectsAndKeys:
+                            @"Conflicts", @"relation",
+                            name, @"package",
+                            [NSNull null], @"version",
+                            @"installed", @"reason",
+                        nil],
+                    nil], @"reasons",
+                nil]];
+            else {
                 if ([package essential])
                     remove = true;
                 [removes addObject:name];

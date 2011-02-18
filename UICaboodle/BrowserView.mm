@@ -590,7 +590,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     else
         function_ = [function retain];
 
-    [self applyRightButton];
+    [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -615,7 +615,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     else
         function_ = [function retain];
 
-    [self applyRightButton];
+    [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
 }
 
 - (void) setPopupHook:(id)function {

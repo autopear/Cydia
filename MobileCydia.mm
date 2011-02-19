@@ -3698,7 +3698,7 @@ static NSString *Warning_;
         return;
     }
 
-    [CydiaApp retainNetworkActivityIndicator];
+    [(id)CydiaApp performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     bool failed = false;
     for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {
@@ -3721,7 +3721,7 @@ static NSString *Warning_;
         ];
     }
 
-    [CydiaApp releaseNetworkActivityIndicator];
+    [(id)CydiaApp performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     if (failed) {
         _trace();

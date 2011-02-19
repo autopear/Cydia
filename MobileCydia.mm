@@ -8910,6 +8910,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) syncData {
+    [self _saveConfig];
+
     FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
     _assert(file != NULL);
 
@@ -8924,8 +8926,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     fclose(file);
-
-    [self _saveConfig];
 
     ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
     CYNavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];

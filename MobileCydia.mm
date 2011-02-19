@@ -3904,6 +3904,8 @@ static NSString *Warning_;
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (false);
+    else if (selector == @selector(addTrivialSource:))
+        return @"addTrivialSource";
     else if (selector == @selector(close))
         return @"close";
     else if (selector == @selector(du:))
@@ -3918,6 +3920,8 @@ static NSString *Warning_;
         return @"installPackages";
     else if (selector == @selector(localizedStringForKey:value:table:))
         return @"localize";
+    else if (selector == @selector(refreshSources))
+        return @"refreshSources";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -3944,6 +3948,14 @@ static NSString *Warning_;
 
 - (BOOL) supports:(NSString *)feature {
     return [feature isEqualToString:@"window.open"];
+}
+
+- (void) addTrivialSource:(NSString *)href {
+    [delegate_ addTrivialSource:href];
+}
+
+- (void) refreshSources {
+    [delegate_ performSelectorOnMainThread:@selector(syncData) withObject:nil waitUntilDone:NO];
 }
 
 - (NSArray *) getInstalledPackages {

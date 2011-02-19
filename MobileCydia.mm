@@ -3289,7 +3289,8 @@ static NSString *Warning_;
 
     while (std::getline(is, line)) {
         lprintf("O:%s\n", line.c_str());
-        [delegate_ addProgressOutput:[NSString stringWithUTF8String:line.c_str()]];
+
+        [delegate_ performSelectorOnMainThread:@selector(addProgressOutput:) withObject:[NSString stringWithUTF8String:line.c_str()] waitUntilDone:YES];
     }
 
     _assume(false);
@@ -5092,14 +5093,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) startProgress {
 }
 
-- (void) addProgressOutput:(NSString *)output {
-    [self
-        performSelectorOnMainThread:@selector(_addProgressOutput:)
-        withObject:output
-        waitUntilDone:YES
-    ];
-}
-
 - (bool) isCancelling:(size_t)received {
     return false;
 }
@@ -5145,7 +5138,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [progress_ setProgress:[percent floatValue]];
 }
 
-- (void) _addProgressOutput:(NSString *)output {
+- (void) addProgressOutput:(NSString *)output {
     [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
     CGSize size = [output_ contentSize];
     CGPoint offset = [output_ contentOffset];
@@ -6715,14 +6708,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return !updating_;
 }
 
-- (void) addProgressOutput:(NSString *)output {
-    [self
-        performSelectorOnMainThread:@selector(_addProgressOutput:)
-        withObject:output
-        waitUntilDone:YES
-    ];
-}
-
 - (void) setProgressTitle:(NSString *)title {
     [refreshbar_ setPrompt:title];
 }
@@ -6731,7 +6716,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [refreshbar_ setProgress:[percent floatValue]];
 }
 
-- (void) _addProgressOutput:(NSString *)output {
+- (void) addProgressOutput:(NSString *)output {
 }
 
 - (void) setUpdateDelegate:(id)delegate {

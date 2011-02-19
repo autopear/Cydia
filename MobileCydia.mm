@@ -4076,7 +4076,7 @@ static NSString *Warning_;
 }
 
 - (void) close {
-    [indirect_ close];
+    [indirect_ performSelectorOnMainThread:@selector(close) withObject:nil waitUntilDone:NO];
 }
 
 - (void) installPackages:(NSArray *)packages {

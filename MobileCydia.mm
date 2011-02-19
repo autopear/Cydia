@@ -3912,6 +3912,8 @@ static NSString *Warning_;
         return @"du";
     else if (selector == @selector(stringWithFormat:arguments:))
         return @"format";
+    else if (selector == @selector(getAllSources))
+        return @"getAllSourcs";
     else if (selector == @selector(getInstalledPackages))
         return @"getInstalledPackages";
     else if (selector == @selector(getPackageById:))
@@ -3956,6 +3958,10 @@ static NSString *Warning_;
 
 - (void) refreshSources {
     [delegate_ performSelectorOnMainThread:@selector(syncData) withObject:nil waitUntilDone:NO];
+}
+
+- (NSArray *) getAllSources {
+    return [[Database sharedInstance] sources];
 }
 
 - (NSArray *) getInstalledPackages {

@@ -6243,7 +6243,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super initWithDatabase:database title:title]) != nil) {
         [self setFilter:filter];
         [self setObject:object];
-        [self reloadData];
     } return self;
 }
 

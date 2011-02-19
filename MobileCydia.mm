@@ -3251,9 +3251,9 @@ static NSString *Warning_;
         size_t size(line.size());
         lprintf("S:%s\n", data);
 
-        if (conffile_r(data, size)) {
-            [delegate_ setConfigurationData:conffile_r[1]];
-        } else if (strncmp(data, "status: ", 8) == 0)
+        if (conffile_r(data, size))
+            [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:conffile_r[1] waitUntilDone:YES];
+        else if (strncmp(data, "status: ", 8) == 0)
             [delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:[NSString stringWithUTF8String:(data + 8)] waitUntilDone:YES];
         else if (pmstatus_r(data, size)) {
             std::string type([pmstatus_r[1] UTF8String]);
@@ -3272,7 +3272,7 @@ static NSString *Warning_;
             else if (type == "pmstatus")
                 [delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:string waitUntilDone:YES];
             else if (type == "pmconffile")
-                [delegate_ setConfigurationData:string];
+                [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:string waitUntilDone:YES];
             else
                 lprintf("E:unknown pmstatus\n");
         } else
@@ -5070,14 +5070,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) setConfigurationData:(NSString *)data {
-    [self
-        performSelectorOnMainThread:@selector(_setConfigurationData:)
-        withObject:data
-        waitUntilDone:YES
-    ];
-}
-
 - (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
     CYAlertView *sheet([[[CYAlertView alloc]
         initWithTitle:title
@@ -5097,7 +5089,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return false;
 }
 
-- (void) _setConfigurationData:(NSString *)data {
+- (void) setConfigurationData:(NSString *)data {
     static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
     if (!conffile_r(data)) {

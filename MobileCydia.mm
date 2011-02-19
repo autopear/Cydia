@@ -7600,7 +7600,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (package_ == nil)
         return 0;
 
-    return 2;
+    if ([package_ installed] == nil)
+        return 1;
+    else
+        return 2;
 }
 
 - (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {

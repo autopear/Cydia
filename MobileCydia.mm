@@ -8785,11 +8785,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[navigation tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
 }
 
-- (void) _refreshIfPossible {
+- (void) _refreshIfPossible:(NSDate *)update {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     bool recently = false;
-    NSDate *update([Metadata_ objectForKey:@"LastUpdate"]);
     if (update != nil) {
         NSTimeInterval interval([update timeIntervalSinceNow]);
         if (interval <= 0 && interval > -(15*60))
@@ -8837,7 +8836,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) refreshIfPossible {
-    [NSThread detachNewThreadSelector:@selector(_refreshIfPossible) toTarget:self withObject:nil];
+    [NSThread detachNewThreadSelector:@selector(_refreshIfPossible:) toTarget:self withObject:[Metadata_ objectForKey:@"LastUpdate"]];
 }
 
 - (void) _reloadDataWithInvocation:(NSInvocation *)invocation {

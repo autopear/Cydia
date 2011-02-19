@@ -86,6 +86,7 @@
 "HOME" = "Home";
 "ID" = "ID";
 "IGNORE_UPGRADES" = "Ignore Upgrades";
+"IGNORE_UPGRADES_EX" = "Activate this switch to keep this package at its current version. Cydia will display this package at the top of Changes if there is an upgrade available, but it will not be included in Upgrade All.";
 "IGNORED_UPGRADES" = "Ignored Upgrades";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Illegal Package Identifier";
 "INSTALL" = "Install";

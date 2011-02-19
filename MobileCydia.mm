@@ -3951,7 +3951,7 @@ static NSString *Warning_;
 }
 
 - (void) addTrivialSource:(NSString *)href {
-    [delegate_ addTrivialSource:href];
+    [delegate_ performSelectorOnMainThread:@selector(addTrivialSource:) withObject:href waitUntilDone:NO];
 }
 
 - (void) refreshSources {

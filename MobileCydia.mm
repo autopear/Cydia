@@ -3933,8 +3933,6 @@ static NSString *Warning_;
         return @"setButtonTitle";
     else if (selector == @selector(setPopupHook:))
         return @"setPopupHook";
-    else if (selector == @selector(setSpecial:))
-        return @"setSpecial";
     else if (selector == @selector(setToken:))
         return @"setToken";
     else if (selector == @selector(setViewportWidth:))
@@ -4087,10 +4085,6 @@ static NSString *Warning_;
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
-}
-
-- (void) setSpecial:(id)function {
-    [indirect_ setSpecial:function];
 }
 
 - (void) setToken:(NSString *)token {

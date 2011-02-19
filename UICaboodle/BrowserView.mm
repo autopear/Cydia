@@ -541,9 +541,15 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [webview_ loadRequest:request];
 }
 
-- (void) reloadURL {
+- (void) reloadURLWithCache:(BOOL)cache {
     if (request_ == nil)
         return;
+
+    NSMutableURLRequest *request([request_ mutableCopy]);
+    [request setCachePolicy:(cache ? NSURLRequestUseProtocolCachePolicy : NSURLRequestReloadIgnoringLocalCacheData)];
+
+    [request_ autorelease];
+    request_ = [request retain];
 
     if ([request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
         [self loadRequest:request_];
@@ -563,9 +569,13 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     }
 }
 
+- (void) reloadURL {
+    [self reloadURLWithCache:YES];
+}
+
 - (void) reloadData {
     [super reloadData];
-    [self reloadURL];
+    [self reloadURLWithCache:YES];
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
@@ -1157,7 +1167,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (void) reloadButtonClicked {
-    [self reloadURL];
+    [self reloadURLWithCache:YES];
 }
 
 - (void) _customButtonClicked {

@@ -3861,9 +3861,10 @@ static NSString *Warning_;
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"device",
-        @"firewire",
-        @"imei",
-        @"mac",
+        @"ecid",
+        @"model",
+        @"plmn",
+        @"role",
         @"serial",
     nil];
 }
@@ -3880,27 +3881,25 @@ static NSString *Warning_;
     return [[UIDevice currentDevice] uniqueIdentifier];
 }
 
-#if 0 // XXX: implement!
-- (NSString *) mac {
-    if (![indirect_ promptForSensitive:@"Mac Address"])
-        return nil;
+- (NSString *) plmn {
+    return PLMN_;
+}
+
+- (NSString *) ecid {
+    return ChipID_;
 }
 
 - (NSString *) serial {
-    if (![indirect_ promptForSensitive:@"Serial #"])
-        return nil;
+    return SerialNumber_;
 }
 
-- (NSString *) firewire {
-    if (![indirect_ promptForSensitive:@"Firewire GUID"])
-        return nil;
+- (NSString *) role {
+    return Role_;
 }
 
-- (NSString *) imei {
-    if (![indirect_ promptForSensitive:@"IMEI"])
-        return nil;
+- (NSString *) model {
+    return [NSString stringWithUTF8String:Machine_];
 }
-#endif
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (false);

@@ -1193,7 +1193,11 @@ class Status :
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
         //NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
-        [delegate_ setProgressTitle:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), [NSString stringWithUTF8String:item.ShortDesc.c_str()]]];
+        [delegate_
+            performSelectorOnMainThread:@selector(setProgressTitle:)
+            withObject:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), [NSString stringWithUTF8String:item.ShortDesc.c_str()]]
+            waitUntilDone:YES
+        ];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
@@ -1258,8 +1262,8 @@ class Progress :
             percent_ = Percent;
         }*/
 
-        /*[delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
-        [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(Percent / 100)] waitUntilDone:YES];*/
+        //[delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:[NSString stringWithUTF8String:Op.c_str()] waitUntilDone:YES];
+        //[delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(Percent / 100)] waitUntilDone:YES];
     }
 
   public:
@@ -3249,10 +3253,9 @@ static NSString *Warning_;
 
         if (conffile_r(data, size)) {
             [delegate_ setConfigurationData:conffile_r[1]];
-        } else if (strncmp(data, "status: ", 8) == 0) {
-            NSString *string = [NSString stringWithUTF8String:(data + 8)];
-            [delegate_ setProgressTitle:string];
-        } else if (pmstatus_r(data, size)) {
+        } else if (strncmp(data, "status: ", 8) == 0)
+            [delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:[NSString stringWithUTF8String:(data + 8)] waitUntilDone:YES];
+        else if (pmstatus_r(data, size)) {
             std::string type([pmstatus_r[1] UTF8String]);
             NSString *id = pmstatus_r[2];
 
@@ -3266,9 +3269,9 @@ static NSString *Warning_;
                     withObject:[NSArray arrayWithObjects:string, id, nil]
                     waitUntilDone:YES
                 ];
-            else if (type == "pmstatus") {
-                [delegate_ setProgressTitle:string];
-            } else if (type == "pmconffile")
+            else if (type == "pmstatus")
+                [delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:string waitUntilDone:YES];
+            else if (type == "pmconffile")
                 [delegate_ setConfigurationData:string];
             else
                 lprintf("E:unknown pmstatus\n");
@@ -5086,14 +5089,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [sheet dismiss];
 }
 
-- (void) setProgressTitle:(NSString *)title {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressTitle:)
-        withObject:title
-        waitUntilDone:YES
-    ];
-}
-
 - (void) startProgress {
 }
 
@@ -5135,7 +5130,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert show];
 }
 
-- (void) _setProgressTitle:(NSString *)title {
+- (void) setProgressTitle:(NSString *)title {
     NSMutableArray *words([[title componentsSeparatedByString:@" "] mutableCopy]);
     for (size_t i(0), e([words count]); i != e; ++i) {
         NSString *word([words objectAtIndex:i]);
@@ -6716,14 +6711,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) startProgress {
 }
 
-- (void) setProgressTitle:(NSString *)title {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressTitle:)
-        withObject:title
-        waitUntilDone:YES
-    ];
-}
-
 - (bool) isCancelling:(size_t)received {
     return !updating_;
 }
@@ -6736,7 +6723,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) _setProgressTitle:(NSString *)title {
+- (void) setProgressTitle:(NSString *)title {
     [refreshbar_ setPrompt:title];
 }
 

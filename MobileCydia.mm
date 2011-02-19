@@ -5828,12 +5828,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
         name_ = [[NSString alloc] initWithString:name];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/package/#!/%@", UI_, name_]]];
     } return self;
 }
 
 - (void) reloadData {
-    [super reloadData];
-
     if (package_ != nil)
         [package_ autorelease];
     package_ = [database_ packageWithName:name_];
@@ -5876,7 +5875,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         action:@selector(customButtonClicked)
     ];
 
-    [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/package/#!/%@", UI_, name_]]];
+    [super reloadData];
 }
 
 - (bool) isLoading {

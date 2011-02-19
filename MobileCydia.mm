@@ -9876,10 +9876,15 @@ int main(int argc, char *argv[]) { _pooled
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
-    if (substrate && access("/Library/MobileSubstrate/DynamicLibraries/SimulatedKeyEvents.dylib", F_OK) == 0)
-        dlopen("/Library/MobileSubstrate/DynamicLibraries/SimulatedKeyEvents.dylib", RTLD_LAZY | RTLD_GLOBAL);
-    if (substrate && access("/Applications/WinterBoard.app/WinterBoard.dylib", F_OK) == 0)
-        dlopen("/Applications/WinterBoard.app/WinterBoard.dylib", RTLD_LAZY | RTLD_GLOBAL);
+#define MobileSubstrate_(name) \
+    if (substrate && access("/Library/MobileSubstrate/DynamicLibraries/" #name ".dylib", F_OK) == 0) \
+        dlopen("/Library/MobileSubstrate/DynamicLibraries/" #name ".dylib", RTLD_LAZY | RTLD_GLOBAL);
+
+    MobileSubstrate_(Activator)
+    MobileSubstrate_(libstatusbar)
+    MobileSubstrate_(SimulatedKeyEvents)
+    MobileSubstrate_(WinterBoard)
+
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 

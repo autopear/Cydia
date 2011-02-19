@@ -1808,23 +1808,20 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 @end
 /* }}} */
-/* CydiaRelation Class {{{ */
-@interface CydiaRelation : NSObject {
-    NSString *relationship_;
+/* CydiaClause Class {{{ */
+@interface CydiaClause : NSObject {
     NSString *package_;
     CydiaOperation *version_;
 }
 
-- (NSString *) relationship;
 - (NSString *) package;
 - (CydiaOperation *) version;
 
 @end
 
-@implementation CydiaRelation
+@implementation CydiaClause
 
 - (void) dealloc {
-    [relationship_ release];
     [package_ release];
     [version_ release];
     [super dealloc];
@@ -1832,7 +1829,6 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 - (id) initWithIterator:(pkgCache::DepIterator &)dep {
     if ((self = [super init]) != nil) {
-        relationship_ = [[NSString alloc] initWithUTF8String:dep.DepType()];
         package_ = [[NSString alloc] initWithUTF8String:dep.TargetPkg().Name()];
 
         if (const char *version = dep.TargetVer())
@@ -1845,8 +1841,71 @@ static void PackageImport(const void *key, const void *value, void *context) {
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"package",
-        @"relationship",
         @"version",
+    nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (NSString *) package {
+    return package_;
+}
+
+- (CydiaOperation *) version {
+    return version_;
+}
+
+@end
+/* }}} */
+/* CydiaRelation Class {{{ */
+@interface CydiaRelation : NSObject {
+    NSString *relationship_;
+    NSMutableArray *clauses_;
+}
+
+- (NSString *) relationship;
+- (NSArray *) clauses;
+
+@end
+
+@implementation CydiaRelation
+
+- (void) dealloc {
+    [relationship_ release];
+    [clauses_ release];
+    [super dealloc];
+}
+
+- (id) initWithIterator:(pkgCache::DepIterator &)dep {
+    if ((self = [super init]) != nil) {
+        relationship_ = [[NSString alloc] initWithUTF8String:dep.DepType()];
+        clauses_ = [[NSMutableArray alloc] initWithCapacity:8];
+
+        pkgCache::DepIterator start;
+        pkgCache::DepIterator end;
+        dep.GlobOr(start, end); // ++dep
+
+        _forever {
+            [clauses_ addObject:[[[CydiaClause alloc] initWithIterator:start] autorelease]];
+
+            // yes, seriously. (wtf?)
+            if (start == end)
+                break;
+            ++start;
+        }
+    } return self;
+}
+
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:
+        @"clauses",
+        @"relationship",
     nil];
 }
 
@@ -1862,12 +1921,12 @@ static void PackageImport(const void *key, const void *value, void *context) {
     return relationship_;
 }
 
-- (NSString *) package {
-    return package_;
+- (NSArray *) clauses {
+    return clauses_;
 }
 
-- (CydiaOperation *) version {
-    return version_;
+- (void) addClause:(CydiaClause *)clause {
+    [clauses_ addObject:clause];
 }
 
 @end
@@ -2205,25 +2264,8 @@ struct PackageNameOrdering :
 - (NSArray *) relations {
 @synchronized (database_) {
     NSMutableArray *relations([NSMutableArray arrayWithCapacity:16]);
-
-    for (pkgCache::DepIterator dep(version_.DependsList()); !dep.end(); ++dep) {
-        pkgCache::DepIterator start;
-        pkgCache::DepIterator end;
-        dep.GlobOr(start, end); // ++dep
-
-        NSMutableArray *ors([NSMutableArray arrayWithCapacity:2]);
-        [relations addObject:ors];
-
-        _forever {
-            [ors addObject:[[[CydiaRelation alloc] initWithIterator:start] autorelease]];
-
-            // yes, seriously. (wtf?)
-            if (start == end)
-                break;
-            ++start;
-        }
-    }
-
+    for (pkgCache::DepIterator dep(version_.DependsList()); !dep.end(); ++dep)
+        [relations addObject:[[[CydiaRelation alloc] initWithIterator:dep] autorelease]];
     return relations;
 } }
 
@@ -4455,6 +4497,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     if ((cache[end] & pkgDepCache::DepGInstall) != 0)
                         continue;
 
+                    NSMutableArray *clauses([NSMutableArray arrayWithCapacity:4]);
+
+                    [reasons addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                        [NSString stringWithUTF8String:start.DepType()], @"relationship",
+                        clauses, @"clauses",
+                    nil]];
+
                     _forever {
                         NSString *reason, *installed((NSString *) [WebUndefined undefined]);
 
@@ -4479,8 +4528,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                             [NSString stringWithUTF8String:start.TargetVer()], @"value",
                         nil]);
 
-                        [reasons addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                            [NSString stringWithUTF8String:start.DepType()], @"relationship",
+                        [clauses addObject:[NSDictionary dictionaryWithObjectsAndKeys:
                             [NSString stringWithUTF8String:start.TargetPkg().Name()], @"package",
                             version, @"version",
                             reason, @"reason",
@@ -4514,10 +4562,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     [NSNull null], @"package",
                     [NSArray arrayWithObjects:
                         [NSDictionary dictionaryWithObjectsAndKeys:
-                            @"Conflicts", @"relation",
-                            name, @"package",
-                            [NSNull null], @"version",
-                            @"installed", @"reason",
+                            @"Conflicts", @"relationship",
+                            [NSArray arrayWithObjects:
+                                [NSDictionary dictionaryWithObjectsAndKeys:
+                                    name, @"package",
+                                    [NSNull null], @"version",
+                                    @"installed", @"reason",
+                                nil],
+                            nil], @"clauses",
                         nil],
                     nil], @"reasons",
                 nil]];

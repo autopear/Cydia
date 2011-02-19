@@ -3913,6 +3913,10 @@ static NSString *Warning_;
         return @"format";
     else if (selector == @selector(getAllSources))
         return @"getAllSourcs";
+    else if (selector == @selector(getKernelNumber:))
+        return @"getKernelNumber";
+    else if (selector == @selector(getKernelString:))
+        return @"getKernelString";
     else if (selector == @selector(getInstalledPackages))
         return @"getInstalledPackages";
     else if (selector == @selector(getPackageById:))
@@ -3949,6 +3953,40 @@ static NSString *Warning_;
 
 - (BOOL) supports:(NSString *)feature {
     return [feature isEqualToString:@"window.open"];
+}
+
+- (NSNumber *) getKernelNumber:(NSString *)name {
+    const char *string([name UTF8String]);
+
+    size_t size;
+    if (sysctlbyname(string, NULL, &size, NULL, 0) == -1)
+        return (id) [NSNull null];
+
+    if (size != sizeof(int))
+        return (id) [NSNull null];
+
+    int value;
+    if (sysctlbyname(string, &value, &size, NULL, 0) == -1)
+        return (id) [NSNull null];
+
+    return [NSNumber numberWithInt:value];
+}
+
+- (NSString *) getKernelString:(NSString *)name {
+    const char *string([name UTF8String]);
+
+    size_t size;
+    if (sysctlbyname(string, NULL, &size, NULL, 0) == -1)
+        return (id) [NSNull null];
+
+    char value[size + 1];
+    if (sysctlbyname(string, value, &size, NULL, 0) == -1)
+        return (id) [NSNull null];
+
+    // XXX: just in case you request something ludicrous
+    value[size] = '\0';
+
+    return [NSString stringWithCString:value];
 }
 
 - (void) addTrivialSource:(NSString *)href {

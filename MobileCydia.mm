@@ -7620,8 +7620,43 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [delegate_ updateData];
 }
 
+- (void) _updateIgnored {
+    const char *package([name_ UTF8String]);
+    bool on([ignoredSwitch_ isOn]);
+
+    pid_t pid(ExecFork());
+    if (pid == 0) {
+        FILE *dpkg(popen("dpkg --set-selections", "w"));
+        fwrite(package, strlen(package), 1, dpkg);
+
+        if (on)
+            fwrite(" hold\n", 6, 1, dpkg);
+        else
+            fwrite(" install\n", 9, 1, dpkg);
+
+        pclose(dpkg);
+
+        exit(0);
+        _assert(false);
+    }
+
+    _forever {
+        int status;
+        int result(waitpid(pid, &status, 0));
+
+        if (result != -1) {
+            _assert(result == pid);
+            break;
+        }
+    }
+}
+
 - (void) onIgnored:(id)control {
-    // TODO: set Held state - possibly call out to dpkg, etc.
+    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[self methodSignatureForSelector:@selector(_updateIgnored)]]);
+    [invocation setTarget:self];
+    [invocation setSelector:@selector(_updateIgnored)];
+
+    [delegate_ reloadDataWithInvocation:invocation];
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -7654,8 +7689,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ignoredSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
     [ignoredSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
     [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventValueChanged];
-    // Disable this switch, since it only reflects (not modifies) the ignored state.
-    [ignoredSwitch_ setUserInteractionEnabled:NO];
 
     subscribedCell_ = [[UITableViewCell alloc] init];
     [subscribedCell_ setText:UCLocalize("SHOW_ALL_CHANGES")];
@@ -7666,8 +7699,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
     [ignoredCell_ setAccessoryView:ignoredSwitch_];
     [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
-    // FIXME: Ignored state is not saved.
-    [ignoredCell_ setUserInteractionEnabled:NO];
 }
 
 - (void) viewDidLoad {

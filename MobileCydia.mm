@@ -1156,6 +1156,7 @@ bool isSectionVisible(NSString *section) {
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (CYViewController *) pageForPackage:(NSString *)name;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
+- (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 @end
 
 static id<CydiaDelegate> CydiaApp;
@@ -1335,7 +1336,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (NSArray *) packages;
 - (NSArray *) sources;
 - (Source *) sourceWithKey:(NSString *)key;
-- (void) reloadData;
+- (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 
 - (void) configure;
 - (bool) prepare;
@@ -3438,7 +3439,7 @@ static NSString *Warning_;
     return [self popErrorWithTitle:title] || !success;
 }
 
-- (void) reloadData { CYPoolStart() {
+- (void) reloadDataWithInvocation:(NSInvocation *)invocation { CYPoolStart() {
 @synchronized (self) {
     ++era_;
 
@@ -3473,6 +3474,9 @@ static NSString *Warning_;
     int chk(creat("/tmp/cydia.chk", 0644));
     if (chk != -1)
         close(chk);
+
+    if (invocation != nil)
+        [invocation invoke];
 
     NSString *title(UCLocalize("DATABASE"));
 
@@ -8812,11 +8816,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [NSThread detachNewThreadSelector:@selector(_refreshIfPossible) toTarget:self withObject:nil];
 }
 
-- (void) _reloadData {
+- (void) _reloadDataWithInvocation:(NSInvocation *)invocation {
     UIProgressHUD *hud(loaded_ ? [self addProgressHUD] : nil);
     [hud setText:UCLocalize("RELOADING_DATA")];
 
-    [database_ yieldToSelector:@selector(reloadData) withObject:nil];
+    [database_ yieldToSelector:@selector(reloadDataWithInvocation:) withObject:invocation];
 
     if (hud != nil)
         [self removeProgressHUD:hud];
@@ -8898,10 +8902,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) reloadData {
+- (void) reloadDataWithInvocation:(NSInvocation *)invocation {
     @synchronized (self) {
-        [self _reloadData];
+        [self _reloadDataWithInvocation:invocation];
     }
+}
+
+- (void) reloadData {
+    [self reloadDataWithInvocation:nil];
 }
 
 - (void) resolve {
@@ -8984,7 +8992,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) complete {
     @synchronized (self) {
-        [self _reloadData];
+        [self _reloadDataWithInvocation:nil];
     }
 }
 

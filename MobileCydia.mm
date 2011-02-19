@@ -8935,6 +8935,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         href, @"URI",
         @"./", @"Distribution",
     nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href]];
+
+    Changed_ = true;
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {

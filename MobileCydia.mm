@@ -1125,7 +1125,7 @@ bool isSectionVisible(NSString *section) {
 @protocol ProgressDelegate
 - (void) setProgressError:(NSString *)error withTitle:(NSString *)id;
 - (void) setProgressTitle:(NSString *)title;
-- (void) setProgressPercent:(float)percent;
+- (void) setProgressPercent:(NSNumber *)percent;
 - (void) startProgress;
 - (void) addProgressOutput:(NSString *)output;
 - (bool) isCancelling:(size_t)received;
@@ -1231,7 +1231,7 @@ class Status :
             double(TotalBytes + TotalItems)
         );
 
-        [delegate_ setProgressPercent:percent];
+        [delegate_ setProgressPercent:[NSNumber numberWithFloat:percent]];
         return [delegate_ isCancelling:CurrentBytes] ? false : value;
     }
 
@@ -1259,7 +1259,7 @@ class Progress :
         }*/
 
         /*[delegate_ setProgressTitle:[NSString stringWithUTF8String:Op.c_str()]];
-        [delegate_ setProgressPercent:(Percent / 100)];*/
+        [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(Percent / 100)] waitUntilDone:YES];*/
     }
 
   public:
@@ -1279,7 +1279,7 @@ class Progress :
 
     virtual void Done() {
         //NSLog(@"DONE");
-        //[delegate_ setProgressPercent:1];
+        //[delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:1] waitUntilDone:YES];
     }
 };
 /* }}} */
@@ -3257,7 +3257,7 @@ static NSString *Warning_;
             NSString *id = pmstatus_r[2];
 
             float percent([pmstatus_r[3] floatValue]);
-            [delegate_ setProgressPercent:(percent / 100)];
+            [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(percent / 100)] waitUntilDone:YES];
 
             NSString *string = pmstatus_r[4];
 
@@ -4226,7 +4226,7 @@ static NSString *Warning_;
 }
 
 - (void) setProgressTitle:(NSString *)title { }
-- (void) setProgressPercent:(float)percent { }
+- (void) setProgressPercent:(NSNumber *)percent { }
 - (void) startProgress { }
 - (void) addProgressOutput:(NSString *)output { }
 - (bool) isCancelling:(size_t)received { return NO; }
@@ -5094,14 +5094,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) setProgressPercent:(float)percent {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressPercent:)
-        withObject:[NSNumber numberWithFloat:percent]
-        waitUntilDone:YES
-    ];
-}
-
 - (void) startProgress {
 }
 
@@ -5154,7 +5146,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [status_ setText:[words componentsJoinedByString:@" "]];
 }
 
-- (void) _setProgressPercent:(NSNumber *)percent {
+- (void) setProgressPercent:(NSNumber *)percent {
     [progress_ setProgress:[percent floatValue]];
 }
 
@@ -6736,14 +6728,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return !updating_;
 }
 
-- (void) setProgressPercent:(float)percent {
-    [self
-        performSelectorOnMainThread:@selector(_setProgressPercent:)
-        withObject:[NSNumber numberWithFloat:percent]
-        waitUntilDone:YES
-    ];
-}
-
 - (void) addProgressOutput:(NSString *)output {
     [self
         performSelectorOnMainThread:@selector(_addProgressOutput:)
@@ -6756,7 +6740,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [refreshbar_ setPrompt:title];
 }
 
-- (void) _setProgressPercent:(NSNumber *)percent {
+- (void) setProgressPercent:(NSNumber *)percent {
     [refreshbar_ setProgress:[percent floatValue]];
 }
 

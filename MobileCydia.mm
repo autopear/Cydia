@@ -7735,11 +7735,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (package_ != nil)
         [package_ autorelease];
     package_ = [database_ packageWithName:name_];
+
     if (package_ != nil) {
-        [package_ retain];
+        package_ = [package_ retain];
         [subscribedSwitch_ setOn:([package_ subscribed] ? 1 : 0) animated:NO];
         [ignoredSwitch_ setOn:([package_ ignored] ? 1 : 0) animated:NO];
-    }
+    } // XXX: what now, G?
 
     [table_ reloadData];
 }

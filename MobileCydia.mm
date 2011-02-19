@@ -1108,7 +1108,7 @@ NSString *GetLastUpdate() {
 }
 
 bool isSectionVisible(NSString *section) {
-    NSDictionary *metadata([Sections_ objectForKey:section]);
+    NSDictionary *metadata([Sections_ objectForKey:(section ?: @"")]);
     NSNumber *hidden(metadata == nil ? nil : [metadata objectForKey:@"Hidden"]);
     return hidden == nil || ![hidden boolValue];
 }
@@ -2660,7 +2660,7 @@ struct PackageNameOrdering :
     _end
 
     _profile(Package$visible$isSectionVisible)
-        if (section != nil && !isSectionVisible(section))
+        if (!isSectionVisible(section))
             return false;
     _end
 

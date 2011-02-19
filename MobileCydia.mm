@@ -1151,6 +1151,7 @@ bool isSectionVisible(NSString *section) {
 - (void) loadData;
 - (void) updateData;
 - (void) syncData;
+- (void) addTrivialSource:(NSString *)href;
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
@@ -8074,12 +8075,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) complete {
-    [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
-        @"deb", @"Type",
-        href_, @"URI",
-        @"./", @"Distribution",
-    nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href_]];
-
+    [delegate_ addTrivialSource:href_];
     [delegate_ syncData];
 }
 
@@ -8931,6 +8927,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withObject:nil
         title:UCLocalize("UPDATING_SOURCES")
     ];
+}
+
+- (void) addTrivialSource:(NSString *)href {
+    [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+        @"deb", @"Type",
+        href, @"URI",
+        @"./", @"Distribution",
+    nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href]];
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {

@@ -9666,6 +9666,8 @@ MSHook(void, UIApplication$_updateApplicationAccessibility, UIApplication *self,
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
+    UpdateExternalStatus(0);
+
     if (Class $UIDevice = objc_getClass("UIDevice")) {
         UIDevice *device([$UIDevice currentDevice]);
         IsWildcat_ = [device respondsToSelector:@selector(isWildcat)] && [device isWildcat];

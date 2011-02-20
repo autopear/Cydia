@@ -2217,6 +2217,8 @@ struct PackageNameOrdering :
     if (false);
     else if (selector == @selector(clear))
         return @"clear";
+    else if (selector == @selector(getField:))
+        return @"getField";
     else if (selector == @selector(hasTag:))
         return @"hasTag";
     else if (selector == @selector(install))
@@ -2275,6 +2277,20 @@ struct PackageNameOrdering :
     for (pkgCache::DepIterator dep(version_.DependsList()); !dep.end(); ++dep)
         [relations addObject:[[[CydiaRelation alloc] initWithIterator:dep] autorelease]];
     return relations;
+} }
+
+- (NSString *) getField:(NSString *)name {
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return nil;
+
+    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
+
+    const char *start, *end;
+    if (!parser.Find([name UTF8String], start, end))
+        return (NSString *) [NSNull null];
+
+    return [(NSString *) CYStringCreate(start, end - start) autorelease];
 } }
 
 - (void) parse {

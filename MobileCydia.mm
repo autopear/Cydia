@@ -4504,11 +4504,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:view didClearWindowObject:window forFrame:frame];
 
-    [window setValue:[changes_ Cydia$webScriptObjectInContext:window] forKey:@"changes"];
-    [window setValue:[issues_ Cydia$webScriptObjectInContext:window] forKey:@"issues"];
-    [window setValue:[sizes_ Cydia$webScriptObjectInContext:window] forKey:@"sizes"];
-
-    [window setValue:self forKey:@"queue"];
+    [window setValue:[[NSDictionary dictionaryWithObjectsAndKeys:
+        changes_, @"changes",
+        issues_, @"issues",
+        sizes_, @"sizes",
+        self, @"queue",
+    nil] Cydia$webScriptObjectInContext:window] forKey:@"cydiaConfirm"];
 }
 
 - (id) initWithDatabase:(Database *)database {

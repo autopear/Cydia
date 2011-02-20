@@ -7349,6 +7349,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
+// this mostly works because reloadData (below) is @synchronized (database_)
+// XXX: that said, I've been running into problems with NSRangeExceptions :(
 - (void) _reloadPackages:(NSArray *)packages {
     CFRelease(packages_);
     packages_ = CFArrayCreateMutable(kCFAllocatorDefault, [packages count], NULL);

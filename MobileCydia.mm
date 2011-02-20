@@ -4470,16 +4470,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) complete {
+    if (substrate_)
+        Finish_ = 2;
+    [delegate_ confirmWithNavigationController:[self navigationController]];
+}
+
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
 
     if ([context isEqualToString:@"remove"]) {
-        if (button == [alert cancelButtonIndex]) {
+        if (button == [alert cancelButtonIndex])
             [self dismissModalViewControllerAnimated:YES];
-        } else if (button == [alert firstOtherButtonIndex]) {
-            if (substrate_)
-                Finish_ = 2;
-            [delegate_ confirmWithNavigationController:[self navigationController]];
+        else if (button == [alert firstOtherButtonIndex]) {
+            [self complete];
         }
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
@@ -4717,11 +4721,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) confirmButtonClicked {
     if (essential_ != nil)
         [essential_ show];
-    else {
-        if (substrate_)
-            Finish_ = 2;
-        [delegate_ confirmWithNavigationController:[self navigationController]];
-    }
+    else
+        [self complete];
 }
 #endif
 

@@ -987,6 +987,7 @@ static const int PulseInterval_ = 50000;
 static const NSString *UI_;
 
 static int Finish_;
+static bool RestartSubstrate_;
 static NSArray *Finishes_;
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
@@ -3683,6 +3684,9 @@ static NSString *Warning_;
 }
 
 - (void) perform {
+    bool substrate(RestartSubstrate_);
+    RestartSubstrate_ = false;
+
     NSString *title(UCLocalize("PERFORM_SELECTIONS"));
 
     NSMutableArray *before = [NSMutableArray arrayWithCapacity:16]; {
@@ -3727,6 +3731,9 @@ static NSString *Warning_;
         _trace();
         return;
     }
+
+    if (substrate)
+        RestartSubstrate_ = true;
 
     _system->UnLock();
     pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
@@ -4472,7 +4479,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) complete {
     if (substrate_)
-        Finish_ = 2;
+        RestartSubstrate_ = true;
     [delegate_ confirmWithNavigationController:[self navigationController]];
 }
 
@@ -4988,6 +4995,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 Finish_ = 3;
         }
     }
+
+    if (Finish_ < 2) {
+        if (RestartSubstrate_)
+            Finish_ = 2;
+    }
+
+    RestartSubstrate_ = false;
 
     switch (Finish_) {
         case 0: [close_ setTitle:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */

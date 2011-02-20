@@ -4004,13 +4004,15 @@ static NSString *Warning_;
 }
 
 - (NSArray *) getInstalledPackages {
-    NSArray *packages([[Database sharedInstance] packages]);
+    Database *database([Database sharedInstance]);
+@synchronized (database) {
+    NSArray *packages([database packages]);
     NSMutableArray *installed([NSMutableArray arrayWithCapacity:1024]);
     for (Package *package in packages)
-        if ([package installed] != nil)
+        if (![package uninstalled])
             [installed addObject:package];
     return installed;
-}
+} }
 
 - (Package *) getPackageById:(NSString *)id {
     Package *package([[Database sharedInstance] packageWithName:id]);

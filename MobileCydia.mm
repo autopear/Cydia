@@ -4091,13 +4091,17 @@ static NSString *Warning_;
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
 }
 
-- (void) setToken:(NSString *)token {
+- (void) _setToken:(NSString *)token {
     if (Token_ != nil)
         [Token_ release];
     Token_ = [token retain];
 
     [Metadata_ setObject:Token_ forKey:@"Token"];
     Changed_ = true;
+}
+
+- (void) setToken:(NSString *)token {
+    [self performSelectorOnMainThread:@selector(_setToken:) withObject:token waitUntilDone:NO];
 }
 
 - (void) setPopupHook:(id)function {

@@ -4931,6 +4931,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         else if (button == [alert firstOtherButtonIndex])
             fprintf(input, "Y\n");
         fflush(input);
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }
 }
 

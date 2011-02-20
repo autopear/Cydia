@@ -130,4 +130,6 @@
 
 - (void) dispatchEvent:(NSString *)event;
 
+- (void) setViewportWidthOnMainThread:(float)value;
+
 @end

@@ -4109,7 +4109,7 @@ static NSString *Warning_;
 }
 
 - (void) setViewportWidth:(float)width {
-    [indirect_ setViewportWidth:width];
+    [indirect_ setViewportWidthOnMainThread:width];
 }
 
 - (NSString *) stringWithFormat:(NSString *)format arguments:(WebScriptObject *)arguments {

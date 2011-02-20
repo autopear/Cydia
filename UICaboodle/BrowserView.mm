@@ -646,6 +646,14 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [self _setViewportWidth];
 }
 
+- (void) _setViewportWidthOnMainThread:(NSNumber *)width {
+    [self setViewportWidth:[width floatValue]];
+}
+
+- (void) setViewportWidthOnMainThread:(float)width {
+    [self performSelectorOnMainThread:@selector(_setViewportWidthOnMainThread:) withObject:[NSNumber numberWithFloat:width] waitUntilDone:NO];
+}
+
 - (void) webViewUpdateViewSettings:(UIWebView *)view {
     [self _setViewportWidth];
 }

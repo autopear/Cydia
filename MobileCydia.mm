@@ -4811,7 +4811,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate;
 
 - (void) _retachThread;
-- (void) _detachNewThreadData:(ProgressData *)data;
 - (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title;
 
 - (BOOL) isRunning;
@@ -5036,8 +5035,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ setStatusBarShowsProgress:NO];
 }
 
-- (void) _detachNewThreadData:(ProgressData *)data { _pooled
-    [[data target] performSelector:[data selector] withObject:[data object]];
+- (void) _detachNewThreadInvocation:(NSInvocation *)invocation { _pooled
+    [invocation invoke];
     [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
 }
 
@@ -5088,15 +5087,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
     }
 
-    [NSThread
-        detachNewThreadSelector:@selector(_detachNewThreadData:)
-        toTarget:self
-        withObject:[[[ProgressData alloc]
-            initWithSelector:selector
-            target:target
-            object:object
-        ] autorelease]
-    ];
+    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[target methodSignatureForSelector:selector]]);
+    [invocation setTarget:target];
+    [invocation setSelector:selector];
+    _assert(object == nil);
+
+    [NSThread detachNewThreadSelector:@selector(_detachNewThreadInvocation:) toTarget:self withObject:invocation];
 }
 
 - (void) repairWithSelector:(SEL)selector {

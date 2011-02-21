@@ -1161,7 +1161,7 @@ bool isSectionVisible(NSString *section) {
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 @end
 
-static id<CydiaDelegate> CydiaApp;
+static NSObject<CydiaDelegate> *CydiaApp;
 /* }}} */
 
 /* Status Delegation {{{ */
@@ -3678,7 +3678,7 @@ static NSString *Warning_;
         return;
     }
 
-    [(id)CydiaApp performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+    [CydiaApp performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     bool failed = false;
     for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {
@@ -3701,7 +3701,7 @@ static NSString *Warning_;
         ];
     }
 
-    [(id)CydiaApp performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+    [CydiaApp performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     if (failed) {
         _trace();

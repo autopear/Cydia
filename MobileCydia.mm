@@ -1129,7 +1129,7 @@ bool isSectionVisible(NSString *section) {
 - (void) setProgressPercent:(NSNumber *)percent;
 - (void) startProgress;
 - (void) addProgressOutput:(NSString *)output;
-- (bool) isCancelling:(size_t)received;
+- (bool) isProgressCancelled;
 @end
 
 @protocol ConfigurationDelegate
@@ -1237,7 +1237,7 @@ class Status :
         );
 
         [delegate_ setProgressPercent:[NSNumber numberWithFloat:percent]];
-        return [delegate_ isCancelling:CurrentBytes] ? false : value;
+        return [delegate_ isProgressCancelled] ? false : value;
     }
 
     virtual void Start() {
@@ -4212,7 +4212,7 @@ static NSString *Warning_;
 - (void) setProgressPercent:(NSNumber *)percent { }
 - (void) startProgress { }
 - (void) addProgressOutput:(NSString *)output { }
-- (bool) isCancelling:(size_t)received { return NO; }
+- (bool) isProgressCancelled { return NO; }
 - (void) setConfigurationData:(NSString *)data { }
 
 - (void) repairWithSelector:(SEL)selector {
@@ -5071,7 +5071,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) startProgress {
 }
 
-- (bool) isCancelling:(size_t)received {
+- (bool) isProgressCancelled {
     return false;
 }
 
@@ -6682,7 +6682,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) startProgress {
 }
 
-- (bool) isCancelling:(size_t)received {
+- (bool) isProgressCancelled {
     return !updating_;
 }
 

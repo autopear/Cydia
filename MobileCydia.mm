@@ -1241,10 +1241,12 @@ class Status :
     }
 
     virtual void Start() {
+        pkgAcquireStatus::Start();
         [delegate_ startProgress];
     }
 
     virtual void Stop() {
+        pkgAcquireStatus::Stop();
     }
 };
 /* }}} */

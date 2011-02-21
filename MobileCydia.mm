@@ -3745,12 +3745,11 @@ static NSString *Warning_;
 }
 
 - (void) updateWithStatus:(Status &)status {
-    _transient NSObject<ProgressDelegate> *delegate(status.getDelegate());
     NSString *title(UCLocalize("REFRESHING_DATA"));
 
     pkgSourceList list;
-    if (!list.ReadMainList())
-        [delegate _setProgressError:@"Unable to read source list." withTitle:title];
+    if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+        return;
 
     FileFd lock;
     lock.Fd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"));
@@ -8293,7 +8292,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super reloadData];
 
     pkgSourceList list;
-    if (!list.ReadMainList())
+    if ([database_ popErrorWithTitle:UCLocalize("SOURCES") forOperation:list.ReadMainList()])
         return;
 
     [sources_ removeAllObjects];

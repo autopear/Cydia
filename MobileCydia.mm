@@ -3688,18 +3688,7 @@ static NSString *Warning_;
         if ((*item)->Status == pkgAcquire::Item::StatIdle)
             continue;
 
-        std::string uri = (*item)->DescURI();
-        std::string error = (*item)->ErrorText;
-
-        lprintf("pAf:%s:%s\n", uri.c_str(), error.c_str());
         failed = true;
-
-        [delegate_ performSelectorOnMainThread:@selector(_setProgressErrorPackage:)
-            withObject:[NSArray arrayWithObjects:
-                [NSString stringWithUTF8String:error.c_str()],
-            nil]
-            waitUntilDone:YES
-        ];
     }
 
     [CydiaApp performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];

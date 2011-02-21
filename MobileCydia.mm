@@ -3388,28 +3388,24 @@ static NSString *Warning_;
 
 - (bool) popErrorWithTitle:(NSString *)title {
     bool fatal(false);
-    std::string message;
 
     while (!_error->empty()) {
         std::string error;
         bool warning(!_error->PopMessage(error));
         if (!warning)
             fatal = true;
+
         for (;;) {
             size_t size(error.size());
             if (size == 0 || error[size - 1] != '\n')
                 break;
             error.resize(size - 1);
         }
+
         lprintf("%c:[%s]\n", warning ? 'W' : 'E', error.c_str());
 
-        if (!message.empty())
-            message += "\n\n";
-        message += error;
+        [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, (warning ? Warning_ : Error_), title]];
     }
-
-    if (fatal && !message.empty())
-        [delegate_ _setProgressError:[NSString stringWithUTF8String:message.c_str()] withTitle:[NSString stringWithFormat:Colon_, fatal ? Error_ : Warning_, title]];
 
     return fatal;
 }

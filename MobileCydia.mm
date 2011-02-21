@@ -1248,46 +1248,6 @@ class Status :
     }
 };
 /* }}} */
-/* Progress Delegation {{{ */
-class Progress :
-    public OpProgress
-{
-  private:
-    _transient id<ProgressDelegate> delegate_;
-    float percent_;
-
-  protected:
-    virtual void Update() {
-        /*if (abs(Percent - percent_) > 2)
-            //NSLog(@"%s:%s:%f", Op.c_str(), SubOp.c_str(), Percent);
-            percent_ = Percent;
-        }*/
-
-        //[delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:[NSString stringWithUTF8String:Op.c_str()] waitUntilDone:YES];
-        //[delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(Percent / 100)] waitUntilDone:YES];
-    }
-
-  public:
-    Progress() :
-        delegate_(nil),
-        percent_(0)
-    {
-    }
-
-    void setDelegate(id delegate) {
-        delegate_ = delegate;
-    }
-
-    id getDelegate() const {
-        return delegate_;
-    }
-
-    virtual void Done() {
-        //NSLog(@"DONE");
-        //[delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:1] waitUntilDone:YES];
-    }
-};
-/* }}} */
 
 /* Database Interface {{{ */
 typedef std::map< unsigned long, _H<Source> > SourceMap;
@@ -1314,7 +1274,6 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
     _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
     Status status_;
-    Progress progress_;
 
     int cydiafd_;
     int statusfd_;
@@ -3499,7 +3458,8 @@ static NSString *Warning_;
     NSString *title(UCLocalize("DATABASE"));
 
     _trace();
-    while (!cache_.Open(progress_, true)) { pop:
+    OpProgress progress;
+    while (!cache_.Open(progress, true)) { pop:
         std::string error;
         bool warning(!_error->PopMessage(error));
         lprintf("cache_.Open():[%s]\n", error.c_str());
@@ -3816,7 +3776,6 @@ static NSString *Warning_;
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
     status_.setDelegate(delegate);
-    progress_.setDelegate(delegate);
 }
 
 - (Source *) getSource:(pkgCache::PkgFileIterator)file {

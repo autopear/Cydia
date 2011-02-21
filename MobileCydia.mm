@@ -3677,6 +3677,7 @@ static NSString *Warning_;
 
     if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue) {
         _trace();
+        [self popErrorWithTitle:title];
         return;
     }
 

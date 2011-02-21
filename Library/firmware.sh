@@ -88,7 +88,7 @@ EOF
 # }}}
 
     if [[ ${cpu} == arm ]]; then
-        pseudo "firmware" "${version}" "almost impressive Apple frameworks"
+        pseudo "firmware" "${version}" "almost impressive Apple frameworks" "iOS Firmware"
 
         while [[ 1 ]]; do
             gssc=$(gssc 2>&1)

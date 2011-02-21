@@ -3673,12 +3673,12 @@ static NSString *Warning_;
             [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
     }
 
+    [CydiaApp performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+
     if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue) {
         _trace();
         return;
     }
-
-    [CydiaApp performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     bool failed = false;
     for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {

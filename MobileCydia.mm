@@ -3467,8 +3467,7 @@ static NSString *Warning_;
         else if (error == "The package lists or status file could not be parsed or opened.")
             [delegate_ repairWithSelector:@selector(update)];
         // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
-        else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
-            [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, Error_, title]];
+        // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
         // else if (error == "The list of sources could not be read.")
         else {
             [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, warning ? Warning_ : Error_, title]];

@@ -3954,6 +3954,9 @@ static NSString *Warning_;
     return [NSArray arrayWithObjects:
         @"device",
         @"ecid",
+        @"firmware",
+        @"hostname",
+        @"idiom",
         @"model",
         @"plmn",
         @"role",
@@ -3971,6 +3974,28 @@ static NSString *Warning_;
 
 - (NSString *) device {
     return [[UIDevice currentDevice] uniqueIdentifier];
+}
+
+- (NSString *) firmware {
+    return [[UIDevice currentDevice] systemVersion];
+}
+
+- (NSString *) hostname {
+    return [[UIDevice currentDevice] name];
+}
+
+- (NSString *) idiom {
+    UIDevice *device([UIDevice currentDevice]);
+    if (![device respondsToSelector:@selector(userInterfaceIdiom)])
+        return @"iphone";
+
+    UIUserInterfaceIdiom idiom([device userInterfaceIdiom]);
+    if (idiom == UIUserInterfaceIdiomPhone)
+        return @"iphone";
+    else if (idiom == UIUserInterfaceIdiomPad)
+        return @"ipad";
+    else
+        return @"unknown";
 }
 
 - (NSString *) plmn {

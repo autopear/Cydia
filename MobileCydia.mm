@@ -3999,6 +3999,8 @@ static NSString *Warning_;
         return @"localize";
     else if (selector == @selector(refreshSources))
         return @"refreshSources";
+    else if (selector == @selector(removeButton))
+        return @"removeButton";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -4151,6 +4153,10 @@ static NSString *Warning_;
 
 - (void) installPackages:(NSArray *)packages {
     [delegate_ performSelectorOnMainThread:@selector(installPackages:) withObject:packages waitUntilDone:NO];
+}
+
+- (void) removeButton {
+    [indirect_ removeButton];
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {

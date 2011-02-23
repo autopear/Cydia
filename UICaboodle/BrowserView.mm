@@ -584,7 +584,11 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     style_ = style;
     function_ = function;
 
+    [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
+}
 
+- (void) removeButton {
+    custom_ = [NSNull null];
     [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
 }
 
@@ -904,8 +908,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (UIBarButtonItem *) customButton {
-    return [[[UIBarButtonItem alloc]
-        initWithTitle:custom_
+    return custom_ == [NSNull null] ? nil : [[[UIBarButtonItem alloc]
+        initWithTitle:static_cast<NSString *>(custom_.operator NSObject *())
         style:[self rightButtonStyle]
         target:self
         action:@selector(customButtonClicked)

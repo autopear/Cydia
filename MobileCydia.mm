@@ -1040,7 +1040,7 @@ static const char *Machine_ = NULL;
 static NSString *System_ = nil;
 static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
-static NSString *Token_ = nil;
+static _H<NSString> Token_;
 static NSString *UniqueID_ = nil;
 static NSString *PLMN_ = nil;
 static NSString *Build_ = nil;
@@ -4215,11 +4215,13 @@ static NSString *Warning_;
 }
 
 - (void) _setToken:(NSString *)token {
-    if (Token_ != nil)
-        [Token_ release];
-    Token_ = [token retain];
+    Token_ = token;
 
-    [Metadata_ setObject:Token_ forKey:@"Token"];
+    if (token == nil)
+        [Metadata_ removeObjectForKey:@"Token"];
+    else
+        [Metadata_ setObject:Token_ forKey:@"Token"];
+
     Changed_ = true;
 }
 

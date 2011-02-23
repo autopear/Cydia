@@ -1197,6 +1197,7 @@ bool isSectionVisible(NSString *section) {
 @protocol ProgressDelegate
 - (void) addProgressEvent:(CydiaProgressEvent *)event;
 - (void) setProgressPercent:(NSNumber *)percent;
+- (void) setProgressCancellable:(NSNumber *)cancellable;
 - (bool) isProgressCancelled;
 - (void) setTitle:(NSString *)title;
 @end
@@ -1282,10 +1283,12 @@ class Status :
 
     virtual void Start() {
         pkgAcquireStatus::Start();
+        [delegate_ performSelectorOnMainThread:@selector(setProgressCancellable:) withObject:[NSNumber numberWithBool:YES] waitUntilDone:YES];
     }
 
     virtual void Stop() {
         pkgAcquireStatus::Stop();
+        [delegate_ performSelectorOnMainThread:@selector(setProgressCancellable:) withObject:[NSNumber numberWithBool:NO] waitUntilDone:YES];
     }
 };
 /* }}} */
@@ -3854,11 +3857,15 @@ static NSString *Warning_;
     if ([self popErrorWithTitle:title])
         return;
 
+    [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+
     bool success(ListUpdate(status, list, PulseInterval_));
     if (status.WasCancelled())
         _error->Discard();
     else
         [self popErrorWithTitle:title forOperation:success];
+
+    [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
     Changed_ = true;
@@ -4780,16 +4787,105 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+/* Progress Data {{{ */
+@interface CydiaProgressData : NSObject {
+    _transient id delegate_;
+
+    bool running_;
+    float progress_;
+
+    _H<NSMutableArray> events_;
+    _H<NSString> title_;
+
+    _H<NSString> status_;
+    _H<NSString> finish_;
+}
+
+@end
+
+@implementation CydiaProgressData
+
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:
+        @"events",
+        @"finish",
+        @"progress",
+        @"running",
+        @"title",
+    nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (id) init {
+    if ((self = [super init]) != nil) {
+        events_ = [NSMutableArray arrayWithCapacity:32];
+    } return self;
+}
+
+- (void) setDelegate:(id)delegate {
+    delegate_ = delegate;
+}
+
+- (void) setProgress:(float)value {
+    progress_ = value;
+}
+
+- (NSNumber *) progress {
+    return [NSNumber numberWithFloat:progress_];
+}
+
+- (NSArray *) events {
+    return events_;
+}
+
+- (void) removeAllEvents {
+    [events_ removeAllObjects];
+}
+
+- (void) addEvent:(CydiaProgressEvent *)event {
+    [events_ addObject:event];
+}
+
+- (void) setTitle:(NSString *)text {
+    title_ = text;
+}
+
+- (NSString *) title {
+    return title_;
+}
+
+- (void) setFinish:(NSString *)text {
+    finish_ = text;
+}
+
+- (NSString *) finish {
+    return (id) finish_ ?: [NSNull null];
+}
+
+- (void) setRunning:(bool)running {
+    running_ = running;
+}
+
+- (NSNumber *) running {
+    return running_ ? (NSNumber *) kCFBooleanTrue : (NSNumber *) kCFBooleanFalse;
+}
+
+@end
+/* }}} */
 /* Progress Controller {{{ */
-@interface ProgressController : CYViewController <
+@interface ProgressController : CYBrowserController <
     ProgressDelegate
 > {
     _transient Database *database_;
-    UIProgressBar *progress_;
-    UITextView *output_;
-    UITextLabel *status_;
-    UIPushButton *close_;
-    _H<NSString> title_;
+    _H<CydiaProgressData> progress_;
+    unsigned cancel_;
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate;
@@ -4797,6 +4893,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title;
 
 - (void) setTitle:(NSString *)title;
+- (void) setCancellable:(bool)cancellable;
 
 @end
 
@@ -4804,10 +4901,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [database_ setProgressDelegate:nil];
-    [progress_ release];
-    [output_ release];
-    [status_ release];
-    [close_ release];
+    [progress_ setDelegate:nil];
     [super dealloc];
 }
 
@@ -4818,93 +4912,49 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [database_ setProgressDelegate:self];
 
-        [[self view] setBackgroundColor:[UIColor colorWithRed:0.0f green:0.0f blue:0.0f alpha:1.0f]];
-
-        progress_ = [[UIProgressBar alloc] init];
-        [progress_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
-        [progress_ setStyle:0];
-
-        status_ = [[UITextLabel alloc] init];
-        [status_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
-        [status_ setColor:[UIColor whiteColor]];
-        [status_ setBackgroundColor:[UIColor clearColor]];
-        [status_ setCentersHorizontally:YES];
-        //[status_ setFont:font];
-
-        output_ = [[UITextView alloc] init];
-        [output_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        //[output_ setTextFont:@"Courier New"];
-        [output_ setFont:[[output_ font] fontWithSize:12]];
-        [output_ setTextColor:[UIColor whiteColor]];
-        [output_ setBackgroundColor:[UIColor clearColor]];
-        [output_ setMarginTop:0];
-        [output_ setAllowsRubberBanding:YES];
-        [output_ setEditable:NO];
-        [[self view] addSubview:output_];
-
-        close_ = [[UIPushButton alloc] init];
-        [close_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin)];
-        [close_ setAutosizesToFit:NO];
-        [close_ setDrawsShadow:YES];
-        [close_ setStretchBackground:YES];
-        [close_ setEnabled:YES];
-        [close_ setTitleFont:[UIFont boldSystemFontOfSize:22]];
-        [close_ addTarget:self action:@selector(closeButtonPushed) forEvents:UIControlEventTouchUpInside];
-        [close_ setBackground:[UIImage applicationImageNamed:@"green-up.png"] forState:0];
-        [close_ setBackground:[UIImage applicationImageNamed:@"green-dn.png"] forState:1];
+        progress_ = [[[CydiaProgressData alloc] init] autorelease];
+        [progress_ setDelegate:self];
     } return self;
 }
 
-- (void) positionViews {
-    CGRect bounds = [[self view] bounds];
-    CGSize prgsize = [UIProgressBar defaultSize];
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [super webView:view didClearWindowObject:window forFrame:frame];
+    [window setValue:progress_ forKey:@"cydiaProgress"];
+}
 
-    CGRect prgrect = {{
-        (bounds.size.width - prgsize.width) / 2,
-        bounds.size.height - prgsize.height - 20
-    }, prgsize};
+- (void) updateProgress {
+    [self dispatchEvent:@"CydiaProgressUpdate"];
+}
 
-    float closewidth = std::min(bounds.size.width - 20, 300.0f);
-
-    [progress_ setFrame:prgrect];
-    [status_ setFrame:CGRectMake(
-        10,
-        bounds.size.height - prgsize.height - 50,
-        bounds.size.width - 20,
-        24
-    )];
-    [output_ setFrame:CGRectMake(
-        10,
-        20,
-        bounds.size.width - 20,
-        bounds.size.height - 96
-    )];
-    [close_ setFrame:CGRectMake(
-        (bounds.size.width - closewidth) / 2,
-        bounds.size.height - prgsize.height - 50,
-        closewidth,
-        32 + prgsize.height
-    )];
+- (void) updateCancel {
+    [[self navigationItem] setLeftBarButtonItem:(cancel_ == 1 ? [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("CANCEL")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(cancel)
+    ] autorelease] : nil)];
 }
 
 - (void) viewWillAppear:(BOOL)animated {
+    if (![self hasLoaded]) {
+        [scroller_ setBackgroundColor:[UIColor blackColor]];
+        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/progress/", UI_]]];
+    }
+
     [super viewDidAppear:animated];
-    [[self navigationItem] setHidesBackButton:YES];
+
     [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
 
-    [self positionViews];
+    [[self navigationItem] setHidesBackButton:YES];
+
+    [self updateCancel];
 }
 
-- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
-    [self positionViews];
-}
-
-- (void) closeButtonPushed {
+- (void) close {
     UpdateExternalStatus(0);
 
     switch (Finish_) {
         case 0:
-            [self dismissModalViewControllerAnimated:YES];
         break;
 
         case 1:
@@ -4936,27 +4986,30 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 reboot2(RB_AUTOBOOT);
         break;
     }
+
+    [super close];
 }
 
 - (void) setTitle:(NSString *)title {
-    title_ = title;
-    [[self navigationItem] setTitle:title];
+    [progress_ setTitle:title];
+    [self updateProgress];
+}
+
+- (UIBarButtonItem *) rightButton {
+    return [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("CLOSE")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(close)
+    ] autorelease];
 }
 
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
     UpdateExternalStatus(1);
 
+    [progress_ setRunning:true];
     [self setTitle:title];
-
-    [status_ setText:nil];
-    [output_ setText:@""];
-    [progress_ setProgress:0];
-
-    [close_ removeFromSuperview];
-    [[self view] addSubview:progress_];
-    [[self view] addSubview:status_];
-
-    [delegate_ retainNetworkActivityIndicator];
+    // implicit updateProgress
 
     SHA1SumValue notifyconf; {
         FileFd file;
@@ -4984,12 +5037,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (invocation != nil) {
         [invocation yieldToSelector:@selector(invoke)];
-        [[self navigationItem] setTitle:UCLocalize("COMPLETE")];
+        [self setTitle:@"COMPLETE"];
     }
-
-    [[self view] addSubview:close_];
-    [progress_ removeFromSuperview];
-    [status_ removeFromSuperview];
 
     if (Finish_ < 4) {
         FileFd file;
@@ -5025,11 +5074,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     RestartSubstrate_ = false;
 
     switch (Finish_) {
-        case 0: [close_ setTitle:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */
-        case 1: [close_ setTitle:UCLocalize("CLOSE_CYDIA")]; break;
-        case 2: [close_ setTitle:UCLocalize("RESTART_SPRINGBOARD")]; break;
-        case 3: [close_ setTitle:UCLocalize("RELOAD_SPRINGBOARD")]; break;
-        case 4: [close_ setTitle:UCLocalize("REBOOT_DEVICE")]; break;
+        case 0: [progress_ setFinish:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */
+        case 1: [progress_ setFinish:UCLocalize("CLOSE_CYDIA")]; break;
+        case 2: [progress_ setFinish:UCLocalize("RESTART_SPRINGBOARD")]; break;
+        case 3: [progress_ setFinish:UCLocalize("RELOAD_SPRINGBOARD")]; break;
+        case 4: [progress_ setFinish:UCLocalize("REBOOT_DEVICE")]; break;
     }
 
     _trace();
@@ -5038,48 +5087,45 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
 
-    [delegate_ releaseNetworkActivityIndicator];
+    [progress_ setRunning:false];
+    [self updateProgress];
+
+    [self applyRightButton];
 }
 
 - (void) addProgressEvent:(CydiaProgressEvent *)event {
-    NSString *type([event type]);
-
-    if ([type isEqualToString:@"ERROR"] || [type isEqualToString:@"WARNING"]) {
-        CYAlertView *sheet([[[CYAlertView alloc]
-            initWithTitle:[event compoundTitle]
-            buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
-            defaultButtonIndex:0
-        ] autorelease]);
-
-        [sheet setMessage:[event message]];
-        [sheet yieldToPopupAlertAnimated:YES];
-        [sheet dismiss];
-    } else if ([type isEqualToString:@"INFORMATION"]) {
-        [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], [event message]]];
-        CGSize size = [output_ contentSize];
-        CGPoint offset = [output_ contentOffset];
-        if (size.height - offset.y < [output_ frame].size.height + 20.f) {
-            CGRect rect = {{0, size.height-1}, {size.width, 1}};
-            [output_ scrollRectToVisible:rect animated:YES];
-        }
-    } else if ([type isEqualToString:@"STATUS"]) {
-        NSMutableArray *words([[[event message] componentsSeparatedByString:@" "] mutableCopy]);
-        for (size_t i(0), e([words count]); i != e; ++i) {
-            NSString *word([words objectAtIndex:i]);
-            if (Package *package = [database_ packageWithName:word])
-                [words replaceObjectAtIndex:i withObject:[package name]];
-        }
-
-        [status_ setText:[words componentsJoinedByString:@" "]];
-    } else _assert(false);
+    [progress_ addEvent:event];
+    [self updateProgress];
 }
 
 - (bool) isProgressCancelled {
-    return false;
+    return cancel_ == 2;
+}
+
+- (void) cancel {
+    cancel_ = 2;
+    [self updateCancel];
+}
+
+- (void) setCancellable:(bool)cancellable {
+    unsigned cancel(cancel_);
+
+    if (!cancellable)
+        cancel_ = 0;
+    else if (cancel_ == 0)
+        cancel_ = 1;
+
+    if (cancel != cancel_)
+        [self updateCancel];
+}
+
+- (void) setProgressCancellable:(NSNumber *)cancellable {
+    [self setCancellable:[cancellable boolValue]];
 }
 
 - (void) setProgressPercent:(NSNumber *)percent {
     [progress_ setProgress:[percent floatValue]];
+    [self updateProgress];
 }
 
 @end
@@ -6444,18 +6490,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (void) cancel {
-    [cancel_ removeFromSuperview];
+- (void) setCancellable:(bool)cancellable {
+    if (cancellable)
+        [self addSubview:cancel_];
+    else
+        [cancel_ removeFromSuperview];
 }
 
 - (void) start {
     [prompt_ setText:UCLocalize("UPDATING_DATABASE")];
     [progress_ setProgress:0];
-    [self addSubview:cancel_];
 }
 
 - (void) stop {
-    [cancel_ removeFromSuperview];
+    [self setCancellable:NO];
 }
 
 - (void) setPrompt:(NSString *)prompt {
@@ -6633,6 +6681,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (bool) isProgressCancelled {
     return !updating_;
+}
+
+- (void) setProgressCancellable:(NSNumber *)cancellable {
+    [refreshbar_ setCancellable:(updating_ && [cancellable boolValue])];
 }
 
 - (void) setProgressPercent:(NSNumber *)percent {

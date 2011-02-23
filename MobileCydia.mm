@@ -4763,8 +4763,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITextView *output_;
     UITextLabel *status_;
     UIPushButton *close_;
-    SHA1SumValue springlist_;
-    SHA1SumValue notifyconf_;
     _H<NSString> title_;
 }
 
@@ -4934,7 +4932,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [delegate_ retainNetworkActivityIndicator];
 
-    {
+    SHA1SumValue notifyconf; {
         FileFd file;
         if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
             _error->Discard();
@@ -4942,11 +4940,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             MMap mmap(file, MMap::ReadOnly);
             SHA1Summation sha1;
             sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            notifyconf_ = sha1.Result();
+            notifyconf = sha1.Result();
         }
     }
 
-    {
+    SHA1SumValue springlist; {
         FileFd file;
         if (!file.Open(SpringBoard_, FileFd::ReadOnly))
             _error->Discard();
@@ -4954,7 +4952,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             MMap mmap(file, MMap::ReadOnly);
             SHA1Summation sha1;
             sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            springlist_ = sha1.Result();
+            springlist = sha1.Result();
         }
     }
 
@@ -4975,7 +4973,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             MMap mmap(file, MMap::ReadOnly);
             SHA1Summation sha1;
             sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(notifyconf_ == sha1.Result()))
+            if (!(notifyconf == sha1.Result()))
                 Finish_ = 4;
         }
     }
@@ -4988,7 +4986,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             MMap mmap(file, MMap::ReadOnly);
             SHA1Summation sha1;
             sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(springlist_ == sha1.Result()))
+            if (!(springlist == sha1.Result()))
                 Finish_ = 3;
         }
     }

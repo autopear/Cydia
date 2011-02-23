@@ -4763,7 +4763,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITextView *output_;
     UITextLabel *status_;
     UIPushButton *close_;
-    BOOL running_;
     SHA1SumValue springlist_;
     SHA1SumValue notifyconf_;
     _H<NSString> title_;
@@ -4774,8 +4773,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title;
 
 - (void) setTitle:(NSString *)title;
-
-- (BOOL) isRunning;
 
 @end
 
@@ -4879,8 +4876,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) closeButtonPushed {
-    running_ = NO;
-
     UpdateExternalStatus(0);
 
     switch (Finish_) {
@@ -4938,7 +4933,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[self view] addSubview:status_];
 
     [delegate_ retainNetworkActivityIndicator];
-    running_ = YES;
 
     {
         FileFd file;
@@ -5062,10 +5056,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setProgressPercent:(NSNumber *)percent {
     [progress_ setProgress:[percent floatValue]];
-}
-
-- (BOOL) isRunning {
-    return running_;
 }
 
 @end

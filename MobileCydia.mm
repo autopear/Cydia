@@ -4996,7 +4996,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UIBarButtonItem *) rightButton {
-    return [[[UIBarButtonItem alloc]
+    return [[progress_ running] boolValue] ? nil : [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("CLOSE")
         style:UIBarButtonItemStylePlain
         target:self

@@ -3342,7 +3342,10 @@ static NSString *Warning_;
             [progress_ performSelectorOnMainThread:@selector(addProgressEvent) withObject:event waitUntilDone:YES];
         } else if (pmstatus_r(data, size)) {
             std::string type([pmstatus_r[1] UTF8String]);
+
             NSString *package = pmstatus_r[2];
+            if ([package isEqualToString:@"dpkg-exec"])
+                package = nil;
 
             float percent([pmstatus_r[3] floatValue]);
             [progress_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(percent / 100)] waitUntilDone:YES];

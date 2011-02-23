@@ -5010,7 +5010,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     system("su -c /usr/bin/uicache mobile");
     _trace();
 
-    UpdateExternalStatus(Finish_ == 0 ? 2 : 0);
+    UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
 
     [delegate_ releaseNetworkActivityIndicator];
 }

@@ -601,6 +601,17 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         closer_ = [function retain];
 }
 
+- (void) scrollToBottomAnimated:(NSNumber *)animated {
+    CGSize size([scroller_ contentSize]);
+    CGPoint offset([scroller_ contentOffset]);
+    CGRect frame([scroller_ frame]);
+
+    if (size.height - offset.y < frame.size.height + 20.f) {
+        CGRect rect = {{0, size.height-1}, {size.width, 1}};
+        [scroller_ scrollRectToVisible:rect animated:[animated boolValue]];
+    }
+}
+
 - (void) _setViewportWidth {
     [[webview_ _documentView] setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 }

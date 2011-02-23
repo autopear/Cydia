@@ -4001,6 +4001,8 @@ static NSString *Warning_;
         return @"refreshSources";
     else if (selector == @selector(removeButton))
         return @"removeButton";
+    else if (selector == @selector(scrollToBottom:))
+        return @"scrollToBottom";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -4182,6 +4184,10 @@ static NSString *Warning_;
 
 - (void) setPopupHook:(id)function {
     [indirect_ setPopupHook:function];
+}
+
+- (void) scrollToBottom:(NSNumber *)animated {
+    [indirect_ performSelectorOnMainThread:@selector(scrollToBottomAnimated:) withObject:animated waitUntilDone:NO];
 }
 
 - (void) setViewportWidth:(float)width {

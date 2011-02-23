@@ -8991,11 +8991,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) retainNetworkActivityIndicator {
     if (activity_++ == 0)
         [self setNetworkActivityIndicatorVisible:YES];
+
+#if TraceLogging
+    NSLog(@"retainNetworkActivityIndicator->%d", activity_);
+#endif
 }
 
 - (void) releaseNetworkActivityIndicator {
     if (--activity_ == 0)
         [self setNetworkActivityIndicatorVisible:NO];
+
+#if TraceLogging
+    NSLog(@"releaseNetworkActivityIndicator->%d", activity_);
+#endif
+
 }
 
 - (void) cancelAndClear:(bool)clear {

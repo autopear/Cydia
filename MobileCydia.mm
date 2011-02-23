@@ -4188,9 +4188,9 @@ static NSString *Warning_;
 
 /* @ Loading... Indicator {{{ */
 @interface CYLoadingIndicator : UIView {
-    UIActivityIndicatorView *spinner_;
-    UILabel *label_;
-    UIView *container_;
+    _H<UIActivityIndicatorView> spinner_;
+    _H<UILabel> label_;
+    _H<UIView> container_;
 }
 
 @property (readonly, nonatomic) UILabel *label;
@@ -4256,19 +4256,14 @@ static NSString *Warning_;
 /* Emulated Loading Controller {{{ */
 @interface CYEmulatedLoadingController : CYViewController {
     _transient Database *database_;
-    CYLoadingIndicator *indicator_;
-    UITabBar *tabbar_;
-    UINavigationBar *navbar_;
+    _H<CYLoadingIndicator> indicator_;
+    _H<UITabBar> tabbar_;
+    _H<UINavigationBar> navbar_;
 }
 
 @end
 
 @implementation CYEmulatedLoadingController
-
-- (void) dealloc {
-    [self releaseSubviews];
-    [super dealloc];
-}
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
@@ -4280,29 +4275,24 @@ static NSString *Warning_;
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
     [[self view] setBackgroundColor:[UIColor pinStripeColor]];
 
-    indicator_ = [[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]];
+    indicator_ = [[[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]] autorelease];
     [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [[self view] addSubview:indicator_];
 
-    tabbar_ = [[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)];
+    tabbar_ = [[[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)] autorelease];
     [tabbar_ setFrame:CGRectMake(0.0f, [[self view] bounds].size.height - [tabbar_ bounds].size.height, [[self view] bounds].size.width, [tabbar_ bounds].size.height)];
     [tabbar_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth];
     [[self view] addSubview:tabbar_];
 
-    navbar_ = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)];
+    navbar_ = [[[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)] autorelease];
     [navbar_ setFrame:CGRectMake(0.0f, 0.0f, [[self view] bounds].size.width, [navbar_ bounds].size.height)];
     [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth];
     [[self view] addSubview:navbar_];
 }
 
 - (void) releaseSubviews {
-    [indicator_ release];
     indicator_ = nil;
-
-    [tabbar_ release];
     tabbar_ = nil;
-
-    [navbar_ release];
     navbar_ = nil;
 }
 

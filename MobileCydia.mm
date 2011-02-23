@@ -564,6 +564,21 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 @end
 /* }}} */
 
+@interface NSInvocation (Cydia)
++ (NSInvocation *) invocationWithSelector:(SEL)selector forTarget:(id)target;
+@end
+
+@implementation NSInvocation (Cydia)
+
++ (NSInvocation *) invocationWithSelector:(SEL)selector forTarget:(id)target {
+    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[target methodSignatureForSelector:selector]]);
+    [invocation setTarget:target];
+    [invocation setSelector:selector];
+    return invocation;
+}
+
+@end
+
 @implementation WebScriptObject (NSFastEnumeration)
 
 - (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count {
@@ -1119,22 +1134,12 @@ bool isSectionVisible(NSString *section) {
 /* Delegate Prototypes {{{ */
 @class Package;
 @class Source;
+@class CydiaProgressEvent;
 
-@interface NSObject (ProgressDelegate)
-@end
-
-@protocol ProgressDelegate
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)id;
-- (void) setProgressTitle:(NSString *)title;
-- (void) setProgressPercent:(NSNumber *)percent;
-- (void) startProgress;
-- (void) addProgressOutput:(NSString *)output;
-- (bool) isProgressCancelled;
-@end
-
-@protocol ConfigurationDelegate
+@protocol DatabaseDelegate
 - (void) repairWithSelector:(SEL)selector;
 - (void) setConfigurationData:(NSString *)data;
+- (void) addProgressEventOnMainThread:(CydiaProgressEvent *)event forTask:(NSString *)task;
 @end
 
 @class CYPackageController;
@@ -1164,6 +1169,39 @@ bool isSectionVisible(NSString *section) {
 static NSObject<CydiaDelegate> *CydiaApp;
 /* }}} */
 
+/* ProgressEvent Interface/Delegate {{{ */
+@interface CydiaProgressEvent : NSObject {
+    _H<NSString> message_;
+    _H<NSString> type_;
+    _H<NSString> package_;
+    _H<NSString> uri_;
+}
+
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type;
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forPackage:(NSString *)package;
+
+- (id) initWithMessage:(NSString *)message ofType:(NSString *)type;
+
+- (NSString *) message;
+- (NSString *) type;
+- (NSString *) package;
+- (NSString *) uri;
+
+- (void) setPackage:(NSString *)package;
+
+- (NSString *) compound:(NSString *)value;
+- (NSString *) compoundMessage;
+- (NSString *) compoundTitle;
+
+@end
+
+@protocol ProgressDelegate
+- (void) addProgressEvent:(CydiaProgressEvent *)event;
+- (void) setProgressPercent:(NSNumber *)percent;
+- (bool) isProgressCancelled;
+- (void) setTitle:(NSString *)title;
+@end
+/* }}} */
 /* Status Delegation {{{ */
 class Status :
     public pkgAcquireStatus
@@ -1177,7 +1215,7 @@ class Status :
     {
     }
 
-    void setDelegate(id delegate) {
+    void setDelegate(NSObject<ProgressDelegate> *delegate) {
         delegate_ = delegate;
     }
 
@@ -1193,12 +1231,9 @@ class Status :
     }
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
-        //NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
-        [delegate_
-            performSelectorOnMainThread:@selector(setProgressTitle:)
-            withObject:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), [NSString stringWithUTF8String:item.ShortDesc.c_str()]]
-            waitUntilDone:YES
-        ];
+        NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:@"STATUS"]);
+        [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
@@ -1215,17 +1250,12 @@ class Status :
         if (error.empty())
             return;
 
-        NSString *description([NSString stringWithUTF8String:item.Description.c_str()]);
-        NSArray *fields([description componentsSeparatedByString:@" "]);
-        NSString *source([fields count] == 0 ? nil : [fields objectAtIndex:0]);
+        //NSString *description([NSString stringWithUTF8String:item.Description.c_str()]);
+        //NSArray *fields([description componentsSeparatedByString:@" "]);
+        //NSString *source([fields count] == 0 ? nil : [fields objectAtIndex:0]);
 
-        [delegate_ performSelectorOnMainThread:@selector(_setProgressErrorPackage:)
-            withObject:[NSArray arrayWithObjects:
-                [NSString stringWithUTF8String:error.c_str()],
-                source,
-            nil]
-            waitUntilDone:YES
-        ];
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:@"ERROR"]);
+        [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
     virtual bool Pulse(pkgAcquire *Owner) {
@@ -1236,13 +1266,12 @@ class Status :
             double(TotalBytes + TotalItems)
         );
 
-        [delegate_ setProgressPercent:[NSNumber numberWithFloat:percent]];
-        return [delegate_ isProgressCancelled] ? false : value;
+        [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:percent] waitUntilDone:YES];
+        return ![delegate_ isProgressCancelled] && value;
     }
 
     virtual void Start() {
         pkgAcquireStatus::Start();
-        [delegate_ startProgress];
     }
 
     virtual void Stop() {
@@ -1250,7 +1279,6 @@ class Status :
     }
 };
 /* }}} */
-
 /* Database Interface {{{ */
 typedef std::map< unsigned long, _H<Source> > SourceMap;
 
@@ -1274,7 +1302,9 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
     CFMutableArrayRef packages_;
 
-    _transient NSObject<ConfigurationDelegate, ProgressDelegate> *delegate_;
+    _transient NSObject<DatabaseDelegate> *delegate_;
+    _transient NSObject<ProgressDelegate> *progress_;
+
     Status status_;
 
     int cydiafd_;
@@ -1314,44 +1344,91 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 - (void) updateWithStatus:(Status &)status;
 
-- (void) setDelegate:(id)delegate;
+- (void) setDelegate:(NSObject<DatabaseDelegate> *)delegate;
+
+- (void) setProgressDelegate:(NSObject<ProgressDelegate> *)delegate;
+- (NSObject<ProgressDelegate> *) progressDelegate;
+
 - (Source *) getSource:(pkgCache::PkgFileIterator)file;
 
 - (NSString *) mappedSectionForPointer:(const char *)pointer;
 
 @end
 /* }}} */
-/* Delegate Helpers {{{ */
-@implementation NSObject (ProgressDelegate)
+/* ProgressEvent Implementation {{{ */
+@implementation CydiaProgressEvent
 
-- (void) _setProgressErrorPackage:(NSArray *)args {
-    [self performSelector:@selector(setProgressError:forPackage:)
-        withObject:[args objectAtIndex:0]
-        withObject:([args count] == 1 ? nil : [args objectAtIndex:1])
-    ];
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type {
+    return [[[CydiaProgressEvent alloc] initWithMessage:message ofType:type] autorelease];
 }
 
-- (void) _setProgressErrorTitle:(NSArray *)args {
-    [self performSelector:@selector(setProgressError:withTitle:)
-        withObject:[args objectAtIndex:0]
-        withObject:([args count] == 1 ? nil : [args objectAtIndex:1])
-    ];
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forPackage:(NSString *)package {
+    CydiaProgressEvent *event([self eventWithMessage:message ofType:type]);
+    [event setPackage:package];
+    return event;
 }
 
-- (void) _setProgressError:(NSString *)error withTitle:(NSString *)title {
-    [self performSelectorOnMainThread:@selector(_setProgressErrorTitle:)
-        withObject:[NSArray arrayWithObjects:error, title, nil]
-        waitUntilDone:YES
-    ];
+- (id) initWithMessage:(NSString *)message ofType:(NSString *)type {
+    if ((self = [super init]) != nil) {
+        message_ = message;
+        type_ = type;
+    } return self;
 }
 
-- (void) setProgressError:(NSString *)error forPackage:(NSString *)id {
-    Package *package = id == nil ? nil : [[Database sharedInstance] packageWithName:id];
+- (NSString *) message {
+    return message_;
+}
 
-    [self performSelector:@selector(setProgressError:withTitle:)
-        withObject:error
-        withObject:(package == nil ? id : [package name])
-    ];
+- (NSString *) type {
+    return type_;
+}
+
+- (NSString *) package {
+    return package_;
+}
+
+- (NSString *) uri {
+    return uri_;
+}
+
+- (void) setPackage:(NSString *)package {
+    package_ = package;
+}
+
+- (NSString *) compound:(NSString *)value {
+    if (value != nil) {
+        NSString *mode(nil); {
+            NSString *type([self type]);
+            if ([type isEqualToString:@"ERROR"])
+                mode = UCLocalize("ERROR");
+            else if ([type isEqualToString:@"WARNING"])
+                mode = UCLocalize("WARNING");
+        }
+
+        if (mode != nil)
+            value = [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), mode, value];
+    }
+
+    return value;
+}
+
+- (NSString *) compoundMessage {
+    return [self compound:[self message]];
+}
+
+- (NSString *) compoundTitle {
+    NSString *title;
+
+    if (package_ != nil) {
+        if (Package *package = [[Database sharedInstance] packageWithName:package_])
+            title = [package name];
+        else
+            title = package_;
+    } else {
+        title = nil;
+    }
+
+    return [self compound:title];
 }
 
 @end
@@ -3231,25 +3308,25 @@ static NSString *Warning_;
 
         if (conffile_r(data, size))
             [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:conffile_r[1] waitUntilDone:YES];
-        else if (strncmp(data, "status: ", 8) == 0)
-            [delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:[NSString stringWithUTF8String:(data + 8)] waitUntilDone:YES];
-        else if (pmstatus_r(data, size)) {
+        else if (strncmp(data, "status: ", 8) == 0) {
+            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 8)] ofType:@"STATUS"]);
+            [progress_ performSelectorOnMainThread:@selector(addProgressEvent) withObject:event waitUntilDone:YES];
+        } else if (pmstatus_r(data, size)) {
             std::string type([pmstatus_r[1] UTF8String]);
-            NSString *id = pmstatus_r[2];
+            NSString *package = pmstatus_r[2];
 
             float percent([pmstatus_r[3] floatValue]);
-            [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(percent / 100)] waitUntilDone:YES];
+            [progress_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(percent / 100)] waitUntilDone:YES];
 
             NSString *string = pmstatus_r[4];
 
-            if (type == "pmerror")
-                [delegate_ performSelectorOnMainThread:@selector(_setProgressErrorPackage:)
-                    withObject:[NSArray arrayWithObjects:string, id, nil]
-                    waitUntilDone:YES
-                ];
-            else if (type == "pmstatus")
-                [delegate_ performSelectorOnMainThread:@selector(setProgressTitle:) withObject:string waitUntilDone:YES];
-            else if (type == "pmconffile")
+            if (type == "pmerror") {
+                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:@"ERROR" forPackage:package]);
+                [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
+            } else if (type == "pmstatus") {
+                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:@"STATUS" forPackage:package]);
+                [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
+            } else if (type == "pmconffile")
                 [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:string waitUntilDone:YES];
             else
                 lprintf("E:unknown pmstatus\n");
@@ -3268,7 +3345,8 @@ static NSString *Warning_;
     while (std::getline(is, line)) {
         lprintf("O:%s\n", line.c_str());
 
-        [delegate_ performSelectorOnMainThread:@selector(addProgressOutput:) withObject:[NSString stringWithUTF8String:line.c_str()] waitUntilDone:YES];
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:line.c_str()] ofType:@"INFORMATION"]);
+        [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
     _assume(false);
@@ -3404,7 +3482,7 @@ static NSString *Warning_;
 
         lprintf("%c:[%s]\n", warning ? 'W' : 'E', error.c_str());
 
-        [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, (warning ? Warning_ : Error_), title]];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? @"WARNING" : @"ERROR")] forTask:title];
     }
 
     return fatal;
@@ -3470,7 +3548,7 @@ static NSString *Warning_;
         // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
         // else if (error == "The list of sources could not be read.")
         else {
-            [delegate_ _setProgressError:[NSString stringWithUTF8String:error.c_str()] withTitle:[NSString stringWithFormat:Colon_, warning ? Warning_ : Error_, title]];
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? @"WARNING" : @"ERROR")] forTask:title];
             return;
         }
 
@@ -3495,7 +3573,7 @@ static NSString *Warning_;
         return;
 
     if (cache_->DelCount() != 0 || cache_->InstCount() != 0) {
-        [delegate_ _setProgressError:@"COUNTS_NONZERO_EX" withTitle:title];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("COUNTS_NONZERO_EX") ofType:@"ERROR"] forTask:title];
         return;
     }
 
@@ -3507,7 +3585,7 @@ static NSString *Warning_;
             return;
 
         if (cache_->BrokenCount() != 0) {
-            [delegate_ _setProgressError:@"STILL_BROKEN_EX" withTitle:title];
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("STILL_BROKEN_EX") ofType:@"ERROR"] forTask:title];
             return;
         }
 
@@ -3759,9 +3837,17 @@ static NSString *Warning_;
     Changed_ = true;
 }
 
-- (void) setDelegate:(id)delegate {
+- (void) setDelegate:(NSObject<DatabaseDelegate> *)delegate {
     delegate_ = delegate;
+}
+
+- (void) setProgressDelegate:(NSObject<ProgressDelegate> *)delegate {
+    progress_ = delegate;
     status_.setDelegate(delegate);
+}
+
+- (NSObject<ProgressDelegate> *) progressDelegate {
+    return progress_;
 }
 
 - (Source *) getSource:(pkgCache::PkgFileIterator)file {
@@ -4170,10 +4256,7 @@ static NSString *Warning_;
 @end
 /* }}} */
 /* Emulated Loading Controller {{{ */
-@interface CYEmulatedLoadingController : CYViewController <
-    ProgressDelegate,
-    ConfigurationDelegate
-> {
+@interface CYEmulatedLoadingController : CYViewController {
     _transient Database *database_;
     CYLoadingIndicator *indicator_;
     UITabBar *tabbar_;
@@ -4186,41 +4269,12 @@ static NSString *Warning_;
 
 - (void) dealloc {
     [self releaseSubviews];
-    [database_ setDelegate:nil];
-
     [super dealloc];
-}
-
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    CYAlertView *sheet([[[CYAlertView alloc]
-        initWithTitle:title
-        buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
-        defaultButtonIndex:0
-    ] autorelease]);
-
-    [sheet setMessage:error];
-    [sheet yieldToPopupAlertAnimated:YES];
-    [sheet dismiss];
-}
-
-- (void) setProgressTitle:(NSString *)title { }
-- (void) setProgressPercent:(NSNumber *)percent { }
-- (void) startProgress { }
-- (void) addProgressOutput:(NSString *)output { }
-- (bool) isProgressCancelled { return NO; }
-- (void) setConfigurationData:(NSString *)data { }
-
-- (void) repairWithSelector:(SEL)selector {
-    [[indicator_ label] performSelectorOnMainThread:@selector(setText:) withObject:[NSString stringWithFormat:Elision_, UCLocalize("REPAIRING"), nil] waitUntilDone:YES];
-    [database_ performSelector:selector];
-    sleep(10);
-    [[indicator_ label] performSelectorOnMainThread:@selector(setText:) withObject:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil] waitUntilDone:YES];
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-        [database_ setDelegate:self];
     } return self;
 }
 
@@ -4697,49 +4751,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Progress Data {{{ */
-@interface ProgressData : NSObject {
-    SEL selector_;
-    // XXX: should these really both be _transient?
-    _transient id target_;
-    _transient id object_;
-}
-
-- (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object;
-
-- (SEL) selector;
-- (id) target;
-- (id) object;
-
-@end
-
-@implementation ProgressData
-
-- (ProgressData *) initWithSelector:(SEL)selector target:(id)target object:(id)object {
-    if ((self = [super init]) != nil) {
-        selector_ = selector;
-        target_ = target;
-        object_ = object;
-    } return self;
-}
-
-- (SEL) selector {
-    return selector_;
-}
-
-- (id) target {
-    return target_;
-}
-
-- (id) object {
-    return object_;
-}
-
-@end
-/* }}} */
 /* Progress Controller {{{ */
 @interface ProgressController : CYViewController <
-    ConfigurationDelegate,
     ProgressDelegate
 > {
     _transient Database *database_;
@@ -4750,40 +4763,36 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL running_;
     SHA1SumValue springlist_;
     SHA1SumValue notifyconf_;
-    NSString *title_;
+    _H<NSString> title_;
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate;
 
-- (void) _retachThread;
-- (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title;
+- (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title;
+
+- (void) setTitle:(NSString *)title;
 
 - (BOOL) isRunning;
 
 @end
 
-@protocol ProgressControllerDelegate
-- (void) progressControllerIsComplete:(ProgressController *)sender;
-@end
-
 @implementation ProgressController
 
 - (void) dealloc {
-    [database_ setDelegate:nil];
+    [database_ setProgressDelegate:nil];
     [progress_ release];
     [output_ release];
     [status_ release];
     [close_ release];
-    if (title_ != nil)
-        [title_ release];
     [super dealloc];
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
     if ((self = [super init]) != nil) {
         database_ = database;
-        [database_ setDelegate:self];
         delegate_ = delegate;
+
+        [database_ setProgressDelegate:self];
 
         [[self view] setBackgroundColor:[UIColor colorWithRed:0.0f green:0.0f blue:0.0f alpha:1.0f]];
 
@@ -4866,21 +4875,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self positionViews];
 }
 
-- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
-    NSString *context([alert context]);
-
-    if ([context isEqualToString:@"conffile"]) {
-        FILE *input = [database_ input];
-        if (button == [alert cancelButtonIndex])
-            fprintf(input, "N\n");
-        else if (button == [alert firstOtherButtonIndex])
-            fprintf(input, "Y\n");
-        fflush(input);
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    }
-}
-
 - (void) closeButtonPushed {
     running_ = NO;
 
@@ -4922,15 +4916,59 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) _retachThread {
-    [[self navigationItem] setTitle:UCLocalize("COMPLETE")];
+- (void) setTitle:(NSString *)title {
+    title_ = title;
+    [[self navigationItem] setTitle:title];
+}
+
+- (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
+    UpdateExternalStatus(1);
+
+    [self setTitle:title];
+
+    [status_ setText:nil];
+    [output_ setText:@""];
+    [progress_ setProgress:0];
+
+    [close_ removeFromSuperview];
+    [[self view] addSubview:progress_];
+    [[self view] addSubview:status_];
+
+    [delegate_ setStatusBarShowsProgress:YES];
+    running_ = YES;
+
+    {
+        FileFd file;
+        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            notifyconf_ = sha1.Result();
+        }
+    }
+
+    {
+        FileFd file;
+        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
+            _error->Discard();
+        else {
+            MMap mmap(file, MMap::ReadOnly);
+            SHA1Summation sha1;
+            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
+            springlist_ = sha1.Result();
+        }
+    }
+
+    if (invocation != nil) {
+        [invocation yieldToSelector:@selector(invoke)];
+        [[self navigationItem] setTitle:UCLocalize("COMPLETE")];
+    }
 
     [[self view] addSubview:close_];
     [progress_ removeFromSuperview];
     [status_ removeFromSuperview];
-
-    [database_ popErrorWithTitle:title_];
-    [delegate_ progressControllerIsComplete:self];
 
     if (Finish_ < 4) {
         FileFd file;
@@ -4982,143 +5020,45 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ setStatusBarShowsProgress:NO];
 }
 
-- (void) _detachNewThreadInvocation:(NSInvocation *)invocation { _pooled
-    [invocation invoke];
-    [self performSelectorOnMainThread:@selector(_retachThread) withObject:nil waitUntilDone:YES];
-}
+- (void) addProgressEvent:(CydiaProgressEvent *)event {
+    NSString *type([event type]);
 
-- (void) detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)object title:(NSString *)title {
-    UpdateExternalStatus(1);
+    if ([type isEqualToString:@"ERROR"] || [type isEqualToString:@"WARNING"]) {
+        CYAlertView *sheet([[[CYAlertView alloc]
+            initWithTitle:[event compoundTitle]
+            buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
+            defaultButtonIndex:0
+        ] autorelease]);
 
-    if (title_ != nil)
-        [title_ release];
-    if (title == nil)
-        title_ = nil;
-    else
-        title_ = [title retain];
-
-    [[self navigationItem] setTitle:title_];
-
-    [status_ setText:nil];
-    [output_ setText:@""];
-    [progress_ setProgress:0];
-
-    [close_ removeFromSuperview];
-    [[self view] addSubview:progress_];
-    [[self view] addSubview:status_];
-
-    [delegate_ setStatusBarShowsProgress:YES];
-    running_ = YES;
-
-    {
-        FileFd file;
-        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            notifyconf_ = sha1.Result();
+        [sheet setMessage:[event message]];
+        [sheet yieldToPopupAlertAnimated:YES];
+        [sheet dismiss];
+    } else if ([type isEqualToString:@"INFORMATION"]) {
+        [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], [event message]]];
+        CGSize size = [output_ contentSize];
+        CGPoint offset = [output_ contentOffset];
+        if (size.height - offset.y < [output_ frame].size.height + 20.f) {
+            CGRect rect = {{0, size.height-1}, {size.width, 1}};
+            [output_ scrollRectToVisible:rect animated:YES];
         }
-    }
-
-    {
-        FileFd file;
-        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            springlist_ = sha1.Result();
+    } else if ([type isEqualToString:@"STATUS"]) {
+        NSMutableArray *words([[[event message] componentsSeparatedByString:@" "] mutableCopy]);
+        for (size_t i(0), e([words count]); i != e; ++i) {
+            NSString *word([words objectAtIndex:i]);
+            if (Package *package = [database_ packageWithName:word])
+                [words replaceObjectAtIndex:i withObject:[package name]];
         }
-    }
 
-    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[target methodSignatureForSelector:selector]]);
-    [invocation setTarget:target];
-    [invocation setSelector:selector];
-    _assert(object == nil);
-
-    [NSThread detachNewThreadSelector:@selector(_detachNewThreadInvocation:) toTarget:self withObject:invocation];
-}
-
-- (void) repairWithSelector:(SEL)selector {
-    [self
-        detachNewThreadSelector:selector
-        toTarget:database_
-        withObject:nil
-        title:UCLocalize("REPAIRING")
-    ];
-}
-
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    CYAlertView *sheet([[[CYAlertView alloc]
-        initWithTitle:title
-        buttons:[NSArray arrayWithObjects:UCLocalize("OKAY"), nil]
-        defaultButtonIndex:0
-    ] autorelease]);
-
-    [sheet setMessage:error];
-    [sheet yieldToPopupAlertAnimated:YES];
-    [sheet dismiss];
-}
-
-- (void) startProgress {
+        [status_ setText:[words componentsJoinedByString:@" "]];
+    } else _assert(false);
 }
 
 - (bool) isProgressCancelled {
     return false;
 }
 
-- (void) setConfigurationData:(NSString *)data {
-    static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
-
-    if (!conffile_r(data)) {
-        lprintf("E:invalid conffile\n");
-        return;
-    }
-
-    NSString *ofile = conffile_r[1];
-    //NSString *nfile = conffile_r[2];
-
-    UIAlertView *alert = [[[UIAlertView alloc]
-        initWithTitle:UCLocalize("CONFIGURATION_UPGRADE")
-        message:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]
-        delegate:self
-        cancelButtonTitle:UCLocalize("KEEP_OLD_COPY")
-        otherButtonTitles:
-            UCLocalize("ACCEPT_NEW_COPY"),
-            // XXX: UCLocalize("SEE_WHAT_CHANGED"),
-        nil
-    ] autorelease];
-
-    [alert setContext:@"conffile"];
-    [alert show];
-}
-
-- (void) setProgressTitle:(NSString *)title {
-    NSMutableArray *words([[title componentsSeparatedByString:@" "] mutableCopy]);
-    for (size_t i(0), e([words count]); i != e; ++i) {
-        NSString *word([words objectAtIndex:i]);
-        if (Package *package = [database_ packageWithName:word])
-            [words replaceObjectAtIndex:i withObject:[package name]];
-    }
-
-    [status_ setText:[words componentsJoinedByString:@" "]];
-}
-
 - (void) setProgressPercent:(NSNumber *)percent {
     [progress_ setProgress:[percent floatValue]];
-}
-
-- (void) addProgressOutput:(NSString *)output {
-    [output_ setText:[NSString stringWithFormat:@"%@\n%@", [output_ text], output]];
-    CGSize size = [output_ contentSize];
-    CGPoint offset = [output_ contentOffset];
-    if (size.height - offset.y < [output_ frame].size.height + 20.f) {
-        CGRect rect = {{0, size.height-1}, {size.width, 1}};
-        [output_ scrollRectToVisible:rect animated:YES];
-    }
 }
 
 - (BOOL) isRunning {
@@ -6670,26 +6610,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return updating_;
 }
 
-- (void) setProgressError:(NSString *)error withTitle:(NSString *)title {
-    [refreshbar_ setPrompt:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), UCLocalize("ERROR"), error]];
-}
-
-- (void) startProgress {
+- (void) addProgressEvent:(CydiaProgressEvent *)event {
+    [refreshbar_ setPrompt:[event compoundMessage]];
 }
 
 - (bool) isProgressCancelled {
     return !updating_;
 }
 
-- (void) setProgressTitle:(NSString *)title {
-    [refreshbar_ setPrompt:title];
-}
-
 - (void) setProgressPercent:(NSNumber *)percent {
     [refreshbar_ setProgress:[percent floatValue]];
-}
-
-- (void) addProgressOutput:(NSString *)output {
 }
 
 - (void) setUpdateDelegate:(id)delegate {
@@ -8651,7 +8581,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @interface Cydia : UIApplication <
     ConfirmationControllerDelegate,
-    ProgressControllerDelegate,
+    DatabaseDelegate,
     CydiaDelegate,
     UINavigationControllerDelegate,
     UITabBarControllerDelegate
@@ -8660,6 +8590,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UIWindow *window_;
     CYTabBarController *tabbar_;
+    CYEmulatedLoadingController *emulated_;
 
     NSMutableArray *essential_;
     NSMutableArray *broken_;
@@ -8876,6 +8807,45 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [database_ update];
 }
 
+- (void) complete {
+    @synchronized (self) {
+        [self _reloadDataWithInvocation:nil];
+    }
+}
+
+- (void) presentModalViewController:(UIViewController *)controller {
+    UINavigationController *navigation([[[CYNavigationController alloc] initWithRootViewController:controller] autorelease]);
+    if (IsWildcat_)
+        [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
+    [((UIViewController *) emulated_ ?: tabbar_) presentModalViewController:navigation animated:YES];
+}
+
+- (ProgressController *) invokeNewProgress:(NSInvocation *)invocation forController:(UINavigationController *)navigation withTitle:(NSString *)title {
+    ProgressController *progress([[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease]);
+
+    if (navigation != nil)
+        [navigation pushViewController:progress animated:YES];
+    else
+        [self presentModalViewController:progress];
+
+    [progress invoke:invocation withTitle:title];
+    return progress;
+}
+
+- (void) detachNewProgressSelector:(SEL)selector toTarget:(id)target forController:(UINavigationController *)navigation title:(NSString *)title {
+    [self invokeNewProgress:[NSInvocation invocationWithSelector:selector forTarget:target] forController:navigation withTitle:title];
+}
+
+- (void) repairWithInvocation:(NSInvocation *)invocation {
+    _trace();
+    [self invokeNewProgress:invocation forController:nil withTitle:UCLocalize("REPAIRING")];
+    _trace();
+}
+
+- (void) repairWithSelector:(SEL)selector {
+    [self performSelectorOnMainThread:@selector(repairWithInvocation:) withObject:[NSInvocation invocationWithSelector:selector forTarget:database_] waitUntilDone:YES];
+}
+
 - (void) syncData {
     [self _saveConfig];
 
@@ -8894,18 +8864,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     fclose(file);
 
-    ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
-    CYNavigationController *navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
-    if (IsWildcat_)
-        [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-    [tabbar_ presentModalViewController:navigation animated:YES];
+    [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:UCLocalize("UPDATING_SOURCES")];
 
-    [progress
-        detachNewThreadSelector:@selector(update_)
-        toTarget:self
-        withObject:nil
-        title:UCLocalize("UPDATING_SOURCES")
-    ];
+    [self complete];
 }
 
 - (void) addTrivialSource:(NSString *)href {
@@ -9006,37 +8967,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) complete {
-    @synchronized (self) {
-        [self _reloadDataWithInvocation:nil];
-    }
-}
-
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
     Queuing_ = false;
-
-    ProgressController *progress = [[[ProgressController alloc] initWithDatabase:database_ delegate:self] autorelease];
-
-    if (navigation != nil) {
-        [navigation pushViewController:progress animated:YES];
-    } else {
-        navigation = [[[CYNavigationController alloc] initWithRootViewController:progress] autorelease];
-        if (IsWildcat_)
-            [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-        [tabbar_ presentModalViewController:navigation animated:YES];
-    }
-
-    [progress
-        detachNewThreadSelector:@selector(perform)
-        toTarget:database_
-        withObject:nil
-        title:UCLocalize("RUNNING")
-    ];
-
     ++locked_;
-}
-
-- (void) progressControllerIsComplete:(ProgressController *)progress {
+    [self detachNewProgressSelector:@selector(perform) toTarget:database_ forController:navigation title:UCLocalize("RUNNING")];
     --locked_;
     [self complete];
 }
@@ -9075,7 +9009,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
     NSString *context([alert context]);
 
-    if ([context isEqualToString:@"fixhalf"]) {
+    if ([context isEqualToString:@"conffile"]) {
+        FILE *input = [database_ input];
+        if (button == [alert cancelButtonIndex])
+            fprintf(input, "N\n");
+        else if (button == [alert firstOtherButtonIndex])
+            fprintf(input, "Y\n");
+        fflush(input);
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    } else if ([context isEqualToString:@"fixhalf"]) {
         if (button == [alert cancelButtonIndex]) {
             @synchronized (self) {
                 for (Package *broken in broken_) {
@@ -9320,6 +9263,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self _saveConfig];
 }
 
+- (void) setConfigurationData:(NSString *)data {
+    static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
+
+    if (!conffile_r(data)) {
+        lprintf("E:invalid conffile\n");
+        return;
+    }
+
+    NSString *ofile = conffile_r[1];
+    //NSString *nfile = conffile_r[2];
+
+    UIAlertView *alert = [[[UIAlertView alloc]
+        initWithTitle:UCLocalize("CONFIGURATION_UPGRADE")
+        message:[NSString stringWithFormat:@"%@\n\n%@", UCLocalize("CONFIGURATION_UPGRADE_EX"), ofile]
+        delegate:self
+        cancelButtonTitle:UCLocalize("KEEP_OLD_COPY")
+        otherButtonTitles:
+            UCLocalize("ACCEPT_NEW_COPY"),
+            // XXX: UCLocalize("SEE_WHAT_CHANGED"),
+        nil
+    ] autorelease];
+
+    [alert setContext:@"conffile"];
+    [alert show];
+}
+
 - (void) addStashController {
     ++locked_;
     stash_ = [[StashController alloc] init];
@@ -9380,22 +9349,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
-- (CYEmulatedLoadingController *) showEmulatedLoadingControllerInView:(UIView *)view {
-    static CYEmulatedLoadingController *fake = nil;
-
-    if (view != nil) {
-        if (fake == nil)
-            fake = [[CYEmulatedLoadingController alloc] initWithDatabase:database_];
-        [view addSubview:[fake view]];
-    } else {
-        [[fake view] removeFromSuperview];
-        [fake release];
-        fake = nil;
-    }
-
-    return fake;
-}
-
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
     CydiaApp = self;
@@ -9448,10 +9401,13 @@ _trace();
     }
 
     database_ = [Database sharedInstance];
+    [database_ setDelegate:self];
 
     [window_ setUserInteractionEnabled:NO];
     [self setupViewControllers];
-    [self showEmulatedLoadingControllerInView:window_];
+
+    emulated_ = [[CYEmulatedLoadingController alloc] initWithDatabase:database_];
+    [window_ addSubview:[emulated_ view]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -9461,17 +9417,11 @@ _trace();
 _trace();
     if (Role_ == nil) {
         [window_ setUserInteractionEnabled:YES];
-
-        SettingsController *role = [[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
-        CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
-        if (IsWildcat_)
-            [nav setModalPresentationStyle:UIModalPresentationFormSheet];
-        [[self showEmulatedLoadingControllerInView:window_] presentModalViewController:nav animated:YES];
-
+        [self presentModalViewController:[[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease]];
         return;
     } else {
-        if ([[self showEmulatedLoadingControllerInView:window_] modalViewController] != nil)
-            [[self showEmulatedLoadingControllerInView:window_] dismissModalViewControllerAnimated:YES];
+        if ([emulated_ modalViewController] != nil)
+            [emulated_ dismissModalViewControllerAnimated:YES];
         [window_ setUserInteractionEnabled:NO];
     }
 
@@ -9479,7 +9429,11 @@ _trace();
     PrintTimes();
 
     [window_ addSubview:[tabbar_ view]];
-    [self showEmulatedLoadingControllerInView:nil];
+
+    [[emulated_ view] removeFromSuperview];
+    [emulated_ release];
+    emulated_ = nil;
+
     [window_ setUserInteractionEnabled:YES];
 
     int selectedIndex = 0;
@@ -9548,6 +9502,22 @@ _trace();
     } else {
         [sheet showInView:window_];
     }
+}
+
+- (void) addProgressEvent:(CydiaProgressEvent *)event forTask:(NSString *)task {
+    id<ProgressDelegate> progress([database_ progressDelegate] ?: [self invokeNewProgress:nil forController:nil withTitle:task]);
+    [progress setTitle:task];
+    [progress addProgressEvent:event];
+}
+
+- (void) addProgressEventForTask:(NSArray *)data {
+    CydiaProgressEvent *event([data objectAtIndex:0]);
+    NSString *task([data count] < 2 ? nil : [data objectAtIndex:1]);
+    [self addProgressEvent:event forTask:task];
+}
+
+- (void) addProgressEventOnMainThread:(CydiaProgressEvent *)event forTask:(NSString *)task {
+    [self performSelectorOnMainThread:@selector(addProgressEventForTask:) withObject:[NSArray arrayWithObjects:event, task, nil] waitUntilDone:YES];
 }
 
 @end

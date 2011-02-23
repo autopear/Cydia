@@ -1165,8 +1165,6 @@ bool isSectionVisible(NSString *section) {
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 @end
-
-static NSObject<CydiaDelegate> *CydiaApp;
 /* }}} */
 
 /* ProgressEvent Interface/Delegate {{{ */
@@ -3748,7 +3746,7 @@ static NSString *Warning_;
             [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
     }
 
-    [CydiaApp performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+    [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue) {
         _trace();
@@ -3766,7 +3764,7 @@ static NSString *Warning_;
         failed = true;
     }
 
-    [CydiaApp performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+    [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     if (failed) {
         _trace();
@@ -4934,7 +4932,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[self view] addSubview:progress_];
     [[self view] addSubview:status_];
 
-    [delegate_ setStatusBarShowsProgress:YES];
+    [delegate_ retainNetworkActivityIndicator];
     running_ = YES;
 
     {
@@ -5017,7 +5015,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     UpdateExternalStatus(Finish_ == 0 ? 2 : 0);
 
-    [delegate_ setStatusBarShowsProgress:NO];
+    [delegate_ releaseNetworkActivityIndicator];
 }
 
 - (void) addProgressEvent:(CydiaProgressEvent *)event {
@@ -8072,9 +8070,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [alert show];
         }
 
-        [delegate_ setStatusBarShowsProgress:NO];
-        [delegate_ removeProgressHUD:hud_];
+        [delegate_ releaseNetworkActivityIndicator];
 
+        [delegate_ removeProgressHUD:hud_];
         [hud_ autorelease];
         hud_ = nil;
 
@@ -8153,6 +8151,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 // XXX: this is stupid
                 hud_ = [[delegate_ addProgressHUD] retain];
                 [hud_ setText:UCLocalize("VERIFYING_URL")];
+                [delegate_ retainNetworkActivityIndicator];
             } break;
 
             case 0:
@@ -9305,13 +9304,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setIdleTimerDisabled:YES];
 
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
-    [self setStatusBarShowsProgress:YES];
     UpdateExternalStatus(1);
-
     [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
-
     UpdateExternalStatus(0);
-    [self setStatusBarShowsProgress:NO];
 
     [self removeStashController];
 
@@ -9351,8 +9346,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
-    CydiaApp = self;
-
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];
 

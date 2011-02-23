@@ -1366,6 +1366,23 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     return event;
 }
 
++ (NSArray *) _attributeKeys {
+    return [NSArray arrayWithObjects:
+        @"message",
+        @"package",
+        @"type",
+        @"uri",
+    nil];
+}
+
+- (NSArray *) attributeKeys {
+    return [[self class] _attributeKeys];
+}
+
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
+    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
 - (id) initWithMessage:(NSString *)message ofType:(NSString *)type {
     if ((self = [super init]) != nil) {
         message_ = message;

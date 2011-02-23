@@ -6896,10 +6896,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSURL *url([request URL]);
     if (url == nil)
         return NO;
+
     NSString *scheme([[url scheme] lowercaseString]);
-    if (scheme == nil || ![scheme isEqualToString:@"cydia"])
-        return NO;
-    return YES;
+    if (scheme != nil && [scheme isEqualToString:@"cydia"])
+        return YES;
+    if ([[url absoluteString] hasPrefix:@"about:cydia-"])
+        return YES;
+
+    return NO;
 }
 
 + (NSURLRequest *) canonicalRequestForRequest:(NSURLRequest *)request {
@@ -6926,8 +6930,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSURL *url([request URL]);
     NSString *href([url absoluteString]);
+    NSString *scheme([[url scheme] lowercaseString]);
 
-    NSString *path([href substringFromIndex:8]);
+    NSString *path;
+
+    if ([scheme isEqualToString:@"cydia"])
+        path = [href substringFromIndex:8];
+    else if ([scheme isEqualToString:@"about"])
+        path = [href substringFromIndex:12];
+    else _assert(false);
+
     NSRange slash([path rangeOfString:@"/"]);
 
     NSString *command;

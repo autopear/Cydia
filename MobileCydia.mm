@@ -3961,6 +3961,7 @@ static NSString *Warning_;
         @"plmn",
         @"role",
         @"serial",
+        @"token",
     nil];
 }
 
@@ -4016,6 +4017,10 @@ static NSString *Warning_;
 
 - (NSString *) model {
     return [NSString stringWithUTF8String:Machine_];
+}
+
+- (NSString *) token {
+    return (id) Token_ ?: [NSNull null];
 }
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {

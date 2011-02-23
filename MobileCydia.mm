@@ -1417,14 +1417,12 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 - (NSString *) compoundTitle {
     NSString *title;
 
-    if (package_ != nil) {
-        if (Package *package = [[Database sharedInstance] packageWithName:package_])
-            title = [package name];
-        else
-            title = package_;
-    } else {
+    if (package_ == nil)
         title = nil;
-    }
+    else if (Package *package = [[Database sharedInstance] packageWithName:package_])
+        title = [package name];
+    else
+        title = package_;
 
     return [self compound:title];
 }

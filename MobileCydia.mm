@@ -3999,11 +3999,11 @@ static NSString *Warning_;
 }
 
 - (NSString *) plmn {
-    return PLMN_;
+    return (id) PLMN_ ?: [NSNull null];
 }
 
 - (NSString *) ecid {
-    return ChipID_;
+    return (id) ChipID_ ?: [NSNull null];
 }
 
 - (NSString *) serial {
@@ -4011,7 +4011,7 @@ static NSString *Warning_;
 }
 
 - (NSString *) role {
-    return Role_;
+    return (id) Role_ ?: [NSNull null];
 }
 
 - (NSString *) model {

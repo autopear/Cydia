@@ -1173,21 +1173,31 @@ bool isSectionVisible(NSString *section) {
 @interface CydiaProgressEvent : NSObject {
     _H<NSString> message_;
     _H<NSString> type_;
+
+    _H<NSArray> item_;
     _H<NSString> package_;
-    _H<NSString> uri_;
+    _H<NSString> url_;
+    _H<NSString> version_;
 }
 
 + (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type;
 + (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forPackage:(NSString *)package;
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItem:(pkgAcquire::ItemDesc &)item;
 
 - (id) initWithMessage:(NSString *)message ofType:(NSString *)type;
 
 - (NSString *) message;
 - (NSString *) type;
-- (NSString *) package;
-- (NSString *) uri;
 
+- (NSArray *) item;
+- (NSString *) package;
+- (NSString *) url;
+- (NSString *) version;
+
+- (void) setItem:(NSArray *)item;
 - (void) setPackage:(NSString *)package;
+- (void) setURL:(NSString *)url;
+- (void) setVersion:(NSString *)version;
 
 - (NSString *) compound:(NSString *)value;
 - (NSString *) compoundMessage;
@@ -1235,7 +1245,7 @@ class Status :
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
         NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:@"STATUS"]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:@"STATUS" forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
@@ -1253,11 +1263,7 @@ class Status :
         if (error.empty())
             return;
 
-        //NSString *description([NSString stringWithUTF8String:item.Description.c_str()]);
-        //NSArray *fields([description componentsSeparatedByString:@" "]);
-        //NSString *source([fields count] == 0 ? nil : [fields objectAtIndex:0]);
-
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:@"ERROR"]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:@"ERROR" forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
@@ -1382,12 +1388,31 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     return event;
 }
 
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItem:(pkgAcquire::ItemDesc &)item {
+    CydiaProgressEvent *event([self eventWithMessage:message ofType:type]);
+
+    NSString *description([NSString stringWithUTF8String:item.Description.c_str()]);
+    NSArray *fields([description componentsSeparatedByString:@" "]);
+    [event setItem:fields];
+
+    if ([fields count] > 3) {
+        [event setPackage:[fields objectAtIndex:2]];
+        [event setVersion:[fields objectAtIndex:3]];
+    }
+
+    [event setURL:[NSString stringWithUTF8String:item.URI.c_str()]];
+
+    return event;
+}
+
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
+        @"item",
         @"message",
         @"package",
         @"type",
-        @"uri",
+        @"url",
+        @"version",
     nil];
 }
 
@@ -1414,16 +1439,36 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     return type_;
 }
 
-- (NSString *) package {
-    return package_;
+- (NSArray *) item {
+    return (id) item_ ?: [NSNull null];
 }
 
-- (NSString *) uri {
-    return uri_;
+- (void) setItem:(NSArray *)item {
+    item_ = item;
+}
+
+- (NSString *) package {
+    return (id) package_ ?: [NSNull null];
 }
 
 - (void) setPackage:(NSString *)package {
     package_ = package;
+}
+
+- (NSString *) url {
+    return (id) url_ ?: [NSNull null];
+}
+
+- (void) setURL:(NSString *)url {
+    url_ = url;
+}
+
+- (void) setVersion:(NSString *)version {
+    version_ = version;
+}
+
+- (NSString *) version {
+    return (id) version_ ?: [NSNull null];
 }
 
 - (NSString *) compound:(NSString *)value {

@@ -483,13 +483,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (request_ != nil)
         [request_ release];
 
-    if (custom_ != nil)
-        [custom_ release];
-    if (style_ != nil)
-        [style_ release];
-
-    if (function_ != nil)
-        [function_ release];
     if (closer_ != nil)
         [closer_ release];
 
@@ -579,51 +572,18 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    if (custom_ != nil)
-        [custom_ autorelease];
-    if (button == nil)
-        custom_ = nil;
-    else
-        custom_ = [[UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:button]]] retain];
-
-    if (style_ != nil)
-        [style_ autorelease];
-    if (style == nil)
-        style_ = nil;
-    else
-        style_ = [style retain];
-
-    if (function_ != nil)
-        [function_ autorelease];
-    if (function == nil)
-        function_ = nil;
-    else
-        function_ = [function retain];
+    custom_ = button;
+    style_ = style;
+    function_ = function;
 
     [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
 }
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    if (custom_ != nil)
-        [custom_ autorelease];
-    if (button == nil)
-        custom_ = nil;
-    else
-        custom_ = [button retain];
+    custom_ = button;
+    style_ = style;
+    function_ = function;
 
-    if (style_ != nil)
-        [style_ autorelease];
-    if (style == nil)
-        style_ = nil;
-    else
-        style_ = [style retain];
-
-    if (function_ != nil)
-        [function_ autorelease];
-    if (function == nil)
-        function_ = nil;
-    else
-        function_ = [function retain];
 
     [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
 }
@@ -840,9 +800,9 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
     if ([frame parentFrame] == nil) {
         CYRelease(title_);
-        CYRelease(custom_);
-        CYRelease(style_);
-        CYRelease(function_);
+        custom_ = nil;
+        style_ = nil;
+        function_ = nil;
         CYRelease(closer_);
 
         // XXX: do we still need to do this?

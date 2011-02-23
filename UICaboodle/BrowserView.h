@@ -10,6 +10,8 @@
 
 #import <JavaScriptCore/JavaScriptCore.h>
 
+#include "substrate.h"
+
 @class NSMutableArray;
 @class NSString;
 @class NSURL;
@@ -77,10 +79,10 @@
     NSMutableSet *loading_;
 
     // XXX: NSString * or UIImage *
-    id custom_;
-    NSString *style_;
+    _H<NSObject> custom_;
+    _H<NSString> style_;
 
-    WebScriptObject *function_;
+    _H<WebScriptObject> function_;
     WebScriptObject *closer_;
 
     float width_;

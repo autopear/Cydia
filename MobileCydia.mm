@@ -1207,10 +1207,12 @@ class Status :
 {
   private:
     _transient NSObject<ProgressDelegate> *delegate_;
+    bool cancelled_;
 
   public:
     Status() :
-        delegate_(nil)
+        delegate_(nil),
+        cancelled_(false)
     {
     }
 
@@ -1266,7 +1268,16 @@ class Status :
         );
 
         [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:percent] waitUntilDone:YES];
-        return ![delegate_ isProgressCancelled] && value;
+        if (value && ![delegate_ isProgressCancelled])
+            return true;
+        else {
+            cancelled_ = true;
+            return false;
+        }
+    }
+
+    _finline bool WasCancelled() const {
+        return cancelled_;
     }
 
     virtual void Start() {
@@ -3843,9 +3854,11 @@ static NSString *Warning_;
     if ([self popErrorWithTitle:title])
         return;
 
-    if ([self popErrorWithTitle:title forOperation:ListUpdate(status, list, PulseInterval_)])
-        /* XXX: ignore this because users suck and don't understand why refreshing is important: return */
-        /* XXX: why the hell is an empty if statement a clang error? */ (void) 0;
+    bool success(ListUpdate(status, list, PulseInterval_));
+    if (status.WasCancelled())
+        _error->Discard();
+    else
+        [self popErrorWithTitle:title forOperation:success];
 
     [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
     Changed_ = true;

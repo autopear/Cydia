@@ -820,6 +820,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         function_ = nil;
         CYRelease(closer_);
 
+        [self setHidesNavigationBar:NO];
+
         // XXX: do we still need to do this?
         [[self navigationItem] setTitle:nil];
     }
@@ -1211,24 +1213,54 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     }
 }
 
+- (bool) hidesNavigationBar {
+    return hidesNavigationBar_;
+}
+
+- (void) _setHidesNavigationBar:(bool)value animated:(bool)animated {
+    if (visible_)
+        [[self navigationController] setNavigationBarHidden:(value && [self hidesNavigationBar]) animated:animated];
+}
+
+- (void) setHidesNavigationBar:(bool)value {
+    if (hidesNavigationBar_ != value) {
+        hidesNavigationBar_ = value;
+        [self _setHidesNavigationBar:YES animated:YES];
+    }
+}
+
+- (void) setHidesNavigationBarByNumber:(NSNumber *)value {
+    [self setHidesNavigationBar:[value boolValue]];
+}
+
 - (void) viewWillAppear:(BOOL)animated {
+    visible_ = true;
+
+    if ([self hidesNavigationBar])
+        [self _setHidesNavigationBar:YES animated:animated];
+
     [self dispatchEvent:@"CydiaViewWillAppear"];
     [super viewWillAppear:animated];
 }
 
 - (void) viewDidAppear:(BOOL)animated {
-    [self dispatchEvent:@"CydiaViewDidAppear"];
     [super viewDidAppear:animated];
+    [self dispatchEvent:@"CydiaViewDidAppear"];
 }
 
 - (void) viewWillDisappear:(BOOL)animated {
     [self dispatchEvent:@"CydiaViewWillDisappear"];
     [super viewWillDisappear:animated];
+
+    if ([self hidesNavigationBar])
+        [self _setHidesNavigationBar:NO animated:animated];
+
+    visible_ = false;
 }
 
 - (void) viewDidDisappear:(BOOL)animated {
-    [self dispatchEvent:@"CydiaViewDidDisappear"];
     [super viewDidDisappear:animated];
+    [self dispatchEvent:@"CydiaViewDidDisappear"];
 }
 
 @end

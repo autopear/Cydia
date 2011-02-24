@@ -4122,6 +4122,8 @@ static NSString *Warning_;
         return @"setButtonTitle";
     else if (selector == @selector(setHidesBackButton:))
         return @"setHidesBackButton";
+    else if (selector == @selector(setHidesNavigationBar:))
+        return @"setHidesNavigationBar";
     else if (selector == @selector(setNavigationBarStyle:))
         return @"setNavigationBarStyle";
     else if (selector == @selector(setPopupHook:))
@@ -4290,6 +4292,10 @@ static NSString *Warning_;
 
 - (void) setHidesBackButton:(NSString *)value {
     [indirect_ performSelectorOnMainThread:@selector(setHidesBackButtonByNumber:) withObject:value waitUntilDone:NO];
+}
+
+- (void) setHidesNavigationBar:(NSString *)value {
+    [indirect_ performSelectorOnMainThread:@selector(setHidesNavigationBarByNumber:) withObject:value waitUntilDone:NO];
 }
 
 - (void) setNavigationBarStyle:(NSString *)value {
@@ -6414,10 +6420,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation HomeController
 
-+ (BOOL) shouldHideNavigationBar {
-    return NO;
-}
-
 - (id) init {
     if ((self = [super init]) != nil) {
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/home/", UI_]]];
@@ -6454,20 +6456,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 
     [alert show];
-}
-
-- (void) viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-
-    if ([[self class] shouldHideNavigationBar])
-        [[self navigationController] setNavigationBarHidden:NO animated:animated];
-}
-
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-
-    if ([[self class] shouldHideNavigationBar])
-        [[self navigationController] setNavigationBarHidden:YES animated:animated];
 }
 
 - (void) viewDidLoad {

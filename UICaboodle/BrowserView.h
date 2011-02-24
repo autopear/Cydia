@@ -90,6 +90,9 @@
 
     UIBarButtonItem *reloaditem_;
     UIBarButtonItem *loadingitem_;
+
+    bool visible_;
+    bool hidesNavigationBar_;
 }
 
 + (void) _initialize;
@@ -120,6 +123,7 @@
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
 - (void) setPopupHook:(id)function;
+- (void) setHidesNavigationBar:(bool)value;
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button;
 - (void) customButtonClicked;

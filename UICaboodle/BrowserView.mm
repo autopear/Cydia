@@ -637,6 +637,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     return true;
 }
 
+- (bool) _allowNavigationAction {
+    return true;
+}
+
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
     [self _didFinishLoading];
@@ -654,39 +658,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     }
 }
 
-// CYWebViewDelegate {{{
-- (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
-#if LogMessages
-    NSLog(@"addMessageToConsole:%@", message);
-#endif
-}
-
-- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
-#if LogBrowser
-    NSLog(@"decidePolicyForNavigationAction:%@ request:%@ frame:%@", action, request, frame);
-#endif
-
-    if ([frame parentFrame] == nil) {
-        if (!error_)
-            request_ = request;
-    }
-}
-
-- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
-#if LogBrowser
-    NSLog(@"decidePolicyForNewWindowAction:%@ request:%@ newFrameName:%@", action, request, frame);
-#endif
-
+- (void) pushRequest:(NSURLRequest *)request asPop:(bool)pop {
     NSURL *url([request URL]);
-    if (url == nil)
-        return;
-
-    if ([frame isEqualToString:@"_open"])
-        [delegate_ openURL:url];
-
-    NSString *scheme([[url scheme] lowercaseString]);
-    if ([scheme isEqualToString:@"mailto"])
-        [self _openMailToURL:url];
 
     // XXX: filter to internal usage?
     CYViewController *page([delegate_ pageForURL:url forExternal:NO]);
@@ -699,7 +672,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
     [page setDelegate:delegate_];
 
-    if (![frame isEqualToString:@"_popup"]) {
+    if (!pop) {
         [[self navigationItem] setTitle:title_];
 
         [[self navigationController] pushViewController:page animated:YES];
@@ -717,6 +690,51 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         ] autorelease]];
 
         [[self navigationController] presentModalViewController:navigation animated:YES];
+    }
+}
+
+// CYWebViewDelegate {{{
+- (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
+#if LogMessages
+    NSLog(@"addMessageToConsole:%@", message);
+#endif
+}
+
+- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+#if LogBrowser
+    NSLog(@"decidePolicyForNavigationAction:%@ request:%@ frame:%@", action, request, frame);
+#endif
+
+    if ([frame parentFrame] == nil) {
+        if (!error_) {
+            if ([self _allowNavigationAction])
+                request_ = request;
+            else {
+                if ([request URL] != nil)
+                    [self pushRequest:request asPop:NO];
+                [listener ignore];
+            }
+        }
+    }
+}
+
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+#if LogBrowser
+    NSLog(@"decidePolicyForNewWindowAction:%@ request:%@ newFrameName:%@", action, request, frame);
+#endif
+
+    NSURL *url([request URL]);
+    if (url == nil)
+        return;
+
+    if ([frame isEqualToString:@"_open"])
+        [delegate_ openURL:url];
+    else {
+        NSString *scheme([[url scheme] lowercaseString]);
+        if ([scheme isEqualToString:@"mailto"])
+            [self _openMailToURL:url];
+        else
+            [self pushRequest:request asPop:[frame isEqualToString:@"_popup"]];
     }
 
     [listener ignore];

@@ -5919,6 +5919,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", name_]];
 }
 
+- (bool) _allowNavigationAction {
+    // XXX: damn it... I really want this.
+    return true;
+}
+
 /* XXX: this is not safe at all... localization of /fail/ */
 - (void) _clickButtonWithName:(NSString *)name {
     if ([name isEqualToString:UCLocalize("CLEAR")])

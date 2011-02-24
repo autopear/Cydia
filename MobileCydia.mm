@@ -8981,11 +8981,33 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) presentModalViewController:(UIViewController *)controller {
+- (void) disemulate {
+    if (emulated_ == nil)
+        return;
+
+    [window_ addSubview:[tabbar_ view]];
+    [[emulated_ view] removeFromSuperview];
+    [emulated_ release];
+    emulated_ = nil;
+    [window_ setUserInteractionEnabled:YES];
+}
+
+- (void) presentModalViewController:(UIViewController *)controller force:(BOOL)force {
     UINavigationController *navigation([[[CYNavigationController alloc] initWithRootViewController:controller] autorelease]);
     if (IsWildcat_)
         [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
-    [((UIViewController *) emulated_ ?: tabbar_) presentModalViewController:navigation animated:YES];
+
+    UIViewController *parent;
+    if (emulated_ == nil)
+        parent = tabbar_;
+    else if (!force)
+        parent = emulated_;
+    else {
+        [self disemulate];
+        parent = tabbar_;
+    }
+
+    [parent presentModalViewController:navigation animated:YES];
 }
 
 - (ProgressController *) invokeNewProgress:(NSInvocation *)invocation forController:(UINavigationController *)navigation withTitle:(NSString *)title {
@@ -8994,7 +9016,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (navigation != nil)
         [navigation pushViewController:progress animated:YES];
     else
-        [self presentModalViewController:progress];
+        [self presentModalViewController:progress force:YES];
 
     [progress invoke:invocation withTitle:title];
     return progress;
@@ -9588,7 +9610,7 @@ _trace();
 _trace();
     if (Role_ == nil) {
         [window_ setUserInteractionEnabled:YES];
-        [self presentModalViewController:[[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease]];
+        [self presentModalViewController:[[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease] force:NO];
         return;
     } else {
         if ([emulated_ modalViewController] != nil)
@@ -9599,13 +9621,7 @@ _trace();
     [self reloadData];
     PrintTimes();
 
-    [window_ addSubview:[tabbar_ view]];
-
-    [[emulated_ view] removeFromSuperview];
-    [emulated_ release];
-    emulated_ = nil;
-
-    [window_ setUserInteractionEnabled:YES];
+    [self disemulate];
 
     int selectedIndex = 0;
     NSMutableArray *items = nil;

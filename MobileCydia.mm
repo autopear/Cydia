@@ -1066,6 +1066,7 @@ static time_t now_;
 
 bool IsWildcat_;
 static CGFloat ScreenScale_;
+static NSString *Idiom_;
 /* }}} */
 
 /* Display Helpers {{{ */
@@ -4052,17 +4053,7 @@ static NSString *Warning_;
 }
 
 - (NSString *) idiom {
-    UIDevice *device([UIDevice currentDevice]);
-    if (![device respondsToSelector:@selector(userInterfaceIdiom)])
-        return @"iphone";
-
-    UIUserInterfaceIdiom idiom([device userInterfaceIdiom]);
-    if (idiom == UIUserInterfaceIdiomPhone)
-        return @"iphone";
-    else if (idiom == UIUserInterfaceIdiomPad)
-        return @"ipad";
-    else
-        return @"unknown";
+    return (id) Idiom_ ?: [NSNull null];
 }
 
 - (NSString *) plmn {
@@ -9870,7 +9861,20 @@ int main(int argc, char *argv[]) { _pooled
     else
         ScreenScale_ = 1;
 
-    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios%@", (IsWildcat_ ? @"~ipad" : @"~iphone")]);
+    UIDevice *device([UIDevice currentDevice]);
+    if (![device respondsToSelector:@selector(userInterfaceIdiom)])
+        Idiom_ = @"iphone";
+    else {
+        UIUserInterfaceIdiom idiom([device userInterfaceIdiom]);
+        if (idiom == UIUserInterfaceIdiomPhone)
+            Idiom_ = @"iphone";
+        else if (idiom == UIUserInterfaceIdiomPad)
+            Idiom_ = @"ipad";
+        else
+            NSLog(@"unknown UIUserInterfaceIdiom!");
+    }
+
+    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 

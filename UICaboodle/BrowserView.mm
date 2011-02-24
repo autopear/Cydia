@@ -1010,6 +1010,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
 - (id) initWithWidth:(float)width ofClass:(Class)_class {
     if ((self = [super init]) != nil) {
+        allowsNavigationAction_ = true;
+
         class_ = _class;
         loading_ = [[NSMutableSet alloc] initWithCapacity:5];
 

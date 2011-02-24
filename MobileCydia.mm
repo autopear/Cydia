@@ -5888,11 +5888,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIActionSheetDelegate
 > {
     _transient Database *database_;
-    Package *package_;
-    NSString *name_;
+    _H<Package> package_;
+    _H<NSString> name_;
     bool commercial_;
-    NSMutableArray *buttons_;
-    UIBarButtonItem *button_;
+    _H<NSMutableArray> buttons_;
+    _H<UIBarButtonItem> button_;
 }
 
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name;
@@ -5901,22 +5901,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation CYPackageController
 
-- (void) dealloc {
-    if (package_ != nil)
-        [package_ release];
-    if (name_ != nil)
-        [name_ release];
-
-    [buttons_ release];
-
-    if (button_ != nil)
-        [button_ release];
-
-    [super dealloc];
-}
-
 - (NSURL *) navigationURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", name_]];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", (id) name_]];
 }
 
 - (bool) _allowNavigationAction {
@@ -6015,23 +6001,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name {
     if ((self = [super init]) != nil) {
         database_ = database;
-        buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
-        name_ = [[NSString alloc] initWithString:name];
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, name_]]];
+        buttons_ = [NSMutableArray arrayWithCapacity:4];
+        name_ = [NSString stringWithString:name];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, (id) name_]]];
     } return self;
 }
 
 - (void) reloadData {
-    if (package_ != nil)
-        [package_ autorelease];
     package_ = [database_ packageWithName:name_];
 
     [buttons_ removeAllObjects];
 
     if (package_ != nil) {
-        [package_ parse];
+        [(Package *) package_ parse];
 
-        package_ = [package_ retain];
         commercial_ = [package_ isCommercial];
 
         if ([package_ mode] != nil)
@@ -6047,9 +6030,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [buttons_ addObject:UCLocalize("REMOVE")];
     }
 
-    if (button_ != nil)
-        [button_ release];
-
     NSString *title;
     switch ([buttons_ count]) {
         case 0: title = nil; break;
@@ -6057,12 +6037,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         default: title = UCLocalize("MODIFY"); break;
     }
 
-    button_ = [[UIBarButtonItem alloc]
+    button_ = [[[UIBarButtonItem alloc]
         initWithTitle:title
         style:UIBarButtonItemStylePlain
         target:self
         action:@selector(customButtonClicked)
-    ];
+    ] autorelease];
 
     [super reloadData];
 }

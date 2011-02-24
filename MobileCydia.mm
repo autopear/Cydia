@@ -7618,7 +7618,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface SearchController : FilteredPackageListController <
     UISearchBarDelegate
 > {
-    UISearchBar *search_;
+    _H<UISearchBar> search_;
     BOOL searchloaded_;
 }
 
@@ -7631,7 +7631,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SearchController
 
 - (void) dealloc {
-    [search_ release];
+    [search_ setDelegate:nil];
     [super dealloc];
 }
 
@@ -7660,7 +7660,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil])) {
-        search_ = [[UISearchBar alloc] init];
+        search_ = [[[UISearchBar alloc] init] autorelease];
+        [search_ setDelegate:self];
     } return self;
 }
 
@@ -7680,7 +7681,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             textField = MSHookIvar<UITextField *>(search_, "_searchField");
 
         [textField setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
-        [search_ setDelegate:self];
         [textField setEnablesReturnKeyAutomatically:NO];
         [[self navigationItem] setTitleView:textField];
     }

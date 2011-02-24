@@ -9911,9 +9911,9 @@ int main(int argc, char *argv[]) { _pooled
     else {
         lang = [[Languages_ objectAtIndex:0] UTF8String];
         setenv("LANG", lang, true);
+        std::setlocale(LC_ALL, lang);
     }
 
-    //std::setlocale(LC_ALL, lang);
     NSLog(@"Setting Language: %s", lang);
     /* }}} */
 

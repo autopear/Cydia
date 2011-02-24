@@ -1776,7 +1776,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
         host_ = [host_ lowercaseString];
 
     if (host_ != nil)
-        authority_ = host_;
+        // XXX: this is due to a bug in _H<>
+        authority_ = (id) host_;
     else
         authority_ = [url path];
 }

@@ -4113,6 +4113,8 @@ static NSString *Warning_;
         return @"refreshSources";
     else if (selector == @selector(removeButton))
         return @"removeButton";
+    else if (selector == @selector(substitutePackageNames:))
+        return @"substitutePackageNames";
     else if (selector == @selector(scrollToBottom:))
         return @"scrollToBottom";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
@@ -4277,6 +4279,17 @@ static NSString *Warning_;
 
 - (void) installPackages:(NSArray *)packages {
     [delegate_ performSelectorOnMainThread:@selector(installPackages:) withObject:packages waitUntilDone:NO];
+}
+
+- (NSString *) substitutePackageNames:(NSString *)message {
+    NSMutableArray *words([[message componentsSeparatedByString:@" "] mutableCopy]);
+    for (size_t i(0), e([words count]); i != e; ++i) {
+        NSString *word([words objectAtIndex:i]);
+        if (Package *package = [[Database sharedInstance] packageWithName:word])
+            [words replaceObjectAtIndex:i withObject:[package name]];
+    }
+
+    return [words componentsJoinedByString:@" "];
 }
 
 - (void) removeButton {

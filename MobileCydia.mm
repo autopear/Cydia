@@ -8804,6 +8804,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         ] autorelease];
 
         [alert setContext:@"fixhalf"];
+        [alert setNumberOfRows:2];
         [alert show];
     } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];

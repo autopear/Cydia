@@ -139,5 +139,5 @@ if [[ ${cpu} == arm ]]; then
         cp -afT /User /var/mobile
     fi && rm -rf /User && ln -s "/var/mobile" /User
 
-    echo 3 >/var/lib/cydia/firmware.ver
+    echo 4 >/var/lib/cydia/firmware.ver
 fi

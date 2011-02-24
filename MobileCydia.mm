@@ -10101,7 +10101,7 @@ int main(int argc, char *argv[]) { _pooled
     if (access("/tmp/.cydia.fw", F_OK) == 0) {
         unlink("/tmp/.cydia.fw");
         goto firmware;
-    } else if (access("/User", F_OK) != 0 || version < 2) {
+    } else if (access("/User", F_OK) != 0 || version < 4) {
       firmware:
         _trace();
         system("/usr/libexec/cydia/firmware.sh");

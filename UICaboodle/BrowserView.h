@@ -93,6 +93,7 @@
 
     bool visible_;
     bool hidesNavigationBar_;
+    bool allowsNavigationAction_;
 }
 
 + (void) _initialize;

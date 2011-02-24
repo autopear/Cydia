@@ -4101,6 +4101,8 @@ static NSString *Warning_;
         return @"substitutePackageNames";
     else if (selector == @selector(scrollToBottom:))
         return @"scrollToBottom";
+    else if (selector == @selector(setAllowsNavigationAction:))
+        return @"setAllowsNavigationAction";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -4286,6 +4288,10 @@ static NSString *Warning_;
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
+}
+
+- (void) setAllowsNavigationAction:(NSString *)value {
+    [indirect_ performSelectorOnMainThread:@selector(setAllowsNavigationActionByNumber:) withObject:value waitUntilDone:NO];
 }
 
 - (void) setHidesBackButton:(NSString *)value {
@@ -5887,11 +5893,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", (id) name_]];
-}
-
-- (bool) _allowNavigationAction {
-    // XXX: damn it... I really want this.
-    return true;
 }
 
 /* XXX: this is not safe at all... localization of /fail/ */

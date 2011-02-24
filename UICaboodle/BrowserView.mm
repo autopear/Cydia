@@ -637,8 +637,16 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     return true;
 }
 
-- (bool) _allowNavigationAction {
-    return true;
+- (bool) allowsNavigationAction {
+    return allowsNavigationAction_;
+}
+
+- (void) setAllowsNavigationAction:(bool)value {
+    allowsNavigationAction_ = value;
+}
+
+- (void) setAllowsNavigationActionByNumber:(NSNumber *)value {
+    [self setAllowsNavigationAction:[value boolValue]];
 }
 
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
@@ -707,10 +715,12 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
     if ([frame parentFrame] == nil) {
         if (!error_) {
-            if ([self _allowNavigationAction])
+            NSURL *url(request == nil ? nil : [request URL]);
+
+            if (request_ == nil || [self allowsNavigationAction] || [[request_ URL] isEqual:url])
                 request_ = request;
             else {
-                if ([request URL] != nil)
+                if (url != nil)
                     [self pushRequest:request asPop:NO];
                 [listener ignore];
             }

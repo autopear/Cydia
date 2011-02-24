@@ -1,13 +1,7 @@
 sdks := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs
 
-ios := 3.2
-#ios := 2.0
-
-ifeq ($(patsubst 2%,2,$(ios)),2)
-gcc := 4.0
-else
+ios := 4.0
 gcc := 4.2
-endif
 
 flags := 
 link := 

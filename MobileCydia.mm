@@ -9870,11 +9870,7 @@ int main(int argc, char *argv[]) { _pooled
     else
         ScreenScale_ = 1;
 
-    NSMutableArray *parts([NSMutableArray arrayWithCapacity:2]);
-    if (ScreenScale_ > 1)
-        [parts addObject:@"@2x"];
-    [parts addObject:(IsWildcat_ ? @"~ipad" : @"~iphone")];
-    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios%@", [parts componentsJoinedByString:@""]]);
+    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios%@", (IsWildcat_ ? @"~ipad" : @"~iphone")]);
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 

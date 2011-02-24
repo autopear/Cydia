@@ -3392,11 +3392,17 @@ static NSString *Warning_;
         size_t size(line.size());
         lprintf("S:%s\n", data);
 
-        if (conffile_r(data, size))
+        if (conffile_r(data, size)) {
+            // status: /fail : conffile-prompt : '/fail' '/fail.dpkg-new' 1 1
             [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:conffile_r[1] waitUntilDone:YES];
-        else if (strncmp(data, "status: ", 8) == 0) {
+        } else if (strncmp(data, "status: ", 8) == 0) {
+            // status: <package>: {unpacked,half-configured,installed}
             CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 8)] ofType:@"STATUS"]);
-            [progress_ performSelectorOnMainThread:@selector(addProgressEvent) withObject:event waitUntilDone:YES];
+            [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
+        } else if (strncmp(data, "processing: ", 12) == 0) {
+            // processing: configure: config-test
+            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 12)] ofType:@"STATUS"]);
+            [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
         } else if (pmstatus_r(data, size)) {
             std::string type([pmstatus_r[1] UTF8String]);
 
@@ -9550,6 +9556,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease];
 
     [alert setContext:@"conffile"];
+    [alert setNumberOfRows:2];
     [alert show];
 }
 

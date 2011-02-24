@@ -751,6 +751,13 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [self _didFailWithError:error forFrame:frame];
 }
 
+// XXX: factor this out somewhere
+- (UIColor *) groupTableViewBackgroundColor {
+    UIDevice *device([UIDevice currentDevice]);
+    bool iPad([device respondsToSelector:@selector(userInterfaceIdiom)] && [device userInterfaceIdiom] == UIUserInterfaceIdiomPad);
+    return iPad ? [UIColor colorWithRed:0.821 green:0.834 blue:0.860 alpha:1] : [UIColor groupTableViewBackgroundColor];
+}
+
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
 
@@ -760,7 +767,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                 for (DOMHTMLBodyElement *body in (id) bodies) {
                     DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
 
-                    bool colored(false);
+                    UIColor *uic([self groupTableViewBackgroundColor]);
 
                     if (DOMCSSPrimitiveValue *color = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-color"])) {
                         if ([color primitiveType] == DOM_CSS_RGBCOLOR) {
@@ -771,10 +778,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                             float blue([[rgb blue] getFloatValue:DOM_CSS_NUMBER]);
                             float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
 
-                            UIColor *uic(nil);
-
                             if (red == 0xc7 && green == 0xce && blue == 0xd5)
-                                uic = [UIColor groupTableViewBackgroundColor];
+                                uic = [UIColor pinStripeColor];
                             else if (alpha != 0)
                                 uic = [UIColor
                                     colorWithRed:(red / 255)
@@ -782,16 +787,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                                     blue:(blue / 255)
                                     alpha:alpha
                                 ];
-
-                            if (uic != nil) {
-                                colored = true;
-                                [scroller_ setBackgroundColor:uic];
-                            }
                         }
                     }
 
-                    if (!colored)
-                        [scroller_ setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
+                    [scroller_ setBackgroundColor:uic];
                     break;
                 }
     }
@@ -1065,7 +1064,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         }
 
         [scroller_ setFixedBackgroundPattern:YES];
-        [scroller_ setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
+        [scroller_ setBackgroundColor:[self groupTableViewBackgroundColor]];
         [scroller_ setClipsSubviews:YES];
 
         [scroller_ setBounces:YES];

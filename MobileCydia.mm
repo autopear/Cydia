@@ -1210,6 +1210,7 @@ bool isSectionVisible(NSString *section) {
 @protocol ProgressDelegate
 - (void) addProgressEvent:(CydiaProgressEvent *)event;
 - (void) setProgressPercent:(NSNumber *)percent;
+- (void) setProgressStatus:(NSDictionary *)status;
 - (void) setProgressCancellable:(NSNumber *)cancellable;
 - (bool) isProgressCancelled;
 - (void) setTitle:(NSString *)title;
@@ -1272,12 +1273,19 @@ class Status :
     virtual bool Pulse(pkgAcquire *Owner) {
         bool value = pkgAcquireStatus::Pulse(Owner);
 
-        float percent(
+        double percent(
             double(CurrentBytes + CurrentItems) /
             double(TotalBytes + TotalItems)
         );
 
-        [delegate_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:percent] waitUntilDone:YES];
+        [delegate_ performSelectorOnMainThread:@selector(setProgressStatus:) withObject:[NSDictionary dictionaryWithObjectsAndKeys:
+            [NSNumber numberWithDouble:percent], @"Percent",
+
+            [NSNumber numberWithDouble:CurrentBytes], @"Current",
+            [NSNumber numberWithDouble:TotalBytes], @"Total",
+            [NSNumber numberWithDouble:CurrentCPS], @"Speed",
+        nil] waitUntilDone:YES];
+
         if (value && ![delegate_ isProgressCancelled])
             return true;
         else {
@@ -1298,6 +1306,7 @@ class Status :
     virtual void Stop() {
         pkgAcquireStatus::Stop();
         [delegate_ performSelectorOnMainThread:@selector(setProgressCancellable:) withObject:[NSNumber numberWithBool:NO] waitUntilDone:YES];
+        [delegate_ performSelectorOnMainThread:@selector(setProgressStatus:) withObject:nil waitUntilDone:YES];
     }
 };
 /* }}} */
@@ -4892,6 +4901,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     bool running_;
     float percent_;
 
+    float current_;
+    float total_;
+    float speed_;
+
     _H<NSMutableArray> events_;
     _H<NSString> title_;
 
@@ -4905,11 +4918,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
+        @"current",
         @"events",
         @"finish",
         @"percent",
         @"running",
+        @"speed",
         @"title",
+        @"total",
     nil];
 }
 
@@ -4937,6 +4953,30 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSNumber *) percent {
     return [NSNumber numberWithFloat:percent_];
+}
+
+- (void) setCurrent:(float)value {
+    current_ = value;
+}
+
+- (NSNumber *) current {
+    return [NSNumber numberWithFloat:current_];
+}
+
+- (void) setTotal:(float)value {
+    total_ = value;
+}
+
+- (NSNumber *) total {
+    return [NSNumber numberWithFloat:total_];
+}
+
+- (void) setSpeed:(float)value {
+    speed_ = value;
+}
+
+- (NSNumber *) speed {
+    return [NSNumber numberWithFloat:speed_];
 }
 
 - (NSArray *) events {
@@ -5223,6 +5263,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setProgressPercent:(NSNumber *)percent {
     [progress_ setPercent:[percent floatValue]];
+    [self updateProgress];
+}
+
+- (void) setProgressStatus:(NSDictionary *)status {
+    if (status == nil) {
+        [progress_ setCurrent:0];
+        [progress_ setTotal:0];
+        [progress_ setSpeed:0];
+    } else {
+        [progress_ setPercent:[[status objectForKey:@"Percent"] floatValue]];
+
+        [progress_ setCurrent:[[status objectForKey:@"Current"] floatValue]];
+        [progress_ setTotal:[[status objectForKey:@"Total"] floatValue]];
+        [progress_ setSpeed:[[status objectForKey:@"Speed"] floatValue]];
+    }
+
     [self updateProgress];
 }
 
@@ -6787,6 +6843,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setProgressPercent:(NSNumber *)percent {
     [refreshbar_ setProgress:[percent floatValue]];
+}
+
+- (void) setProgressStatus:(NSDictionary *)status {
+    if (status != nil)
+        [self setProgressPercent:[status objectForKey:@"Percent"]];
 }
 
 - (void) setUpdateDelegate:(id)delegate {

@@ -4442,7 +4442,7 @@ static NSString *Warning_;
 
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
-    [[self view] setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
+    [[self view] setBackgroundColor:[self groupTableViewBackgroundColor]];
 
     indicator_ = [[[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]] autorelease];
     [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];

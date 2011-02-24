@@ -4855,7 +4855,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [NSNumber numberWithInteger:[database_ fetcher].PartialPresent()], @"resuming",
         nil];
 
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/confirm/", UI_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/confirm/", UI_]]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
@@ -5065,7 +5065,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         progress_ = [[[CydiaProgressData alloc] init] autorelease];
         [progress_ setDelegate:self];
 
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/progress/", UI_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
 
         [scroller_ setBackgroundColor:[UIColor blackColor]];
 
@@ -5985,7 +5985,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
         buttons_ = [[NSMutableArray alloc] initWithCapacity:4];
         name_ = [[NSString alloc] initWithString:name];
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/package/#!/%@", UI_, name_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, name_]]];
     } return self;
 }
 
@@ -6422,7 +6422,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/home/", UI_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/home/", UI_]]];
     } return self;
 }
 
@@ -6481,7 +6481,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/manage/", UI_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/manage/", UI_]]];
     } return self;
 }
 

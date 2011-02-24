@@ -1170,6 +1170,16 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     return 980;
 }
 
+- (void) setNavigationBarStyle:(NSString *)name {
+    UIBarStyle style;
+    if ([name isEqualToString:@"Black"])
+        style = UIBarStyleBlack;
+    else
+        style = UIBarStyleDefault;
+
+    [[[self navigationController] navigationBar] setBarStyle:style];
+}
+
 - (void) setHidesBackButton:(bool)value {
     [[self navigationItem] setHidesBackButton:value];
 }

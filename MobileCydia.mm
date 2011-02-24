@@ -4116,6 +4116,8 @@ static NSString *Warning_;
         return @"setButtonTitle";
     else if (selector == @selector(setHidesBackButton:))
         return @"setHidesBackButton";
+    else if (selector == @selector(setNavigationBarStyle:))
+        return @"setNavigationBarStyle";
     else if (selector == @selector(setPopupHook:))
         return @"setPopupHook";
     else if (selector == @selector(setToken:))
@@ -4282,6 +4284,10 @@ static NSString *Warning_;
 
 - (void) setHidesBackButton:(NSString *)value {
     [indirect_ performSelectorOnMainThread:@selector(setHidesBackButtonByNumber:) withObject:value waitUntilDone:NO];
+}
+
+- (void) setNavigationBarStyle:(NSString *)value {
+    [indirect_ performSelectorOnMainThread:@selector(setNavigationBarStyle:) withObject:value waitUntilDone:NO];
 }
 
 - (void) _setToken:(NSString *)token {

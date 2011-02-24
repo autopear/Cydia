@@ -4194,9 +4194,11 @@ static NSString *Warning_;
 } }
 
 - (Package *) getPackageById:(NSString *)id {
-    Package *package([[Database sharedInstance] packageWithName:id]);
-    [package parse];
-    return package;
+    if (Package *package = [[Database sharedInstance] packageWithName:id]) {
+        [package parse];
+        return package;
+    } else
+        return (Package *) [NSNull null];
 }
 
 - (NSArray *) statfs:(NSString *)path {

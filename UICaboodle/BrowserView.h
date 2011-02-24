@@ -71,7 +71,7 @@
     NSURLAuthenticationChallenge *challenge_;
 
     bool error_;
-    NSURLRequest *request_;
+    _H<NSURLRequest> request_;
 
     _transient NSNumber *sensitive_;
 

@@ -480,9 +480,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (challenge_ != nil)
         [challenge_ release];
 
-    if (request_ != nil)
-        [request_ release];
-
     if (closer_ != nil)
         [closer_ release];
 
@@ -504,11 +501,11 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 - (void) setURL:(NSURL *)url {
     _assert(request_ == nil);
 
-    request_ = [[NSURLRequest
+    request_ = [NSURLRequest
         requestWithURL:url
         cachePolicy:NSURLRequestUseProtocolCachePolicy
         timeoutInterval:DefaultTimeout_
-    ] retain];
+    ];
 }
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
@@ -541,8 +538,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     NSMutableURLRequest *request([request_ mutableCopy]);
     [request setCachePolicy:(cache ? NSURLRequestUseProtocolCachePolicy : NSURLRequestReloadIgnoringLocalCacheData)];
 
-    [request_ autorelease];
-    request_ = [request retain];
+    request_ = request;
 
     if ([request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
         [self loadRequest:request_];
@@ -671,14 +667,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 #endif
 
     if ([frame parentFrame] == nil) {
-        if (!error_) {
-            if (request_ != nil)
-                [request_ autorelease];
-            if (request == nil)
-                request_ = nil;
-            else
-                request_ = [request retain];
-        }
+        if (!error_)
+            request_ = request;
     }
 }
 

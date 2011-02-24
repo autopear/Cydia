@@ -7,7 +7,7 @@
 @end
 
 @interface CYViewController : UIViewController {
-    id delegate_;
+    _transient id delegate_;
     BOOL loaded_;
 }
 

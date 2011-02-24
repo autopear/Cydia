@@ -4014,6 +4014,7 @@ static NSString *Warning_;
         @"role",
         @"serial",
         @"token",
+        @"version",
     nil];
 }
 
@@ -4023,6 +4024,10 @@ static NSString *Warning_;
 
 + (BOOL) isKeyExcludedFromWebScript:(const char *)name {
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (NSString *) version {
+    return @ Cydia_;
 }
 
 - (NSString *) device {

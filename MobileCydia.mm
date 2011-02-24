@@ -1638,12 +1638,12 @@ static void PackageImport(const void *key, const void *value, void *context) {
     CYString type_;
     CYString version_;
 
-    NSString *host_;
-    NSString *authority_;
+    _H<NSString> host_;
+    _H<NSString> authority_;
 
     CYString defaultIcon_;
 
-    NSDictionary *record_;
+    _H<NSDictionary> record_;
     BOOL trusted_;
 }
 
@@ -1688,20 +1688,9 @@ static void PackageImport(const void *key, const void *value, void *context) {
     version_.clear();
     defaultIcon_.clear();
 
-    if (record_ != nil) {
-        [record_ release];
-        record_ = nil;
-    }
-
-    if (host_ != nil) {
-        [host_ release];
-        host_ = nil;
-    }
-
-    if (authority_ != nil) {
-        [authority_ release];
-        authority_ = nil;
-    }
+    record_ = nil;
+    host_ = nil;
+    authority_ = nil;
 }
 
 - (void) dealloc {
@@ -1779,22 +1768,17 @@ static void PackageImport(const void *key, const void *value, void *context) {
     }
 
     record_ = [Sources_ objectForKey:[self key]];
-    if (record_ != nil)
-        record_ = [record_ retain];
 
     NSURL *url([NSURL URLWithString:uri_]);
 
     host_ = [url host];
     if (host_ != nil)
-        host_ = [[host_ lowercaseString] retain];
+        host_ = [host_ lowercaseString];
 
     if (host_ != nil)
         authority_ = host_;
     else
         authority_ = [url path];
-
-    if (authority_ != nil)
-        authority_ = [authority_ retain];
 }
 
 - (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
@@ -1863,7 +1847,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 }
 
 - (NSString *) name {
-    return origin_.empty() ? authority_ : origin_;
+    return origin_.empty() ? (id) authority_ : origin_;
 }
 
 - (NSString *) description {
@@ -1871,7 +1855,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 }
 
 - (NSString *) label {
-    return label_.empty() ? authority_ : label_;
+    return label_.empty() ? (id) authority_ : label_;
 }
 
 - (NSString *) origin {

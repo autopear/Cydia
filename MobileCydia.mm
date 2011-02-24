@@ -125,6 +125,8 @@ extern "C" {
 #include "SDURLCache/SDURLCache.h"
 
 #include "substrate.h"
+
+#include "Version.h"
 /* }}} */
 
 /* Profiler {{{ */
@@ -4501,12 +4503,7 @@ static NSString *Warning_;
 
         WebView *webview([[webview_ _documentView] webView]);
 
-        Package *package([[Database sharedInstance] packageWithName:@"cydia"]);
-
-        NSString *application = package == nil ? @"Cydia" : [NSString
-            stringWithFormat:@"Cydia/%@",
-            [package installed]
-        ];
+        NSString *application([NSString stringWithFormat:@"Cydia/%@", @ Cydia_]);
 
         if (Safari_ != nil)
             application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];

@@ -1181,6 +1181,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [[[self navigationController] navigationBar] setBarStyle:style];
 }
 
+- (void) setNavigationBarTintColor:(UIColor *)color {
+    [[[self navigationController] navigationBar] setTintColor:color];
+}
+
 - (void) setHidesBackButton:(bool)value {
     [[self navigationItem] setHidesBackButton:value];
 }

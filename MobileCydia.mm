@@ -4125,6 +4125,8 @@ static NSString *Warning_;
         return @"setHidesNavigationBar";
     else if (selector == @selector(setNavigationBarStyle:))
         return @"setNavigationBarStyle";
+    else if (selector == @selector(setNavigationBarTintRed:green:blue:alpha:))
+        return @"setNavigationBarTintColor";
     else if (selector == @selector(setPopupHook:))
         return @"setPopupHook";
     else if (selector == @selector(setToken:))
@@ -4299,6 +4301,12 @@ static NSString *Warning_;
 
 - (void) setNavigationBarStyle:(NSString *)value {
     [indirect_ performSelectorOnMainThread:@selector(setNavigationBarStyle:) withObject:value waitUntilDone:NO];
+}
+
+- (void) setNavigationBarTintRed:(NSNumber *)red green:(NSNumber *)green blue:(NSNumber *)blue alpha:(NSNumber *)alpha {
+    float opacity(alpha == (id) [WebUndefined undefined] ? 1 : [alpha floatValue]);
+    UIColor *color([UIColor colorWithRed:[red floatValue] green:[green floatValue] blue:[blue floatValue] alpha:opacity]);
+    [indirect_ performSelectorOnMainThread:@selector(setNavigationBarTintColor:) withObject:color waitUntilDone:NO];
 }
 
 - (void) _setToken:(NSString *)token {

@@ -1170,6 +1170,14 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     return 980;
 }
 
+- (void) setHidesBackButton:(bool)value {
+    [[self navigationItem] setHidesBackButton:value];
+}
+
+- (void) setHidesBackButtonByNumber:(NSNumber *)value {
+    [self setHidesBackButton:[value boolValue]];
+}
+
 - (void) dispatchEvent:(NSString *)event {
     WebThreadLocked lock;
 

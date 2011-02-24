@@ -1028,7 +1028,6 @@ static UIColor *InstallingColor_;
 static UIColor *RemovingColor_;
 
 static NSString *App_;
-static NSString *Home_;
 
 static BOOL Advanced_;
 static BOOL Ignored_;
@@ -9945,7 +9944,6 @@ int main(int argc, char *argv[]) { _pooled
     /* }}} */
 
     App_ = [[NSBundle mainBundle] bundlePath];
-    Home_ = NSHomeDirectory();
     Advanced_ = YES;
 
     setuid(0);

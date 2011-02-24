@@ -7125,7 +7125,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Section Controller {{{ */
 @interface SectionController : FilteredPackageListController {
-    NSString *section_;
+    _H<NSString> section_;
 }
 
 - (id) initWithDatabase:(Database *)database section:(NSString *)section;

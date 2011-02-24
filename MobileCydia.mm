@@ -4849,7 +4849,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [NSNumber numberWithInteger:[database_ fetcher].PartialPresent()], @"resuming",
         nil];
 
-        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/confirm/", UI_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/confirm/", UI_]]];
 
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
@@ -5040,6 +5040,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
+- (void) updateCancel {
+    [[self navigationItem] setLeftBarButtonItem:(cancel_ == 1 ? [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("CANCEL")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(cancel)
+    ] autorelease] : nil)];
+}
+
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
     if ((self = [super init]) != nil) {
         database_ = database;
@@ -5049,6 +5058,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         progress_ = [[[CydiaProgressData alloc] init] autorelease];
         [progress_ setDelegate:self];
+
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/progress/", UI_]]];
+
+        [scroller_ setBackgroundColor:[UIColor blackColor]];
+
+        [[self navigationItem] setHidesBackButton:YES];
+
+        [self updateCancel];
     } return self;
 }
 
@@ -5061,28 +5078,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self dispatchEvent:@"CydiaProgressUpdate"];
 }
 
-- (void) updateCancel {
-    [[self navigationItem] setLeftBarButtonItem:(cancel_ == 1 ? [[[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CANCEL")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(cancel)
-    ] autorelease] : nil)];
-}
-
 - (void) viewWillAppear:(BOOL)animated {
-    if (![self hasLoaded]) {
-        [scroller_ setBackgroundColor:[UIColor blackColor]];
-        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/progress/", UI_]]];
-    }
+    if (![self hasLoaded])
+        [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
 
-    [super viewDidAppear:animated];
-
-    [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
-
-    [[self navigationItem] setHidesBackButton:YES];
-
-    [self updateCancel];
+    [super viewWillAppear:animated];
 }
 
 - (void) close {
@@ -6418,6 +6418,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return NO;
 }
 
+- (id) init {
+    if ((self = [super init]) != nil) {
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/home/", UI_]]];
+    } return self;
+}
+
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://home"];
 }
@@ -6458,9 +6464,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewWillAppear:(BOOL)animated {
-    if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/home/", UI_]]];
-
     [super viewWillAppear:animated];
 
     if ([[self class] shouldHideNavigationBar])
@@ -6488,15 +6491,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation ManageController
 
-- (NSURL *) navigationURL {
-    return [NSURL URLWithString:@"cydia://manage"];
+- (id) init {
+    if ((self = [super init]) != nil) {
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/manage/", UI_]]];
+    } return self;
 }
 
-- (void) viewWillAppear:(BOOL)animated {
-    if (![self hasLoaded])
-        [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/manage/", UI_]]];
-
-    [super viewWillAppear:animated];
+- (NSURL *) navigationURL {
+    return [NSURL URLWithString:@"cydia://manage"];
 }
 
 - (void) viewDidLoad {

@@ -3623,8 +3623,9 @@ static NSString *Warning_;
             [delegate_ repairWithSelector:@selector(configure)];
         else if (error == "The package lists or status file could not be parsed or opened.")
             [delegate_ repairWithSelector:@selector(update)];
-        // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
         // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
+        // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
+        // else if (error == "Malformed Status line")
         // else if (error == "The list of sources could not be read.")
         else {
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? @"WARNING" : @"ERROR")] forTask:title];

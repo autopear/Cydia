@@ -4890,7 +4890,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient id delegate_;
 
     bool running_;
-    float progress_;
+    float percent_;
 
     _H<NSMutableArray> events_;
     _H<NSString> title_;
@@ -4907,7 +4907,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSArray arrayWithObjects:
         @"events",
         @"finish",
-        @"progress",
+        @"percent",
         @"running",
         @"title",
     nil];
@@ -4931,12 +4931,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     delegate_ = delegate;
 }
 
-- (void) setProgress:(float)value {
-    progress_ = value;
+- (void) setPercent:(float)value {
+    percent_ = value;
 }
 
-- (NSNumber *) progress {
-    return [NSNumber numberWithFloat:progress_];
+- (NSNumber *) percent {
+    return [NSNumber numberWithFloat:percent_];
 }
 
 - (NSArray *) events {
@@ -5222,7 +5222,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setProgressPercent:(NSNumber *)percent {
-    [progress_ setProgress:[percent floatValue]];
+    [progress_ setPercent:[percent floatValue]];
     [self updateProgress];
 }
 

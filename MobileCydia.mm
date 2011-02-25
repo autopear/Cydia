@@ -9376,6 +9376,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (BOOL) isSafeToSuspend {
+    if (locked_ != 0) {
+#if !ForRelease
+        NSLog(@"isSafeToSuspend: locked_ != 0");
+#endif
+        return false;
+    }
+
     // Use external process status API internally.
     // This is probably a really bad idea.
     // XXX: what is the point of this? does this solve anything at all?
@@ -9386,7 +9393,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         notify_cancel(notify_token);
     }
 
-    return locked_ == 0 && status == 0;
+    if (status != 0) {
+#if !ForRelease
+        NSLog(@"isSafeToSuspend: status != 0");
+#endif
+        return false;
+    }
+
+#if !ForRelease
+    NSLog(@"isSafeToSuspend: -> true");
+#endif
+    return true;
 }
 
 - (void) applicationSuspend:(__GSEvent *)event {

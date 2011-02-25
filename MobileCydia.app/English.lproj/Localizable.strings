@@ -157,7 +157,7 @@
 "RESUBMIT_FORM" = "Are you sure you want to submit this form again?";
 "RESUMING_AT" = "Resuming At";
 "RETURN_TO_CYDIA" = "Return to Cydia";
-"ROLE_EX" = "Not all of the packages available via Cydia are designed to be used by all users. Please categorize yourself so that Cydia can apply helpful filters.\n\nThis choice can be changed from \"Settings\" under the \"Manage\" tab (on the iPhone or iPod touch), or the \"Sources\" tab (on the iPad).";
+"ROLE_EX" = "Not all of the packages available via Cydia are designed to be used by all users. Please categorize yourself so that Cydia can apply helpful filters.\n\nThis choice can be changed from \"Settings\" under the \"Manage\" tab (on iPhone or iPod touch), or the \"Sources\" tab (on iPad).";
 "RUNNING" = "Running";
 "SAFE" = "Safe";
 "SAMPLE" = "Sample";

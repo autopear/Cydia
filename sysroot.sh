@@ -11,8 +11,6 @@ set -e
 shopt -s extglob
 shopt -s nullglob
 
-PATH=/Library/Cydia/bin:$PATH
-
 rm -rf sysroot
 mkdir sysroot
 cd sysroot
@@ -21,6 +19,10 @@ repository=http://apt.saurik.com/
 distribution=tangelo
 component=main
 architecture=iphoneos-arm
+
+declare -A dpkgz
+dpkgz[gz]=gunzip
+dpkgz[lzma]=unlzma
 
 wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
     regex='^([^ \t]*): *(.*)'
@@ -31,8 +33,25 @@ wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture
             package=${fields[package]}
             if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|coreutils|mobilesubstrate|pcre) ]]; then
                 filename=${fields[filename]}
+
                 wget -O "${package}.deb" "${repository}${filename}"
-                dpkg-deb -x "${package}.deb" .
+                for z in lzma gz; do
+                    compressed=data.tar.${z}
+
+                    if ar -x "${package}.deb" "${compressed}" 2>/dev/null; then
+                        ${dpkgz[${z}]} "${compressed}"
+                        break
+                    fi
+                done
+
+                if ! [[ -e data.tar ]]; then
+                    echo "unable to extract package" 1>&2
+                    exit 1
+                fi
+
+                ls -la data.tar
+                tar -xf ./data.tar
+                rm -f data.tar
             fi
 
             unset fields

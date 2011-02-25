@@ -44,6 +44,12 @@ wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture
 
 rm -f *.deb
 
+if substrate=$(readlink usr/include/substrate.h); then
+    if [[ ${substrate} == /* ]]; then
+        ln -sf "../..${substrate}" usr/include/substrate.h
+    fi
+fi
+
 mkdir -p usr/include
 cd usr/include
 

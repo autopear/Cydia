@@ -2367,6 +2367,7 @@ struct PackageNameOrdering :
         @"source",
         @"sponsor",
         @"support",
+        @"tags",
         @"warnings",
     nil];
 }
@@ -3051,6 +3052,10 @@ struct PackageNameOrdering :
     if ([Role_ isEqualToString:@"Developer"])
         return false;
     _assert(false);
+}
+
+- (NSArray *) tags {
+    return tags_;
 }
 
 - (BOOL) hasTag:(NSString *)tag {

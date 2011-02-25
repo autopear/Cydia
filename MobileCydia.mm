@@ -4572,7 +4572,8 @@ static NSString *Warning_;
     NSURLResponse *response([source response]);
 
     NSURL *url([response URL]);
-    //NSString *scheme([url scheme]);
+
+    NSString *scheme([[url scheme] lowercaseString]);
     NSString *host([url host]);
 
     if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
@@ -4581,8 +4582,9 @@ static NSString *Warning_;
         [self setHeaders:headers forHost:host];
     }
 
-    if ([CydiaHosts_ containsObject:host])
-        [window setValue:cydia_ forKey:@"cydia"];
+    if ([scheme isEqualToString:@"https"])
+        if ([CydiaHosts_ containsObject:host])
+            [window setValue:cydia_ forKey:@"cydia"];
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {

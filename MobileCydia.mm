@@ -1069,10 +1069,10 @@ static NSString *Idiom_;
 
 static NSMutableSet *CydiaHosts_;
 
-static NSString *kCydiaProgressEventTypeError = @"ERROR";
-static NSString *kCydiaProgressEventTypeInformation = @"INFORMATION";
-static NSString *kCydiaProgressEventTypeStatus = @"STATUS";
-static NSString *kCydiaProgressEventTypeWarning = @"WARNING";
+static NSString *kCydiaProgressEventTypeError = @"Error";
+static NSString *kCydiaProgressEventTypeInformation = @"Information";
+static NSString *kCydiaProgressEventTypeStatus = @"Status";
+static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 /* }}} */
 
 /* Display Helpers {{{ */

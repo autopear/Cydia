@@ -4583,8 +4583,6 @@ static NSString *Warning_;
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
     if (Token_ != nil)
         [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
-    if (Role_ != nil)
-        [copy setValue:Role_ forHTTPHeaderField:@"X-Role"];
 
     return copy;
 }
@@ -8382,8 +8380,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
     if (UniqueID_ != nil)
         [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-    if (Role_ != nil)
-        [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
 
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
 }

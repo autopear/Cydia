@@ -70,12 +70,6 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
 
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>audio</string>
-        <string>continuous</string>
-    </array>
-
     <key>CFBundleIconFile</key>
     <string>iconClassic.png</string>
 
@@ -88,6 +82,26 @@
         <string>Icon-Small-50.png</string>
         <string>Icon-Small@2x.png</string>
     </array>
+
+
+    <!-- to ye who is reading this, I know what you are thinking: "saurik is an idiot, why did he turn this off?" -->
+    <!-- the problem is that Cydia runs as root, and therefore cannot be sent a SIGSTOP by SpringBoard, as mobile -->
+    <!-- what that means, is that when Cydia "multitasks" it will just keep running in the background, constantly -->
+    <!-- and that means that all of those stupid webpages (and all of their horribly irritatingly slow ads!) will -->
+    <!-- just keep running and animating and reloading in the background, burning your battery life and cpu speed -->
+    <!-- even when you aren't "using" the app anymore. so, no: it is not at all a good idea to turn this back on. -->
+    <!-- the idea is that, eventually, Cydia will no longer need to run as root; and, when that happens, not just -->
+    <!-- this, but a ton of other little things (mail composition, keyboard behaviors, mobilesubstrate, etc.) all -->
+    <!-- will get fixed at the same time, and one of those wonderous new features will be "working multitasking". -->
+
+    <!--key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+        <string>continuous</string>
+    </array-->
+
+    <key>UIApplicationExitsOnSuspend</key>
+    <true/>
 </dict>
 
 </plist>

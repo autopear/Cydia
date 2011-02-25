@@ -5,6 +5,9 @@ if [[ ${BASH_VERSION} != 4* ]]; then
     exit 1
 fi
 
+set -o pipefail
+set -e
+
 shopt -s extglob
 shopt -s nullglob
 

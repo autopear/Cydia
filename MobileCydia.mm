@@ -9146,7 +9146,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) repairWithInvocation:(NSInvocation *)invocation {
     _trace();
-    [self invokeNewProgress:invocation forController:nil withTitle:UCLocalize("REPAIRING")];
+    [self invokeNewProgress:invocation forController:nil withTitle:@"REPAIRING"];
     _trace();
 }
 
@@ -9172,7 +9172,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     fclose(file);
 
-    [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:UCLocalize("UPDATING_SOURCES")];
+    [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:@"UPDATING_SOURCES"];
 
     [self complete];
 }
@@ -9278,7 +9278,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
     Queuing_ = false;
     ++locked_;
-    [self detachNewProgressSelector:@selector(perform) toTarget:database_ forController:navigation title:UCLocalize("RUNNING")];
+    [self detachNewProgressSelector:@selector(perform) toTarget:database_ forController:navigation title:@"RUNNING"];
     --locked_;
     [self complete];
 }

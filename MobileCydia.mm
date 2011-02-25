@@ -208,6 +208,33 @@ void PrintTimes() {
     while (false); \
     [_pool release];
 
+#define lprintf(args...) fprintf(stderr, args)
+
+#define ForRelease 1
+#define TraceLogging (1 && !ForRelease)
+#define HistogramInsertionSort (!ForRelease ? 0 : 0)
+#define ProfileTimes (0 && !ForRelease)
+#define ForSaurik (0 && !ForRelease)
+#define LogBrowser (0 && !ForRelease)
+#define TrackResize (0 && !ForRelease)
+#define ManualRefresh (1 && !ForRelease)
+#define ShowInternals (0 && !ForRelease)
+#define AlwaysReload (0 && !ForRelease)
+#define TryIndexedCollation (0 && !ForRelease)
+
+#if !TraceLogging
+#undef _trace
+#define _trace(args...)
+#endif
+
+#if !ProfileTimes
+#undef _profile
+#define _profile(name) {
+#undef _end
+#define _end }
+#define PrintTimes() do {} while (false)
+#endif
+
 // Hash Functions/Structures {{{
 extern "C" uint32_t hashlittle(const void *key, size_t length, uint32_t initval = 0);
 
@@ -359,33 +386,6 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive | kCFCompareNonliteral | kCFCompareLocalized | kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
-
-#define lprintf(args...) fprintf(stderr, args)
-
-#define ForRelease 1
-#define TraceLogging (1 && !ForRelease)
-#define HistogramInsertionSort (!ForRelease ? 0 : 0)
-#define ProfileTimes (0 && !ForRelease)
-#define ForSaurik (0 && !ForRelease)
-#define LogBrowser (0 && !ForRelease)
-#define TrackResize (0 && !ForRelease)
-#define ManualRefresh (1 && !ForRelease)
-#define ShowInternals (0 && !ForRelease)
-#define AlwaysReload (0 && !ForRelease)
-#define TryIndexedCollation (0 && !ForRelease)
-
-#if !TraceLogging
-#undef _trace
-#define _trace(args...)
-#endif
-
-#if !ProfileTimes
-#undef _profile
-#define _profile(name) {
-#undef _end
-#define _end }
-#define PrintTimes() do {} while (false)
-#endif
 
 /* Radix Sort {{{ */
 typedef uint32_t (*SKRadixFunction)(id, void *);

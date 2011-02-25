@@ -1067,7 +1067,7 @@ bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
-static NSSet *CydiaHosts_;
+static NSMutableSet *CydiaHosts_;
 /* }}} */
 
 /* Display Helpers {{{ */
@@ -1170,6 +1170,7 @@ bool isSectionVisible(NSString *section) {
 - (CYViewController *) pageForPackage:(NSString *)name;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
+- (void) addCydiaHost:(NSString *)host;
 @end
 /* }}} */
 
@@ -4232,7 +4233,7 @@ static NSString *Warning_;
 }
 
 - (void) addCydiaHost:(NSString *)host {
-    [CydiaHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
+    [delegate_ performSelectorOnMainThread:@selector(addCydiaHost:) withObject:host waitUntilDone:NO];
 }
 
 - (void) addTrivialSource:(NSString *)href {
@@ -9663,10 +9664,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
+- (void) addCydiaHost:(NSString *)host {
+    [CydiaHosts_ addObject:host];
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];
+
+    [self addCydiaHost:[[NSURL URLWithString:CydiaURL(@"")] host]];
 
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288
@@ -9928,7 +9935,7 @@ int main(int argc, char *argv[]) { _pooled
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
 
-    CydiaHosts_ = [NSMutableSet setWithObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
+    CydiaHosts_ = [NSMutableSet setWithCapacity:2];
 
     UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
 

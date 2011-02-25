@@ -320,7 +320,9 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
     NSDate *future([NSDate distantFuture]);
     NSString *mode([loop currentMode] ?: NSDefaultRunLoopMode);
 
+_trace();
     while (!stopped && [loop runMode:mode beforeDate:future]);
+_trace();
 
     return [context count] == 0 ? nil : [context objectAtIndex:0];
 }

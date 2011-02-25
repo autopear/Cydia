@@ -364,6 +364,10 @@ extern float const UIScrollViewDecelerationRateNormal;
 #endif
 // }}}
 
+#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_4_0
+#define kCFCoreFoundationVersionNumber_iPhoneOS_4_0 550.32
+#endif
+
 @interface UIScreen (iOS_4_0)
 @property(nonatomic,readonly) CGFloat scale;
 @end

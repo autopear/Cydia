@@ -4562,28 +4562,15 @@ static NSString *Warning_;
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[[webview_ request] URL] absoluteString]]];
 }
 
-- (void) setHeaders:(NSDictionary *)headers forHost:(NSString *)host {
-}
-
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:view didClearWindowObject:window forFrame:frame];
 
     WebDataSource *source([frame dataSource]);
     NSURLResponse *response([source response]);
-
     NSURL *url([response URL]);
 
-    NSString *scheme([[url scheme] lowercaseString]);
-    NSString *host([url host]);
-
-    if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-        NSHTTPURLResponse *http((NSHTTPURLResponse *) response);
-        NSDictionary *headers([http allHeaderFields]);
-        [self setHeaders:headers forHost:host];
-    }
-
-    if ([scheme isEqualToString:@"https"])
-        if ([CydiaHosts_ containsObject:host])
+    if ([[[url scheme] lowercaseString] isEqualToString:@"https"])
+        if ([CydiaHosts_ containsObject:[url host]])
             [window setValue:cydia_ forKey:@"cydia"];
 }
 

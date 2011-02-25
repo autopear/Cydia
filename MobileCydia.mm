@@ -2360,6 +2360,7 @@ struct PackageNameOrdering :
         @"purposes",
         @"relations",
         @"section",
+        @"selection",
         @"shortDescription",
         @"shortSection",
         @"simpleSection",
@@ -2939,6 +2940,27 @@ struct PackageNameOrdering :
             return @"TriggersAwaited";
         case pkgCache::State::TriggersPending:
             return @"TriggersPending";
+    }
+
+    return (NSString *) [NSNull null];
+} }
+
+- (NSString *) selection {
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return nil;
+
+    switch (iterator_->SelectedState) {
+        case pkgCache::State::Unknown:
+            return @"Unknown";
+        case pkgCache::State::Install:
+            return @"Install";
+        case pkgCache::State::Hold:
+            return @"Hold";
+        case pkgCache::State::DeInstall:
+            return @"DeInstall";
+        case pkgCache::State::Purge:
+            return @"Purge";
     }
 
     return (NSString *) [NSNull null];

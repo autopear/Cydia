@@ -1068,6 +1068,11 @@ static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
 static NSMutableSet *CydiaHosts_;
+
+static NSString *kCydiaProgressEventTypeError = @"ERROR";
+static NSString *kCydiaProgressEventTypeInformation = @"INFORMATION";
+static NSString *kCydiaProgressEventTypeStatus = @"STATUS";
+static NSString *kCydiaProgressEventTypeWarning = @"WARNING";
 /* }}} */
 
 /* Display Helpers {{{ */
@@ -1251,7 +1256,7 @@ class Status :
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
         NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:@"STATUS" forItem:item]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:kCydiaProgressEventTypeStatus forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
@@ -1269,7 +1274,7 @@ class Status :
         if (error.empty())
             return;
 
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:@"ERROR" forItem:item]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
@@ -1489,9 +1494,9 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     if (value != nil) {
         NSString *mode(nil); {
             NSString *type([self type]);
-            if ([type isEqualToString:@"ERROR"])
+            if ([type isEqualToString:kCydiaProgressEventTypeError])
                 mode = UCLocalize("ERROR");
-            else if ([type isEqualToString:@"WARNING"])
+            else if ([type isEqualToString:kCydiaProgressEventTypeWarning])
                 mode = UCLocalize("WARNING");
         }
 
@@ -3439,11 +3444,11 @@ static NSString *Warning_;
             [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:conffile_r[1] waitUntilDone:YES];
         } else if (strncmp(data, "status: ", 8) == 0) {
             // status: <package>: {unpacked,half-configured,installed}
-            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 8)] ofType:@"STATUS"]);
+            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 8)] ofType:kCydiaProgressEventTypeStatus]);
             [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
         } else if (strncmp(data, "processing: ", 12) == 0) {
             // processing: configure: config-test
-            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 12)] ofType:@"STATUS"]);
+            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 12)] ofType:kCydiaProgressEventTypeStatus]);
             [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
         } else if (pmstatus_r(data, size)) {
             std::string type([pmstatus_r[1] UTF8String]);
@@ -3458,10 +3463,10 @@ static NSString *Warning_;
             NSString *string = pmstatus_r[4];
 
             if (type == "pmerror") {
-                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:@"ERROR" forPackage:package]);
+                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:kCydiaProgressEventTypeError forPackage:package]);
                 [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
             } else if (type == "pmstatus") {
-                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:@"STATUS" forPackage:package]);
+                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:kCydiaProgressEventTypeStatus forPackage:package]);
                 [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
             } else if (type == "pmconffile")
                 [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:string waitUntilDone:YES];
@@ -3482,7 +3487,7 @@ static NSString *Warning_;
     while (std::getline(is, line)) {
         lprintf("O:%s\n", line.c_str());
 
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:line.c_str()] ofType:@"INFORMATION"]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:line.c_str()] ofType:kCydiaProgressEventTypeInformation]);
         [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
@@ -3619,7 +3624,7 @@ static NSString *Warning_;
 
         lprintf("%c:[%s]\n", warning ? 'W' : 'E', error.c_str());
 
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? @"WARNING" : @"ERROR")] forTask:title];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
     }
 
     return fatal;
@@ -3686,7 +3691,7 @@ static NSString *Warning_;
         // else if (error == "Malformed Status line")
         // else if (error == "The list of sources could not be read.")
         else {
-            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? @"WARNING" : @"ERROR")] forTask:title];
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
             return;
         }
 
@@ -3711,7 +3716,7 @@ static NSString *Warning_;
         return;
 
     if (cache_->DelCount() != 0 || cache_->InstCount() != 0) {
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("COUNTS_NONZERO_EX") ofType:@"ERROR"] forTask:title];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("COUNTS_NONZERO_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
         return;
     }
 
@@ -3723,7 +3728,7 @@ static NSString *Warning_;
             return;
 
         if (cache_->BrokenCount() != 0) {
-            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("STILL_BROKEN_EX") ofType:@"ERROR"] forTask:title];
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("STILL_BROKEN_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
             return;
         }
 

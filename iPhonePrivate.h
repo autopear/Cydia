@@ -166,6 +166,11 @@ typedef enum {
 - (NSURL *) youTubeURL;
 @end
 
+@interface NSURLRequest (Apple)
++ (BOOL) allowsAnyHTTPSCertificateForHost:(NSString *)host;
++ (void) setAllowsAnyHTTPSCertificate:(BOOL)allow forHost:(NSString *)host;
+@end
+
 @interface NSValue (Apple)
 + (NSValue *) valueWithSize:(CGSize)size;
 @end

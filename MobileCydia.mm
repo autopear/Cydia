@@ -4585,20 +4585,18 @@ static NSString *Warning_;
         [window setValue:cydia_ forKey:@"cydia"];
 }
 
-- (void) _setMoreHeaders:(NSMutableURLRequest *)request {
-    if (System_ != NULL)
-        [request setValue:System_ forHTTPHeaderField:@"X-System"];
-    if (Machine_ != NULL)
-        [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (Token_ != nil)
-        [request setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
-    if (Role_ != nil)
-        [request setValue:Role_ forHTTPHeaderField:@"X-Role"];
-}
-
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
-    [self _setMoreHeaders:copy];
+
+    if (System_ != NULL)
+        [copy setValue:System_ forHTTPHeaderField:@"X-System"];
+    if (Machine_ != NULL)
+        [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    if (Token_ != nil)
+        [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
+    if (Role_ != nil)
+        [copy setValue:Role_ forHTTPHeaderField:@"X-Role"];
+
     return copy;
 }
 
@@ -6486,17 +6484,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://home"];
-}
-
-- (void) _setMoreHeaders:(NSMutableURLRequest *)request {
-    [super _setMoreHeaders:request];
-
-    if (ChipID_ != nil)
-        [request setValue:ChipID_ forHTTPHeaderField:@"X-Chip-ID"];
-    if (UniqueID_ != nil)
-        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-    if (PLMN_ != nil)
-        [request setValue:PLMN_ forHTTPHeaderField:@"X-Carrier-ID"];
 }
 
 - (void) aboutButtonClicked {

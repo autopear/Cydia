@@ -65,7 +65,12 @@ clean:
 Version.h:
 	./Version.h.sh
 
-MobileCydia: Version.h MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
+sysroot:
+	@echo "Please read compiling.txt: you do not have a ./sysroot/ folder with the on-device requirements." 1>&2
+	@echo 1>&2
+	@exit 1
+
+MobileCydia: sysroot Version.h MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
 	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(foreach m,$(filter %.m,$^),-x objective-c++ $(m)) $(flags) $(link) $(uikit)
 	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 

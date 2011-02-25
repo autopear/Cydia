@@ -11,6 +11,18 @@ set -e
 shopt -s extglob
 shopt -s nullglob
 
+for command in unlzma wget; do
+    if ! which "${command}" &>/dev/null; then
+        echo "Cannot run \`${command}\`. Please read compiling.txt." 1>&2
+        exit 1
+    fi
+done
+
+if tar --help | grep bsdtar &>/dev/null; then
+    echo "Running \`tar\` is bsdtar :(. Please read compiling.txt." 1>&2
+    exit 1
+fi
+
 rm -rf sysroot
 mkdir sysroot
 cd sysroot

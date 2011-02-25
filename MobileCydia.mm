@@ -125,8 +125,6 @@ extern "C" {
 #include "SDURLCache/SDURLCache.h"
 
 #include "substrate.h"
-
-#include "Version.h"
 /* }}} */
 
 /* Profiler {{{ */
@@ -207,6 +205,8 @@ void PrintTimes() {
 #define CYPoolEnd() \
     while (false); \
     [_pool release];
+
+#define Cydia_ CYDIA_VERSION
 
 #define lprintf(args...) fprintf(stderr, args)
 

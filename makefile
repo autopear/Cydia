@@ -50,6 +50,8 @@ uikit += -framework UIKit
 backrow := 
 backrow += -FAppleTV -framework BackRow -framework AppleTV
 
+version := $(shell ./version.sh)
+
 #cycc = cycc -r4.2 -i$(ios) -o$@
 gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
 cycc = $(gxx) -mthumb -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F/Library/Frameworks
@@ -62,16 +64,13 @@ clean:
 %.o: %.c
 	$(cycc) -c -o $@ -x c $<
 
-Version.h:
-	./Version.h.sh
-
 sysroot:
 	@echo "Please read compiling.txt: you do not have a ./sysroot/ folder with the on-device requirements." 1>&2
 	@echo 1>&2
 	@exit 1
 
-MobileCydia: sysroot Version.h MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
-	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(foreach m,$(filter %.m,$^),-x objective-c++ $(m)) $(flags) $(link) $(uikit)
+MobileCydia: sysroot MobileCydia.mm UICaboodle/*.h UICaboodle/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
+	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(foreach m,$(filter %.m,$^),-x objective-c++ $(m)) $(flags) $(link) $(uikit) -DCYDIA_VERSION='"$(version)"'
 	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm
@@ -109,7 +108,7 @@ package: MobileCydia
 	sudo chmod 6755 _/Applications/Cydia.app/MobileCydia
 	
 	mkdir -p debs
-	ln -sf debs/cydia_$$(./version.sh)_iphoneos-arm.deb Cydia.deb
+	ln -sf debs/cydia_$(version)_iphoneos-arm.deb Cydia.deb
 	$(dpkg) -b _ Cydia.deb
 	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
 

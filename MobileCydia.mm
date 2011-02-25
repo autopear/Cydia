@@ -2366,6 +2366,7 @@ struct PackageNameOrdering :
         @"size",
         @"source",
         @"sponsor",
+        @"state",
         @"support",
         @"tags",
         @"warnings",
@@ -2915,6 +2916,33 @@ struct PackageNameOrdering :
 
     return files;
 }
+
+- (NSString *) state {
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return nil;
+
+    switch (iterator_->CurrentState) {
+        case pkgCache::State::NotInstalled:
+            return @"NotInstalled";
+        case pkgCache::State::UnPacked:
+            return @"UnPacked";
+        case pkgCache::State::HalfConfigured:
+            return @"HalfConfigured";
+        case pkgCache::State::HalfInstalled:
+            return @"HalfInstalled";
+        case pkgCache::State::ConfigFiles:
+            return @"ConfigFiles";
+        case pkgCache::State::Installed:
+            return @"Installed";
+        case pkgCache::State::TriggersAwaited:
+            return @"TriggersAwaited";
+        case pkgCache::State::TriggersPending:
+            return @"TriggersPending";
+    }
+
+    return (NSString *) [NSNull null];
+} }
 
 - (NSArray *) warnings {
     NSMutableArray *warnings([NSMutableArray arrayWithCapacity:4]);

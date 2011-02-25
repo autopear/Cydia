@@ -1066,6 +1066,8 @@ static time_t now_;
 bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
+
+static NSSet *CydiaHosts_;
 /* }}} */
 
 /* Display Helpers {{{ */
@@ -4127,6 +4129,8 @@ static NSString *Warning_;
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (false);
+    else if (selector == @selector(addCydiaHost:))
+        return @"addCydiaHost";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
     else if (selector == @selector(close))
@@ -4225,6 +4229,10 @@ static NSString *Warning_;
     value[size] = '\0';
 
     return [NSString stringWithCString:value];
+}
+
+- (void) addCydiaHost:(NSString *)host {
+    [CydiaHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
 }
 
 - (void) addTrivialSource:(NSString *)href {
@@ -4563,7 +4571,7 @@ static NSString *Warning_;
     NSURLResponse *response([source response]);
 
     NSURL *url([response URL]);
-    NSString *scheme([url scheme]);
+    //NSString *scheme([url scheme]);
     NSString *host([url host]);
 
     if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
@@ -4572,11 +4580,7 @@ static NSString *Warning_;
         [self setHeaders:headers forHost:host];
     }
 
-    if (
-        [host isEqualToString:@"cydia.saurik.com"] ||
-        [host hasSuffix:@".cydia.saurik.com"] ||
-        [scheme isEqualToString:@"file"]
-    )
+    if ([CydiaHosts_ containsObject:host])
         [window setValue:cydia_ forKey:@"cydia"];
 }
 
@@ -9923,6 +9927,8 @@ int main(int argc, char *argv[]) { _pooled
         else
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
+
+    CydiaHosts_ = [NSMutableSet setWithObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
 
     UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
 

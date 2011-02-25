@@ -769,13 +769,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [self _didFailWithError:error forFrame:frame];
 }
 
-// XXX: factor this out somewhere
-- (UIColor *) groupTableViewBackgroundColor {
-    UIDevice *device([UIDevice currentDevice]);
-    bool iPad([device respondsToSelector:@selector(userInterfaceIdiom)] && [device userInterfaceIdiom] == UIUserInterfaceIdiomPad);
-    return iPad ? [UIColor colorWithRed:0.821 green:0.834 blue:0.860 alpha:1] : [UIColor groupTableViewBackgroundColor];
-}
-
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
 
@@ -785,7 +778,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                 for (DOMHTMLBodyElement *body in (id) bodies) {
                     DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
 
-                    UIColor *uic([self groupTableViewBackgroundColor]);
+                    UIColor *uic(nil);
 
                     if (DOMCSSPrimitiveValue *color = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-color"])) {
                         if ([color primitiveType] == DOM_CSS_RGBCOLOR) {
@@ -808,7 +801,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
                         }
                     }
 
-                    [scroller_ setBackgroundColor:uic];
+                    [scroller_ setBackgroundColor:(uic ?: [UIColor clearColor])];
                     break;
                 }
     }
@@ -1017,7 +1010,9 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
         indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
 
-        webview_ = [[[CYWebView alloc] initWithFrame:[[self view] bounds]] autorelease];
+        CGRect bounds([[self view] bounds]);
+
+        webview_ = [[[CYWebView alloc] initWithFrame:bounds] autorelease];
         [webview_ setDelegate:self];
         [self setView:webview_];
 
@@ -1084,7 +1079,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         }
 
         [scroller_ setFixedBackgroundPattern:YES];
-        [scroller_ setBackgroundColor:[self groupTableViewBackgroundColor]];
+        [scroller_ setBackgroundColor:[UIColor clearColor]];
         [scroller_ setClipsSubviews:YES];
 
         [scroller_ setBounces:YES];
@@ -1110,6 +1105,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite]; 
         [indicator_ setFrame:CGRectMake(15, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
 
+        UITableView *table([[[UITableView alloc] initWithFrame:bounds style:UITableViewStyleGrouped] autorelease]);
+        [webview_ insertSubview:table atIndex:0];
+
+        [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
     } return self;

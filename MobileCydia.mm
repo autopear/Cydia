@@ -4516,16 +4516,12 @@ static NSString *Warning_;
     } return self;
 }
 
-// XXX: factor this out somewhere
-- (UIColor *) groupTableViewBackgroundColor {
-    UIDevice *device([UIDevice currentDevice]);
-    bool iPad([device respondsToSelector:@selector(userInterfaceIdiom)] && [device userInterfaceIdiom] == UIUserInterfaceIdiomPad);
-    return iPad ? [UIColor colorWithRed:0.821 green:0.834 blue:0.860 alpha:1] : [UIColor groupTableViewBackgroundColor];
-}
-
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
-    [[self view] setBackgroundColor:[self groupTableViewBackgroundColor]];
+
+    UITableView *table([[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease]);
+    [table setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [[self view] addSubview:table];
 
     indicator_ = [[[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]] autorelease];
     [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];

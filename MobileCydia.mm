@@ -7279,7 +7279,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *sections_;
     NSMutableArray *filtered_;
     UITableView *list_;
-    BOOL editing_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7302,24 +7301,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) updateNavigationItem {
-    [[self navigationItem] setTitle:editing_ ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
+    [[self navigationItem] setTitle:[self isEditing] ? UCLocalize("SECTION_VISIBILITY") : UCLocalize("SECTIONS")];
     if ([sections_ count] == 0) {
         [[self navigationItem] setRightBarButtonItem:nil];
     } else {
         [[self navigationItem] setRightBarButtonItem:[[UIBarButtonItem alloc]
-            initWithBarButtonSystemItem:(editing_ ? UIBarButtonSystemItemDone : UIBarButtonSystemItemEdit)
+            initWithBarButtonSystemItem:([self isEditing] ? UIBarButtonSystemItemDone : UIBarButtonSystemItemEdit)
             target:self
             action:@selector(editButtonClicked)
         ] animated:([[self navigationItem] rightBarButtonItem] != nil)];
     }
 }
 
-- (BOOL) isEditing {
-    return editing_;
-}
+- (void) setEditing:(BOOL)editing animated:(BOOL)animated {
+    [super setEditing:editing animated:animated];
 
-- (void) setEditing:(BOOL)editing {
-    if ((editing_ = editing))
+    if (editing)
         [list_ reloadData];
     else
         [delegate_ updateData];
@@ -7334,16 +7331,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    if (editing_) [self setEditing:NO];
+    if ([self isEditing]) [self setEditing:NO];
 }
 
 - (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {
-    Section *section = (editing_ ? [sections_ objectAtIndex:[indexPath row]] : ([indexPath row] == 0 ? nil : [filtered_ objectAtIndex:([indexPath row] - 1)]));
+    Section *section  = nil;
+    int index = [indexPath row];
+    if (![self isEditing])
+        index -= 1;
+    if (index >= 0)
+        section = [filtered_ objectAtIndex:index];
     return section;
 }
 
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return editing_ ? [sections_ count] : [filtered_ count] + 1;
+    if ([self isEditing])
+        return [sections_ count];
+    else
+        return [filtered_ count] + 1;
 }
 
 /*- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -7357,13 +7362,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (cell == nil)
         cell = [[[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:reuseIdentifier] autorelease];
 
-    [cell setSection:[self sectionAtIndexPath:indexPath] editing:editing_];
+    [cell setSection:[self sectionAtIndexPath:indexPath] editing:[self isEditing]];
 
     return cell;
 }
 
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (editing_)
+    if ([self isEditing])
         return;
 
     Section *section = [self sectionAtIndexPath:indexPath];
@@ -7464,7 +7469,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) editButtonClicked {
-    [self setEditing:(!editing_)];
+    [self setEditing:![self isEditing] animated:YES];
 }
 
 @end

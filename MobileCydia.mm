@@ -1086,7 +1086,7 @@ bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
-static NSMutableSet *CydiaHosts_;
+static NSMutableSet *BridgedHosts_;
 
 static NSString *kCydiaProgressEventTypeError = @"Error";
 static NSString *kCydiaProgressEventTypeInformation = @"Information";
@@ -1194,7 +1194,7 @@ bool isSectionVisible(NSString *section) {
 - (CYViewController *) pageForPackage:(NSString *)name;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
-- (void) addCydiaHost:(NSString *)host;
+- (void) addBridgedHost:(NSString *)host;
 @end
 /* }}} */
 
@@ -4208,8 +4208,8 @@ static NSMutableSet *Diversions_;
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (false);
-    else if (selector == @selector(addCydiaHost:))
-        return @"addCydiaHost";
+    else if (selector == @selector(addBridgedHost:))
+        return @"addBridgedHost";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
     else if (selector == @selector(close))
@@ -4318,8 +4318,8 @@ static NSMutableSet *Diversions_;
     return [NSString stringWithCString:value];
 }
 
-- (void) addCydiaHost:(NSString *)host {
-    [delegate_ performSelectorOnMainThread:@selector(addCydiaHost:) withObject:host waitUntilDone:NO];
+- (void) addBridgedHost:(NSString *)host {
+    [delegate_ performSelectorOnMainThread:@selector(addBridgedHost:) withObject:host waitUntilDone:NO];
 }
 
 - (void) popViewController:(NSNumber *)value {
@@ -4660,7 +4660,7 @@ static NSMutableSet *Diversions_;
     NSURL *url([response URL]);
 
     if ([[[url scheme] lowercaseString] isEqualToString:@"https"])
-        if ([CydiaHosts_ containsObject:[url host]])
+        if ([BridgedHosts_ containsObject:[url host]])
             [window setValue:cydia_ forKey:@"cydia"];
 }
 
@@ -9761,8 +9761,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
-- (void) addCydiaHost:(NSString *)host {
-    [CydiaHosts_ addObject:host];
+- (void) addBridgedHost:(NSString *)host {
+    [BridgedHosts_ addObject:host];
 }
 
 - (void) applicationDidFinishLaunching:(id)unused {
@@ -9770,7 +9770,7 @@ _trace();
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];
 
-    [self addCydiaHost:[[NSURL URLWithString:CydiaURL(@"")] host]];
+    [self addBridgedHost:[[NSURL URLWithString:CydiaURL(@"")] host]];
 
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288
@@ -10032,7 +10032,7 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
     NSString *host([url host]);
 
     if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
-        if ([CydiaHosts_ containsObject:host])
+        if ([BridgedHosts_ containsObject:host])
             [copy setHTTPShouldUsePipelining:YES];
 
     if ((self = _NSURLConnection$init$(self, _cmd, copy, delegate, usesCache, maxContentLength, startImmediately, connectionProperties)) != nil) {
@@ -10069,7 +10069,7 @@ int main(int argc, char *argv[]) { _pooled
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
 
-    CydiaHosts_ = [NSMutableSet setWithCapacity:2];
+    BridgedHosts_ = [NSMutableSet setWithCapacity:2];
 
     UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
 

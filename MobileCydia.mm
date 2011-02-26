@@ -1086,6 +1086,7 @@ bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
+static NSObject *HostConfig_;
 static NSMutableSet *BridgedHosts_;
 static NSMutableSet *PipelinedHosts_;
 
@@ -4321,15 +4322,17 @@ static NSMutableSet *Diversions_;
 }
 
 - (void) addBridgedHost:(NSString *)host {
-    [BridgedHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
-}
+@synchronized (HostConfig_) {
+    [BridgedHosts_ addObject:host];
+} }
 
 - (void) addPipelinedHost:(NSString *)host scheme:(NSString *)scheme {
+@synchronized (HostConfig_) {
     if (scheme != (id) [WebUndefined undefined])
         host = [NSString stringWithFormat:@"%@:%@", [scheme lowercaseString], host];
 
-    [PipelinedHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
-}
+    [PipelinedHosts_ addObject:host];
+} }
 
 - (void) popViewController:(NSNumber *)value {
     if (value == (id) [WebUndefined undefined])
@@ -4668,9 +4671,11 @@ static NSMutableSet *Diversions_;
     NSURLResponse *response([source response]);
     NSURL *url([response URL]);
 
-    if ([[[url scheme] lowercaseString] isEqualToString:@"https"])
-        if ([BridgedHosts_ containsObject:[url host]])
-            [window setValue:cydia_ forKey:@"cydia"];
+    @synchronized (HostConfig_) {
+        if ([[[url scheme] lowercaseString] isEqualToString:@"https"])
+            if ([BridgedHosts_ containsObject:[url host]])
+                [window setValue:cydia_ forKey:@"cydia"];
+    }
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
@@ -9775,7 +9780,9 @@ _trace();
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];
 
-    [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
+    @synchronized (HostConfig_) {
+        [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
+    }
 
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288
@@ -10039,9 +10046,11 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
 
     NSString *compound([NSString stringWithFormat:@"%@:%@", scheme, host]);
 
-    if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
-        if ([PipelinedHosts_ containsObject:host] || [PipelinedHosts_ containsObject:compound])
-            [copy setHTTPShouldUsePipelining:YES];
+    @synchronized (HostConfig_) {
+        if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
+            if ([PipelinedHosts_ containsObject:host] || [PipelinedHosts_ containsObject:compound])
+                [copy setHTTPShouldUsePipelining:YES];
+    }
 
     if ((self = _NSURLConnection$init$(self, _cmd, copy, delegate, usesCache, maxContentLength, startImmediately, connectionProperties)) != nil) {
     } return self;
@@ -10077,8 +10086,11 @@ int main(int argc, char *argv[]) { _pooled
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
 
-    BridgedHosts_ = [NSMutableSet setWithCapacity:2];
-    PipelinedHosts_ = [NSMutableSet setWithCapacity:2];
+    HostConfig_ = [[NSObject alloc] init];
+    @synchronized (HostConfig_) {
+        BridgedHosts_ = [NSMutableSet setWithCapacity:4];
+        PipelinedHosts_ = [NSMutableSet setWithCapacity:4];
+    }
 
     UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
 

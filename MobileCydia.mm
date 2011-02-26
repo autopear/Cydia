@@ -1086,6 +1086,7 @@ bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
+static NSMutableDictionary *SessionData_;
 static NSObject *HostConfig_;
 static NSMutableSet *BridgedHosts_;
 static NSMutableSet *PipelinedHosts_;
@@ -4233,6 +4234,8 @@ static NSMutableSet *Diversions_;
         return @"getInstalledPackages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
+    else if (selector == @selector(getSessionValue:))
+        return @"getSessionValue";
     else if (selector == @selector(installPackages:))
         return @"installPackages";
     else if (selector == @selector(localizedStringForKey:value:table:))
@@ -4243,6 +4246,8 @@ static NSMutableSet *Diversions_;
         return @"refreshSources";
     else if (selector == @selector(removeButton))
         return @"removeButton";
+    else if (selector == @selector(setSessionValue::))
+        return @"setSessionValue";
     else if (selector == @selector(substitutePackageNames:))
         return @"substitutePackageNames";
     else if (selector == @selector(scrollToBottom:))
@@ -4320,6 +4325,19 @@ static NSMutableSet *Diversions_;
 
     return [NSString stringWithCString:value];
 }
+
+- (id) getSessionValue:(NSString *)key {
+@synchronized (SessionData_) {
+    return [SessionData_ objectForKey:key];
+} }
+
+- (void) setSessionValue:(NSString *)key :(NSString *)value {
+@synchronized (SessionData_) {
+    if (value == (id) [WebUndefined undefined])
+        [SessionData_ removeObjectForKey:key];
+    else
+        [SessionData_ setObject:value forKey:key];
+} }
 
 - (void) addBridgedHost:(NSString *)host {
 @synchronized (HostConfig_) {
@@ -10085,6 +10103,8 @@ int main(int argc, char *argv[]) { _pooled
         else
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
+
+    SessionData_ = [[NSMutableDictionary alloc] initWithCapacity:4];
 
     HostConfig_ = [[NSObject alloc] init];
     @synchronized (HostConfig_) {

@@ -844,9 +844,22 @@ class Pcre {
     const char *data_;
 
   public:
-    Pcre(const char *regex) :
+    Pcre() :
+        code_(NULL),
         study_(NULL)
     {
+    }
+
+    Pcre(const char *regex) :
+        code_(NULL),
+        study_(NULL)
+    {
+        this->operator =(regex);
+    }
+
+    void operator =(const char *regex) {
+        _assert(code_ == NULL);
+
         const char *error;
         int offset;
         code_ = pcre_compile(regex, 0, &error, &offset, NULL);
@@ -877,6 +890,10 @@ class Pcre {
     bool operator ()(const char *data, size_t size) {
         data_ = data;
         return pcre_exec(code_, study_, data, size, 0, 0, matches_, (capture_ + 1) * 3) >= 0;
+    }
+
+    _finline size_t size() const {
+        return capture_;
     }
 };
 /* }}} */
@@ -4040,7 +4057,50 @@ static NSString *Warning_;
 @end
 /* }}} */
 
-/* Web Scripting {{{ */
+@interface Diversion : NSObject {
+    Pcre pattern_;
+    _H<NSString> key_;
+    _H<NSString> format_;
+}
+
+@end
+
+@implementation Diversion
+
+- (id) initWithFrom:(NSString *)from to:(NSString *)to {
+    if ((self = [super init]) != nil) {
+        pattern_ = [from UTF8String];
+        key_ = from;
+        format_ = to;
+    } return self;
+}
+
+- (NSString *) divert:(NSString *)url {
+    if (!pattern_(url))
+        return nil;
+
+    size_t count(pattern_.size());
+    id values[count];
+    for (size_t i(0); i != count; ++i)
+        values[i] = pattern_[i + 1];
+
+    return [[[NSString alloc] initWithFormat:format_ arguments:reinterpret_cast<va_list>(values)] autorelease];
+}
+
+- (NSString *) key {
+    return key_;
+}
+
+- (NSUInteger) hash {
+    return [key_ hash];
+}
+
+- (BOOL) isEqual:(Diversion *)object {
+    return self == object || [self class] == [object class] && [key_ isEqual:[object key]];
+}
+
+@end
+
 @interface CydiaObject : NSObject {
     id indirect_;
     _transient id delegate_;
@@ -4050,6 +4110,17 @@ static NSString *Warning_;
 
 @end
 
+@interface CYBrowserController : BrowserController {
+    CydiaObject *cydia_;
+}
+
++ (void) addDiversion:(Diversion *)diversion;
+
+@end
+
+static NSMutableSet *Diversions_;
+
+/* Web Scripting {{{ */
 @implementation CydiaObject
 
 - (void) dealloc {
@@ -4143,6 +4214,8 @@ static NSString *Warning_;
         return @"addTrivialSource";
     else if (selector == @selector(close))
         return @"close";
+    else if (selector == @selector(divert::))
+        return @"divert";
     else if (selector == @selector(du:))
         return @"du";
     else if (selector == @selector(stringWithFormat:arguments:))
@@ -4203,6 +4276,10 @@ static NSString *Warning_;
 
 - (BOOL) supports:(NSString *)feature {
     return [feature isEqualToString:@"window.open"];
+}
+
+- (void) divert:(NSString *)from :(NSString *)to {
+    [CYBrowserController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
 }
 
 - (NSNumber *) getKernelNumber:(NSString *)name {
@@ -4548,12 +4625,6 @@ static NSString *Warning_;
 /* }}} */
 
 /* Cydia Browser Controller {{{ */
-@interface CYBrowserController : BrowserController {
-    CydiaObject *cydia_;
-}
-
-@end
-
 @implementation CYBrowserController
 
 - (void) dealloc {
@@ -4563,6 +4634,14 @@ static NSString *Warning_;
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[[webview_ request] URL] absoluteString]]];
+}
+
++ (void) initialize {
+    Diversions_ = [[NSMutableSet alloc] initWithCapacity:0];
+}
+
++ (void) addDiversion:(Diversion *)diversion {
+    [Diversions_ addObject:diversion];
 }
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
@@ -4579,6 +4658,16 @@ static NSString *Warning_;
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
+
+  divert:
+    NSURL *url([copy URL]);
+    NSString *href([url absoluteString]);
+
+    for (Diversion *diversion in Diversions_)
+        if (NSString *diverted = [diversion divert:href]) {
+            [copy setURL:[NSURL URLWithString:diverted]];
+            goto divert;
+        }
 
     if (System_ != NULL)
         [copy setValue:System_ forHTTPHeaderField:@"X-System"];

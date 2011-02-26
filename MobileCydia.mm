@@ -1087,6 +1087,7 @@ static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
 static NSMutableSet *BridgedHosts_;
+static NSMutableSet *PipelinedHosts_;
 
 static NSString *kCydiaProgressEventTypeError = @"Error";
 static NSString *kCydiaProgressEventTypeInformation = @"Information";
@@ -4209,6 +4210,8 @@ static NSMutableSet *Diversions_;
     if (false);
     else if (selector == @selector(addBridgedHost:))
         return @"addBridgedHost";
+    else if (selector == @selector(addPipelinedHost:))
+        return @"addPipelinedHost";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
     else if (selector == @selector(close))
@@ -4319,6 +4322,10 @@ static NSMutableSet *Diversions_;
 
 - (void) addBridgedHost:(NSString *)host {
     [BridgedHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
+}
+
+- (void) addPipelinedHost:(NSString *)host {
+    [PipelinedHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
 }
 
 - (void) popViewController:(NSNumber *)value {
@@ -10027,7 +10034,7 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
     NSString *host([url host]);
 
     if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
-        if ([BridgedHosts_ containsObject:host])
+        if ([PipelinedHosts_ containsObject:host])
             [copy setHTTPShouldUsePipelining:YES];
 
     if ((self = _NSURLConnection$init$(self, _cmd, copy, delegate, usesCache, maxContentLength, startImmediately, connectionProperties)) != nil) {
@@ -10065,6 +10072,7 @@ int main(int argc, char *argv[]) { _pooled
     }
 
     BridgedHosts_ = [NSMutableSet setWithCapacity:2];
+    PipelinedHosts_ = [NSMutableSet setWithCapacity:2];
 
     UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
 

@@ -1194,7 +1194,6 @@ bool isSectionVisible(NSString *section) {
 - (CYViewController *) pageForPackage:(NSString *)name;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
-- (void) addBridgedHost:(NSString *)host;
 @end
 /* }}} */
 
@@ -4319,7 +4318,7 @@ static NSMutableSet *Diversions_;
 }
 
 - (void) addBridgedHost:(NSString *)host {
-    [delegate_ performSelectorOnMainThread:@selector(addBridgedHost:) withObject:host waitUntilDone:NO];
+    [BridgedHosts_ performSelectorOnMainThread:@selector(addObject:) withObject:host waitUntilDone:NO];
 }
 
 - (void) popViewController:(NSNumber *)value {
@@ -9761,16 +9760,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
-- (void) addBridgedHost:(NSString *)host {
-    [BridgedHosts_ addObject:host];
-}
-
 - (void) applicationDidFinishLaunching:(id)unused {
 _trace();
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];
 
-    [self addBridgedHost:[[NSURL URLWithString:CydiaURL(@"")] host]];
+    [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
 
     [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
         initWithMemoryCapacity:524288

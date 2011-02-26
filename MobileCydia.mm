@@ -10054,11 +10054,14 @@ int main(int argc, char *argv[]) { _pooled
     /* Set Locale {{{ */
     Locale_ = CFLocaleCopyCurrent();
     Languages_ = [NSLocale preferredLanguages];
+
     //CFStringRef locale(CFLocaleGetIdentifier(Locale_));
     //NSLog(@"%@", [Languages_ description]);
 
     const char *lang;
-    if (Languages_ == nil || [Languages_ count] == 0)
+    if (Locale_ != NULL)
+        lang = [(NSString *) CFLocaleGetIdentifier(Locale_) UTF8String];
+    else if (Languages_ == nil || [Languages_ count] == 0)
         // XXX: consider just setting to C and then falling through?
         lang = NULL;
     else {

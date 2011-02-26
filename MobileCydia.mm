@@ -7335,12 +7335,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {
-    Section *section  = nil;
+    Section *section = nil;
     int index = [indexPath row];
-    if (![self isEditing])
-        index -= 1;
-    if (index >= 0)
-        section = [filtered_ objectAtIndex:index];
+    if (![self isEditing]) {
+        index -= 1; 
+        if (index >= 0)
+            section = [filtered_ objectAtIndex:index];
+    } else {
+        section = [sections_ objectAtIndex:index];
+    }
     return section;
 }
 

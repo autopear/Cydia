@@ -10023,6 +10023,22 @@ MSHook(void, UIApplication$_updateApplicationAccessibility, UIApplication *self,
     }
 }
 
+Class $NSURLConnection;
+
+MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest *request, id delegate, BOOL usesCache, int64_t maxContentLength, BOOL startImmediately, NSDictionary *connectionProperties) {
+    NSMutableURLRequest *copy([request mutableCopy]);
+
+    NSURL *url([copy URL]);
+    NSString *host([url host]);
+
+    if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
+        if ([CydiaHosts_ containsObject:host])
+            [copy setHTTPShouldUsePipelining:YES];
+
+    if ((self = _NSURLConnection$init$(self, _cmd, copy, delegate, usesCache, maxContentLength, startImmediately, connectionProperties)) != nil) {
+    } return self;
+}
+
 int main(int argc, char *argv[]) { _pooled
     _trace();
 
@@ -10067,6 +10083,13 @@ int main(int argc, char *argv[]) { _pooled
     if (UIWebDocumentView$_setUIKitDelegate$ != NULL) {
         _UIWebDocumentView$_setUIKitDelegate$ = reinterpret_cast<void (*)(UIWebDocumentView *, SEL, id)>(method_getImplementation(UIWebDocumentView$_setUIKitDelegate$));
         method_setImplementation(UIWebDocumentView$_setUIKitDelegate$, reinterpret_cast<IMP>(&$UIWebDocumentView$_setUIKitDelegate$));
+    }
+
+    $NSURLConnection = objc_getClass("NSURLConnection");
+    Method NSURLConnection$init$(class_getInstanceMethod($NSURLConnection, @selector(_initWithRequest:delegate:usesCache:maxContentLength:startImmediately:connectionProperties:)));
+    if (NSURLConnection$init$ != NULL) {
+        _NSURLConnection$init$ = reinterpret_cast<id (*)(NSURLConnection *, SEL, NSURLRequest *, id, BOOL, int64_t, BOOL, NSDictionary *)>(method_getImplementation(NSURLConnection$init$));
+        method_setImplementation(NSURLConnection$init$, reinterpret_cast<IMP>(&$NSURLConnection$init$));
     }
 
     $UIHardware = objc_getClass("UIHardware");

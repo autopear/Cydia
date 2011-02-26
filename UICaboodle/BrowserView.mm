@@ -649,6 +649,12 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [self setAllowsNavigationAction:[value boolValue]];
 }
 
+- (void) popViewControllerWithNumber:(NSNumber *)value {
+    UINavigationController *navigation([self navigationController]);
+    if ([navigation topViewController] == self)
+        [navigation popViewControllerAnimated:[value boolValue]];
+}
+
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
     [self _didFinishLoading];

@@ -4234,6 +4234,8 @@ static NSMutableSet *Diversions_;
         return @"installPackages";
     else if (selector == @selector(localizedStringForKey:value:table:))
         return @"localize";
+    else if (selector == @selector(popViewController:))
+        return @"popViewController";
     else if (selector == @selector(refreshSources))
         return @"refreshSources";
     else if (selector == @selector(removeButton))
@@ -4318,6 +4320,12 @@ static NSMutableSet *Diversions_;
 
 - (void) addCydiaHost:(NSString *)host {
     [delegate_ performSelectorOnMainThread:@selector(addCydiaHost:) withObject:host waitUntilDone:NO];
+}
+
+- (void) popViewController:(NSNumber *)value {
+    if (value == (id) [WebUndefined undefined])
+        value = [NSNumber numberWithBool:YES];
+    [indirect_ performSelectorOnMainThread:@selector(popViewControllerWithNumber:) withObject:value waitUntilDone:NO];
 }
 
 - (void) addTrivialSource:(NSString *)href {

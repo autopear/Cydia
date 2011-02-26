@@ -5,7 +5,7 @@
 "ADD_ANYWAY" = "仍然添加";
 "ADD_SOURCE" = "添加源";
 "ADMINISTRATIVE_INFORMATION" = "管理資訊";
-"ADVANCED_SEARCH" = "高級搜尋";
+"ADVANCED_SEARCH" = "進階搜尋";
 "ALL_PACKAGES" = "所有軟體包";
 "APPLE" = "Apple";
 "AUTHOR" = "作者";
@@ -197,7 +197,7 @@
 "TEMPORARY_IGNORE" = "暫時忽略";
 "THANK_YOU" = "感謝";
 "UNABLE_TO_COMPLY" = "無法執行";
-"UNABLE_TO_COMPLY_EX" = "此操作涉及卸載一個或多個 Cydia 或 iPhoneOS 運行所必需的軟體包。如果您確定要繼續強制執行此操作，請在設定中打開高級模式。";
+"UNABLE_TO_COMPLY_EX" = "此操作涉及卸載一個或多個 Cydia 或 iPhoneOS 運行所必需的軟體包。如果您確定要繼續強制執行此操作，請在設定中打開進階模式。";
 "UNABLE_TO_LOAD" = "無法載入";
 "UNKNOWN" = "未知";
 "UNSAFE" = "不安全";

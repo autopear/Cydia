@@ -61,6 +61,7 @@
 "ESSENTIAL_UPGRADES" = "%d mises à jour essentielles";
 "ESSENTIAL_UPGRADE_EX" = "Un ou plusieurs paquets essentiels sont périmés. Si vous ne les mettez pas à jour, vous pourriez rencontrer des erreurs.";
 "EXCLAMATION" = "%@ !";
+"EXIT_WHEN_COMPLETE" = "(Cydia quittera après complétion.)";
 "EXPANDED_SIZE" = "Taille décompressée";
 "EXPERT" = "Expert";
 "FEATURED_PACKAGES" = "Paquets conseillés";
@@ -85,6 +86,7 @@
 "HOME" = "Accueil";
 "ID" = "ID";
 "IGNORE_UPGRADES" = "Ignorer les mises à jour";
+"IGNORE_UPGRADES_EX" = "Ne pas inclure ce paquet lorsque Mise à jour est sélectionné.";
 "IGNORED_UPGRADES" = "Mises à jour ignorées";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Identifiant du paquet illégal";
 "INSTALL" = "Installer";
@@ -129,6 +131,7 @@
 "PASSWORD" = "mot de passe";
 "PERFORM_SELECTIONS" = "Performer des sélections";
 "PREPARE_ARCHIVES" = "Préparer les archives";
+"PREPARING_FILESYSTEM" = "Préparation du système de fichiers";
 "PRODUCTS" = "Produits";
 "PURGE" = "Purger";
 "Q_D" = "File";

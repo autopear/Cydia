@@ -86,6 +86,7 @@
 "HOME" = "Start";
 "ID" = "ID";
 "IGNORE_UPGRADES" = "Aktualisierungen ignorieren";
+"IGNORE_UPGRADES_EX" = "Dieses Paket nicht bei 'Alle aktualisieren' anzeigen.";
 "IGNORED_UPGRADES" = "Ignorierte Aktualisierungen";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Unerlaubte Paket-Kennung";
 "INSTALL" = "Installieren";

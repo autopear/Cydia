@@ -86,7 +86,7 @@
 "HOME" = "Home";
 "ID" = "ID";
 "IGNORE_UPGRADES" = "Ignore Upgrades";
-"IGNORE_UPGRADES_EX" = "Do not include this package when selecting Update All.";
+"IGNORE_UPGRADES_EX" = "Do not include this package when selecting Upgrade All.";
 "IGNORED_UPGRADES" = "Ignored Upgrades";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "Illegal Package Identifier";
 "INSTALL" = "Install";

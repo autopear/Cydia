@@ -88,6 +88,7 @@
 "ID" = "标识";
 "IGNORED_UPGRADES" = "已忽略的更新";
 "IGNORE_UPGRADES" = "忽略更新";
+"IGNORE_UPGRADES_EX" = "选择全部更新时排除此软件包。";
 "ILLEGAL_PACKAGE_IDENTIFIER" = "非法软件包标识";
 "INSTALL" = "安装";
 "INSTALLED" = "已安装";

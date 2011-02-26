@@ -180,6 +180,8 @@
 	<string>Αγνοημένες Αναβαθμίσεις</string>
 	<key>IGNORE_UPGRADES</key>
 	<string>Αγνοήστε τις Αναβαθμίσεις</string>
+    <key>IGNORE_UPGRADES_EX</key>
+    <string>Να μην συμπεριλαμβάνεται αυτό το πακέτο όταν επιλέγετε Αναβάθμιση Όλων.</string>
 	<key>ILLEGAL_PACKAGE_IDENTIFIER</key>
 	<string>Μη αποδεκτό Αναγνωριστικό Πακέτου</string>
 	<key>INSTALL</key>

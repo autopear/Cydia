@@ -6169,6 +6169,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     package_ = [database_ packageWithName:name_];
 
     [buttons_ removeAllObjects];
@@ -6204,8 +6206,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target:self
         action:@selector(customButtonClicked)
     ] autorelease];
-
-    [super reloadData];
 }
 
 - (bool) isLoading {
@@ -7838,8 +7838,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     [self setObject:[search_ text]];
-    [super reloadData];
     [self resetCursor];
+
+    [super reloadData];
 }
 
 - (void) didSelectPackage:(Package *)package {
@@ -8233,6 +8234,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [key_ release];
     key_ = [[source_ key] retain];
     [self setObject:source_];
+
     [[self navigationItem] setTitle:[source_ label]];
 
     [super reloadData];
@@ -8887,6 +8889,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     [super reloadData];
+
     [table_ reloadData];
 }
 

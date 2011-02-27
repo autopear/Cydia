@@ -9821,6 +9821,21 @@ _trace();
 _trace();
 }
 
+- (NSArray *) defaultStartPages {
+    NSMutableArray *standard = [NSMutableArray array];
+    [standard addObject:[NSArray arrayWithObject:@"cydia://home"]];
+    [standard addObject:[NSArray arrayWithObject:@"cydia://sections"]];
+    [standard addObject:[NSArray arrayWithObject:@"cydia://changes"]];
+    if (!IsWildcat_) {
+        [standard addObject:[NSArray arrayWithObject:@"cydia://manage"]];
+    } else {
+        [standard addObject:[NSArray arrayWithObject:@"cydia://installed"]];
+        [standard addObject:[NSArray arrayWithObject:@"cydia://sources"]];
+    }
+    [standard addObject:[NSArray arrayWithObject:@"cydia://search"]];
+    return standard;
+}
+
 - (void) loadData {
 _trace();
     if (Role_ == nil) {
@@ -9838,42 +9853,48 @@ _trace();
 
     [self disemulate];
 
-    int selectedIndex = 0;
-    NSMutableArray *items = nil;
+    int savedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
+    NSArray *saved = [[Metadata_ objectForKey:@"InterfaceState"] mutableCopy];
+    int standardIndex = 0;
+    NSArray *standard = [self defaultStartPages];
 
-    bool recently = false;
-    NSDate *closed([Metadata_ objectForKey:@"LastClosed"]);
-    if (closed != nil) {
+    BOOL valid = YES;
+
+    if (saved == nil)
+        valid = NO;
+
+    NSDate *closed = [Metadata_ objectForKey:@"LastClosed"];
+    if (valid && closed != nil) {
         NSTimeInterval interval([closed timeIntervalSinceNow]);
         // XXX: Is 15 minutes the optimal time here?
-        if (interval <= 0 && interval > -(15*60))
-            recently = true;
+        if (interval > 0 && interval <= -(15*60))
+            valid = NO;
     }
 
-    items = [[Metadata_ objectForKey:@"InterfaceState"] mutableCopy];
-    selectedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
+    if (valid && [saved count] != [standard count])
+        valid = NO;
 
-    BOOL enough = YES;
-    for (NSArray *entry in items)
-        if ([entry count] <= 0)
-            enough = NO;
-
-    if (!recently || !items || !enough) {
-        selectedIndex = 0;
-        items = [NSMutableArray array];
-        [items addObject:[NSArray arrayWithObject:@"cydia://home"]];
-        [items addObject:[NSArray arrayWithObject:@"cydia://sections"]];
-        [items addObject:[NSArray arrayWithObject:@"cydia://changes"]];
-        if (!IsWildcat_) {
-            [items addObject:[NSArray arrayWithObject:@"cydia://manage"]];
-        } else {
-            [items addObject:[NSArray arrayWithObject:@"cydia://installed"]];
-            [items addObject:[NSArray arrayWithObject:@"cydia://sources"]];
+    if (valid) {
+        for (unsigned int i = 0; i < [standard count]; i++) {
+            NSArray *std = [standard objectAtIndex:i], *sav = [saved objectAtIndex:i];
+            // XXX: The "hasPrefix" sanity check here could be, in theory, fooled,
+            //      but it's good enough for now.
+            if ([sav count] == 0 || ![[sav objectAtIndex:0] hasPrefix:[std objectAtIndex:0]]) {
+                valid = NO;
+                break;
+            }
         }
-        [items addObject:[NSArray arrayWithObject:@"cydia://search"]];
     }
 
-    [tabbar_ setSelectedIndex:selectedIndex];
+    NSArray *items = nil;
+    if (valid) {
+        [tabbar_ setSelectedIndex:savedIndex];
+        items = saved;
+    } else {
+        [tabbar_ setSelectedIndex:standardIndex];
+        items = standard;
+    }
+
     for (unsigned int tab = 0; tab < [[tabbar_ viewControllers] count]; tab++) {
         NSArray *stack = [items objectAtIndex:tab];
         CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:tab];

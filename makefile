@@ -1,6 +1,7 @@
 sdks := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs
+ioss := $(sort $(patsubst $(sdks)/iPhoneOS%.sdk,%,$(wildcard $(sdks)/iPhoneOS*.sdk)))
 
-ios := 4.0
+ios := $(word $(words $(ioss)),$(ioss))
 gcc := 4.2
 
 flags := 

@@ -882,9 +882,13 @@ class Pcre {
         return [NSString stringWithUTF8Bytes:(data_ + matches_[match * 2]) length:(matches_[match * 2 + 1] - matches_[match * 2])];
     }
 
-    bool operator ()(NSString *data) {
+    _finline bool operator ()(NSString *data) {
         // XXX: length is for characters, not for bytes
         return operator ()([data UTF8String], [data length]);
+    }
+
+    _finline bool operator ()(const char *data) {
+        return operator ()(data, strlen(data));
     }
 
     bool operator ()(const char *data, size_t size) {

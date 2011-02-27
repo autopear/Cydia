@@ -10157,16 +10157,23 @@ int main(int argc, char *argv[]) { _pooled
     const char *lang;
     if (Locale_ != NULL)
         lang = [(NSString *) CFLocaleGetIdentifier(Locale_) UTF8String];
-    else if (Languages_ == nil || [Languages_ count] == 0)
+    else if (Languages_ != nil && [Languages_ count] != 0)
+        lang = [[Languages_ objectAtIndex:0] UTF8String];
+    else
         // XXX: consider just setting to C and then falling through?
         lang = NULL;
-    else {
-        lang = [[Languages_ objectAtIndex:0] UTF8String];
-        setenv("LANG", lang, true);
-        std::setlocale(LC_ALL, lang);
+
+    if (lang != NULL) {
+        Pcre pattern("^([a-z][a-z])(?:-[A-Za-z]*)?(_[A-Z][A-Z])?$");
+        lang = !pattern(lang) ? NULL : [pattern->*@"%1$@%2$@" UTF8String];
     }
 
     NSLog(@"Setting Language: %s", lang);
+
+    if (lang != NULL) {
+        setenv("LANG", lang, true);
+        std::setlocale(LC_ALL, lang);
+    }
     /* }}} */
 
     apr_app_initialize(&argc, const_cast<const char * const **>(&argv), NULL);

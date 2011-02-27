@@ -59,6 +59,10 @@ extern bool IsWildcat_;
     loaded_ = YES;
 }
 
+- (void) unloadData {
+    loaded_ = NO;
+}
+
 - (NSURL *) navigationURL {
     return nil;
 }

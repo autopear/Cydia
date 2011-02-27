@@ -15,6 +15,8 @@
 // but calling the superclass implementation is *required*.
 - (void) reloadData;
 
+- (void) unloadData;
+
 // This URL is used to save the state of the view controller. Return
 // nil if you cannot or should not save the URL for this page.
 - (NSURL *) navigationURL;

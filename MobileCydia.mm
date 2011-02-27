@@ -6828,7 +6828,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSArray *) navigationURLCollection;
 - (id) initWithDatabase:(Database *)database;
-- (void) reloadData;
+- (void) unloadData:(BOOL)selected;
 
 @end
 /* }}} */
@@ -6856,6 +6856,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) beginUpdate;
 - (void) raiseBar:(BOOL)animated;
 - (BOOL) updating;
+- (void) unloadData;
 
 @end
 
@@ -6905,11 +6906,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return items;
 }
 
-- (void) reloadData {
-    for (CYViewController *controller in [self viewControllers])
-        [controller reloadData];
+- (void) unloadData {
+    CYNavigationController *selected((CYNavigationController *) [self selectedViewController]);
+    for (CYNavigationController *controller in [self viewControllers])
+        [controller unloadData:(controller == selected)];
 
-    [(CYNavigationController *)[self unselectedViewController] reloadData];
+    if (CYNavigationController *unselected = (CYNavigationController *) [self unselectedViewController])
+        [unselected unloadData:YES];
 }
 
 - (void) dealloc {
@@ -7137,14 +7140,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return stack;
 }
 
-- (void) reloadData {
+- (void) unloadData:(BOOL)selected {
+    CYViewController *top((CYViewController *) [self topViewController]);
+    bool loaded([top hasLoaded]);
+
     for (CYViewController *page in [self viewControllers]) {
-        // Only reload controllers that have already loaded.
-        // This prevents a page from accidentally loading too
-        // early if it hasn't been shown on the screen yet.
-        if ([page hasLoaded])
-            [page reloadData];
+        NSLog(@"%@ %@", page, top);
+        if (!selected || page != top)
+            [page unloadData];
     }
+
+    if (selected && loaded)
+        [top reloadData];
 }
 
 - (void) setDelegate:(id<UINavigationControllerDelegate>)delegate {
@@ -9079,7 +9086,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _updateData {
     [self _saveConfig];
 
-    [tabbar_ reloadData];
+    [tabbar_ unloadData];
 
     CYNavigationController *navigation = [self queueNavigationController];
 

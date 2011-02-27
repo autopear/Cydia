@@ -5280,9 +5280,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewWillAppear:(BOOL)animated {
-    if (![self hasLoaded])
-        [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
-
+    [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
     [super viewWillAppear:animated];
 }
 

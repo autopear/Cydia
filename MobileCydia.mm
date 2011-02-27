@@ -7527,7 +7527,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *sections_;
     UITableView *list_;
     unsigned upgrades_;
-    BOOL hasSentFirstLoad_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7548,21 +7547,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSURL URLWithString:@"cydia://changes"];
 }
 
-- (void) viewWillAppear:(BOOL)animated {
-    // Loads after it appears, so don't load beforehand.
-    loaded_ = YES;
-    [super viewWillAppear:animated];
-}
-
 - (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-
-    if (!hasSentFirstLoad_) {
-        hasSentFirstLoad_ = YES;
-        [self performSelector:@selector(reloadData) withObject:nil afterDelay:0.0];
-    } else {
-        [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
-    }
+    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)list {
@@ -7672,7 +7659,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
 }
 
-- (void) reloadData {
+- (void) _reloadData {
 @synchronized (database_) {
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
@@ -7769,6 +7756,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     PrintTimes();
 } }
+
+- (void) reloadData {
+    [super reloadData];
+    [self performSelector:@selector(_reloadData) withObject:nil afterDelay:0];
+}
 
 @end
 /* }}} */

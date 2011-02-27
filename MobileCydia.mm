@@ -6820,7 +6820,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-@class CYNavigationController;
+/* Cydia Navigation Controller Interface {{{ */
+@interface CYNavigationController : UINavigationController {
+    _transient Database *database_;
+    _transient id<UINavigationControllerDelegate> delegate_;
+}
+
+- (NSArray *) navigationURLCollection;
+- (id) initWithDatabase:(Database *)database;
+- (void) reloadData;
+
+@end
+/* }}} */
 
 /* Cydia Tab Bar Controller {{{ */
 @interface CYTabBarController : UITabBarController <
@@ -7110,19 +7121,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @end
 /* }}} */
-/* Cydia Navigation Controller {{{ */
-@interface CYNavigationController : UINavigationController {
-    _transient Database *database_;
-    _transient id<UINavigationControllerDelegate> delegate_;
-}
 
-- (NSArray *) navigationURLCollection;
-- (id) initWithDatabase:(Database *)database;
-- (void) reloadData;
-
-@end
-
-
+/* Cydia Navigation Controller Implementation {{{ */
 @implementation CYNavigationController
 
 - (NSArray *) navigationURLCollection {

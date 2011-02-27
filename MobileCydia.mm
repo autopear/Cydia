@@ -878,7 +878,7 @@ class Pcre {
         delete matches_;
     }
 
-    NSString *operator [](size_t match) {
+    NSString *operator [](size_t match) const {
         return [NSString stringWithUTF8Bytes:(data_ + matches_[match * 2]) length:(matches_[match * 2 + 1] - matches_[match * 2])];
     }
 
@@ -892,8 +892,12 @@ class Pcre {
         return pcre_exec(code_, study_, data, size, 0, 0, matches_, (capture_ + 1) * 3) >= 0;
     }
 
-    _finline size_t size() const {
-        return capture_;
+    NSString *operator ->*(NSString *format) const {
+        id values[capture_];
+        for (int i(0); i != capture_; ++i)
+            values[i] = this->operator [](i + 1);
+
+        return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
     }
 };
 /* }}} */
@@ -4078,15 +4082,7 @@ static NSString *Warning_;
 }
 
 - (NSString *) divert:(NSString *)url {
-    if (!pattern_(url))
-        return nil;
-
-    size_t count(pattern_.size());
-    id values[count];
-    for (size_t i(0); i != count; ++i)
-        values[i] = pattern_[i + 1];
-
-    return [[[NSString alloc] initWithFormat:format_ arguments:reinterpret_cast<va_list>(values)] autorelease];
+    return !pattern_(url) ? nil : pattern_->*format_;
 }
 
 - (NSString *) key {

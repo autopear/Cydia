@@ -1693,7 +1693,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 - (NSString *) host;
 
 - (NSString *) name;
-- (NSString *) description;
+- (NSString *) shortDescription;
 - (NSString *) label;
 - (NSString *) origin;
 - (NSString *) version;
@@ -1730,13 +1730,13 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
-        @"description",
         @"distribution",
         @"host",
         @"key",
         @"label",
         @"name",
         @"origin",
+        @"shortDescription",
         @"trusted",
         @"type",
         @"uri",
@@ -1880,7 +1880,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     return origin_.empty() ? (id) authority_ : origin_;
 }
 
-- (NSString *) description {
+- (NSString *) shortDescription {
     return description_;
 }
 

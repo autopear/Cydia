@@ -10005,52 +10005,42 @@ MSHook(void, UIWebDocumentView$_setUIKitDelegate$, UIWebDocumentView *self, SEL 
     return _UIWebDocumentView$_setUIKitDelegate$(self, _cmd, delegate);
 }
 
-static NSNumber *shouldPlayKeyboardSounds;
+static NSSet *MobilizedFiles_;
 
-Class $UIHardware;
-
-MSHook(void, UIHardware$_playSystemSound$, Class self, SEL _cmd, int sound) {
-    switch (sound) {
-        case 1104: // Keyboard Button Clicked
-        case 1105: // Keyboard Delete Repeated
-            if (shouldPlayKeyboardSounds == nil) {
-                NSDictionary *dict([[[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.apple.preferences.sounds.plist"] autorelease]);
-                shouldPlayKeyboardSounds = [([dict objectForKey:@"keyboard"] ?: (id) kCFBooleanTrue) retain];
-            }
-
-            if (![shouldPlayKeyboardSounds boolValue])
-                break;
-
-        default:
-            _UIHardware$_playSystemSound$(self, _cmd, sound);
+static NSURL *MobilizeURL(NSURL *url) {
+    NSString *path([url path]);
+    if ([path hasPrefix:@"/var/root/"]) {
+        NSString *file([path substringFromIndex:10]);
+        if ([MobilizedFiles_ containsObject:file])
+            url = [NSURL fileURLWithPath:[@"/var/mobile/" stringByAppendingString:file] isDirectory:NO];
     }
+
+    return url;
 }
 
-Class $UIApplication;
+Class $CFXPreferencesPropertyListSource;
+@class CFXPreferencesPropertyListSource;
 
-MSHook(void, UIApplication$_updateApplicationAccessibility, UIApplication *self, SEL _cmd) {
-    static BOOL initialized = NO;
-    static BOOL started = NO;
+MSHook(BOOL, CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync, CFXPreferencesPropertyListSource *self, SEL _cmd) {
+    NSURL *&url(MSHookIvar<NSURL *>(self, "_url")), *old(url);
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+    url = MobilizeURL(url);
+    BOOL value(_CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync(self, _cmd));
+    //NSLog(@"%@ %s", [url absoluteString], value ? "YES" : "NO");
+    url = old;
+    [pool release];
+    return value;
+}
 
-    NSDictionary *dict([[[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.apple.Accessibility.plist"] autorelease]);
-    BOOL enabled = [[dict objectForKey:@"VoiceOverTouchEnabled"] boolValue] || [[dict objectForKey:@"VoiceOverTouchEnabledByiTunes"] boolValue];
-
-    if ([self respondsToSelector:@selector(_accessibilityBundlePrincipalClass)]) {
-        id bundle = [self performSelector:@selector(_accessibilityBundlePrincipalClass)];
-        if (![bundle respondsToSelector:@selector(_accessibilityStopServer)]) return;
-        if (![bundle respondsToSelector:@selector(_accessibilityStartServer)]) return;
-
-        if (initialized && !enabled) {
-            initialized = NO;
-            [bundle performSelector:@selector(_accessibilityStopServer)];
-        } else if (enabled) {
-            initialized = YES;
-            if (!started) {
-                started = YES;
-                [bundle performSelector:@selector(_accessibilityStartServer)];
-            }
-        }
-    }
+MSHook(void *, CFXPreferencesPropertyListSource$createPlistFromDisk, CFXPreferencesPropertyListSource *self, SEL _cmd) {
+    NSURL *&url(MSHookIvar<NSURL *>(self, "_url")), *old(url);
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+    url = MobilizeURL(url);
+    void *value(_CFXPreferencesPropertyListSource$createPlistFromDisk(self, _cmd));
+    //NSLog(@"%@ %@", [url absoluteString], value);
+    url = old;
+    [pool release];
+    return value;
 }
 
 Class $NSURLConnection;
@@ -10116,8 +10106,27 @@ int main(int argc, char *argv[]) { _pooled
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
+    MobilizedFiles_ = [NSMutableSet setWithObjects:
+        @"Library/Preferences/com.apple.Accessibility.plist",
+        @"Library/Preferences/com.apple.preferences.sounds.plist",
+    nil];
+
     /* Library Hacks {{{ */
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
+
+    $CFXPreferencesPropertyListSource = objc_getClass("CFXPreferencesPropertyListSource");
+
+    Method CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync(class_getInstanceMethod($CFXPreferencesPropertyListSource, @selector(_backingPlistChangedSinceLastSync)));
+    if (CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync != NULL) {
+        _CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync = reinterpret_cast<BOOL (*)(CFXPreferencesPropertyListSource *, SEL)>(method_getImplementation(CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync));
+        method_setImplementation(CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync, reinterpret_cast<IMP>(&$CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync));
+    }
+
+    Method CFXPreferencesPropertyListSource$createPlistFromDisk(class_getInstanceMethod($CFXPreferencesPropertyListSource, @selector(createPlistFromDisk)));
+    if (CFXPreferencesPropertyListSource$createPlistFromDisk != NULL) {
+        _CFXPreferencesPropertyListSource$createPlistFromDisk = reinterpret_cast<void *(*)(CFXPreferencesPropertyListSource *, SEL)>(method_getImplementation(CFXPreferencesPropertyListSource$createPlistFromDisk));
+        method_setImplementation(CFXPreferencesPropertyListSource$createPlistFromDisk, reinterpret_cast<IMP>(&$CFXPreferencesPropertyListSource$createPlistFromDisk));
+    }
 
     $WebDefaultUIKitDelegate = objc_getClass("WebDefaultUIKitDelegate");
     Method UIWebDocumentView$_setUIKitDelegate$(class_getInstanceMethod([WebView class], @selector(_setUIKitDelegate:)));
@@ -10131,20 +10140,6 @@ int main(int argc, char *argv[]) { _pooled
     if (NSURLConnection$init$ != NULL) {
         _NSURLConnection$init$ = reinterpret_cast<id (*)(NSURLConnection *, SEL, NSURLRequest *, id, BOOL, int64_t, BOOL, NSDictionary *)>(method_getImplementation(NSURLConnection$init$));
         method_setImplementation(NSURLConnection$init$, reinterpret_cast<IMP>(&$NSURLConnection$init$));
-    }
-
-    $UIHardware = objc_getClass("UIHardware");
-    Method UIHardware$_playSystemSound$(class_getClassMethod($UIHardware, @selector(_playSystemSound:)));
-    if (UIHardware$_playSystemSound$ != NULL) {
-        _UIHardware$_playSystemSound$ = reinterpret_cast<void (*)(Class, SEL, int)>(method_getImplementation(UIHardware$_playSystemSound$));
-        method_setImplementation(UIHardware$_playSystemSound$, reinterpret_cast<IMP>(&$UIHardware$_playSystemSound$));
-    }
-
-    $UIApplication = objc_getClass("UIApplication");
-    Method UIApplication$_updateApplicationAccessibility(class_getInstanceMethod($UIApplication, @selector(_updateApplicationAccessibility)));
-    if (UIApplication$_updateApplicationAccessibility != NULL) {
-        _UIApplication$_updateApplicationAccessibility = reinterpret_cast<void (*)(UIApplication *, SEL)>(method_getImplementation(UIApplication$_updateApplicationAccessibility));
-        method_setImplementation(UIApplication$_updateApplicationAccessibility, reinterpret_cast<IMP>(&$UIApplication$_updateApplicationAccessibility));
     }
     /* }}} */
     /* Set Locale {{{ */

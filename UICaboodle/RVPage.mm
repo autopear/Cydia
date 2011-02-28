@@ -13,6 +13,12 @@ extern bool IsWildcat_;
     return YES;
 }
 
+- (void) reloadData {
+}
+
+- (void) unloadData {
+}
+
 @end
 
 @implementation CYViewController
@@ -52,6 +58,8 @@ extern bool IsWildcat_;
 }
 
 - (void) reloadData {
+    [super reloadData];
+
     // This is called automatically on the first appearance of a controller,
     // or any other time it needs to reload the information shown. However (!),
     // this is not called by any tab bar or navigation controller's -reloadData
@@ -61,6 +69,7 @@ extern bool IsWildcat_;
 
 - (void) unloadData {
     loaded_ = NO;
+    [super unloadData];
 }
 
 - (NSURL *) navigationURL {

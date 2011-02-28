@@ -6821,11 +6821,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Cydia Navigation Controller Interface {{{ */
-@interface CYNavigationController : UINavigationController {
-}
+@interface UINavigationController (Cydia)
 
 - (NSArray *) navigationURLCollection;
-- (void) unloadData:(BOOL)selected;
+- (void) unloadData;
 
 @end
 /* }}} */
@@ -6904,12 +6903,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) unloadData {
-    CYNavigationController *selected((CYNavigationController *) [self selectedViewController]);
-    for (CYNavigationController *controller in [self viewControllers])
-        [controller unloadData:(controller == selected)];
+    UIViewController *selected([self selectedViewController]);
+    for (UINavigationController *controller in [self viewControllers])
+        [controller unloadData];
 
-    if (CYNavigationController *unselected = (CYNavigationController *) [self unselectedViewController])
-        [unselected unloadData:YES];
+    [selected reloadData];
+
+    if (UIViewController *unselected = [self unselectedViewController])
+        [unselected reloadData];
+
+    [super unloadData];
 }
 
 - (void) dealloc {
@@ -7123,7 +7126,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Cydia Navigation Controller Implementation {{{ */
-@implementation CYNavigationController
+@implementation UINavigationController (Cydia)
 
 - (NSArray *) navigationURLCollection {
     NSMutableArray *stack([NSMutableArray array]);
@@ -7137,18 +7140,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return stack;
 }
 
-- (void) unloadData:(BOOL)selected {
-    CYViewController *top((CYViewController *) [self topViewController]);
-    bool loaded([top hasLoaded]);
+- (void) reloadData {
+    [super reloadData];
 
-    for (CYViewController *page in [self viewControllers]) {
-        NSLog(@"%@ %@", page, top);
-        if (!selected || page != top)
-            [page unloadData];
-    }
+    if (UIViewController *visible = [self visibleViewController])
+        [visible reloadData];
+}
 
-    if (selected && loaded)
-        [top reloadData];
+- (void) unloadData {
+    for (CYViewController *page in [self viewControllers])
+        [page unloadData];
+
+    [super unloadData];
 }
 
 @end
@@ -9065,7 +9068,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 // Navigation controller for the queuing badge.
-- (CYNavigationController *) queueNavigationController {
+- (UINavigationController *) queueNavigationController {
     NSArray *controllers = [tabbar_ viewControllers];
     return [controllers objectAtIndex:3];
 }
@@ -9075,7 +9078,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [tabbar_ unloadData];
 
-    CYNavigationController *navigation = [self queueNavigationController];
+    UINavigationController *navigation = [self queueNavigationController];
 
     id queuedelegate = nil;
     if ([[navigation viewControllers] count] > 0)
@@ -9211,7 +9214,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) presentModalViewController:(UIViewController *)controller force:(BOOL)force {
-    UINavigationController *navigation([[[CYNavigationController alloc] initWithRootViewController:controller] autorelease]);
+    UINavigationController *navigation([[[UINavigationController alloc] initWithRootViewController:controller] autorelease]);
     if (IsWildcat_)
         [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
 
@@ -9318,7 +9321,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     ConfirmationController *page([[[ConfirmationController alloc] initWithDatabase:database_] autorelease]);
     [page setDelegate:self];
-    CYNavigationController *confirm_([[[CYNavigationController alloc] initWithRootViewController:page] autorelease]);
+    UINavigationController *confirm_([[[UINavigationController alloc] initWithRootViewController:page] autorelease]);
 
     if (IsWildcat_)
         [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];
@@ -9659,7 +9662,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CYViewController *page([self pageForURL:url forExternal:external]);
 
     if (page != nil) {
-        CYNavigationController *nav = [[[CYNavigationController alloc] init] autorelease];
+        UINavigationController *nav = [[[UINavigationController alloc] init] autorelease];
         [nav setViewControllers:[NSArray arrayWithObject:page]];
         [tabbar_ setUnselectedViewController:nav];
     }
@@ -9766,7 +9769,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSMutableArray *controllers([NSMutableArray array]);
     for (UITabBarItem *item in items) {
-        CYNavigationController *controller([[[CYNavigationController alloc] init] autorelease]);
+        UINavigationController *controller([[[UINavigationController alloc] init] autorelease]);
         [controller setTabBarItem:item];
         [controllers addObject:controller];
     }
@@ -9920,7 +9923,7 @@ _trace();
 
     for (unsigned int tab = 0; tab < [[tabbar_ viewControllers] count]; tab++) {
         NSArray *stack = [items objectAtIndex:tab];
-        CYNavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:tab];
+        UINavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:tab];
         NSMutableArray *current = [NSMutableArray array];
 
         for (unsigned int nav = 0; nav < [stack count]; nav++) {

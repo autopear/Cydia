@@ -4,6 +4,8 @@
 
 @interface UIViewController (Cydia)
 - (BOOL) hasLoaded;
+- (void) reloadData;
+- (void) unloadData;
 @end
 
 @interface CYViewController : UIViewController {

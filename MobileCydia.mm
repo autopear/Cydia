@@ -117,11 +117,13 @@ extern "C" {
 #include <cstring>
 
 #include <errno.h>
-#include <pcre.h>
 
 #include <Cytore.hpp>
 
 #include "UICaboodle/BrowserView.h"
+#include "UICaboodle/NSString-UICaboodle.h"
+#include "UICaboodle/PerlCompatibleRegEx.hpp"
+
 #include "SDURLCache/SDURLCache.h"
 
 #include "substrate.h"
@@ -617,14 +619,12 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
 /* Cydia NSString Additions {{{ */
 @interface NSString (Cydia)
-+ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
-+ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
 - (NSComparisonResult) compareByPath:(NSString *)other;
 - (NSString *) stringByCachingURLWithCurrentCDN;
 - (NSString *) stringByAddingPercentEscapesIncludingReserved;
 @end
 
-@implementation NSString (Cydia)
+@implementation NSString (UICaboodle)
 
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
     return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
@@ -633,6 +633,10 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
     return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
 }
+
+@end
+
+@implementation NSString (Cydia)
 
 - (NSComparisonResult) compareByPath:(NSString *)other {
     NSString *prefix = [self commonPrefixWithString:other options:0];
@@ -827,77 +831,6 @@ struct NSStringMapEqual :
 };
 /* }}} */
 
-/* Perl-Compatible RegEx {{{ */
-class Pcre {
-  private:
-    pcre *code_;
-    pcre_extra *study_;
-    int capture_;
-    int *matches_;
-    const char *data_;
-
-  public:
-    Pcre() :
-        code_(NULL),
-        study_(NULL)
-    {
-    }
-
-    Pcre(const char *regex) :
-        code_(NULL),
-        study_(NULL)
-    {
-        this->operator =(regex);
-    }
-
-    void operator =(const char *regex) {
-        _assert(code_ == NULL);
-
-        const char *error;
-        int offset;
-        code_ = pcre_compile(regex, 0, &error, &offset, NULL);
-
-        if (code_ == NULL) {
-            lprintf("%d:%s\n", offset, error);
-            _assert(false);
-        }
-
-        pcre_fullinfo(code_, study_, PCRE_INFO_CAPTURECOUNT, &capture_);
-        matches_ = new int[(capture_ + 1) * 3];
-    }
-
-    ~Pcre() {
-        pcre_free(code_);
-        delete matches_;
-    }
-
-    NSString *operator [](size_t match) const {
-        return [NSString stringWithUTF8Bytes:(data_ + matches_[match * 2]) length:(matches_[match * 2 + 1] - matches_[match * 2])];
-    }
-
-    _finline bool operator ()(NSString *data) {
-        // XXX: length is for characters, not for bytes
-        return operator ()([data UTF8String], [data length]);
-    }
-
-    _finline bool operator ()(const char *data) {
-        return operator ()(data, strlen(data));
-    }
-
-    bool operator ()(const char *data, size_t size) {
-        data_ = data;
-        return pcre_exec(code_, study_, data, size, 0, 0, matches_, (capture_ + 1) * 3) >= 0;
-    }
-
-    NSString *operator ->*(NSString *format) const {
-        id values[capture_];
-        for (int i(0); i != capture_; ++i)
-            values[i] = this->operator [](i + 1);
-
-        return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
-    }
-};
-/* }}} */
 /* Mime Addresses {{{ */
 @interface Address : NSObject {
     NSString *name_;

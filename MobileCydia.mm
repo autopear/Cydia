@@ -6822,12 +6822,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Cydia Navigation Controller Interface {{{ */
 @interface CYNavigationController : UINavigationController {
-    _transient Database *database_;
     _transient id<UINavigationControllerDelegate> delegate_;
 }
 
 - (NSArray *) navigationURLCollection;
-- (id) initWithDatabase:(Database *)database;
 - (void) unloadData:(BOOL)selected;
 
 @end
@@ -7156,12 +7154,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setDelegate:(id<UINavigationControllerDelegate>)delegate {
     delegate_ = delegate;
-}
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-    } return self;
 }
 
 @end
@@ -9780,7 +9772,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSMutableArray *controllers([NSMutableArray array]);
     for (UITabBarItem *item in items) {
-        CYNavigationController *controller([[[CYNavigationController alloc] initWithDatabase:database_] autorelease]);
+        CYNavigationController *controller([[[CYNavigationController alloc] init] autorelease]);
         [controller setTabBarItem:item];
         [controllers addObject:controller];
     }

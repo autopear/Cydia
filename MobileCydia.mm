@@ -4684,7 +4684,7 @@ static NSMutableSet *Diversions_;
 }
 
 - (NSURL *) navigationURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[[webview_ request] URL] absoluteString]]];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request_ URL] absoluteString]]];
 }
 
 + (void) initialize {

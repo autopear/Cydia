@@ -4023,6 +4023,9 @@ static NSMutableSet *Diversions_;
 
     for (Diversion *diversion in Diversions_)
         if (NSString *diverted = [diversion divert:href]) {
+#if !ForRelease
+            NSLog(@"div: %@", diverted);
+#endif
             url = [NSURL URLWithString:diverted];
             goto divert;
         }

@@ -4174,6 +4174,10 @@ static NSMutableSet *Diversions_;
         return @"getKernelString";
     else if (selector == @selector(getInstalledPackages))
         return @"getInstalledPackages";
+    else if (selector == @selector(getLocaleIdentifier))
+        return @"getLocaleIdentifier";
+    else if (selector == @selector(getPreferredLanguages))
+        return @"getPreferredLanguages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
     else if (selector == @selector(getSessionValue:))
@@ -4327,6 +4331,14 @@ static NSMutableSet *Diversions_;
         return package;
     } else
         return (Package *) [NSNull null];
+}
+
+- (NSString *) getLocaleIdentifier {
+    return Locale_ == NULL ? (NSString *) [NSNull null] : (NSString *) CFLocaleGetIdentifier(Locale_);
+}
+
+- (NSArray *) getPreferredLanguages {
+    return Languages_;
 }
 
 - (NSArray *) statfs:(NSString *)path {

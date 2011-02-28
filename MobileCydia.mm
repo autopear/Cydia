@@ -4701,12 +4701,20 @@ static NSMutableSet *Diversions_;
     WebDataSource *source([frame dataSource]);
     NSURLResponse *response([source response]);
     NSURL *url([response URL]);
+    NSString *scheme([[url scheme] lowercaseString]);
+
+    bool bridged(false);
 
     @synchronized (HostConfig_) {
-        if ([[[url scheme] lowercaseString] isEqualToString:@"https"])
+        if ([scheme isEqualToString:@"file"])
+            bridged = true;
+        else if ([scheme isEqualToString:@"https"])
             if ([BridgedHosts_ containsObject:[url host]])
-                [window setValue:cydia_ forKey:@"cydia"];
+                bridged = true;
     }
+
+    if (bridged)
+        [window setValue:cydia_ forKey:@"cydia"];
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {

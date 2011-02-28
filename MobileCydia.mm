@@ -9821,6 +9821,9 @@ _trace();
     essential_ = [[NSMutableArray alloc] initWithCapacity:4];
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
+    // XXX: I really need this thing... like, seriously... I'm sorry
+    [[[CYBrowserController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
+
     window_ = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     [window_ orderFront:self];
     [window_ makeKey:self];

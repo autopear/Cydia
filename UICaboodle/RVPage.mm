@@ -3,8 +3,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-#import "RVBook.h"
-
 extern bool IsWildcat_;
 
 @implementation UIViewController (Cydia)

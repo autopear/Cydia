@@ -1,5 +1,4 @@
 #import <UICaboodle/RVPage.h>
-#import <UICaboodle/RVBook.h>
 
 #import <UIKit/UIKit.h>
 
@@ -61,7 +60,6 @@
 
 @interface BrowserController : CYViewController <
     CYWebViewDelegate,
-    HookProtocol,
     UIWebViewDelegate
 > {
     _transient CYWebView *webview_;
@@ -84,7 +82,6 @@
     _H<NSString> style_;
 
     _H<WebScriptObject> function_;
-    WebScriptObject *closer_;
 
     float width_;
     Class class_;
@@ -124,7 +121,6 @@
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function;
-- (void) setPopupHook:(id)function;
 - (void) setHidesNavigationBar:(bool)value;
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button;

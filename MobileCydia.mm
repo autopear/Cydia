@@ -4279,8 +4279,6 @@ static NSMutableSet *Diversions_;
         return @"setNavigationBarStyle";
     else if (selector == @selector(setNavigationBarTintRed:green:blue:alpha:))
         return @"setNavigationBarTintColor";
-    else if (selector == @selector(setPopupHook:))
-        return @"setPopupHook";
     else if (selector == @selector(setToken:))
         return @"setToken";
     else if (selector == @selector(setViewportWidth:))
@@ -4525,10 +4523,6 @@ static NSMutableSet *Diversions_;
 
 - (void) setToken:(NSString *)token {
     [self performSelectorOnMainThread:@selector(_setToken:) withObject:token waitUntilDone:NO];
-}
-
-- (void) setPopupHook:(id)function {
-    [indirect_ setPopupHook:function];
 }
 
 - (void) scrollToBottom:(NSNumber *)animated {

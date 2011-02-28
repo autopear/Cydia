@@ -69,9 +69,7 @@ float CYScrollViewDecelerationRateNormal;
 @end
 
 /* Indirect Delegate {{{ */
-@interface IndirectDelegate : NSObject <
-    HookProtocol
-> {
+@interface IndirectDelegate : NSObject {
     _transient volatile id delegate_;
 }
 
@@ -88,11 +86,6 @@ float CYScrollViewDecelerationRateNormal;
 - (id) initWithDelegate:(id)delegate {
     delegate_ = delegate;
     return self;
-}
-
-- (void) didDismissModalViewController {
-    if (delegate_ != nil)
-        return [delegate_ didDismissModalViewController];
 }
 
 - (IMP) methodForSelector:(SEL)sel {
@@ -480,9 +473,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if (challenge_ != nil)
         [challenge_ release];
 
-    if (closer_ != nil)
-        [closer_ release];
-
     if (title_ != nil)
         [title_ release];
 
@@ -591,15 +581,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [self performSelectorOnMainThread:@selector(applyRightButton) withObject:nil waitUntilDone:NO];
 }
 
-- (void) setPopupHook:(id)function {
-    if (closer_ != nil)
-        [closer_ autorelease];
-    if (function == nil)
-        closer_ = nil;
-    else
-        closer_ = [function retain];
-}
-
 - (void) scrollToBottomAnimated:(NSNumber *)animated {
     CGSize size([scroller_ contentSize]);
     CGPoint offset([scroller_ contentOffset]);
@@ -694,9 +675,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
         [[self navigationController] pushViewController:page animated:YES];
     } else {
-        UCNavigationController *navigation([[[UCNavigationController alloc] initWithRootViewController:page] autorelease]);
+        UINavigationController *navigation([[[UINavigationController alloc] initWithRootViewController:page] autorelease]);
 
-        [navigation setHook:indirect_];
         [navigation setDelegate:delegate_];
 
         [[page navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
@@ -839,7 +819,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         custom_ = nil;
         style_ = nil;
         function_ = nil;
-        CYRelease(closer_);
 
         [self setHidesNavigationBar:NO];
 
@@ -1137,11 +1116,6 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     if ((self = [self init]) != nil) {
         [self setURL:url];
     } return self;
-}
-
-- (void) didDismissModalViewController {
-    if (closer_ != nil)
-        [self callFunction:closer_];
 }
 
 - (void) callFunction:(WebScriptObject *)function {

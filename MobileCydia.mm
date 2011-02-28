@@ -6822,7 +6822,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Cydia Navigation Controller Interface {{{ */
 @interface CYNavigationController : UINavigationController {
-    _transient id<UINavigationControllerDelegate> delegate_;
 }
 
 - (NSArray *) navigationURLCollection;
@@ -7150,10 +7149,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (selected && loaded)
         [top reloadData];
-}
-
-- (void) setDelegate:(id<UINavigationControllerDelegate>)delegate {
-    delegate_ = delegate;
 }
 
 @end
@@ -9324,7 +9319,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ConfirmationController *page([[[ConfirmationController alloc] initWithDatabase:database_] autorelease]);
     [page setDelegate:self];
     CYNavigationController *confirm_([[[CYNavigationController alloc] initWithRootViewController:page] autorelease]);
-    [confirm_ setDelegate:self];
 
     if (IsWildcat_)
         [confirm_ setModalPresentationStyle:UIModalPresentationFormSheet];

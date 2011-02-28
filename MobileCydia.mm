@@ -618,7 +618,6 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 /* Cydia NSString Additions {{{ */
 @interface NSString (Cydia)
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
-+ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length withZone:(NSZone *)zone inPool:(apr_pool_t *)pool;
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
 - (NSComparisonResult) compareByPath:(NSString *)other;
 - (NSString *) stringByCachingURLWithCurrentCDN;
@@ -629,12 +628,6 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
     return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
-}
-
-+ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length withZone:(NSZone *)zone inPool:(apr_pool_t *)pool {
-    char *data(reinterpret_cast<char *>(apr_palloc(pool, length)));
-    memcpy(data, bytes, length);
-    return [[[NSString allocWithZone:zone] initWithBytesNoCopy:data length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
 }
 
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {

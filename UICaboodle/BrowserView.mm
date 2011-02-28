@@ -498,22 +498,25 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [super dealloc];
 }
 
-- (void) setURL:(NSURL *)url {
-    _assert(request_ == nil);
+- (NSURL *) URLWithURL:(NSURL *)url {
+    return url;
+}
 
-    request_ = [NSURLRequest
-        requestWithURL:url
-        cachePolicy:NSURLRequestUseProtocolCachePolicy
+- (NSURLRequest *) requestWithURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
+    return [NSURLRequest
+        requestWithURL:[self URLWithURL:url]
+        cachePolicy:policy
         timeoutInterval:DefaultTimeout_
     ];
 }
 
+- (void) setURL:(NSURL *)url {
+    _assert(request_ == nil);
+    request_ = [self requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy];
+}
+
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
-    [self loadRequest:[NSURLRequest
-        requestWithURL:url
-        cachePolicy:policy
-        timeoutInterval:DefaultTimeout_
-    ]];
+    [self loadRequest:[self requestWithURL:url cachePolicy:policy]];
 }
 
 - (void) loadURL:(NSURL *)url {

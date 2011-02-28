@@ -4637,10 +4637,12 @@ static NSMutableSet *Diversions_;
         [window setValue:cydia_ forKey:@"cydia"];
 }
 
+- (NSURL *) URLWithURL:(NSURL *)url {
+    return [Diversion divertURL:url];
+}
+
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
-
-    [copy setURL:[Diversion divertURL:[copy URL]]];
 
     if (System_ != NULL)
         [copy setValue:System_ forHTTPHeaderField:@"X-System"];

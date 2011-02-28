@@ -4067,6 +4067,8 @@ static NSString *Warning_;
 @end
 /* }}} */
 
+static NSMutableSet *Diversions_;
+
 @interface Diversion : NSObject {
     Pcre pattern_;
     _H<NSString> key_;
@@ -4087,6 +4089,19 @@ static NSString *Warning_;
 
 - (NSString *) divert:(NSString *)url {
     return !pattern_(url) ? nil : pattern_->*format_;
+}
+
++ (NSURL *) divertURL:(NSURL *)url {
+  divert:
+    NSString *href([url absoluteString]);
+
+    for (Diversion *diversion in Diversions_)
+        if (NSString *diverted = [diversion divert:href]) {
+            url = [NSURL URLWithString:diverted];
+            goto divert;
+        }
+
+    return url;
 }
 
 - (NSString *) key {
@@ -4119,8 +4134,6 @@ static NSString *Warning_;
 + (void) addDiversion:(Diversion *)diversion;
 
 @end
-
-static NSMutableSet *Diversions_;
 
 /* Web Scripting {{{ */
 @implementation CydiaObject
@@ -4699,15 +4712,7 @@ static NSMutableSet *Diversions_;
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
 
-  divert:
-    NSURL *url([copy URL]);
-    NSString *href([url absoluteString]);
-
-    for (Diversion *diversion in Diversions_)
-        if (NSString *diverted = [diversion divert:href]) {
-            [copy setURL:[NSURL URLWithString:diverted]];
-            goto divert;
-        }
+    [copy setURL:[Diversion divertURL:[copy URL]]];
 
     if (System_ != NULL)
         [copy setValue:System_ forHTTPHeaderField:@"X-System"];

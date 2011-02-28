@@ -9397,11 +9397,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) showSettings {
-    SettingsController *role = [[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease];
-    CYNavigationController *nav = [[[CYNavigationController alloc] initWithRootViewController:role] autorelease];
-    if (IsWildcat_)
-        [nav setModalPresentationStyle:UIModalPresentationFormSheet];
-    [tabbar_ presentModalViewController:nav animated:YES];
+    [self presentModalViewController:[[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease] force:NO];
 }
 
 - (void) retainNetworkActivityIndicator {
@@ -9881,7 +9877,7 @@ _trace();
 _trace();
     if (Role_ == nil) {
         [window_ setUserInteractionEnabled:YES];
-        [self presentModalViewController:[[[SettingsController alloc] initWithDatabase:database_ delegate:self] autorelease] force:NO];
+        [self showSettings];
         return;
     } else {
         if ([emulated_ modalViewController] != nil)

@@ -5915,6 +5915,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setTitle:UCLocalize("INSTALLED_FILES")];
 }
 
@@ -6556,6 +6558,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("ABOUT")
         style:UIBarButtonItemStylePlain
@@ -6587,6 +6591,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("SETTINGS")
         style:UIBarButtonItemStylePlain
@@ -7367,6 +7373,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setTitle:UCLocalize("SECTIONS")];
 }
 
@@ -7555,6 +7563,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setTitle:UCLocalize("CHANGES")];
 }
 
@@ -7934,6 +7944,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setTitle:UCLocalize("SETTINGS")];
 }
 
@@ -8519,6 +8531,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setTitle:UCLocalize("SOURCES")];
     [self updateButtonsForEditingStatus:NO animated:NO];
 }
@@ -8675,6 +8689,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) viewDidLoad {
+    [super viewDidLoad];
+
     [[self navigationItem] setTitle:UCLocalize("WHO_ARE_YOU")];
 
     int index = -1;

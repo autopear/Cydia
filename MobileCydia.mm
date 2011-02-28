@@ -9086,10 +9086,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [controllers objectAtIndex:3];
 }
 
+- (void) unloadData {
+    [tabbar_ unloadData];
+}
+
 - (void) _updateData {
     [self _saveConfig];
 
-    [tabbar_ unloadData];
+    [self unloadData];
 
     UINavigationController *navigation = [self queueNavigationController];
 

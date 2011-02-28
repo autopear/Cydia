@@ -707,6 +707,8 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         ] autorelease]];
 
         [[self navigationController] presentModalViewController:navigation animated:YES];
+
+        [delegate_ unloadData];
     }
 }
 

@@ -56,6 +56,7 @@
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
 - (CYViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external;
+- (void) unloadData;
 @end
 
 @interface BrowserController : CYViewController <

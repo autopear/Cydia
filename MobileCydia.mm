@@ -9536,21 +9536,25 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [hud setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
 
     [window_ setUserInteractionEnabled:NO];
-    [hud show:YES];
 
-    UIViewController *target = tabbar_;
-    while ([target modalViewController] != nil) target = [target modalViewController];
-    [[target view] addSubview:hud];
+    UIViewController *target(tabbar_);
+    if (UIViewController *modal = [target modalViewController])
+        target = modal;
+
+    UIView *view([target view]);
+    [view addSubview:hud];
+
+    [hud show:YES];
 
     ++locked_;
     return hud;
 }
 
 - (void) removeProgressHUD:(UIProgressHUD *)hud {
+    --locked_;
     [hud show:NO];
     [hud removeFromSuperview];
     [window_ setUserInteractionEnabled:YES];
-    --locked_;
 }
 
 - (CYViewController *) pageForPackage:(NSString *)name {

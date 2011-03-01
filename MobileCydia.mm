@@ -6554,6 +6554,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) init {
     if ((self = [super init]) != nil) {
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/home/", UI_]]];
+        [self reloadData];
     } return self;
 }
 
@@ -6587,6 +6588,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target:self
         action:@selector(aboutButtonClicked)
     ] autorelease]];
+}
+
+- (void) unloadData {
+    [super unloadData];
+    [self reloadData];
 }
 
 @end

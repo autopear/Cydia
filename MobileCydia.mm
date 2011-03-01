@@ -4031,7 +4031,7 @@ static NSMutableSet *Diversions_;
 
 @end
 
-@interface CydiaWebViewController : BrowserController {
+@interface CydiaWebViewController : CyteWebViewController {
     CydiaObject *cydia_;
 }
 

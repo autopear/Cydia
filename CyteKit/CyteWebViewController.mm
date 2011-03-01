@@ -117,7 +117,7 @@ float CYScrollViewDecelerationRateNormal;
 @end
 /* }}} */
 
-@implementation BrowserController
+@implementation CyteWebViewController
 
 #if ShowInternals
 #include "CyteKit/UCInternal.h"
@@ -134,7 +134,7 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) dealloc {
 #if LogBrowser
-    NSLog(@"[BrowserController dealloc]");
+    NSLog(@"[CyteWebViewController dealloc]");
 #endif
 
     [webview_ setDelegate:nil];
@@ -335,7 +335,7 @@ float CYScrollViewDecelerationRateNormal;
     CYViewController *page([delegate_ pageForURL:url forExternal:NO]);
 
     if (page == nil) {
-        BrowserController *browser([[[class_ alloc] init] autorelease]);
+        CyteWebViewController *browser([[[class_ alloc] init] autorelease]);
         [browser loadRequest:request];
         page = browser;
     }

@@ -37,8 +37,8 @@
 */
 /* }}} */
 
-#ifndef CyteKit_CydiaBrowserController_H
-#define CyteKit_CydiaBrowserController_H
+#ifndef CyteKit_CyteWebViewController_H
+#define CyteKit_CyteWebViewController_H
 
 #include "CyteKit/CyteViewController.h"
 #include "CyteKit/CyteWebView.h"
@@ -49,14 +49,14 @@
 
 @class IndirectDelegate;
 
-@protocol BrowserControllerDelegate
+@protocol CyteWebViewControllerDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
 - (CYViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external;
 - (void) unloadData;
 @end
 
-@interface BrowserController : CYViewController <
+@interface CyteWebViewController : CYViewController <
     CyteWebViewDelegate,
     UIWebViewDelegate
 > {
@@ -136,4 +136,4 @@
 
 @end
 
-#endif//CyteKit_CydiaBrowserController_H
+#endif//CyteKit_CyteWebViewController_H

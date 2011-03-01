@@ -6445,6 +6445,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [alert setMessage:
         @"Copyright (C) 2008-2011\n"
+        "SaurikIT, LLC\n"
+        "\n"
         "Jay Freeman (saurik)\n"
         "saurik@saurik.com\n"
         "http://www.saurik.com/"

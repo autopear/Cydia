@@ -44,6 +44,7 @@
 
 @interface WebScriptObject (Cyte)
 - (NSUInteger) count;
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count;
 - (id) objectAtIndex:(unsigned)index;
 @end
 

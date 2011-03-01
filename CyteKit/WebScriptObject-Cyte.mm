@@ -53,4 +53,17 @@
     return [self webScriptValueAtIndex:index];
 }
 
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count {
+    size_t length([self count] - state->state);
+    if (length <= 0)
+        return 0;
+    else if (length > count)
+        length = count;
+    for (size_t i(0); i != length; ++i)
+        objects[i] = [self objectAtIndex:state->state++];
+    state->itemsPtr = objects;
+    state->mutationsPtr = (unsigned long *) self;
+    return length;
+}
+
 @end

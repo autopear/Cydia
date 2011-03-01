@@ -588,23 +588,6 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 
 @end
 
-@implementation WebScriptObject (NSFastEnumeration)
-
-- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count {
-    size_t length([self count] - state->state);
-    if (length <= 0)
-        return 0;
-    else if (length > count)
-        length = count;
-    for (size_t i(0); i != length; ++i)
-        objects[i] = [self objectAtIndex:state->state++];
-    state->itemsPtr = objects;
-    state->mutationsPtr = (unsigned long *) self;
-    return length;
-}
-
-@end
-
 NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
     size_t length([self length] - state->state);
     if (length <= 0)

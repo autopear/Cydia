@@ -4214,6 +4214,10 @@ static NSMutableSet *Diversions_;
         return @"setNavigationBarStyle";
     else if (selector == @selector(setNavigationBarTintRed:green:blue:alpha:))
         return @"setNavigationBarTintColor";
+    else if (selector == @selector(setPasteboardString:))
+        return @"setPasteboardString";
+    else if (selector == @selector(setPasteboardURL:))
+        return @"setPasteboardURL";
     else if (selector == @selector(setToken:))
         return @"setToken";
     else if (selector == @selector(setViewportWidth:))
@@ -4455,6 +4459,14 @@ static NSMutableSet *Diversions_;
     float opacity(alpha == (id) [WebUndefined undefined] ? 1 : [alpha floatValue]);
     UIColor *color([UIColor colorWithRed:[red floatValue] green:[green floatValue] blue:[blue floatValue] alpha:opacity]);
     [indirect_ performSelectorOnMainThread:@selector(setNavigationBarTintColor:) withObject:color waitUntilDone:NO];
+}
+
+- (void) setPasteboardString:(NSString *)value {
+    [[objc_getClass("UIPasteboard") generalPasteboard] setString:value];
+}
+
+- (void) setPasteboardURL:(NSString *)value {
+    [[objc_getClass("UIPasteboard") generalPasteboard] setURL:[NSURL URLWithString:value]];
 }
 
 - (void) _setToken:(NSString *)token {

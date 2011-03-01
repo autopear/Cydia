@@ -45,7 +45,7 @@
 
 #include <UIKit/UIKit.h>
 
-#include "substrate.h"
+#include <CydiaSubstrate/CydiaSubstrate.h>
 
 @class IndirectDelegate;
 

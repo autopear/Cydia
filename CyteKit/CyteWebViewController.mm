@@ -21,8 +21,6 @@ extern NSString * const kCAFilterNearest;
 #include <WebKit/DOMHTMLBodyElement.h>
 #include <WebKit/DOMRGBColor.h>
 
-#include "substrate.h"
-
 #define ForSaurik 0
 #define DefaultTimeout_ 120.0
 

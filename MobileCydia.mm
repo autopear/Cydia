@@ -126,7 +126,7 @@ extern "C" {
 
 #include "SDURLCache/SDURLCache.h"
 
-#include "substrate.h"
+#include <CydiaSubstrate/CydiaSubstrate.h>
 /* }}} */
 
 /* Profiler {{{ */

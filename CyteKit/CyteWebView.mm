@@ -1,7 +1,8 @@
 #include "CyteKit/CyteWebView.h"
 
+#include <CydiaSubstrate/CydiaSubstrate.h>
+
 #include "iPhonePrivate.h"
-#include "substrate.h"
 
 // CYWebPolicyDecision* {{{
 enum CYWebPolicyDecision {

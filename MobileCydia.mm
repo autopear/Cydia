@@ -120,12 +120,14 @@ extern "C" {
 
 #include <Cytore.hpp>
 
+#include "Menes/Menes.h"
+
 #include "CyteKit/PerlCompatibleRegEx.hpp"
 #include "CyteKit/WebScriptObject-Cyte.h"
 #include "CyteKit/WebViewController.h"
 #include "CyteKit/stringWithUTF8Bytes.h"
 
-#include "Menes/Menes.h"
+#include "Cydia/ProgressEvent.h"
 
 #include "SDURLCache/SDURLCache.h"
 
@@ -990,51 +992,6 @@ bool isSectionVisible(NSString *section) {
 @end
 /* }}} */
 
-/* ProgressEvent Interface/Delegate {{{ */
-@interface CydiaProgressEvent : NSObject {
-    _H<NSString> message_;
-    _H<NSString> type_;
-
-    _H<NSArray> item_;
-    _H<NSString> package_;
-    _H<NSString> url_;
-    _H<NSString> version_;
-}
-
-+ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type;
-+ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forPackage:(NSString *)package;
-+ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItem:(pkgAcquire::ItemDesc &)item;
-
-- (id) initWithMessage:(NSString *)message ofType:(NSString *)type;
-
-- (NSString *) message;
-- (NSString *) type;
-
-- (NSArray *) item;
-- (NSString *) package;
-- (NSString *) url;
-- (NSString *) version;
-
-- (void) setItem:(NSArray *)item;
-- (void) setPackage:(NSString *)package;
-- (void) setURL:(NSString *)url;
-- (void) setVersion:(NSString *)version;
-
-- (NSString *) compound:(NSString *)value;
-- (NSString *) compoundMessage;
-- (NSString *) compoundTitle;
-
-@end
-
-@protocol ProgressDelegate
-- (void) addProgressEvent:(CydiaProgressEvent *)event;
-- (void) setProgressPercent:(NSNumber *)percent;
-- (void) setProgressStatus:(NSDictionary *)status;
-- (void) setProgressCancellable:(NSNumber *)cancellable;
-- (bool) isProgressCancelled;
-- (void) setTitle:(NSString *)title;
-@end
-/* }}} */
 /* Status Delegation {{{ */
 class Status :
     public pkgAcquireStatus

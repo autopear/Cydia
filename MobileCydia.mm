@@ -7688,6 +7688,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) setSearchTerm:(NSString *)searchTerm {
     [search_ setText:searchTerm];
+    [self setObject:searchTerm];
     [self reloadData];
 }
 

@@ -4031,7 +4031,7 @@ static NSMutableSet *Diversions_;
 
 @end
 
-@interface CYBrowserController : BrowserController {
+@interface CydiaWebViewController : BrowserController {
     CydiaObject *cydia_;
 }
 
@@ -4214,7 +4214,7 @@ static NSMutableSet *Diversions_;
 }
 
 - (void) divert:(NSString *)from :(NSString *)to {
-    [CYBrowserController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
+    [CydiaWebViewController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
 }
 
 - (NSNumber *) getKernelNumber:(NSString *)name {
@@ -4604,7 +4604,7 @@ static NSMutableSet *Diversions_;
 /* }}} */
 
 /* Cydia Browser Controller {{{ */
-@implementation CYBrowserController
+@implementation CydiaWebViewController
 
 - (void) dealloc {
     [cydia_ release];
@@ -4668,7 +4668,7 @@ static NSMutableSet *Diversions_;
 }
 
 - (id) init {
-    if ((self = [super initWithWidth:0 ofClass:[CYBrowserController class]]) != nil) {
+    if ((self = [super initWithWidth:0 ofClass:[CydiaWebViewController class]]) != nil) {
         cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
 
         WebView *webview([[webview_ _documentView] webView]);
@@ -4747,7 +4747,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) queue;
 @end
 
-@interface ConfirmationController : CYBrowserController {
+@interface ConfirmationController : CydiaWebViewController {
     _transient Database *database_;
 
     UIAlertView *essential_;
@@ -5162,7 +5162,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Progress Controller {{{ */
-@interface ProgressController : CYBrowserController <
+@interface ProgressController : CydiaWebViewController <
     ProgressDelegate
 > {
     _transient Database *database_;
@@ -5998,7 +5998,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Package Controller {{{ */
-@interface CYPackageController : CYBrowserController <
+@interface CYPackageController : CydiaWebViewController <
     UIActionSheetDelegate
 > {
     _transient Database *database_;
@@ -6534,7 +6534,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Home Controller {{{ */
-@interface HomeController : CYBrowserController {
+@interface HomeController : CydiaWebViewController {
 }
 
 @end
@@ -6588,7 +6588,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Manage Controller {{{ */
-@interface ManageController : CYBrowserController {
+@interface ManageController : CydiaWebViewController {
 }
 
 - (void) queueStatusDidChange;
@@ -9553,7 +9553,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([base isEqualToString:@"url"]) {
         // This kind of URL can contain slashes in the argument, so we can't parse them below.
         NSString *destination = [[url absoluteString] substringFromIndex:([scheme length] + [@"://" length] + [base length] + [@"/" length])];
-        controller = [[[CYBrowserController alloc] initWithURL:[NSURL URLWithString:destination]] autorelease];
+        controller = [[[CydiaWebViewController alloc] initWithURL:[NSURL URLWithString:destination]] autorelease];
     } else if (!external && [components count] == 1) {
         if ([base isEqualToString:@"manage"]) {
             controller = [[[ManageController alloc] init] autorelease];
@@ -9769,7 +9769,7 @@ _trace();
         diskPath:[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia/SDURLCache", @"/var/root"]
     ] autorelease]];
 
-    [CYBrowserController _initialize];
+    [CydiaWebViewController _initialize];
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];
 
@@ -9783,7 +9783,7 @@ _trace();
     broken_ = [[NSMutableArray alloc] initWithCapacity:4];
 
     // XXX: I really need this thing... like, seriously... I'm sorry
-    [[[CYBrowserController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
+    [[[CydiaWebViewController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
 
     window_ = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     [window_ orderFront:self];

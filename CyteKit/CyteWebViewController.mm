@@ -6,6 +6,7 @@
 #include "CyteKit/CyteLocalize.h"
 #include "CyteKit/CyteWebViewController.h"
 #include "CyteKit/PerlCompatibleRegEx.hpp"
+#include "CyteKit/WebThreadLocked.hpp"
 
 //#include <QuartzCore/CALayer.h>
 // XXX: fix the minimum requirement
@@ -29,18 +30,6 @@ extern NSString * const kCAFilterNearest;
 #define LogMessages 0
 
 #define lprintf(args...) fprintf(stderr, args)
-
-// WebThreadLocked {{{
-struct WebThreadLocked {
-    _finline WebThreadLocked() {
-        WebThreadLock();
-    }
-
-    _finline ~WebThreadLocked() {
-        WebThreadUnlock();
-    }
-};
-// }}}
 
 template <typename Type_>
 static inline void CYRelease(Type_ &value) {
@@ -890,26 +879,7 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) dispatchEvent:(NSString *)event {
-    WebThreadLocked lock;
-
-    NSString *script([NSString stringWithFormat:@
-        "(function() {"
-            "var event = this.document.createEvent('Events');"
-            "event.initEvent('%@', false, false);"
-            "this.document.dispatchEvent(event);"
-        "})();"
-    , event]);
-
-    NSMutableArray *frames([NSMutableArray arrayWithObjects:
-        [[[webview_ _documentView] webView] mainFrame]
-    , nil]);
-
-    while (WebFrame *frame = [frames lastObject]) {
-        WebScriptObject *object([frame windowObject]);
-        [object evaluateWebScript:script];
-        [frames removeLastObject];
-        [frames addObjectsFromArray:[frame childFrames]];
-    }
+    [webview_ dispatchEvent:event];
 }
 
 - (bool) hidesNavigationBar {

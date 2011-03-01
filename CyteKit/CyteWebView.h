@@ -72,6 +72,7 @@
 }
 
 - (id<CYWebViewDelegate>) delegate;
+- (void) dispatchEvent:(NSString *)event;
 
 @end
 

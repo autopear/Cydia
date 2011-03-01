@@ -1195,6 +1195,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [[[self navigationController] navigationBar] setTintColor:color];
 }
 
+- (void) setBadgeValue:(id)value {
+    [[[self navigationController] tabBarItem] setBadgeValue:value];
+}
+
 - (void) setHidesBackButton:(bool)value {
     [[self navigationItem] setHidesBackButton:value];
 }

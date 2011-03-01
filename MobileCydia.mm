@@ -4200,6 +4200,8 @@ static NSMutableSet *Diversions_;
         return @"scrollToBottom";
     else if (selector == @selector(setAllowsNavigationAction:))
         return @"setAllowsNavigationAction";
+    else if (selector == @selector(setBadgeValue:))
+        return @"setBadgeValue";
     else if (selector == @selector(setButtonImage:withStyle:toFunction:))
         return @"setButtonImage";
     else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
@@ -4427,6 +4429,10 @@ static NSMutableSet *Diversions_;
 
 - (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
     [indirect_ setButtonTitle:button withStyle:style toFunction:function];
+}
+
+- (void) setBadgeValue:(id)value {
+    [indirect_ performSelectorOnMainThread:@selector(setBadgeValue:) withObject:value waitUntilDone:NO];
 }
 
 - (void) setAllowsNavigationAction:(NSString *)value {

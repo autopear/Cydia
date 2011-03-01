@@ -15,6 +15,8 @@ extern bool IsWildcat_;
 }
 
 - (void) unloadData {
+    if (UIViewController *modal = [self modalViewController])
+        [modal unloadData];
 }
 
 @end

@@ -73,6 +73,7 @@
 
 - (id<CYWebViewDelegate>) delegate;
 - (void) dispatchEvent:(NSString *)event;
+- (void) reloadFromOrigin;
 
 @end
 

@@ -70,7 +70,7 @@ sysroot:
 	@echo 1>&2
 	@exit 1
 
-MobileCydia: sysroot MobileCydia.mm CyteKit/*.h CyteKit/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
+MobileCydia: sysroot MobileCydia.mm CyteKit/*.h CyteKit/*.mm Menes/*.h Menes/*.mm SDURLCache/SDURLCache.h SDURLCache/SDURLCache.m iPhonePrivate.h lookup3.o Cytore.hpp
 	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(foreach m,$(filter %.m,$^),-x objective-c++ $(m)) $(flags) $(link) $(uikit) -DCYDIA_VERSION='"$(version)"'
 	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 

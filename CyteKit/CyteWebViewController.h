@@ -49,11 +49,6 @@
 
 @class IndirectDelegate;
 
-@interface WebScriptObject (UICaboodle)
-- (NSUInteger) count;
-- (id) objectAtIndex:(unsigned)index;
-@end
-
 @protocol BrowserControllerDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;

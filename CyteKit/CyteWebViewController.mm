@@ -128,22 +128,6 @@ float CYScrollViewDecelerationRateNormal;
 @end
 /* }}} */
 
-@implementation WebScriptObject (UICaboodle)
-
-- (NSUInteger) count {
-    id length([self valueForKey:@"length"]);
-    if ([length respondsToSelector:@selector(intValue)])
-        return [length intValue];
-    else
-        return 0;
-}
-
-- (id) objectAtIndex:(unsigned)index {
-    return [self webScriptValueAtIndex:index];
-}
-
-@end
-
 @implementation BrowserController
 
 #if ShowInternals

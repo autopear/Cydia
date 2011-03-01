@@ -123,6 +123,7 @@ extern "C" {
 #include "CyteKit/CyteWebViewController.h"
 #include "CyteKit/NSString-Cyte.h"
 #include "CyteKit/PerlCompatibleRegEx.hpp"
+#include "CyteKit/WebScriptObject-Cyte.h"
 
 #include "SDURLCache/SDURLCache.h"
 

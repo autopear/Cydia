@@ -332,7 +332,7 @@ float CYScrollViewDecelerationRateNormal;
     NSURL *url([request URL]);
 
     // XXX: filter to internal usage?
-    CYViewController *page([delegate_ pageForURL:url forExternal:NO]);
+    CyteViewController *page([delegate_ pageForURL:url forExternal:NO]);
 
     if (page == nil) {
         CyteWebViewController *browser([[[class_ alloc] init] autorelease]);

@@ -986,7 +986,7 @@ bool isSectionVisible(NSString *section) {
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
-- (CYViewController *) pageForPackage:(NSString *)name;
+- (CyteViewController *) pageForPackage:(NSString *)name;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 @end
@@ -4396,7 +4396,7 @@ static NSMutableSet *Diversions_;
 @end
 /* }}} */
 /* Emulated Loading Controller {{{ */
-@interface CYEmulatedLoadingController : CYViewController {
+@interface CYEmulatedLoadingController : CyteViewController {
     _transient Database *database_;
     _H<CYLoadingIndicator> indicator_;
     _H<UITabBar> tabbar_;
@@ -5701,7 +5701,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* File Table {{{ */
-@interface FileTable : CYViewController <
+@interface FileTable : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -6005,7 +6005,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Package List Controller {{{ */
-@interface PackageListController : CYViewController <
+@interface PackageListController : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -6932,7 +6932,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (NSArray *) navigationURLCollection {
     NSMutableArray *stack([NSMutableArray array]);
 
-    for (CYViewController *controller in [self viewControllers]) {
+    for (CyteViewController *controller in [self viewControllers]) {
         NSString *url = [[controller navigationURL] absoluteString];
         if (url != nil)
             [stack addObject:url];
@@ -6949,7 +6949,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) unloadData {
-    for (CYViewController *page in [self viewControllers])
+    for (CyteViewController *page in [self viewControllers])
         [page unloadData];
 
     [super unloadData];
@@ -7107,7 +7107,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Sections Controller {{{ */
-@interface SectionsController : CYViewController <
+@interface SectionsController : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7317,7 +7317,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Changes Controller {{{ */
-@interface ChangesController : CYViewController <
+@interface ChangesController : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -7650,7 +7650,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Package Settings Controller {{{ */
-@interface PackageSettingsController : CYViewController <
+@interface PackageSettingsController : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -8044,7 +8044,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Sources Controller {{{ */
-@interface SourcesController : CYViewController <
+@interface SourcesController : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -8501,7 +8501,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Settings Controller {{{ */
-@interface SettingsController : CYViewController <
+@interface SettingsController : CyteViewController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -8701,7 +8701,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Stash Controller {{{ */
-@interface StashController : CYViewController {
+@interface StashController : CyteViewController {
     UIActivityIndicatorView *spinner_;
     UILabel *status_;
     UILabel *caption_;
@@ -9369,11 +9369,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [window_ setUserInteractionEnabled:YES];
 }
 
-- (CYViewController *) pageForPackage:(NSString *)name {
+- (CyteViewController *) pageForPackage:(NSString *)name {
     return [[[CYPackageController alloc] initWithDatabase:database_ forPackage:name] autorelease];
 }
 
-- (CYViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external {
+- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external {
     NSString *scheme([[url scheme] lowercaseString]);
     if ([[url absoluteString] length] <= [scheme length] + 3)
         return nil;
@@ -9388,7 +9388,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSString *base([components objectAtIndex:0]);
 
-    CYViewController *controller = nil;
+    CyteViewController *controller = nil;
 
     if ([base isEqualToString:@"url"]) {
         // This kind of URL can contain slashes in the argument, so we can't parse them below.
@@ -9474,7 +9474,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external {
-    CYViewController *page([self pageForURL:url forExternal:external]);
+    CyteViewController *page([self pageForURL:url forExternal:external]);
 
     if (page != nil) {
         UINavigationController *nav = [[[UINavigationController alloc] init] autorelease];
@@ -9744,7 +9744,7 @@ _trace();
         for (unsigned int nav = 0; nav < [stack count]; nav++) {
             NSString *addr = [stack objectAtIndex:nav];
             NSURL *url = [NSURL URLWithString:addr];
-            CYViewController *page = [self pageForURL:url forExternal:NO];
+            CyteViewController *page = [self pageForURL:url forExternal:NO];
             if (page != nil)
                 [current addObject:page];
         }

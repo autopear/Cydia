@@ -60,7 +60,7 @@ extern bool IsWildcat_;
 
 @end
 
-@implementation CYViewController
+@implementation CyteViewController
 
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;

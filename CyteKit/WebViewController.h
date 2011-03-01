@@ -52,11 +52,11 @@
 @protocol CyteWebViewControllerDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
-- (CYViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external;
+- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external;
 - (void) unloadData;
 @end
 
-@interface CyteWebViewController : CYViewController <
+@interface CyteWebViewController : CyteViewController <
     CyteWebViewDelegate,
     UIWebViewDelegate
 > {

@@ -50,7 +50,7 @@
 - (void) unloadData;
 @end
 
-@interface CYViewController : UIViewController {
+@interface CyteViewController : UIViewController {
     _transient id delegate_;
     BOOL loaded_;
 }

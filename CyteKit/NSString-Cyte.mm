@@ -37,14 +37,16 @@
 */
 /* }}} */
 
-#ifndef CyteKit_NSString_Cydia_H
-#define CyteKit_NSString_Cydia_H
+#include "CyteKit/NSString-Cyte.h"
 
-#include <Foundation/Foundation.h>
+@implementation NSString (Cyte)
 
-@interface NSString (Cyte)
-+ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
-+ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
++ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
+    return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
+}
+
++ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
+    return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
+}
+
 @end
-
-#endif//CyteKit_NSString_Cydia_H

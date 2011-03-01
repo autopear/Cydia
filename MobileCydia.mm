@@ -624,18 +624,6 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 - (NSString *) stringByAddingPercentEscapesIncludingReserved;
 @end
 
-@implementation NSString (UICaboodle)
-
-+ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
-    return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
-}
-
-+ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
-    return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
-}
-
-@end
-
 @implementation NSString (Cydia)
 
 - (NSComparisonResult) compareByPath:(NSString *)other {

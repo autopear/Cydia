@@ -3014,7 +3014,10 @@ struct PackageNameOrdering :
 
     [self parse];
 
-    range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_];
+    NSString *description([self shortDescription]);
+    NSUInteger length([description length]);
+
+    range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_ range:NSMakeRange(0, std::min<NSUInteger>(length, 100))];
     if (range.location != NSNotFound)
         return YES;
 

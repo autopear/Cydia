@@ -42,7 +42,7 @@
 
 #include <pcre.h>
 
-#include "UICaboodle/NSString-UICaboodle.h"
+#include "CyteKit/NSString-Cyte.h"
 
 class Pcre {
   private:

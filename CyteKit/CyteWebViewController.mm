@@ -1,11 +1,11 @@
+#include "CyteKit/UCPlatform.h"
+
 #include <UIKit/UIKit.h>
 #include "iPhonePrivate.h"
 
-#include "UCPlatform.h"
-
-#include <UICaboodle/BrowserView.h>
-#include "UICaboodle/PerlCompatibleRegEx.hpp"
-#include <UICaboodle/UCLocalize.h>
+#include "CyteKit/CyteLocalize.h"
+#include "CyteKit/CyteWebViewController.h"
+#include "CyteKit/PerlCompatibleRegEx.hpp"
 
 //#include <QuartzCore/CALayer.h>
 // XXX: fix the minimum requirement
@@ -222,7 +222,7 @@ enum CYWebPolicyDecision {
 @implementation CYWebView : UIWebView
 
 #if ShowInternals
-#include "UICaboodle/UCInternal.h"
+#include "CyteKit/UCInternal.h"
 #endif
 
 - (id) initWithFrame:(CGRect)frame {
@@ -449,7 +449,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 @implementation BrowserController
 
 #if ShowInternals
-#include "UICaboodle/UCInternal.h"
+#include "CyteKit/UCInternal.h"
 #endif
 
 + (void) _initialize {

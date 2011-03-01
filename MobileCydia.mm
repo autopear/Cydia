@@ -41,8 +41,8 @@
 #define USE_SYSTEM_MALLOC 1
 
 /* #include Directives {{{ */
-#include "UICaboodle/UCPlatform.h"
-#include "UICaboodle/UCLocalize.h"
+#include "CyteKit/UCPlatform.h"
+#include "CyteKit/CyteLocalize.h"
 
 #include <objc/objc.h>
 #include <objc/runtime.h>
@@ -120,9 +120,9 @@ extern "C" {
 
 #include <Cytore.hpp>
 
-#include "UICaboodle/BrowserView.h"
-#include "UICaboodle/NSString-UICaboodle.h"
-#include "UICaboodle/PerlCompatibleRegEx.hpp"
+#include "CyteKit/CyteWebViewController.h"
+#include "CyteKit/NSString-Cyte.h"
+#include "CyteKit/PerlCompatibleRegEx.hpp"
 
 #include "SDURLCache/SDURLCache.h"
 

@@ -96,9 +96,6 @@ package: MobileCydia
 	#cp -a Cydia.frappliance _/Applications/Lowtide.app/Appliances
 	#cp -a CydiaAppliance _/Applications/Lowtide.app/Appliances/Cydia.frappliance
 	
-	mkdir -p _/System/Library/PreferenceBundles
-	cp -a CydiaSettings.bundle _/System/Library/PreferenceBundles/CydiaSettings.bundle
-	
 	mkdir -p _/DEBIAN
 	./control.sh _ >_/DEBIAN/control
 	

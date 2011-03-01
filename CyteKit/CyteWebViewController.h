@@ -57,10 +57,10 @@
 @end
 
 @interface BrowserController : CYViewController <
-    CYWebViewDelegate,
+    CyteWebViewDelegate,
     UIWebViewDelegate
 > {
-    _transient CYWebView *webview_;
+    _transient CyteWebView *webview_;
     _transient UIScrollView *scroller_;
 
     UIActivityIndicatorView *indicator_;

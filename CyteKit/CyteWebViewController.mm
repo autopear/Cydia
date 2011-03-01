@@ -364,7 +364,7 @@ float CYScrollViewDecelerationRateNormal;
     }
 }
 
-// CYWebViewDelegate {{{
+// CyteWebViewDelegate {{{
 - (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
 #if LogMessages
     static Pcre irritating("^(?:The page at .* displayed insecure content from .*\\.|Unsafe JavaScript attempt to access frame with URL .* from frame with URL .*\\. Domains, protocols and ports must match\\.)\\n$");
@@ -679,7 +679,7 @@ float CYScrollViewDecelerationRateNormal;
 
         CGRect bounds([[self view] bounds]);
 
-        webview_ = [[[CYWebView alloc] initWithFrame:bounds] autorelease];
+        webview_ = [[[CyteWebView alloc] initWithFrame:bounds] autorelease];
         [webview_ setDelegate:self];
         [self setView:webview_];
 

@@ -7666,8 +7666,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     BOOL searchloaded_;
 }
 
-- (id) initWithDatabase:(Database *)database;
-- (void) setSearchTerm:(NSString *)term;
+- (id) initWithDatabase:(Database *)database query:(NSString *)query;
 - (void) reloadData;
 
 @end
@@ -7686,12 +7685,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [search_ text]]];
 }
 
-- (void) setSearchTerm:(NSString *)searchTerm {
-    [search_ setText:searchTerm];
-    [self setObject:searchTerm];
-    [self reloadData];
-}
-
 - (void) searchBarSearchButtonClicked:(UISearchBar *)searchBar {
     [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [search_ resignFirstResponder];
@@ -7703,10 +7696,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self reloadData];
 }
 
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:nil])) {
+- (id) initWithDatabase:(Database *)database query:(NSString *)query {
+    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:query])) {
         search_ = [[[UISearchBar alloc] init] autorelease];
         [search_ setDelegate:self];
+
+        if (query != nil)
+            [search_ setText:query];
     } return self;
 }
 
@@ -9508,7 +9504,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
 
         if ([base isEqualToString:@"search"]) {
-            controller = [[[SearchController alloc] initWithDatabase:database_] autorelease];
+            controller = [[[SearchController alloc] initWithDatabase:database_ query:nil] autorelease];
         }
 
         if ([base isEqualToString:@"changes"]) {
@@ -9526,8 +9522,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
 
         if (!external && [base isEqualToString:@"search"]) {
-            controller = [[[SearchController alloc] initWithDatabase:database_] autorelease];
-            [(SearchController *)controller setSearchTerm:argument];
+            controller = [[[SearchController alloc] initWithDatabase:database_ query:argument] autorelease];
         }
 
         if (!external && [base isEqualToString:@"sections"]) {

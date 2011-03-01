@@ -271,57 +271,6 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
     notify_post("com.saurik.Cydia.status");
 }
 
-
-/* Cydia Alert View {{{ */
-@interface CYAlertView : UIAlertView {
-    unsigned button_;
-}
-
-- (int) yieldToPopupAlertAnimated:(BOOL)animated;
-
-@end
-
-@implementation CYAlertView
-
-- (id) initWithTitle:(NSString *)title buttons:(NSArray *)buttons defaultButtonIndex:(int)index {
-    if ((self = [super init]) != nil) {
-        [self setTitle:title];
-        [self setDelegate:self];
-        for (NSString *button in buttons) [self addButtonWithTitle:button];
-        [self setCancelButtonIndex:index];
-    } return self;
-}
-
-- (void) _updateFrameForDisplay {
-    [super _updateFrameForDisplay];
-    if ([self cancelButtonIndex] == -1) {
-        NSArray *buttons = [self buttons];
-        if ([buttons count]) {
-            UIImage *background = [[buttons objectAtIndex:0] backgroundForState:0];
-            for (UIThreePartButton *button in buttons)
-                [button setBackground:background forState:0];
-        }
-    }
-}
-
-- (void) alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    button_ = buttonIndex + 1;
-}
-
-- (void) dismiss {
-    [self dismissWithClickedButtonIndex:-1 animated:YES];
-}
-
-- (int) yieldToPopupAlertAnimated:(BOOL)animated {
-    [self setRunsModal:YES];
-    button_ = 0;
-    [self show];
-    return button_;
-}
-
-@end
-/* }}} */
-
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;

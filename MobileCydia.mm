@@ -4931,13 +4931,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             if (state.NewInstall())
                 [installs addObject:name];
+            // XXX: else if (state.Install())
             else if (!state.Delete() && (state.iFlags & pkgDepCache::ReInstall) == pkgDepCache::ReInstall)
                 [reinstalls addObject:name];
+            // XXX: move before previous if
             else if (state.Upgrade())
                 [upgrades addObject:name];
             else if (state.Downgrade())
                 [downgrades addObject:name];
             else if (!state.Delete())
+                // XXX: _assert(state.Keep());
                 continue;
             else if (special_r(name))
                 [issues_ addObject:[NSDictionary dictionaryWithObjectsAndKeys:

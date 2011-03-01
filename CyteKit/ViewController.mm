@@ -37,7 +37,7 @@
 */
 /* }}} */
 
-#include "CyteKit/CyteViewController.h"
+#include "CyteKit/ViewController.h"
 
 #include <Foundation/Foundation.h>
 #include <UIKit/UIKit.h>

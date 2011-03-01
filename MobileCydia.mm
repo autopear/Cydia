@@ -42,7 +42,7 @@
 
 /* #include Directives {{{ */
 #include "CyteKit/UCPlatform.h"
-#include "CyteKit/CyteLocalize.h"
+#include "CyteKit/Localize.h"
 
 #include <objc/objc.h>
 #include <objc/runtime.h>
@@ -120,10 +120,10 @@ extern "C" {
 
 #include <Cytore.hpp>
 
-#include "CyteKit/CyteWebViewController.h"
-#include "CyteKit/NSString-Cyte.h"
 #include "CyteKit/PerlCompatibleRegEx.hpp"
 #include "CyteKit/WebScriptObject-Cyte.h"
+#include "CyteKit/WebViewController.h"
+#include "CyteKit/stringWithUTF8Bytes.h"
 
 #include "Menes/Menes.h"
 

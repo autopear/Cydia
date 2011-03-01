@@ -37,11 +37,11 @@
 */
 /* }}} */
 
-#ifndef CyteKit_CyteWebViewController_H
-#define CyteKit_CyteWebViewController_H
+#ifndef CyteKit_WebViewController_H
+#define CyteKit_WebViewController_H
 
-#include "CyteKit/CyteViewController.h"
-#include "CyteKit/CyteWebView.h"
+#include "CyteKit/ViewController.h"
+#include "CyteKit/WebView.h"
 
 #include <UIKit/UIKit.h>
 
@@ -136,4 +136,4 @@
 
 @end
 
-#endif//CyteKit_CyteWebViewController_H
+#endif//CyteKit_WebViewController_H

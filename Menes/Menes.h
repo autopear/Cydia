@@ -40,6 +40,6 @@
 #ifndef Menes_Menes_H
 #define Menes_Menes_H
 
-#include "Menes/NSObject-MenesYieldToSelector.h"
+#include "Menes/yieldToSelector.h"
 
 #endif//Menes_Menes_H

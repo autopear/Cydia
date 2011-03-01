@@ -37,16 +37,14 @@
 */
 /* }}} */
 
-#include "CyteKit/NSString-Cyte.h"
+#ifndef Menes_yieldToSelector_H
+#define Menes_yieldToSelector_H
 
-@implementation NSString (Cyte)
+#include <Foundation/Foundation.h>
 
-+ (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
-    return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
-}
-
-+ (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
-    return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
-}
-
+@interface NSObject (MenesYieldToSelector)
+- (id) yieldToSelector:(SEL)selector withObject:(id)object;
+- (id) yieldToSelector:(SEL)selector;
 @end
+
+#endif//Menes_yieldToSelector_H

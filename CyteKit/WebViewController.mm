@@ -3,8 +3,8 @@
 #include <UIKit/UIKit.h>
 #include "iPhonePrivate.h"
 
-#include "CyteKit/CyteLocalize.h"
-#include "CyteKit/CyteWebViewController.h"
+#include "CyteKit/Localize.h"
+#include "CyteKit/WebViewController.h"
 #include "CyteKit/PerlCompatibleRegEx.hpp"
 #include "CyteKit/WebThreadLocked.hpp"
 

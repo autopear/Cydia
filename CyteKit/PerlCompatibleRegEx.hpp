@@ -42,7 +42,7 @@
 
 #include <pcre.h>
 
-#include "CyteKit/NSString-Cyte.h"
+#include "CyteKit/stringWithUTF8Bytes.h"
 
 class Pcre {
   private:

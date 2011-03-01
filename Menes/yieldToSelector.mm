@@ -37,7 +37,7 @@
 */
 /* }}} */
 
-#include "Menes/NSObject-MenesYieldToSelector.h"
+#include "Menes/yieldToSelector.h"
 
 @implementation NSObject (MenesYieldToSelector)
 

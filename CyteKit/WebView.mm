@@ -37,7 +37,7 @@
 */
 /* }}} */
 
-#include "CyteKit/CyteWebView.h"
+#include "CyteKit/WebView.h"
 #include "CyteKit/WebThreadLocked.hpp"
 
 #include <CydiaSubstrate/CydiaSubstrate.h>

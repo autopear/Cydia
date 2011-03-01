@@ -37,8 +37,8 @@
 */
 /* }}} */
 
-#ifndef CyteKit_CyteLocalize_H
-#define CyteKit_CyteLocalize_H
+#ifndef CyteKit_Localize_H
+#define CyteKit_Localize_H
 
 #include <Foundation/Foundation.h>
 
@@ -48,4 +48,4 @@ static inline NSString *UCLocalizeEx(NSString *key, NSString *value = nil) {
 
 #define UCLocalize(key) UCLocalizeEx(@ key)
 
-#endif//CyteKit_CyteLocalize_H
+#endif//CyteKit_Localize_H

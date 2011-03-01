@@ -3970,14 +3970,14 @@ static NSMutableSet *Diversions_;
     if (false);
     else if (selector == @selector(addBridgedHost:))
         return @"addBridgedHost";
+    else if (selector == @selector(addInternalRedirect::))
+        return @"addInternalRedirect";
     else if (selector == @selector(addPipelinedHost:scheme:))
         return @"addPipelinedHost";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
     else if (selector == @selector(close))
         return @"close";
-    else if (selector == @selector(divert::))
-        return @"divert";
     else if (selector == @selector(du:))
         return @"du";
     else if (selector == @selector(stringWithFormat:arguments:))
@@ -4054,7 +4054,7 @@ static NSMutableSet *Diversions_;
     return [feature isEqualToString:@"window.open"];
 }
 
-- (void) divert:(NSString *)from :(NSString *)to {
+- (void) addInternalRedirect:(NSString *)from :(NSString *)to {
     [CydiaWebViewController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
 }
 

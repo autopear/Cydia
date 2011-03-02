@@ -5117,7 +5117,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UIBarButtonItem *) rightButton {
-    return [[progress_ running] boolValue] ? nil : [[[UIBarButtonItem alloc]
+    return [[progress_ running] boolValue] ? [super rightButton] : [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("CLOSE")
         style:UIBarButtonItemStylePlain
         target:self
@@ -6401,7 +6401,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert setCancelButtonIndex:0];
 
     [alert setMessage:
-        @"Copyright (C) 2008-2011\n"
+        @"Copyright \u00a9 2008-2011\n"
         "SaurikIT, LLC\n"
         "\n"
         "Jay Freeman (saurik)\n"

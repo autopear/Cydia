@@ -123,7 +123,9 @@
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button;
 - (void) customButtonClicked;
+
 - (void) applyRightButton;
+- (UIBarButtonItem *) rightButton;
 
 - (void) _didStartLoading;
 - (void) _didFinishLoading;

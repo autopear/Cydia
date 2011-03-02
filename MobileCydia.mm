@@ -9597,6 +9597,9 @@ _trace();
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];
 
+    // this would disallow http{,s} URLs from accessing this data
+    //[WebView registerURLSchemeAsLocal:@"cydia"];
+
     Font12_ = [[UIFont systemFontOfSize:12] retain];
     Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
     Font14_ = [[UIFont systemFontOfSize:14] retain];

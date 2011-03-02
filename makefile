@@ -25,7 +25,10 @@ flags += -I. -isystem sysroot/usr/include -Lsysroot/usr/lib
 flags += -Wall -Werror -Wno-deprecated-declarations
 flags += -fmessage-length=0
 flags += -g0 -O2
-flags += -fobjc-call-cxx-cdtors -fobjc-exceptions
+flags += -fobjc-exceptions
+
+xflags :=
+xflags += -fobjc-call-cxx-cdtors
 
 link += -framework CoreFoundation
 link += -framework CoreGraphics
@@ -57,22 +60,56 @@ version := $(shell ./version.sh)
 gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
 cycc = $(gxx) -mthumb -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F{sysroot,}/Library/Frameworks
 
+flags += -DCYDIA_VERSION='"$(version)"'
+
+dirs := Menes CyteKit Cydia SDURLCache
+
+code := $(foreach dir,$(dirs),$(wildcard $(foreach ext,h hpp c cpp m mm,$(dir)/*.$(ext))))
+code := $(filter-out SDURLCache/SDURLCacheTests.m,$(code))
+code += MobileCydia.mm iPhonePrivate.h Cytore.hpp lookup3.c
+
+source := $(filter %.m,$(code)) $(filter %.mm,$(code))
+source += $(filter %.c,$(code)) $(filter %.cpp,$(code))
+header := $(filter %.h,$(code)) $(filter %.hpp,$(code))
+
+object := $(source)
+object := $(object:.c=.o)
+object := $(object:.cpp=.o)
+object := $(object:.m=.o)
+object := $(object:.mm=.o)
+object := $(object:%=Objects/%)
+
 all: MobileCydia
 
 clean:
 	rm -f MobileCydia
+	rm -rf Objects/
 
-%.o: %.c
-	$(cycc) -c -o $@ -x c $<
+Objects/%.o: %.c $(header)
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(cycc) -c -o $@ -x c $<
+
+Objects/%.o: %.m $(header)
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(cycc) -c -o $@ $< $(flags)
+
+Objects/%.o: %.mm $(header)
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(cycc) -c -o $@ $< $(flags) $(xflags)
 
 sysroot:
 	@echo "Please read compiling.txt: you do not have a ./sysroot/ folder with the on-device requirements." 1>&2
 	@echo 1>&2
 	@exit 1
 
-MobileCydia: sysroot MobileCydia.mm $(filter-out SDURLCache/SDURLCacheTests.m,$(foreach dir,Menes CyteKit Cydia SDURLCache,$(wildcard $(dir)/*.h $(dir)/*.m $(dir)/*.mm))) iPhonePrivate.h lookup3.o Cytore.hpp
-	$(cycc) $(filter %.mm,$^) $(filter %.o,$^) $(foreach m,$(filter %.m,$^),-x objective-c++ $(m)) $(flags) $(link) $(uikit) -DCYDIA_VERSION='"$(version)"'
-	ldid -Slaunch.xml $@ || { rm -f $@ && false; }
+MobileCydia: sysroot $(object)
+	@echo "[link] $(object:Objects/%=%)"
+	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(uikit)
+	@echo "[sign] $@"
+	@ldid -Slaunch.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)

@@ -6459,46 +6459,31 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         target:self
         action:@selector(settingsButtonClicked)
     ] autorelease]];
-
-    [self queueStatusDidChange];
 }
 
 - (void) settingsButtonClicked {
     [delegate_ showSettings];
 }
 
-#if !AlwaysReload
 - (void) queueButtonClicked {
     [delegate_ queue];
 }
 
-- (void) applyLoadingTitle {
-    // Disable "Loading" title.
+- (UIBarButtonItem *) customButton {
+    return Queuing_ ? [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("QUEUE")
+        style:UIBarButtonItemStyleDone
+        target:self
+        action:@selector(queueButtonClicked)
+    ] autorelease] : [super customButton];
 }
-
-- (void) applyRightButton {
-    // Disable right button.
-}
-#endif
 
 - (void) queueStatusDidChange {
-#if !AlwaysReload
-    if (!IsWildcat_ && Queuing_) {
-        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("QUEUE")
-            style:UIBarButtonItemStyleDone
-            target:self
-            action:@selector(queueButtonClicked)
-        ] autorelease]];
-    } else {
-        [[self navigationItem] setRightBarButtonItem:nil];
-    }
-#endif
+    [self applyRightButton];
 }
 
 - (bool) isLoading {
-    // Never show as loading.
-    return false;
+    return !Queuing_ && [super isLoading];
 }
 
 @end

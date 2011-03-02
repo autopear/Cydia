@@ -598,7 +598,12 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (UIBarButtonItem *) customButton {
-    return custom_ == [NSNull null] ? nil : [[[UIBarButtonItem alloc]
+    if (custom_ == nil)
+        return nil;
+    else if (custom_ == [NSNull null])
+        return (UIBarButtonItem *) [NSNull null];
+
+    return [[[UIBarButtonItem alloc]
         initWithTitle:static_cast<NSString *>(custom_.operator NSObject *())
         style:[self rightButtonStyle]
         target:self
@@ -629,9 +634,13 @@ float CYScrollViewDecelerationRateNormal;
     } else {
         [indicator_ stopAnimating];
 
-        [[self navigationItem] setRightBarButtonItem:(
-            custom_ != nil ? [self customButton] : [self rightButton]
-        ) animated:YES];
+        UIBarButtonItem *button([self customButton]);
+        if (button == nil)
+            button = [self rightButton];
+        else if (button == (UIBarButtonItem *) [NSNull null])
+            button = nil;
+
+        [[self navigationItem] setRightBarButtonItem:button];
     }
 }
 

@@ -125,6 +125,7 @@
 - (void) customButtonClicked;
 
 - (void) applyRightButton;
+- (UIBarButtonItem *) customButton;
 - (UIBarButtonItem *) rightButton;
 
 - (void) _didStartLoading;

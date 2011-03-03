@@ -806,6 +806,7 @@ float CYScrollViewDecelerationRateNormal;
         [webview_ insertSubview:table atIndex:0];
 
         [self applyLeftButton];
+        [self applyRightButton];
 
         [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];

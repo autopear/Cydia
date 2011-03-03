@@ -5049,13 +5049,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super dealloc];
 }
 
-- (void) updateCancel {
-    [[self navigationItem] setLeftBarButtonItem:(cancel_ == 1 ? [[[UIBarButtonItem alloc]
+- (UIBarButtonItem *) leftButton {
+    return cancel_ == 1 ? [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("CANCEL")
         style:UIBarButtonItemStylePlain
         target:self
         action:@selector(cancel)
-    ] autorelease] : nil)];
+    ] autorelease] : nil;
+}
+
+- (void) updateCancel {
+    [super applyLeftButton];
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {

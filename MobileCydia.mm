@@ -459,21 +459,6 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 @end
 /* }}} */
 
-@interface NSInvocation (Cydia)
-+ (NSInvocation *) invocationWithSelector:(SEL)selector forTarget:(id)target;
-@end
-
-@implementation NSInvocation (Cydia)
-
-+ (NSInvocation *) invocationWithSelector:(SEL)selector forTarget:(id)target {
-    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[target methodSignatureForSelector:selector]]);
-    [invocation setTarget:target];
-    [invocation setSelector:selector];
-    return invocation;
-}
-
-@end
-
 NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
     size_t length([self length] - state->state);
     if (length <= 0)

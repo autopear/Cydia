@@ -37,10 +37,15 @@
 */
 /* }}} */
 
-#ifndef Menes_Menes_H
-#define Menes_Menes_H
-
 #include "Menes/invocationWithSelector.h"
-#include "Menes/yieldToSelector.h"
 
-#endif//Menes_Menes_H
+@implementation NSInvocation (MenesInvocationWithSelector)
+
++ (NSInvocation *) invocationWithSelector:(SEL)selector forTarget:(id)target {
+    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[target methodSignatureForSelector:selector]]);
+    [invocation setTarget:target];
+    [invocation setSelector:selector];
+    return invocation;
+}
+
+@end

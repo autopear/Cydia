@@ -37,10 +37,13 @@
 */
 /* }}} */
 
-#ifndef Menes_Menes_H
-#define Menes_Menes_H
+#ifndef Menes_invocationWithSelector_H
+#define Menes_invocationWithSelector_H
 
-#include "Menes/invocationWithSelector.h"
-#include "Menes/yieldToSelector.h"
+#include <Foundation/Foundation.h>
 
-#endif//Menes_Menes_H
+@interface NSInvocation (MenesInvocationWithSelector)
++ (NSInvocation *) invocationWithSelector:(SEL)selector forTarget:(id)target;
+@end
+
+#endif//Menes_invocationWithSelector_H

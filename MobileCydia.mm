@@ -939,6 +939,34 @@ bool isSectionVisible(NSString *section) {
     return hidden == nil || ![hidden boolValue];
 }
 
+static id CYIOGetValue(const char *path, NSString *property) {
+    io_registry_entry_t entry(IORegistryEntryFromPath(kIOMasterPortDefault, path));
+    if (entry == MACH_PORT_NULL)
+        return nil;
+
+    CFTypeRef value(IORegistryEntryCreateCFProperty(entry, (CFStringRef) property, kCFAllocatorDefault, 0));
+    IOObjectRelease(entry);
+
+    if (value == NULL)
+        return nil;
+    return [(id) value autorelease];
+}
+
+static NSString *CYHex(NSData *data, bool reverse, bool capital) {
+    if (data == nil)
+        return nil;
+
+    size_t length([data length]);
+    uint8_t bytes[length];
+    [data getBytes:bytes];
+
+    char string[length * 2 + 1];
+    for (size_t i(0); i != length; ++i)
+        sprintf(string + i * 2, capital ? "%.2X" : "%.2x", bytes[reverse ? length - i - 1 : i]);
+
+    return [NSString stringWithUTF8String:string];
+}
+
 @class Cydia;
 
 /* Delegate Prototypes {{{ */
@@ -10043,28 +10071,8 @@ int main(int argc, char *argv[]) { _pooled
     else
         Machine_ = machine;
 
-    if (CFMutableDictionaryRef dict = IOServiceMatching("IOPlatformExpertDevice")) {
-        if (io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, dict)) {
-            if (CFTypeRef serial = IORegistryEntryCreateCFProperty(service, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0)) {
-                SerialNumber_ = [NSString stringWithString:(NSString *)serial];
-                CFRelease(serial);
-            }
-
-            if (CFTypeRef ecid = IORegistryEntrySearchCFProperty(service, kIODeviceTreePlane, CFSTR("unique-chip-id"), kCFAllocatorDefault, kIORegistryIterateRecursively)) {
-                NSData *data((NSData *) ecid);
-                size_t length([data length]);
-                uint8_t bytes[length];
-                [data getBytes:bytes];
-                char string[length * 2 + 1];
-                for (size_t i(0); i != length; ++i)
-                    sprintf(string + i * 2, "%.2X", bytes[length - i - 1]);
-                ChipID_ = [NSString stringWithUTF8String:string];
-                CFRelease(ecid);
-            }
-
-            IOObjectRelease(service);
-        }
-    }
+    SerialNumber_ = CYIOGetValue("IOService:/", @"IOPlatformSerialNumber");
+    ChipID_ = CYHex(CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true, true);
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 

@@ -8760,6 +8760,35 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
+@interface CYURLCache : SDURLCache {
+}
+
+@end
+
+@implementation CYURLCache
+
+- (void) logEvent:(NSString *)event forRequest:(NSURLRequest *)request {
+#if !ForRelease
+    if (false);
+    else if ([event isEqualToString:@"no-cache"])
+        event = @"!!!";
+    else if ([event isEqualToString:@"store"])
+        event = @">>>";
+    else if ([event isEqualToString:@"invalid"])
+        event = @"???";
+    else if ([event isEqualToString:@"memory"])
+        event = @"mem";
+    else if ([event isEqualToString:@"disk"])
+        event = @"ssd";
+    else if ([event isEqualToString:@"miss"])
+        event = @"---";
+
+    NSLog(@"%@: %@", event, [[request URL] absoluteString]);
+#endif
+}
+
+@end
+
 @interface Cydia : UIApplication <
     ConfirmationControllerDelegate,
     DatabaseDelegate,
@@ -9587,7 +9616,7 @@ _trace();
         [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
     }
 
-    [NSURLCache setSharedURLCache:[[[SDURLCache alloc]
+    [NSURLCache setSharedURLCache:[[[CYURLCache alloc]
         initWithMemoryCapacity:524288
         diskCapacity:10485760
         diskPath:[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia/SDURLCache", @"/var/root"]

@@ -611,6 +611,27 @@ float CYScrollViewDecelerationRateNormal;
     ] autorelease];
 }
 
+- (UIBarButtonItem *) leftButton {
+    UINavigationItem *item([self navigationItem]);
+    if ([item backBarButtonItem] != nil && ![item hidesBackButton])
+        return nil;
+
+    if (UINavigationController *navigation = [self navigationController])
+        if ([[navigation parentViewController] modalViewController] == navigation)
+            return [[[UIBarButtonItem alloc]
+                initWithTitle:UCLocalize("CLOSE")
+                style:UIBarButtonItemStylePlain
+                target:self
+                action:@selector(close)
+            ] autorelease];
+
+    return nil;
+}
+
+- (void) applyLeftButton {
+    [[self navigationItem] setLeftBarButtonItem:[self leftButton]];
+}
+
 - (UIBarButtonItem *) rightButton {
     return reloaditem_;
 }
@@ -784,6 +805,8 @@ float CYScrollViewDecelerationRateNormal;
         UITableView *table([[[UITableView alloc] initWithFrame:bounds style:UITableViewStyleGrouped] autorelease]);
         [webview_ insertSubview:table atIndex:0];
 
+        [self applyLeftButton];
+
         [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
@@ -881,6 +904,7 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) setHidesBackButton:(bool)value {
     [[self navigationItem] setHidesBackButton:value];
+    [self applyLeftButton];
 }
 
 - (void) setHidesBackButtonByNumber:(NSNumber *)value {

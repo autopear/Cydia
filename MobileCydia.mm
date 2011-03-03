@@ -4857,14 +4857,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         nil];
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/confirm/", UI_]]];
-
-        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("CANCEL")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(cancelButtonClicked)
-        ] autorelease]];
     } return self;
+}
+
+- (UIBarButtonItem *) leftButton {
+    return [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("CANCEL")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(cancelButtonClicked)
+    ] autorelease];
 }
 
 #if !AlwaysReload
@@ -6431,15 +6433,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [alert show];
 }
 
-- (void) viewDidLoad {
-    [super viewDidLoad];
-
-    [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+- (UIBarButtonItem *) leftButton {
+    return [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("ABOUT")
         style:UIBarButtonItemStylePlain
         target:self
         action:@selector(aboutButtonClicked)
-    ] autorelease]];
+    ] autorelease];
 }
 
 - (void) unloadData {
@@ -6469,15 +6469,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSURL URLWithString:@"cydia://manage"];
 }
 
-- (void) viewDidLoad {
-    [super viewDidLoad];
-
-    [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+- (UIBarButtonItem *) leftButton {
+    return [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("SETTINGS")
         style:UIBarButtonItemStylePlain
         target:self
         action:@selector(settingsButtonClicked)
-    ] autorelease]];
+    ] autorelease];
 }
 
 - (void) settingsButtonClicked {

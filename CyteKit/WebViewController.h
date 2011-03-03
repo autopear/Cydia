@@ -128,6 +128,9 @@
 - (UIBarButtonItem *) customButton;
 - (UIBarButtonItem *) rightButton;
 
+- (void) applyLeftButton;
+- (UIBarButtonItem *) leftButton;
+
 - (void) _didStartLoading;
 - (void) _didFinishLoading;
 

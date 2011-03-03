@@ -838,6 +838,7 @@ static const char *Machine_ = NULL;
 static NSString *System_ = nil;
 static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
+static NSString *BBSNum_ = nil;
 static _H<NSString> Token_;
 static NSString *UniqueID_ = nil;
 static NSString *PLMN_ = nil;
@@ -3913,6 +3914,7 @@ static NSMutableSet *Diversions_;
 
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
+        @"bbsnum",
         @"device",
         @"ecid",
         @"firmware",
@@ -3957,6 +3959,10 @@ static NSMutableSet *Diversions_;
 
 - (NSString *) plmn {
     return (id) PLMN_ ?: [NSNull null];
+}
+
+- (NSString *) bbsnum {
+    return (id) BBSNum_ ?: [NSNull null];
 }
 
 - (NSString *) ecid {
@@ -10073,6 +10079,7 @@ int main(int argc, char *argv[]) { _pooled
 
     SerialNumber_ = CYIOGetValue("IOService:/", @"IOPlatformSerialNumber");
     ChipID_ = CYHex(CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true, true);
+    BBSNum_ = CYHex(CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false, false);
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 

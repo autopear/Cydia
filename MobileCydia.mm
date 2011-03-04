@@ -8227,6 +8227,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         trivial_bz2_ == nil &&
         trivial_gz_ == nil
     ) {
+        [delegate_ releaseNetworkActivityIndicator];
+
+        [delegate_ removeProgressHUD:hud_];
+        [hud_ autorelease];
+        hud_ = nil;
+
         bool defer(false);
 
         if (cydia_) {
@@ -8271,12 +8277,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [alert setContext:@"trivial"];
             [alert show];
         }
-
-        [delegate_ releaseNetworkActivityIndicator];
-
-        [delegate_ removeProgressHUD:hud_];
-        [hud_ autorelease];
-        hud_ = nil;
 
         if (!defer) {
             [href_ release];

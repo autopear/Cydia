@@ -8177,9 +8177,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source = [self sourceAtIndexPath:indexPath];
-    [Sources_ removeObjectForKey:[source key]];
-    [delegate_ syncData];
+    if (editingStyle ==  UITableViewCellEditingStyleDelete) {
+        Source *source = [self sourceAtIndexPath:indexPath];
+        [Sources_ removeObjectForKey:[source key]];
+        [delegate_ syncData];
+    }
 }
 
 - (void) complete {

@@ -286,7 +286,11 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) _openMailToURL:(NSURL *)url {
-    [[UIApplication sharedApplication] openURL:url];// asPanel:YES];
+    UIApplication *app([UIApplication sharedApplication]);
+    if ([app respondsToSelector:@selector(openURL:asPanel:)])
+        [app openURL:url asPanel:YES];
+    else
+        [app openURL:url];
 }
 
 - (bool) _allowJavaScriptPanel {

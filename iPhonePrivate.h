@@ -200,6 +200,7 @@ typedef enum {
 - (void) applicationWillResignActive:(UIApplication *)application;
 - (void) applicationWillSuspend;
 - (void) launchApplicationWithIdentifier:(NSString *)identifier suspended:(BOOL)suspended;
+- (void) openURL:(NSURL *)url asPanel:(BOOL)panel;
 - (void) setStatusBarShowsProgress:(BOOL)shows;
 - (void) _setSuspended:(BOOL)suspended;
 - (void) terminateWithSuccess;

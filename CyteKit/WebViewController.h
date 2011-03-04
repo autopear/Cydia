@@ -44,6 +44,7 @@
 #include "CyteKit/WebView.h"
 
 #include <UIKit/UIKit.h>
+#include <MessageUI/MessageUI.h>
 
 #include <CydiaSubstrate/CydiaSubstrate.h>
 
@@ -58,6 +59,7 @@
 
 @interface CyteWebViewController : CyteViewController <
     CyteWebViewDelegate,
+    MFMailComposeViewControllerDelegate,
     UIWebViewDelegate
 > {
     _transient CyteWebView *webview_;

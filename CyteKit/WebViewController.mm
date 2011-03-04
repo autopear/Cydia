@@ -1,6 +1,8 @@
 #include "CyteKit/UCPlatform.h"
+#include "CyteKit/WebViewController.h"
 
-#include <UIKit/UIKit.h>
+#include "CyteKit/MFMailComposeViewController-MailToURL.h"
+
 #include "iPhonePrivate.h"
 
 #include "CyteKit/Localize.h"
@@ -30,6 +32,9 @@ extern NSString * const kCAFilterNearest;
 #define LogMessages 0
 
 #define lprintf(args...) fprintf(stderr, args)
+
+// XXX: centralize these special class things to some file or mechanism?
+static Class $MFMailComposeViewController;
 
 template <typename Type_>
 static inline void CYRelease(Type_ &value) {
@@ -125,6 +130,9 @@ float CYScrollViewDecelerationRateNormal;
 
 + (void) _initialize {
     [WebPreferences _setInitialDefaultTextEncodingToSystemEncoding];
+
+    dlopen("/System/Library/Frameworks/MessageUI.framework/MessageUI", RTLD_GLOBAL | RTLD_LAZY);
+    $MFMailComposeViewController = objc_getClass("MFMailComposeViewController");
 
     if (float *_UIScrollViewDecelerationRateNormal = reinterpret_cast<float *>(dlsym(RTLD_DEFAULT, "UIScrollViewDecelerationRateNormal")))
         CYScrollViewDecelerationRateNormal = *_UIScrollViewDecelerationRateNormal;
@@ -285,7 +293,21 @@ float CYScrollViewDecelerationRateNormal;
     [self _setViewportWidth];
 }
 
+- (void) mailComposeController:(MFMailComposeViewController*)controller didFinishWithResult:(MFMailComposeResult)result error:(NSError*)error {
+    [self dismissModalViewControllerAnimated:YES];
+}
+
 - (void) _openMailToURL:(NSURL *)url {
+    if ($MFMailComposeViewController != nil && [$MFMailComposeViewController canSendMail]) {
+        MFMailComposeViewController *controller([[[$MFMailComposeViewController alloc] init] autorelease]);
+        [controller setMailComposeDelegate:self];
+
+        [controller setMailToURL:url];
+
+        [self presentModalViewController:controller animated:YES];
+        return;
+    }
+
     UIApplication *app([UIApplication sharedApplication]);
     if ([app respondsToSelector:@selector(openURL:asPanel:)])
         [app openURL:url asPanel:YES];

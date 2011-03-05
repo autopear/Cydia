@@ -264,6 +264,7 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 // }}}
 // webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame: (2.1+) {{{
 - (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    [[self retain] autorelease];
     id<CyteWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:)])
         if (
@@ -275,6 +276,7 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 // }}}
 // webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame: (2.1+) {{{
 - (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
+    [[self retain] autorelease];
     id<CyteWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:)])
         if (
@@ -287,6 +289,7 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 // }}}
 // webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame: (2.1+) {{{
 - (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame {
+    [[self retain] autorelease];
     id<CyteWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)])
         if (

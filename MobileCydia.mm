@@ -3713,13 +3713,13 @@ static NSString *Warning_;
     bool success(ListUpdate(status, list, PulseInterval_));
     if (status.WasCancelled())
         _error->Discard();
-    else
+    else {
         [self popErrorWithTitle:title forOperation:success];
+        [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
+        Changed_ = true;
+    }
 
     [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
-
-    [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
-    Changed_ = true;
 }
 
 - (void) setDelegate:(NSObject<DatabaseDelegate> *)delegate {

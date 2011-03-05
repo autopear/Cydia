@@ -537,6 +537,10 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame {
+#if LogBrowser
+    NSLog(@"didStartProvisionalLoadForFrame:%@", frame);
+#endif
+
     [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {

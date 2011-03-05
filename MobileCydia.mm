@@ -7497,8 +7497,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
 
-    [sections_ removeAllObjects];
-
 #if 1
     UIProgressHUD *hud([delegate_ addProgressHUD]);
     [hud setText:UCLocalize("LOADING")];
@@ -7508,6 +7506,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #else
     [self _reloadPackages:packages];
 #endif
+
+    [sections_ removeAllObjects];
 
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
     Section *ignored = nil;

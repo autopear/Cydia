@@ -421,7 +421,7 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view didDecidePolicy:(CYWebPolicyDecision)decision forNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame {
-    if (decision == CYWebPolicyDecisionUse)
+    if (decision == CYWebPolicyDecisionUse && !error_)
         request_ = request;
 }
 

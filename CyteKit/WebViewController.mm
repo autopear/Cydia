@@ -384,9 +384,9 @@ float CYScrollViewDecelerationRateNormal;
             action:@selector(close)
         ] autorelease]];
 
-        [[self navigationController] presentModalViewController:navigation animated:YES];
-
         [delegate_ unloadData];
+
+        [[self navigationController] presentModalViewController:navigation animated:YES];
     }
 }
 

@@ -928,7 +928,7 @@ bool isSectionVisible(NSString *section) {
     return hidden == nil || ![hidden boolValue];
 }
 
-static id CYIOGetValue(const char *path, NSString *property) {
+static NSObject *CYIOGetValue(const char *path, NSString *property) {
     io_registry_entry_t entry(IORegistryEntryFromPath(kIOMasterPortDefault, path));
     if (entry == MACH_PORT_NULL)
         return nil;
@@ -941,7 +941,7 @@ static id CYIOGetValue(const char *path, NSString *property) {
     return [(id) value autorelease];
 }
 
-static NSString *CYHex(NSData *data, bool reverse) {
+static NSString *CYHex(NSData *data, bool reverse = false) {
     if (data == nil)
         return nil;
 
@@ -3955,6 +3955,8 @@ static _H<NSMutableSet> Diversions_;
         return @"getKernelString";
     else if (selector == @selector(getInstalledPackages))
         return @"getInstalledPackages";
+    else if (selector == @selector(getIORegistryEntry::))
+        return @"getIORegistryEntry";
     else if (selector == @selector(getLocaleIdentifier))
         return @"getLocaleIdentifier";
     else if (selector == @selector(getPreferredLanguages))
@@ -4055,6 +4057,16 @@ static _H<NSMutableSet> Diversions_;
     value[size] = '\0';
 
     return [NSString stringWithCString:value];
+}
+
+- (NSObject *) getIORegistryEntry:(NSString *)path :(NSString *)entry {
+    NSObject *value(CYIOGetValue([path UTF8String], entry));
+
+    if (value != nil)
+        if ([value isKindOfClass:[NSData class]])
+            value = CYHex((NSData *) value);
+
+    return value;
 }
 
 - (id) getSessionValue:(NSString *)key {
@@ -9824,9 +9836,9 @@ int main(int argc, char *argv[]) { _pooled
     else
         Machine_ = machine;
 
-    SerialNumber_ = CYIOGetValue("IOService:/", @"IOPlatformSerialNumber");
-    ChipID_ = [CYHex(CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true) uppercaseString];
-    BBSNum_ = CYHex(CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
+    SerialNumber_ = (NSString *) CYIOGetValue("IOService:/", @"IOPlatformSerialNumber");
+    ChipID_ = [CYHex((NSData *) CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true) uppercaseString];
+    BBSNum_ = CYHex((NSData *) CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 

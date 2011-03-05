@@ -6494,7 +6494,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     // XXX: ok, "updatedelegate_"?...
     _transient NSObject<CydiaDelegate> *updatedelegate_;
 
-    id root_;
     _H<UIViewController> remembered_;
     _transient UIViewController *transient_;
 }
@@ -6714,9 +6713,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     // Ensure bar has the proper width for our view, it might have changed
     barframe.size.width = viewframe.size.width;
     [refreshbar_ setFrame:barframe];
-
-    // XXX: fix Apple's layout bug
-    [[root_ selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
 
 - (void) raiseBar:(BOOL)animated {
@@ -6739,17 +6735,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (animated)
         [UIView commitAnimations];
-
-    // XXX: fix Apple's layout bug
-    // SRK [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
-
-#if 0
-- (void) willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
-    // XXX: fix Apple's layout bug
-    // SRK [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
-}
-#endif
 
 - (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     bool dropped(dropped_);
@@ -6761,9 +6747,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (dropped)
         [self dropBar:NO];
-
-    // XXX: fix Apple's layout bug
-    // SRK [[self selectedViewController] _updateLayoutForStatusBarAndInterfaceOrientation];
 }
 
 - (void) statusBarFrameChanged:(NSNotification *)notification {

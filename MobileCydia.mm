@@ -941,7 +941,7 @@ static id CYIOGetValue(const char *path, NSString *property) {
     return [(id) value autorelease];
 }
 
-static NSString *CYHex(NSData *data, bool reverse, bool capital) {
+static NSString *CYHex(NSData *data, bool reverse) {
     if (data == nil)
         return nil;
 
@@ -951,7 +951,7 @@ static NSString *CYHex(NSData *data, bool reverse, bool capital) {
 
     char string[length * 2 + 1];
     for (size_t i(0); i != length; ++i)
-        sprintf(string + i * 2, capital ? "%.2X" : "%.2x", bytes[reverse ? length - i - 1 : i]);
+        sprintf(string + i * 2, "%.2x", bytes[reverse ? length - i - 1 : i]);
 
     return [NSString stringWithUTF8String:string];
 }
@@ -9825,8 +9825,8 @@ int main(int argc, char *argv[]) { _pooled
         Machine_ = machine;
 
     SerialNumber_ = CYIOGetValue("IOService:/", @"IOPlatformSerialNumber");
-    ChipID_ = CYHex(CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true, true);
-    BBSNum_ = CYHex(CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false, false);
+    ChipID_ = [CYHex(CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true) uppercaseString];
+    BBSNum_ = CYHex(CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
 
     UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
 

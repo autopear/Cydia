@@ -8771,7 +8771,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
     [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
 
-    spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge] autorelease];
+    spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
     CGRect spinrect = [spinner_ frame];
     spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
     spinrect.origin.y = [[self view] frame].size.height - 80.0f;
@@ -8785,7 +8785,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     captrect.size.height = 40.0f;
     captrect.origin.x = 0;
     captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
-    caption_ = [[[UILabel alloc] initWithFrame:captrect] autorelease];
+    caption_ = [[UILabel alloc] initWithFrame:captrect];
     [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
     [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
     [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
@@ -8800,7 +8800,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     statusrect.size.height = 30.0f;
     statusrect.origin.x = 0;
     statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
-    status_ = [[[UILabel alloc] initWithFrame:statusrect] autorelease];
+    status_ = [[UILabel alloc] initWithFrame:statusrect];
     [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
     [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
     [status_ setFont:[UIFont systemFontOfSize:16.0f]];

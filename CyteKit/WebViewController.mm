@@ -401,7 +401,11 @@ float CYScrollViewDecelerationRateNormal;
 // CyteWebViewDelegate {{{
 - (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
 #if LogMessages
-    static Pcre irritating("^(?:The page at .* displayed insecure content from .*\\.|Unsafe JavaScript attempt to access frame with URL .* from frame with URL .*\\. Domains, protocols and ports must match\\.)\\n$");
+    static Pcre irritating("^(?"
+        ":" "The page at .* displayed insecure content from .*\\."
+        "|" "Unsafe JavaScript attempt to access frame with URL .* from frame with URL .*\\. Domains, protocols and ports must match\\."
+    ")\\n$");
+
     if (NSString *data = [message objectForKey:@"message"])
         if (irritating(data))
             return;

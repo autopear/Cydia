@@ -6243,12 +6243,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return true;
 }
 
-- (void) reloadData {
-    [super reloadData];
+- (bool) shouldYield {
+    return false;
+}
 
-    era_ = [database_ era];
-    NSArray *packages = [database_ packages];
-
+- (void) _reloadPackages:(NSArray *)packages {
     [packages_ removeAllObjects];
     [sections_ removeAllObjects];
 
@@ -6257,6 +6256,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             if ([self hasPackage:package])
                 [packages_ addObject:package];
     _end
+}
+
+- (void) _reloadData {
+    era_ = [database_ era];
+    NSArray *packages = [database_ packages];
+
+    if ([self shouldYield]) {
+        UIProgressHUD *hud([delegate_ addProgressHUD]);
+        [hud setText:UCLocalize("LOADING")];
+        [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
+        [delegate_ removeProgressHUD:hud];
+    } else {
+        [self _reloadPackages:packages];
+    }
 
     [indices_ removeAllObjects];
 
@@ -6331,6 +6344,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _end
 }
 
+- (void) reloadData {
+    [super reloadData];
+    [self performSelector:@selector(_reloadData) withObject:nil afterDelay:0];
+}
+
 - (void) resetCursor {
     [list_ scrollRectToVisible:CGRectMake(0, 0, 0, 0) animated:NO];
 }
@@ -6347,6 +6365,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) setObject:(id)object;
 - (void) setObject:(id)object forFilter:(SEL)filter;
 
+- (SEL) filter;
+- (void) setFilter:(SEL)filter;
+
 - (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object;
 
 @end
@@ -6357,6 +6378,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (object_ != nil)
         [object_ release];
     [super dealloc];
+}
+
+- (SEL) filter {
+    return filter_;
 }
 
 - (void) setFilter:(SEL)filter {
@@ -7599,15 +7624,32 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [search_ text]]];
 }
 
-- (void) searchBarSearchButtonClicked:(UISearchBar *)searchBar {
+- (void) searchBarTextDidBeginEditing:(UISearchBar *)searchBar {
+    [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSelectedForBy:)];
+}
+
+- (void) searchBarButtonClicked:(UISearchBar *)searchBar {
     [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [search_ resignFirstResponder];
     [self reloadData];
 }
 
+- (void) searchBarCancelButtonClicked:(UISearchBar *)searchBar {
+    [search_ setText:@""];
+    [self searchBarButtonClicked:searchBar];
+}
+
+- (void) searchBarSearchButtonClicked:(UISearchBar *)searchBar {
+    [self searchBarButtonClicked:searchBar];
+}
+
 - (void) searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)text {
     [self setObject:text forFilter:@selector(isUnfilteredAndSelectedForBy:)];
     [self reloadData];
+}
+
+- (bool) shouldYield {
+    return [self filter] == @selector(isUnfilteredAndSearchedForBy:);
 }
 
 - (id) initWithDatabase:(Database *)database query:(NSString *)query {

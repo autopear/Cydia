@@ -766,6 +766,7 @@ float CYScrollViewDecelerationRateNormal;
             [preferences _setLayoutInterval:0];
 
         [preferences setCacheModel:WebCacheModelDocumentBrowser];
+        [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
         [preferences setOfflineWebApplicationCacheEnabled:YES];
 
 #if LogMessages
@@ -859,35 +860,10 @@ float CYScrollViewDecelerationRateNormal;
 
     WebView *webview([[webview_ _documentView] webView]);
     WebFrame *frame([webview mainFrame]);
-    WebPreferences *preferences([webview preferences]);
 
-    bool maybe([preferences javaScriptCanOpenWindowsAutomatically]);
-    [preferences setJavaScriptCanOpenWindowsAutomatically:NO];
-
-    /*id _private(MSHookIvar<id>(webview, "_private"));
-    WebCore::Page *page(_private == nil ? NULL : MSHookIvar<WebCore::Page *>(_private, "page"));
-    WebCore::Settings *settings(page == NULL ? NULL : page->settings());
-
-    bool no;
-    if (settings == NULL)
-        no = 0;
-    else {
-        no = settings->JavaScriptCanOpenWindowsAutomatically();
-        settings->setJavaScriptCanOpenWindowsAutomatically(true);
-    }*/
-
-    if (UIWindow *window = [[self view] window])
-        if (UIResponder *responder = [window firstResponder])
-            [responder resignFirstResponder];
-
-    JSObjectRef object([function JSObject]);
     JSGlobalContextRef context([frame globalContext]);
+    JSObjectRef object([function JSObject]);
     JSObjectCallAsFunction(context, object, NULL, 0, NULL, NULL);
-
-    /*if (settings != NULL)
-        settings->setJavaScriptCanOpenWindowsAutomatically(no);*/
-
-    [preferences setJavaScriptCanOpenWindowsAutomatically:maybe];
 }
 
 - (void) reloadButtonClicked {

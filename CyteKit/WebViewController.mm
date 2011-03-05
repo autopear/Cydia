@@ -16,6 +16,7 @@ extern NSString * const kCAFilterNearest;
 
 #include <WebCore/WebCoreThread.h>
 
+#include <WebKit/WebKitErrors.h>
 #include <WebKit/WebPreferences.h>
 
 #include <WebKit/DOMCSSPrimitiveValue.h>
@@ -344,6 +345,13 @@ float CYScrollViewDecelerationRateNormal;
     if ([[error domain] isEqualToString:NSURLErrorDomain] && [error code] == NSURLErrorCancelled)
         return;
 
+    if ([[error domain] isEqualToString:WebKitErrorDomain] && [error code] == WebKitErrorFrameLoadInterruptedByPolicyChange) {
+        request_ = (id) stage2_;
+        stage1_ = nil;
+        stage2_ = nil;
+        return;
+    }
+
     if ([frame parentFrame] == nil) {
         [self loadURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@?%@",
             [[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"error" ofType:@"html"]] absoluteString],
@@ -421,8 +429,12 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view didDecidePolicy:(CYWebPolicyDecision)decision forNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame {
-    if (decision == CYWebPolicyDecisionUse && !error_)
-        request_ = request;
+    if ([frame parentFrame] == nil)
+        if (decision == CYWebPolicyDecisionUse)
+            if (!error_) {
+                stage1_ = (id) request_;
+                request_ = request;
+            }
 }
 
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
@@ -470,6 +482,9 @@ float CYScrollViewDecelerationRateNormal;
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
+        stage1_ = nil;
+        stage2_ = nil;
+
         if (DOMDocument *document = [frame DOMDocument])
             if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
                 for (DOMHTMLBodyElement *body in (id) bodies) {
@@ -525,6 +540,9 @@ float CYScrollViewDecelerationRateNormal;
         custom_ = nil;
         style_ = nil;
         function_ = nil;
+
+        stage2_ = (id) stage1_;
+        stage1_ = nil;
 
         [self setHidesNavigationBar:NO];
 

@@ -72,6 +72,9 @@
     bool error_;
     _H<NSURLRequest> request_;
 
+    _H<NSURLRequest> stage1_;
+    _H<NSURLRequest> stage2_;
+
     _transient NSNumber *sensitive_;
 
     NSString *title_;

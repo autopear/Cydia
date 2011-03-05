@@ -5,19 +5,15 @@
 #import <BackRow/BRTopShelfView.h>
 #import <BackRow/BRViewController.h>
 
+#include <CydiaSubstrate/CydiaSubstrate.h>
+
 @interface CydiaTopShelfController : NSObject <BRTopShelfController> {
-    BRTopShelfView *view_;
+    _H<BRTopShelfView> view_;
 }
 
 @end
 
 @implementation CydiaTopShelfController
-
-- (void) dealloc {
-    [view_ release];
-
-    [super dealloc];
-}
 
 - (BRTopShelfView *) topShelfView {
     return view_;

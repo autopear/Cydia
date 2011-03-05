@@ -676,8 +676,8 @@ struct NSStringMapEqual :
 
 /* Mime Addresses {{{ */
 @interface Address : NSObject {
-    NSString *name_;
-    NSString *address_;
+    _H<NSString> name_;
+    _H<NSString> address_;
 }
 
 - (NSString *) name;
@@ -692,13 +692,6 @@ struct NSStringMapEqual :
 
 @implementation Address
 
-- (void) dealloc {
-    [name_ release];
-    if (address_ != nil)
-        [address_ release];
-    [super dealloc];
-}
-
 - (NSString *) name {
     return name_;
 }
@@ -708,12 +701,7 @@ struct NSStringMapEqual :
 }
 
 - (void) setAddress:(NSString *)address {
-    if (address_ != nil)
-        [address_ autorelease];
-    if (address == nil)
-        address_ = nil;
-    else
-        address_ = [address retain];
+    address_ = address;
 }
 
 + (Address *) addressWithString:(NSString *)string {
@@ -743,10 +731,10 @@ struct NSStringMapEqual :
         static Pcre address_r("^\"?(.*)\"? <([^>]*)>$");
 
         if (address_r(data, size)) {
-            name_ = [address_r[1] retain];
-            address_ = [address_r[2] retain];
+            name_ = address_r[1];
+            address_ = address_r[2];
         } else {
-            name_ = [string retain];
+            name_ = string;
             address_ = nil;
         }
     } return self;
@@ -828,11 +816,11 @@ static NSString *App_;
 static BOOL Advanced_;
 static BOOL Ignored_;
 
-static UIFont *Font12_;
-static UIFont *Font12Bold_;
-static UIFont *Font14_;
-static UIFont *Font18Bold_;
-static UIFont *Font22Bold_;
+static _H<UIFont> Font12_;
+static _H<UIFont> Font12Bold_;
+static _H<UIFont> Font14_;
+static _H<UIFont> Font18Bold_;
+static _H<UIFont> Font22Bold_;
 
 static const char *Machine_ = NULL;
 static NSString *System_ = nil;
@@ -864,10 +852,10 @@ bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
 
-static NSMutableDictionary *SessionData_;
-static NSObject *HostConfig_;
-static NSMutableSet *BridgedHosts_;
-static NSMutableSet *PipelinedHosts_;
+static _H<NSMutableDictionary> SessionData_;
+static _H<NSObject> HostConfig_;
+static _H<NSMutableSet> BridgedHosts_;
+static _H<NSMutableSet> PipelinedHosts_;
 
 static NSString *kCydiaProgressEventTypeError = @"Error";
 static NSString *kCydiaProgressEventTypeInformation = @"Information";
@@ -1119,7 +1107,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     pkgSourceList *list_;
 
     SourceMap sourceMap_;
-    NSMutableArray *sourceList_;
+    _H<NSMutableArray> sourceList_;
 
     CFMutableArrayRef packages_;
 
@@ -1483,12 +1471,6 @@ static void PackageImport(const void *key, const void *value, void *context) {
     authority_ = nil;
 }
 
-- (void) dealloc {
-    // XXX: this is a very inefficient way to call these deconstructors
-    [self _clear];
-    [super dealloc];
-}
-
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"distribution",
@@ -1665,8 +1647,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
 /* }}} */
 /* CydiaOperation Class {{{ */
 @interface CydiaOperation : NSObject {
-    NSString *operator_;
-    NSString *value_;
+    _H<NSString> operator_;
+    _H<NSString> value_;
 }
 
 - (NSString *) operator;
@@ -1676,16 +1658,10 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 @implementation CydiaOperation
 
-- (void) dealloc {
-    [operator_ release];
-    [value_ release];
-    [super dealloc];
-}
-
 - (id) initWithOperator:(const char *)_operator value:(const char *)value {
     if ((self = [super init]) != nil) {
-        operator_ = [[NSString alloc] initWithUTF8String:_operator];
-        value_ = [[NSString alloc] initWithUTF8String:value];
+        operator_ = [NSString stringWithUTF8String:_operator];
+        value_ = [NSString stringWithUTF8String:value];
     } return self;
 }
 
@@ -1716,8 +1692,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
 /* }}} */
 /* CydiaClause Class {{{ */
 @interface CydiaClause : NSObject {
-    NSString *package_;
-    CydiaOperation *version_;
+    _H<NSString> package_;
+    _H<CydiaOperation> version_;
 }
 
 - (NSString *) package;
@@ -1727,20 +1703,14 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 @implementation CydiaClause
 
-- (void) dealloc {
-    [package_ release];
-    [version_ release];
-    [super dealloc];
-}
-
 - (id) initWithIterator:(pkgCache::DepIterator &)dep {
     if ((self = [super init]) != nil) {
-        package_ = [[NSString alloc] initWithUTF8String:dep.TargetPkg().Name()];
+        package_ = [NSString stringWithUTF8String:dep.TargetPkg().Name()];
 
         if (const char *version = dep.TargetVer())
-            version_ = [[CydiaOperation alloc] initWithOperator:dep.CompType() value:version];
+            version_ = [[[CydiaOperation alloc] initWithOperator:dep.CompType() value:version] autorelease];
         else
-            version_ = [[NSNull null] retain];
+            version_ = (id) [NSNull null];
     } return self;
 }
 
@@ -1771,8 +1741,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
 /* }}} */
 /* CydiaRelation Class {{{ */
 @interface CydiaRelation : NSObject {
-    NSString *relationship_;
-    NSMutableArray *clauses_;
+    _H<NSString> relationship_;
+    _H<NSMutableArray> clauses_;
 }
 
 - (NSString *) relationship;
@@ -1782,16 +1752,10 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 @implementation CydiaRelation
 
-- (void) dealloc {
-    [relationship_ release];
-    [clauses_ release];
-    [super dealloc];
-}
-
 - (id) initWithIterator:(pkgCache::DepIterator &)dep {
     if ((self = [super init]) != nil) {
-        relationship_ = [[NSString alloc] initWithUTF8String:dep.DepType()];
-        clauses_ = [[NSMutableArray alloc] initWithCapacity:8];
+        relationship_ = [NSString stringWithUTF8String:dep.DepType()];
+        clauses_ = [NSMutableArray arrayWithCapacity:8];
 
         pkgCache::DepIterator start;
         pkgCache::DepIterator end;
@@ -1877,12 +1841,12 @@ struct ParsedPackage {
     const char *section_;
     _transient NSString *section$_;
 
-    Source *source_;
+    _H<Source> source_;
 
     PackageValue *metadata_;
     ParsedPackage *parsed_;
 
-    NSMutableArray *tags_;
+    _H<NSMutableArray> tags_;
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
@@ -2104,10 +2068,6 @@ struct PackageNameOrdering :
 - (void) dealloc {
     if (parsed_ != NULL)
         delete parsed_;
-    if (source_ != nil)
-        [source_ release];
-    if (tags_ != nil)
-        [tags_ release];
     [super dealloc];
 }
 
@@ -2296,7 +2256,7 @@ struct PackageNameOrdering :
         _profile(Package$initWithVersion$Tags)
             pkgCache::TagIterator tag(iterator.TagList());
             if (!tag.end()) {
-                tags_ = [[NSMutableArray alloc] initWithCapacity:8];
+                tags_ = [NSMutableArray arrayWithCapacity:8];
                 do {
                     const char *name(tag.Name());
                     [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
@@ -2846,7 +2806,7 @@ struct PackageNameOrdering :
             if ([database_ era] != era_ || file_.end())
                 source_ = (Source *) [NSNull null];
             else
-                source_ = [([database_ getSource:file_.File()] ?: (Source *) [NSNull null]) retain];
+                source_ = [database_ getSource:file_.File()] ?: (Source *) [NSNull null];
         }
     }
 
@@ -2906,7 +2866,7 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) primaryPurpose {
-    for (NSString *tag in tags_)
+    for (NSString *tag in (NSArray *) tags_)
         if ([tag hasPrefix:@"purpose::"])
             return [tag substringFromIndex:9];
     return nil;
@@ -2914,7 +2874,7 @@ struct PackageNameOrdering :
 
 - (NSArray *) purposes {
     NSMutableArray *purposes([NSMutableArray arrayWithCapacity:2]);
-    for (NSString *tag in tags_)
+    for (NSString *tag in (NSArray *) tags_)
         if ([tag hasPrefix:@"purpose::"])
             [purposes addObject:[tag substringFromIndex:9]];
     return [purposes count] == 0 ? nil : purposes;
@@ -3037,11 +2997,11 @@ struct PackageNameOrdering :
 /* }}} */
 /* Section Class {{{ */
 @interface Section : NSObject {
-    NSString *name_;
+    _H<NSString> name_;
     unichar index_;
     size_t row_;
     size_t count_;
-    NSString *localized_;
+    _H<NSString> localized_;
 }
 
 - (NSComparisonResult) compareByLocalized:(Section *)section;
@@ -3065,13 +3025,6 @@ struct PackageNameOrdering :
 
 @implementation Section
 
-- (void) dealloc {
-    [name_ release];
-    if (localized_ != nil)
-        [localized_ release];
-    [super dealloc];
-}
-
 - (NSComparisonResult) compareByLocalized:(Section *)section {
     NSString *lhs(localized_);
     NSString *rhs([section localized]);
@@ -3092,7 +3045,7 @@ struct PackageNameOrdering :
 - (Section *) initWithName:(NSString *)name localized:(NSString *)localized {
     if ((self = [self initWithName:name localize:NO]) != nil) {
         if (localized != nil)
-            localized_ = [localized retain];
+            localized_ = localized;
     } return self;
 }
 
@@ -3102,18 +3055,18 @@ struct PackageNameOrdering :
 
 - (Section *) initWithName:(NSString *)name row:(size_t)row localize:(BOOL)localize {
     if ((self = [super init]) != nil) {
-        name_ = [name retain];
+        name_ = name;
         index_ = '\0';
         row_ = row;
         if (localize)
-            localized_ = [LocalizeSection(name_) retain];
+            localized_ = LocalizeSection(name_);
     } return self;
 }
 
 /* XXX: localize the index thingees */
 - (Section *) initWithIndex:(unichar)index row:(size_t)row {
     if ((self = [super init]) != nil) {
-        name_ = [[NSString stringWithCharacters:&index length:1] retain];
+        name_ = [NSString stringWithCharacters:&index length:1];
         index_ = index;
         row_ = row;
     } return self;
@@ -3163,9 +3116,9 @@ static NSString *Warning_;
 @implementation Database
 
 + (Database *) sharedInstance {
-    static Database *instance;
+    static _H<Database> instance;
     if (instance == nil)
-        instance = [[Database alloc] init];
+        instance = [[[Database alloc] init] autorelease];
     return instance;
 }
 
@@ -3181,7 +3134,6 @@ static NSString *Warning_;
 - (void) dealloc {
     // XXX: actually implement this thing
     _assert(false);
-    [sourceList_ release];
     [self releasePackages];
     apr_pool_destroy(pool_);
     NSRecycleZone(zone_);
@@ -3309,7 +3261,7 @@ static NSString *Warning_;
             capacity += 1024;
 
         packages_ = CFArrayCreateMutable(kCFAllocatorDefault, capacity, NULL);
-        sourceList_ = [[NSMutableArray alloc] initWithCapacity:16];
+        sourceList_ = [NSMutableArray arrayWithCapacity:16];
 
         int fds[2];
 
@@ -3538,7 +3490,6 @@ static NSString *Warning_;
     {
         /*std::vector<Package *> packages;
         packages.reserve(std::max(10000U, [packages_ count] + 1000));
-        [packages_ release];
         packages_ = nil;*/
 
         _trace();
@@ -3546,7 +3497,7 @@ static NSString *Warning_;
         for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
             if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:pool_ database:self])
                 //packages.push_back(package);
-                CFArrayAppendValue(packages_, [package retain]);
+                CFArrayAppendValue(packages_, CFRetain(package));
 
         _trace();
 
@@ -3823,7 +3774,7 @@ static NSString *Warning_;
 @end
 /* }}} */
 
-static NSMutableSet *Diversions_;
+static _H<NSMutableSet> Diversions_;
 
 @interface Diversion : NSObject {
     Pcre pattern_;
@@ -3851,7 +3802,7 @@ static NSMutableSet *Diversions_;
   divert:
     NSString *href([url absoluteString]);
 
-    for (Diversion *diversion in Diversions_)
+    for (Diversion *diversion in (id) Diversions_)
         if (NSString *diverted = [diversion divert:href]) {
 #if !ForRelease
             NSLog(@"div: %@", diverted);
@@ -3878,7 +3829,7 @@ static NSMutableSet *Diversions_;
 @end
 
 @interface CydiaObject : NSObject {
-    id indirect_;
+    _H<IndirectDelegate> indirect_;
     _transient id delegate_;
 }
 
@@ -3887,7 +3838,7 @@ static NSMutableSet *Diversions_;
 @end
 
 @interface CydiaWebViewController : CyteWebViewController {
-    CydiaObject *cydia_;
+    _H<CydiaObject> cydia_;
 }
 
 + (void) addDiversion:(Diversion *)diversion;
@@ -3897,14 +3848,9 @@ static NSMutableSet *Diversions_;
 /* Web Scripting {{{ */
 @implementation CydiaObject
 
-- (void) dealloc {
-    [indirect_ release];
-    [super dealloc];
-}
-
 - (id) initWithDelegate:(IndirectDelegate *)indirect {
     if ((self = [super init]) != nil) {
-        indirect_ = [indirect retain];
+        indirect_ = indirect;
     } return self;
 }
 
@@ -4466,17 +4412,12 @@ static NSMutableSet *Diversions_;
 /* Cydia Browser Controller {{{ */
 @implementation CydiaWebViewController
 
-- (void) dealloc {
-    [cydia_ release];
-    [super dealloc];
-}
-
 - (NSURL *) navigationURL {
     return request_ == nil ? nil : [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request_ URL] absoluteString]]];
 }
 
 + (void) initialize {
-    Diversions_ = [[NSMutableSet alloc] initWithCapacity:0];
+    Diversions_ = [NSMutableSet setWithCapacity:0];
 }
 
 + (void) addDiversion:(Diversion *)diversion {
@@ -4529,7 +4470,7 @@ static NSMutableSet *Diversions_;
 
 - (id) init {
     if ((self = [super initWithWidth:0 ofClass:[CydiaWebViewController class]]) != nil) {
-        cydia_ = [[CydiaObject alloc] initWithDelegate:indirect_];
+        cydia_ = [[[CydiaObject alloc] initWithDelegate:indirect_] autorelease];
 
         WebView *webview([[webview_ _documentView] webView]);
 
@@ -4610,11 +4551,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface ConfirmationController : CydiaWebViewController {
     _transient Database *database_;
 
-    UIAlertView *essential_;
+    _H<UIAlertView> essential_;
 
-    NSDictionary *changes_;
-    NSMutableArray *issues_;
-    NSDictionary *sizes_;
+    _H<NSDictionary> changes_;
+    _H<NSMutableArray> issues_;
+    _H<NSDictionary> sizes_;
 
     BOOL substrate_;
 }
@@ -4624,17 +4565,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation ConfirmationController
-
-- (void) dealloc {
-    [changes_ release];
-    [issues_ release];
-    [sizes_ release];
-
-    if (essential_ != nil)
-        [essential_ release];
-
-    [super dealloc];
-}
 
 - (void) complete {
     if (substrate_)
@@ -4675,9 +4605,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super webView:view didClearWindowObject:window forFrame:frame];
 
     [window setValue:[[NSDictionary dictionaryWithObjectsAndKeys:
-        changes_, @"changes",
-        issues_, @"issues",
-        sizes_, @"sizes",
+        (id) changes_, @"changes",
+        (id) issues_, @"issues",
+        (id) sizes_, @"sizes",
         self, @"queue",
     nil] Cydia$webScriptObjectInContext:window] forKey:@"cydiaConfirm"];
 }
@@ -4698,7 +4628,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         NSArray *packages([database_ packages]);
         pkgDepCache::Policy *policy([database_ policy]);
 
-        issues_ = [[NSMutableArray arrayWithCapacity:4] retain];
+        issues_ = [NSMutableArray arrayWithCapacity:4];
 
         for (Package *package in packages) {
             pkgCache::PkgIterator iterator([package iterator]);
@@ -4820,7 +4750,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         else if (Advanced_) {
             NSString *parenthetical(UCLocalize("PARENTHETICAL"));
 
-            essential_ = [[UIAlertView alloc]
+            essential_ = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("REMOVING_ESSENTIALS")
                 message:UCLocalize("REMOVING_ESSENTIALS_EX")
                 delegate:self
@@ -4828,22 +4758,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 otherButtonTitles:
                     [NSString stringWithFormat:parenthetical, UCLocalize("FORCE_REMOVAL"), UCLocalize("UNSAFE")],
                 nil
-            ];
+            ] autorelease];
 
             [essential_ setContext:@"remove"];
         } else {
-            essential_ = [[UIAlertView alloc]
+            essential_ = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("UNABLE_TO_COMPLY")
                 message:UCLocalize("UNABLE_TO_COMPLY_EX")
                 delegate:self
                 cancelButtonTitle:UCLocalize("OKAY")
                 otherButtonTitles:nil
-            ];
+            ] autorelease];
 
             [essential_ setContext:@"unable"];
         }
 
-        changes_ = [[NSDictionary alloc] initWithObjectsAndKeys:
+        changes_ = [NSDictionary dictionaryWithObjectsAndKeys:
             installs, @"installs",
             reinstalls, @"reinstalls",
             upgrades, @"upgrades",
@@ -4851,7 +4781,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             removes, @"removes",
         nil];
 
-        sizes_ = [[NSDictionary alloc] initWithObjectsAndKeys:
+        sizes_ = [NSDictionary dictionaryWithObjectsAndKeys:
             [NSNumber numberWithInteger:[database_ fetcher].FetchNeeded()], @"downloading",
             [NSNumber numberWithInteger:[database_ fetcher].PartialPresent()], @"resuming",
         nil];
@@ -5325,7 +5255,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Cydia TableView Cell {{{ */
 @interface CYTableViewCell : UITableViewCell {
-    ContentView *content_;
+    _H<ContentView> content_;
     bool highlighted_;
 }
 
@@ -5333,15 +5263,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation CYTableViewCell
 
-- (void) dealloc {
-    [content_ release];
-    [super dealloc];
-}
-
-- (void) _updateHighlightColorsForView:(id)view highlighted:(BOOL)highlighted {
+- (void) _updateHighlightColorsForView:(UIView *)view highlighted:(BOOL)highlighted {
     //NSLog(@"_updateHighlightColorsForView:%@ highlighted:%s [content_=%@]", view, highlighted ? "YES" : "NO", content_);
 
-    if (view == content_) {
+    if (view == (UIView *) content_) {
         //NSLog(@"_updateHighlightColorsForView:content_ highlighted:%s", highlighted ? "YES" : "NO", content_);
         highlighted_ = highlighted;
     }
@@ -5364,14 +5289,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface PackageCell : CYTableViewCell <
     ContentDelegate
 > {
-    UIImage *icon_;
-    NSString *name_;
-    NSString *description_;
+    _H<UIImage> icon_;
+    _H<NSString> name_;
+    _H<NSString> description_;
     bool commercial_;
-    NSString *source_;
-    UIImage *badge_;
-    Package *package_;
-    UIImage *placard_;
+    _H<NSString> source_;
+    _H<UIImage> badge_;
+    _H<Package> package_;
+    _H<UIImage> placard_;
 }
 
 - (PackageCell *) init;
@@ -5383,53 +5308,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation PackageCell
 
-- (void) clearPackage {
-    if (icon_ != nil) {
-        [icon_ release];
-        icon_ = nil;
-    }
-
-    if (name_ != nil) {
-        [name_ release];
-        name_ = nil;
-    }
-
-    if (description_ != nil) {
-        [description_ release];
-        description_ = nil;
-    }
-
-    if (source_ != nil) {
-        [source_ release];
-        source_ = nil;
-    }
-
-    if (badge_ != nil) {
-        [badge_ release];
-        badge_ = nil;
-    }
-
-    if (placard_ != nil) {
-        [placard_ release];
-        placard_ = nil;
-    }
-
-    [package_ release];
-    package_ = nil;
-}
-
-- (void) dealloc {
-    [self clearPackage];
-    [super dealloc];
-}
-
 - (PackageCell *) init {
     CGRect frame(CGRectMake(0, 0, 320, 74));
     if ((self = [super initWithFrame:frame reuseIdentifier:@"Package"]) != nil) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[ContentView alloc] initWithFrame:bounds];
+        content_ = [[[ContentView alloc] initWithFrame:bounds] autorelease];
         [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content addSubview:content_];
 
@@ -5439,28 +5324,33 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) accessibilityLabel {
-    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), name_, description_];
+    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), (id) name_, (id) description_];
 }
 
 - (void) setPackage:(Package *)package {
-    [self clearPackage];
+    icon_ = nil;
+    name_ = nil;
+    description_ = nil;
+    source_ = nil;
+    badge_ = nil;
+    placard_ = nil;
+    package_ = nil;
+
     [package parse];
 
     Source *source = [package source];
 
-    icon_ = [[package icon] retain];
-    name_ = [[package name] retain];
+    icon_ = [package icon];
+    name_ = [package name];
 
     if (IsWildcat_)
         description_ = [package longDescription];
     if (description_ == nil)
         description_ = [package shortDescription];
-    if (description_ != nil)
-        description_ = [description_ retain];
 
     commercial_ = [package isCommercial];
 
-    package_ = [package retain];
+    package_ = package;
 
     NSString *label = nil;
     bool trusted = false;
@@ -5481,12 +5371,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         from = [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), from, section];
     }
 
-    from = [NSString stringWithFormat:UCLocalize("FROM"), from];
-    source_ = [from retain];
+    source_ = [NSString stringWithFormat:UCLocalize("FROM"), from];
 
     if (NSString *purpose = [package primaryPurpose])
-        if ((badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]]) != nil)
-            badge_ = [badge_ retain];
+        badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]];
 
     UIColor *color;
     NSString *placard;
@@ -5514,8 +5402,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [content_ setBackgroundColor:color];
 
     if (placard != nil)
-        if ((placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]]) != nil)
-            placard_ = [placard_ retain];
+        placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]];
 
     [self setNeedsDisplay];
     [content_ setNeedsDisplay];
@@ -5533,7 +5420,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (icon_ != nil) {
         CGRect rect;
-        rect.size = [icon_ size];
+        rect.size = [(UIImage *) icon_ size];
 
         rect.size.width /= 2;
         rect.size.height /= 2;
@@ -5546,7 +5433,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (badge_ != nil) {
         CGRect rect;
-        rect.size = [badge_ size];
+        rect.size = [(UIImage *) badge_ size];
 
         rect.size.width /= 2;
         rect.size.height /= 2;
@@ -5579,12 +5466,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface SectionCell : CYTableViewCell <
     ContentDelegate
 > {
-    NSString *basic_;
-    NSString *section_;
-    NSString *name_;
-    NSString *count_;
-    UIImage *icon_;
-    UISwitch *switch_;
+    _H<NSString> basic_;
+    _H<NSString> section_;
+    _H<NSString> name_;
+    _H<NSString> count_;
+    _H<UIImage> icon_;
+    _H<UISwitch> switch_;
     BOOL editing_;
 }
 
@@ -5594,45 +5481,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SectionCell
 
-- (void) clearSection {
-    if (basic_ != nil) {
-        [basic_ release];
-        basic_ = nil;
-    }
-
-    if (section_ != nil) {
-        [section_ release];
-        section_ = nil;
-    }
-
-    if (name_ != nil) {
-        [name_ release];
-        name_ = nil;
-    }
-
-    if (count_ != nil) {
-        [count_ release];
-        count_ = nil;
-    }
-}
-
-- (void) dealloc {
-    [self clearSection];
-    [icon_ release];
-    [switch_ release];
-    [super dealloc];
-}
-
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
-        icon_ = [[UIImage applicationImageNamed:@"folder.png"] retain];
-        switch_ = [[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
+        icon_ = [UIImage applicationImageNamed:@"folder.png"];
+        switch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)] autorelease];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
 
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[ContentView alloc] initWithFrame:bounds];
+        content_ = [[[ContentView alloc] initWithFrame:bounds] autorelease];
         [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content addSubview:content_];
         [content_ setBackgroundColor:[UIColor whiteColor]];
@@ -5661,22 +5519,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         editing_ = editing;
     }
 
-    [self clearSection];
+    basic_ = nil;
+    section_ = nil;
+    name_ = nil;
+    count_ = nil;
 
     if (section == nil) {
-        name_ = [UCLocalize("ALL_PACKAGES") retain];
+        name_ = UCLocalize("ALL_PACKAGES");
         count_ = nil;
     } else {
         basic_ = [section name];
-        if (basic_ != nil)
-            basic_ = [basic_ retain];
-
         section_ = [section localized];
-        if (section_ != nil)
-            section_ = [section_ retain];
 
-        name_  = [(section_ == nil || [section_ length] == 0 ? UCLocalize("NO_SECTION") : section_) retain];
-        count_ = [[NSString stringWithFormat:@"%d", [section count]] retain];
+        name_  = section_ == nil || [section_ length] == 0 ? UCLocalize("NO_SECTION") : (NSString *) section_;
+        count_ = [NSString stringWithFormat:@"%d", [section count]];
 
         if (editing_)
             [switch_ setOn:(isSectionVisible(basic_) ? 1 : 0) animated:NO];
@@ -5731,10 +5587,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
-    Package *package_;
-    NSString *name_;
-    NSMutableArray *files_;
-    UITableView *list_;
+    _H<Package> package_;
+    _H<NSString> name_;
+    _H<NSMutableArray> files_;
+    _H<UITableView> list_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -5745,12 +5601,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation FileTable
 
 - (void) dealloc {
-    [self releaseSubviews];
-
-    [package_ release];
-    [name_ release];
-    [files_ release];
-
+    [(UITableView *) list_ setDataSource:nil];
+    [list_ setDelegate:nil];
     [super dealloc];
 }
 
@@ -5783,10 +5635,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
 
-    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
+    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds]] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:24.0f];
-    [list_ setDataSource:self];
+    [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
     [[self view] addSubview:list_];
 }
@@ -5798,7 +5650,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) releaseSubviews {
-    [list_ release];
     list_ = nil;
 }
 
@@ -5806,26 +5657,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        files_ = [[NSMutableArray arrayWithCapacity:32] retain];
+        files_ = [NSMutableArray arrayWithCapacity:32];
     } return self;
 }
 
 - (void) setPackage:(Package *)package {
-    if (package_ != nil) {
-        [package_ autorelease];
-        package_ = nil;
-    }
-
-    if (name_ != nil) {
-        [name_ release];
-        name_ = nil;
-    }
+    package_ = nil;
+    name_ = nil;
 
     [files_ removeAllObjects];
 
     if (package != nil) {
-        package_ = [package retain];
-        name_ = [[package id] retain];
+        package_ = package;
+        name_ = [package id];
 
         if (NSArray *files = [package files])
             [files_ addObjectsFromArray:files];
@@ -6036,12 +5880,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 > {
     _transient Database *database_;
     unsigned era_;
-    NSMutableArray *packages_;
-    NSMutableArray *sections_;
-    UITableView *list_;
-    NSMutableArray *index_;
-    NSMutableDictionary *indices_;
-    NSString *title_;
+    _H<NSMutableArray> packages_;
+    _H<NSMutableArray> sections_;
+    _H<UITableView> list_;
+    _H<NSMutableArray> index_;
+    _H<NSMutableDictionary> indices_;
+    _H<NSString> title_;
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title;
@@ -6053,13 +5897,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation PackageListController
 
 - (void) dealloc {
-    [packages_ release];
-    [sections_ release];
-    [list_ release];
-    [index_ release];
-    [indices_ release];
-    [title_ release];
-
+    [list_ setDataSource:nil];
+    [list_ setDelegate:nil];
     [super dealloc];
 }
 
@@ -6215,22 +6054,22 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if TryIndexedCollation
         if ([[self class] hasIndexedCollation])
-            index_ = [[[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles] retain]
+            index_ = [[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles];
         else
 #endif
-            index_ = [[NSMutableArray alloc] initWithCapacity:32];
+            index_ = [NSMutableArray arrayWithCapacity:32];
 
-        indices_ = [[NSMutableDictionary alloc] initWithCapacity:32];
+        indices_ = [NSMutableDictionary dictionaryWithCapacity:32];
 
-        packages_ = [[NSMutableArray arrayWithCapacity:16] retain];
-        sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        packages_ = [NSMutableArray arrayWithCapacity:16];
+        sections_ = [NSMutableArray arrayWithCapacity:16];
 
-        list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
+        list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [list_ setRowHeight:73];
         [[self view] addSubview:list_];
 
-        [list_ setDataSource:self];
+        [(UITableView *) list_ setDataSource:self];
         [list_ setDelegate:self];
     } return self;
 }
@@ -6359,7 +6198,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface FilteredPackageListController : PackageListController {
     SEL filter_;
     IMP imp_;
-    id object_;
+    _H<NSObject> object_;
 }
 
 - (void) setObject:(id)object;
@@ -6373,12 +6212,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation FilteredPackageListController
-
-- (void) dealloc {
-    if (object_ != nil)
-        [object_ release];
-    [super dealloc];
-}
 
 - (SEL) filter {
     return filter_;
@@ -6395,12 +6228,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setObject:(id)object {
-    if (object_ != nil)
-        [object_ release];
-    if (object == nil)
-        object_ = nil;
-    else
-        object_ = [object retain];
+    object_ = object;
 }
 
 - (void) setObject:(id)object forFilter:(SEL)filter {
@@ -6537,23 +6365,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Refresh Bar {{{ */
 @interface RefreshBar : UINavigationBar {
-    UIProgressIndicator *indicator_;
-    UITextLabel *prompt_;
-    UIProgressBar *progress_;
-    UINavigationButton *cancel_;
+    _H<UIProgressIndicator> indicator_;
+    _H<UITextLabel> prompt_;
+    _H<UIProgressBar> progress_;
+    _H<UINavigationButton> cancel_;
 }
 
 @end
 
 @implementation RefreshBar
-
-- (void) dealloc {
-    [indicator_ release];
-    [prompt_ release];
-    [progress_ release];
-    [cancel_ release];
-    [super dealloc];
-}
 
 - (void) positionViews {
     CGRect frame = [cancel_ frame];
@@ -6600,23 +6420,23 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             UIProgressIndicatorStyleMediumBrown :
             UIProgressIndicatorStyleMediumWhite;
 
-        indicator_ = [[UIProgressIndicator alloc] initWithFrame:CGRectZero];
-        [indicator_ setStyle:style];
+        indicator_ = [[[UIProgressIndicator alloc] initWithFrame:CGRectZero] autorelease];
+        [(UIProgressIndicator *) indicator_ setStyle:style];
         [indicator_ startAnimation];
         [self addSubview:indicator_];
 
-        prompt_ = [[UITextLabel alloc] initWithFrame:CGRectZero];
+        prompt_ = [[[UITextLabel alloc] initWithFrame:CGRectZero] autorelease];
         [prompt_ setColor:[UIColor colorWithCGColor:(ugly ? Blueish_ : Off_)]];
         [prompt_ setBackgroundColor:[UIColor clearColor]];
         [prompt_ setFont:[UIFont systemFontOfSize:15]];
         [self addSubview:prompt_];
 
-        progress_ = [[UIProgressBar alloc] initWithFrame:CGRectZero];
+        progress_ = [[[UIProgressBar alloc] initWithFrame:CGRectZero] autorelease];
         [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin];
-        [progress_ setStyle:0];
+        [(UIProgressBar *) progress_ setStyle:0];
         [self addSubview:progress_];
 
-        cancel_ = [[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted];
+        cancel_ = [[[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted] autorelease];
         [cancel_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ addTarget:delegate action:@selector(cancelPressed) forControlEvents:UIControlEventTouchUpInside];
         [cancel_ setBarStyle:barstyle];
@@ -6667,7 +6487,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ProgressDelegate
 > {
     _transient Database *database_;
-    RefreshBar *refreshbar_;
+    _H<RefreshBar> refreshbar_;
 
     bool dropped_;
     bool updating_;
@@ -6675,7 +6495,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient NSObject<CydiaDelegate> *updatedelegate_;
 
     id root_;
-    UIViewController *remembered_;
+    _H<UIViewController> remembered_;
     _transient UIViewController *transient_;
 }
 
@@ -6694,7 +6514,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *controllers = [[self viewControllers] mutableCopy];
     if (transient != nil) {
         if (transient_ == nil)
-            remembered_ = [[controllers objectAtIndex:0] retain];
+            remembered_ = [controllers objectAtIndex:0];
         transient_ = transient;
         [transient_ setTabBarItem:[remembered_ tabBarItem]];
         [controllers replaceObjectAtIndex:0 withObject:transient_];
@@ -6705,7 +6525,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [remembered_ setTabBarItem:[transient_ tabBarItem]];
         transient_ = transient;
         [controllers replaceObjectAtIndex:0 withObject:remembered_];
-        [remembered_ release];
         remembered_ = nil;
         [self setViewControllers:controllers];
         [self revealTabBarSelection];
@@ -6748,7 +6567,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) dealloc {
-    [refreshbar_ release];
+    [refreshbar_ setDelegate:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 
     [super dealloc];
@@ -6762,7 +6581,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(statusBarFrameChanged:) name:UIApplicationDidChangeStatusBarFrameNotification object:nil];
 
-        refreshbar_ = [[RefreshBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self];
+        refreshbar_ = [[[RefreshBar alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, [UINavigationBar defaultSize].height) delegate:self] autorelease];
     } return self;
 }
 
@@ -6771,7 +6590,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) beginUpdate {
-    [refreshbar_ start];
+    [(RefreshBar *) refreshbar_ start];
     [self dropBar:YES];
 
     [updatedelegate_ retainNetworkActivityIndicator];
@@ -7143,9 +6962,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
-    NSMutableArray *sections_;
-    NSMutableArray *filtered_;
-    UITableView *list_;
+    _H<NSMutableArray> sections_;
+    _H<NSMutableArray> filtered_;
+    _H<UITableView> list_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7154,14 +6973,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation SectionsController
-
-- (void) dealloc {
-    [self releaseSubviews];
-    [sections_ release];
-    [filtered_ release];
-
-    [super dealloc];
-}
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://sections"];
@@ -7255,10 +7066,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
 
-    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds]];
+    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds]] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:45.0f];
-    [list_ setDataSource:self];
+    [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
     [[self view] addSubview:list_];
 }
@@ -7270,7 +7081,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) releaseSubviews {
-    [list_ release];
     list_ = nil;
 }
 
@@ -7278,8 +7088,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
-        filtered_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        sections_ = [NSMutableArray arrayWithCapacity:16];
+        filtered_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -7325,7 +7135,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [sections_ sortUsingSelector:@selector(compareByLocalized:)];
 
-    for (Section *section in sections_) {
+    for (Section *section in (id) sections_) {
         size_t count([section row]);
         if (count == 0)
             continue;
@@ -7355,8 +7165,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     unsigned era_;
     CFMutableArrayRef packages_;
-    NSMutableArray *sections_;
-    UITableView *list_;
+    _H<NSMutableArray> sections_;
+    _H<UITableView> list_;
     unsigned upgrades_;
 }
 
@@ -7367,10 +7177,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation ChangesController
 
 - (void) dealloc {
-    [self releaseSubviews];
     CFRelease(packages_);
-    [sections_ release];
-
     [super dealloc];
 }
 
@@ -7445,10 +7252,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
 
-    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
+    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:73];
-    [list_ setDataSource:self];
+    [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
     [[self view] addSubview:list_];
 }
@@ -7460,7 +7267,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) releaseSubviews {
-    [list_ release];
     list_ = nil;
 }
 
@@ -7469,7 +7275,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
 
         packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
-        sections_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        sections_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -7703,13 +7509,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
-    NSString *name_;
-    Package *package_;
-    UITableView *table_;
-    UISwitch *subscribedSwitch_;
-    UISwitch *ignoredSwitch_;
-    UITableViewCell *subscribedCell_;
-    UITableViewCell *ignoredCell_;
+    _H<NSString> name_;
+    _H<Package> package_;
+    _H<UITableView> table_;
+    _H<UISwitch> subscribedSwitch_;
+    _H<UISwitch> ignoredSwitch_;
+    _H<UITableViewCell> subscribedCell_;
+    _H<UITableViewCell> ignoredCell_;
 }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package;
@@ -7717,14 +7523,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation PackageSettingsController
-
-- (void) dealloc {
-    [self releaseSubviews];
-    [name_ release];
-    [package_ release];
-
-    [super dealloc];
-}
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/settings", [package_ id]]];
@@ -7823,26 +7621,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
 
-    table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
+    table_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease];
     [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [table_ setDataSource:self];
+    [(UITableView *) table_ setDataSource:self];
     [table_ setDelegate:self];
     [[self view] addSubview:table_];
 
-    subscribedSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+    subscribedSwitch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)] autorelease];
     [subscribedSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
     [subscribedSwitch_ addTarget:self action:@selector(onSubscribed:) forEvents:UIControlEventValueChanged];
 
-    ignoredSwitch_ = [[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)];
+    ignoredSwitch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)] autorelease];
     [ignoredSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
     [ignoredSwitch_ addTarget:self action:@selector(onIgnored:) forEvents:UIControlEventValueChanged];
 
-    subscribedCell_ = [[UITableViewCell alloc] init];
+    subscribedCell_ = [[[UITableViewCell alloc] init] autorelease];
     [subscribedCell_ setText:UCLocalize("SHOW_ALL_CHANGES")];
     [subscribedCell_ setAccessoryView:subscribedSwitch_];
     [subscribedCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
 
-    ignoredCell_ = [[UITableViewCell alloc] init];
+    ignoredCell_ = [[[UITableViewCell alloc] init] autorelease];
     [ignoredCell_ setText:UCLocalize("IGNORE_UPGRADES")];
     [ignoredCell_ setAccessoryView:ignoredSwitch_];
     [ignoredCell_ setSelectionStyle:UITableViewCellSelectionStyleNone];
@@ -7855,38 +7653,26 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) releaseSubviews {
-    [ignoredCell_ release];
     ignoredCell_ = nil;
-
-    [subscribedCell_ release];
     subscribedCell_ = nil;
-
-    [table_ release];
     table_ = nil;
-
-    [ignoredSwitch_ release];
     ignoredSwitch_ = nil;
-
-    [subscribedSwitch_ release];
     subscribedSwitch_ = nil;
 }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package {
     if ((self = [super init]) != nil) {
         database_ = database;
-        name_ = [package retain];
+        name_ = package;
     } return self;
 }
 
 - (void) reloadData {
     [super reloadData];
 
-    if (package_ != nil)
-        [package_ autorelease];
     package_ = [database_ packageWithName:name_];
 
     if (package_ != nil) {
-        package_ = [package_ retain];
         [subscribedSwitch_ setOn:([package_ subscribed] ? 1 : 0) animated:NO];
         [ignoredSwitch_ setOn:([package_ ignored] ? 1 : 0) animated:NO];
     } // XXX: what now, G?
@@ -7974,9 +7760,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface SourceCell : CYTableViewCell <
     ContentDelegate
 > {
-    UIImage *icon_;
-    NSString *origin_;
-    NSString *label_;
+    _H<UIImage> icon_;
+    _H<NSString> origin_;
+    _H<NSString> label_;
 }
 
 - (void) setSource:(Source *)source;
@@ -7985,34 +7771,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SourceCell
 
-- (void) clearSource {
-    [icon_ release];
-    [origin_ release];
-    [label_ release];
-
-    icon_ = nil;
-    origin_ = nil;
-    label_ = nil;
-}
-
 - (void) setSource:(Source *)source {
-    [self clearSource];
-
+    icon_ = nil;
     if (icon_ == nil)
         icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
     if (icon_ == nil)
         icon_ = [UIImage applicationImageNamed:@"unknown.png"];
-    icon_ = [icon_ retain];
 
-    origin_ = [[source name] retain];
-    label_ = [[source uri] retain];
+    origin_ = [source name];
+    label_ = [source uri];
 
     [content_ setNeedsDisplay];
-}
-
-- (void) dealloc {
-    [self clearSource];
-    [super dealloc];
 }
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
@@ -8020,7 +7789,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[ContentView alloc] initWithFrame:bounds];
+        content_ = [[[ContentView alloc] initWithFrame:bounds] autorelease];
         [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content_ setBackgroundColor:[UIColor whiteColor]];
         [content addSubview:content_];
@@ -8058,7 +7827,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* Source Controller {{{ */
 @interface SourceController : FilteredPackageListController {
     _transient Source *source_;
-    NSString *key_;
+    _H<NSString> key_;
 }
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source;
@@ -8074,14 +7843,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database source:(Source *)source {
     if ((self = [super initWithDatabase:database title:[source label] filter:@selector(isVisibleInSource:) with:source]) != nil) {
         source_ = source;
-        key_ = [[source key] retain];
+        key_ = [source key];
     } return self;
 }
 
 - (void) reloadData {
     source_ = [database_ sourceWithKey:key_];
-    [key_ release];
-    key_ = [[source_ key] retain];
+    key_ = [source_ key];
     [self setObject:source_];
 
     [[self navigationItem] setTitle:[source_ label]];
@@ -8097,13 +7865,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
-    UITableView *list_;
-    NSMutableArray *sources_;
+    _H<UITableView> list_;
+    _H<NSMutableArray> sources_;
     int offset_;
 
-    NSString *href_;
-    UIProgressHUD *hud_;
-    NSError *error_;
+    _H<NSString> href_;
+    _H<UIProgressHUD> hud_;
+    _H<NSError> error_;
 
     //NSURLConnection *installer_;
     NSURLConnection *trivial_;
@@ -8130,19 +7898,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) dealloc {
-    [self releaseSubviews];
-
-    [href_ release];
-    [hud_ release];
-    [error_ release];
-
     //[self _releaseConnection:installer_];
     [self _releaseConnection:trivial_];
     [self _releaseConnection:trivial_gz_];
     [self _releaseConnection:trivial_bz2_];
     //[self _releaseConnection:automatic_];
 
-    [sources_ release];
     [super dealloc];
 }
 
@@ -8272,7 +8033,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [delegate_ releaseNetworkActivityIndicator];
 
         [delegate_ removeProgressHUD:hud_];
-        [hud_ autorelease];
         hud_ = nil;
 
         bool defer(false);
@@ -8320,15 +8080,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [alert show];
         }
 
-        if (!defer) {
-            [href_ release];
-            href_ = nil;
-        }
-
-        if (error_ != nil) {
-            [error_ release];
-            error_ = nil;
-        }
+        href_ = nil;
+        error_ = nil;
     }
 }
 
@@ -8341,8 +8094,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
     lprintf("connection:\"%s\" didFailWithError:\"%s\"", [href_ UTF8String], [[error localizedDescription] UTF8String]);
-    if (error_ != nil)
-        error_ = [error retain];
+    error_ = error;
     [self _endConnection:connection];
 }
 
@@ -8381,7 +8133,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     href_ = [href stringByAppendingString:@"/"];
                 else
                     href_ = href;
-                href_ = [href_ retain];
 
                 trivial_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
                 trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
@@ -8391,7 +8142,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 cydia_ = false;
 
                 // XXX: this is stupid
-                hud_ = [[delegate_ addProgressHUD] retain];
+                hud_ = [delegate_ addProgressHUD];
                 [hud_ setText:UCLocalize("VERIFYING_URL")];
                 [delegate_ retainNetworkActivityIndicator];
             } break;
@@ -8419,7 +8170,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             _nodefault
         }
 
-        [href_ release];
         href_ = nil;
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
@@ -8429,10 +8179,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
 
-    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
+    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:56];
-    [list_ setDataSource:self];
+    [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
     [[self view] addSubview:list_];
 }
@@ -8445,14 +8195,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) releaseSubviews {
-    [list_ release];
     list_ = nil;
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-        sources_ = [[NSMutableArray arrayWithCapacity:16] retain];
+        sources_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -8558,9 +8307,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     // XXX: ok, "roledelegate_"?...
     _transient id roledelegate_;
-    UITableView *table_;
-    UISegmentedControl *segment_;
-    UIView *container_;
+    _H<UITableView> table_;
+    _H<UISegmentedControl> segment_;
+    _H<UIView> container_;
 }
 
 - (void) showDoneButton;
@@ -8570,19 +8319,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SettingsController
 
-- (void) dealloc {
-    [self releaseSubviews];
-
-    [super dealloc];
-}
-
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
 
-    table_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped];
+    table_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease];
     [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [table_ setDelegate:self];
-    [table_ setDataSource:self];
+    [(UITableView *) table_ setDataSource:self];
     [[self view] addSubview:table_];
 
     NSArray *items = [NSArray arrayWithObjects:
@@ -8590,8 +8333,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UCLocalize("HACKER"),
         UCLocalize("DEVELOPER"),
     nil];
-    segment_ = [[UISegmentedControl alloc] initWithItems:items];
-    container_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)];
+    segment_ = [[[UISegmentedControl alloc] initWithItems:items] autorelease];
+    container_ = [[[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)] autorelease];
     [container_ addSubview:segment_];
 }
 
@@ -8614,13 +8357,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) releaseSubviews {
-    [table_ release];
     table_ = nil;
-
-    [segment_ release];
     segment_ = nil;
-
-    [container_ release];
     container_ = nil;
 }
 
@@ -8752,26 +8490,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Stash Controller {{{ */
 @interface StashController : CyteViewController {
-    UIActivityIndicatorView *spinner_;
-    UILabel *status_;
-    UILabel *caption_;
+    _H<UIActivityIndicatorView> spinner_;
+    _H<UILabel> status_;
+    _H<UILabel> caption_;
 }
 
 @end
 
 @implementation StashController
 
-- (void) dealloc {
-    [self releaseSubviews];
-
-    [super dealloc];
-}
-
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
     [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
 
-    spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge] autorelease];
     CGRect spinrect = [spinner_ frame];
     spinrect.origin.x = ([[self view] frame].size.width / 2) - (spinrect.size.width / 2);
     spinrect.origin.y = [[self view] frame].size.height - 80.0f;
@@ -8785,7 +8517,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     captrect.size.height = 40.0f;
     captrect.origin.x = 0;
     captrect.origin.y = ([[self view] frame].size.height / 2) - (captrect.size.height * 2);
-    caption_ = [[UILabel alloc] initWithFrame:captrect];
+    caption_ = [[[UILabel alloc] initWithFrame:captrect] autorelease];
     [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
     [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
     [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
@@ -8800,7 +8532,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     statusrect.size.height = 30.0f;
     statusrect.origin.x = 0;
     statusrect.origin.y = ([[self view] frame].size.height / 2) - statusrect.size.height;
-    status_ = [[UILabel alloc] initWithFrame:statusrect];
+    status_ = [[[UILabel alloc] initWithFrame:statusrect] autorelease];
     [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
     [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
     [status_ setFont:[UIFont systemFontOfSize:16.0f]];
@@ -8809,17 +8541,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [status_ setShadowColor:[UIColor blackColor]];
     [status_ setTextAlignment:UITextAlignmentCenter];
     [[self view] addSubview:status_];
-}
-
-- (void) releaseSubviews {
-    [spinner_ release];
-    spinner_ = nil;
-
-    [status_ release];
-    status_ = nil;
-
-    [caption_ release];
-    caption_ = nil;
 }
 
 @end
@@ -8861,23 +8582,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UINavigationControllerDelegate,
     UITabBarControllerDelegate
 > {
-    // XXX: evaluate all fields for _transient
+    _H<UIWindow> window_;
+    _H<CYTabBarController> tabbar_;
+    _H<CYEmulatedLoadingController> emulated_;
 
-    UIWindow *window_;
-    CYTabBarController *tabbar_;
-    CYEmulatedLoadingController *emulated_;
-
-    NSMutableArray *essential_;
-    NSMutableArray *broken_;
+    _H<NSMutableArray> essential_;
+    _H<NSMutableArray> broken_;
 
     Database *database_;
 
-    NSURL *starturl_;
+    _H<NSURL> starturl_;
 
     unsigned locked_;
     unsigned activity_;
 
-    StashController *stash_;
+    _H<StashController> stash_;
 
     bool loaded_;
 }
@@ -9099,7 +8818,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [window_ addSubview:[tabbar_ view]];
     [[emulated_ view] removeFromSuperview];
-    [emulated_ release];
     emulated_ = nil;
     [window_ setUserInteractionEnabled:YES];
 }
@@ -9327,7 +9045,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else if ([context isEqualToString:@"fixhalf"]) {
         if (button == [alert cancelButtonIndex]) {
             @synchronized (self) {
-                for (Package *broken in broken_) {
+                for (Package *broken in (id) broken_) {
                     [broken remove];
 
                     NSString *id = [broken id];
@@ -9349,7 +9067,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else if ([context isEqualToString:@"upgrade"]) {
         if (button == [alert firstOtherButtonIndex]) {
             @synchronized (self) {
-                for (Package *essential in essential_)
+                for (Package *essential in (id) essential_)
                     [essential install];
 
                 [self resolve];
@@ -9567,8 +9285,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) applicationOpenURL:(NSURL *)url {
     [super applicationOpenURL:url];
 
-    if (!loaded_) starturl_ = [url retain];
-    else [self openCydiaURL:url forExternal:YES];
+    if (!loaded_)
+        starturl_ = url;
+    else
+        [self openCydiaURL:url forExternal:YES];
 }
 
 - (void) applicationWillResignActive:(UIApplication *)application {
@@ -9618,13 +9338,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) addStashController {
     ++locked_;
-    stash_ = [[StashController alloc] init];
+    stash_ = [[[StashController alloc] init] autorelease];
     [window_ addSubview:[stash_ view]];
 }
 
 - (void) removeStashController {
     [[stash_ view] removeFromSuperview];
-    [stash_ release];
+    stash_ = nil;
     --locked_;
 }
 
@@ -9645,7 +9365,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setupViewControllers {
-    tabbar_ = [[CYTabBarController alloc] initWithDatabase:database_];
+    tabbar_ = [[[CYTabBarController alloc] initWithDatabase:database_] autorelease];
 
     NSMutableArray *items([NSMutableArray arrayWithObjects:
         [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
@@ -9694,19 +9414,19 @@ _trace();
     // this would disallow http{,s} URLs from accessing this data
     //[WebView registerURLSchemeAsLocal:@"cydia"];
 
-    Font12_ = [[UIFont systemFontOfSize:12] retain];
-    Font12Bold_ = [[UIFont boldSystemFontOfSize:12] retain];
-    Font14_ = [[UIFont systemFontOfSize:14] retain];
-    Font18Bold_ = [[UIFont boldSystemFontOfSize:18] retain];
-    Font22Bold_ = [[UIFont boldSystemFontOfSize:22] retain];
+    Font12_ = [UIFont systemFontOfSize:12];
+    Font12Bold_ = [UIFont boldSystemFontOfSize:12];
+    Font14_ = [UIFont systemFontOfSize:14];
+    Font18Bold_ = [UIFont boldSystemFontOfSize:18];
+    Font22Bold_ = [UIFont boldSystemFontOfSize:22];
 
-    essential_ = [[NSMutableArray alloc] initWithCapacity:4];
-    broken_ = [[NSMutableArray alloc] initWithCapacity:4];
+    essential_ = [NSMutableArray arrayWithCapacity:4];
+    broken_ = [NSMutableArray arrayWithCapacity:4];
 
     // XXX: I really need this thing... like, seriously... I'm sorry
     [[[CydiaWebViewController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
 
-    window_ = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+    window_ = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
@@ -9737,7 +9457,7 @@ _trace();
     [window_ setUserInteractionEnabled:NO];
     [self setupViewControllers];
 
-    emulated_ = [[CYEmulatedLoadingController alloc] initWithDatabase:database_];
+    emulated_ = [[[CYEmulatedLoadingController alloc] initWithDatabase:database_] autorelease];
     [window_ addSubview:[emulated_ view]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
@@ -9837,7 +9557,6 @@ _trace();
     // (Try to) show the startup URL.
     if (starturl_ != nil) {
         [self openCydiaURL:starturl_ forExternal:NO];
-        [starturl_ release];
         starturl_ = nil;
     }
 }
@@ -9979,9 +9698,9 @@ int main(int argc, char *argv[]) { _pooled
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
 
-    SessionData_ = [[NSMutableDictionary alloc] initWithCapacity:4];
+    SessionData_ = [NSMutableDictionary dictionaryWithCapacity:4];
 
-    HostConfig_ = [[NSObject alloc] init];
+    HostConfig_ = [[[NSObject alloc] init] autorelease];
     @synchronized (HostConfig_) {
         BridgedHosts_ = [NSMutableSet setWithCapacity:4];
         PipelinedHosts_ = [NSMutableSet setWithCapacity:4];

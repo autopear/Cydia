@@ -65,9 +65,9 @@
     _transient CyteWebView *webview_;
     _transient UIScrollView *scroller_;
 
-    UIActivityIndicatorView *indicator_;
-    IndirectDelegate *indirect_;
-    NSURLAuthenticationChallenge *challenge_;
+    _H<UIActivityIndicatorView> indicator_;
+    _H<IndirectDelegate> indirect_;
+    _H<NSURLAuthenticationChallenge> challenge_;
 
     bool error_;
     _H<NSURLRequest> request_;
@@ -77,8 +77,8 @@
 
     _transient NSNumber *sensitive_;
 
-    NSString *title_;
-    NSMutableSet *loading_;
+    _H<NSString> title_;
+    _H<NSMutableSet> loading_;
 
     // XXX: NSString * or UIImage *
     _H<NSObject> custom_;
@@ -89,8 +89,8 @@
     float width_;
     Class class_;
 
-    UIBarButtonItem *reloaditem_;
-    UIBarButtonItem *loadingitem_;
+    _H<UIBarButtonItem> reloaditem_;
+    _H<UIBarButtonItem> loadingitem_;
 
     bool visible_;
     bool hidesNavigationBar_;

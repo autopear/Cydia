@@ -37,14 +37,6 @@ extern NSString * const kCAFilterNearest;
 // XXX: centralize these special class things to some file or mechanism?
 static Class $MFMailComposeViewController;
 
-template <typename Type_>
-static inline void CYRelease(Type_ &value) {
-    if (value != nil) {
-        [value release];
-        value = nil;
-    }
-}
-
 float CYScrollViewDecelerationRateNormal;
 
 @interface WebView (Apple)
@@ -147,24 +139,10 @@ float CYScrollViewDecelerationRateNormal;
 #endif
 
     [webview_ setDelegate:nil];
-
     [indirect_ setDelegate:nil];
-    [indirect_ release];
-
-    if (challenge_ != nil)
-        [challenge_ release];
-
-    if (title_ != nil)
-        [title_ release];
 
     if ([loading_ count] != 0)
         [delegate_ releaseNetworkActivityIndicator];
-    [loading_ release];
-
-    [reloaditem_ release];
-    [loadingitem_ release];
-
-    [indicator_ release];
 
     [super dealloc];
 }
@@ -529,9 +507,7 @@ float CYScrollViewDecelerationRateNormal;
     if ([frame parentFrame] != nil)
         return;
 
-    if (title_ != nil)
-        [title_ autorelease];
-    title_ = [title retain];
+    title_ = title;
 
     [[self navigationItem] setTitle:title_];
 }
@@ -544,7 +520,7 @@ float CYScrollViewDecelerationRateNormal;
     [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
-        CYRelease(title_);
+        title_ = nil;
         custom_ = nil;
         style_ = nil;
         function_ = nil;
@@ -625,7 +601,6 @@ float CYScrollViewDecelerationRateNormal;
             _nodefault
         }
 
-        [challenge_ release];
         challenge_ = nil;
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
@@ -758,9 +733,9 @@ float CYScrollViewDecelerationRateNormal;
         allowsNavigationAction_ = true;
 
         class_ = _class;
-        loading_ = [[NSMutableSet alloc] initWithCapacity:5];
+        loading_ = [NSMutableSet setWithCapacity:5];
 
-        indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
+        indirect_ = [[[IndirectDelegate alloc] initWithDelegate:self] autorelease];
 
         CGRect bounds([[self view] bounds]);
 
@@ -841,21 +816,21 @@ float CYScrollViewDecelerationRateNormal;
 
         [self setViewportWidth:width];
 
-        reloaditem_ = [[UIBarButtonItem alloc]
+        reloaditem_ = [[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("RELOAD")
             style:[self rightButtonStyle]
             target:self
             action:@selector(reloadButtonClicked)
-        ];
+        ] autorelease];
 
-        loadingitem_ = [[UIBarButtonItem alloc]
+        loadingitem_ = [[[UIBarButtonItem alloc]
             initWithTitle:@" "
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(reloadButtonClicked)
-        ];
+        ] autorelease];
 
-        indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite]; 
+        indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite] autorelease];
         [indicator_ setFrame:CGRectMake(15, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
 
         UITableView *table([[[UITableView alloc] initWithFrame:bounds style:UITableViewStyleGrouped] autorelease]);

@@ -341,7 +341,7 @@ float CYScrollViewDecelerationRateNormal;
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
     [self _didFinishLoading];
 
-    if ([error code] == NSURLErrorCancelled)
+    if ([[error domain] isEqualToString:NSURLErrorDomain] && [error code] == NSURLErrorCancelled)
         return;
 
     if ([frame parentFrame] == nil) {

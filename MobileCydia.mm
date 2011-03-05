@@ -8243,7 +8243,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease];
 
     [alert setContext:@"source"];
-    [alert setTransform:CGAffineTransformTranslate([alert transform], 0.0, 100.0)];
 
     [alert setNumberOfRows:1];
     [alert addTextFieldWithValue:@"http://" label:@""];

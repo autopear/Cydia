@@ -45,13 +45,6 @@
 #include "iPhonePrivate.h"
 
 // CYWebPolicyDecision* {{{
-enum CYWebPolicyDecision {
-    CYWebPolicyDecisionUnknown,
-    CYWebPolicyDecisionDownload,
-    CYWebPolicyDecisionIgnore,
-    CYWebPolicyDecisionUse,
-};
-
 @interface CYWebPolicyDecisionMediator : NSObject <
     WebPolicyDecisionListener
 > {
@@ -165,6 +158,7 @@ static void $UIWebViewWebViewDelegate$webView$addMessageToConsole$(UIWebViewWebV
         [delegate webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
     if (![mediator decided] && [UIWebView instancesRespondToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
         [super webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
+    [delegate webView:view didDecidePolicy:[mediator decision] forNavigationAction:action request:request frame:frame];
     [mediator decide];
 }
 // }}}

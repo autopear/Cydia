@@ -411,15 +411,18 @@ float CYScrollViewDecelerationRateNormal;
         if (!error_) {
             NSURL *url(request == nil ? nil : [request URL]);
 
-            if (request_ == nil || [self allowsNavigationAction] || [[request_ URL] isEqual:url])
-                request_ = request;
-            else {
+            if (request_ != nil && ![[request_ URL] isEqual:url] && ![self allowsNavigationAction]) {
                 if (url != nil)
                     [self pushRequest:request asPop:NO];
                 [listener ignore];
             }
         }
     }
+}
+
+- (void) webView:(WebView *)view didDecidePolicy:(CYWebPolicyDecision)decision forNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame {
+    if (decision == CYWebPolicyDecisionUse)
+        request_ = request;
 }
 
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {

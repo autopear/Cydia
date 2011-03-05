@@ -50,11 +50,19 @@
 
 #include <JavaScriptCore/JavaScriptCore.h>
 
+enum CYWebPolicyDecision {
+    CYWebPolicyDecisionUnknown,
+    CYWebPolicyDecisionDownload,
+    CYWebPolicyDecisionIgnore,
+    CYWebPolicyDecisionUse,
+};
+
 @protocol CyteWebViewDelegate <UIWebViewDelegate>
 - (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message;
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener;
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener;
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view didDecidePolicy:(CYWebPolicyDecision)decision forNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame;
 - (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame;

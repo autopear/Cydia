@@ -4472,7 +4472,7 @@ static NSMutableSet *Diversions_;
 }
 
 - (NSURL *) navigationURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request_ URL] absoluteString]]];
+    return request_ == nil ? nil : [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request_ URL] absoluteString]]];
 }
 
 + (void) initialize {

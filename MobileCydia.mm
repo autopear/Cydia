@@ -123,6 +123,7 @@ extern "C" {
 #include "Menes/Menes.h"
 
 #include "CyteKit/PerlCompatibleRegEx.hpp"
+#include "CyteKit/TableViewCell.h"
 #include "CyteKit/WebScriptObject-Cyte.h"
 #include "CyteKit/WebViewController.h"
 #include "CyteKit/stringWithUTF8Bytes.h"
@@ -5235,71 +5236,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 
-/* Cell Content View {{{ */
-@protocol ContentDelegate
-- (void) drawContentRect:(CGRect)rect;
-@end
-
-@interface ContentView : UIView {
-    _transient id<ContentDelegate> delegate_;
-}
-
-@end
-
-@implementation ContentView
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        [self setNeedsDisplayOnBoundsChange:YES];
-    } return self;
-}
-
-- (void) setDelegate:(id<ContentDelegate>)delegate {
-    delegate_ = delegate;
-}
-
-- (void) drawRect:(CGRect)rect {
-    [super drawRect:rect];
-    [delegate_ drawContentRect:rect];
-}
-
-@end
-/* }}} */
-/* Cydia TableView Cell {{{ */
-@interface CYTableViewCell : UITableViewCell {
-    _H<ContentView> content_;
-    bool highlighted_;
-}
-
-@end
-
-@implementation CYTableViewCell
-
-- (void) _updateHighlightColorsForView:(UIView *)view highlighted:(BOOL)highlighted {
-    //NSLog(@"_updateHighlightColorsForView:%@ highlighted:%s [content_=%@]", view, highlighted ? "YES" : "NO", content_);
-
-    if (view == (UIView *) content_) {
-        //NSLog(@"_updateHighlightColorsForView:content_ highlighted:%s", highlighted ? "YES" : "NO", content_);
-        highlighted_ = highlighted;
-    }
-
-    [super _updateHighlightColorsForView:view highlighted:highlighted];
-}
-
-- (void) setSelected:(BOOL)selected animated:(BOOL)animated {
-    //NSLog(@"setSelected:%s animated:%s", selected ? "YES" : "NO", animated ? "YES" : "NO");
-    highlighted_ = selected;
-
-    [super setSelected:selected animated:animated];
-    [content_ setNeedsDisplay];
-}
-
-@end
-/* }}} */
-
 /* Package Cell {{{ */
 @interface PackageCell : CYTableViewCell <
-    ContentDelegate
+    CyteTableViewCellDelegate
 > {
     _H<UIImage> icon_;
     _H<NSString> name_;
@@ -5327,7 +5266,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[[ContentView alloc] initWithFrame:bounds] autorelease];
+        content_ = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
         [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content addSubview:content_];
 
@@ -5521,7 +5460,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 /* Section Cell {{{ */
 @interface SectionCell : CYTableViewCell <
-    ContentDelegate
+    CyteTableViewCellDelegate
 > {
     _H<NSString> basic_;
     _H<NSString> section_;
@@ -5547,7 +5486,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[[ContentView alloc] initWithFrame:bounds] autorelease];
+        content_ = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
         [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content addSubview:content_];
         [content_ setBackgroundColor:[UIColor whiteColor]];
@@ -7850,7 +7789,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Source Cell {{{ */
 @interface SourceCell : CYTableViewCell <
-    ContentDelegate
+    CyteTableViewCellDelegate
 > {
     _H<UIImage> icon_;
     _H<NSString> origin_;
@@ -7881,7 +7820,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[[ContentView alloc] initWithFrame:bounds] autorelease];
+        content_ = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
         [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [content_ setBackgroundColor:[UIColor whiteColor]];
         [content addSubview:content_];

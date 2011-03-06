@@ -6957,6 +6957,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         Package *package([database packageWithName:path]);
         if (package == nil)
             goto fail;
+        [package parse];
         UIImage *icon([package icon]);
         [self _returnPNGWithImage:icon forRequest:request];
     } else if ([command isEqualToString:@"source-icon"]) {

@@ -5309,10 +5309,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _H<UIImage> badge_;
     _H<Package> package_;
     _H<UIImage> placard_;
+    bool summarized_;
 }
 
 - (PackageCell *) init;
-- (void) setPackage:(Package *)package;
+- (void) setPackage:(Package *)package asSummary:(bool)summary;
 
 - (void) drawContentRect:(CGRect)rect;
 
@@ -5339,7 +5340,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), (id) name_, (id) description_];
 }
 
-- (void) setPackage:(Package *)package {
+- (void) setPackage:(Package *)package asSummary:(bool)summary {
+    summarized_ = summary;
+
     icon_ = nil;
     name_ = nil;
     description_ = nil;
@@ -5420,15 +5423,50 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [content_ setNeedsDisplay];
 }
 
-- (void) drawContentRect:(CGRect)rect {
+- (void) drawSummaryContentRect:(CGRect)rect {
     bool highlighted(highlighted_);
     float width([self bounds].size.width);
 
-#if 0
-    CGContextRef context(UIGraphicsGetCurrentContext());
-    [([[self selectedBackgroundView] superview] != nil ? [UIColor clearColor] : [self backgroundColor]) set];
-    CGContextFillRect(context, rect);
-#endif
+    if (icon_ != nil) {
+        CGRect rect;
+        rect.size = [(UIImage *) icon_ size];
+
+        rect.size.width /= 4;
+        rect.size.height /= 4;
+
+        rect.origin.x = 14 - rect.size.width / 4;
+        rect.origin.y = 14 - rect.size.height / 4;
+
+        [icon_ drawInRect:rect];
+    }
+
+    if (badge_ != nil) {
+        CGRect rect;
+        rect.size = [(UIImage *) badge_ size];
+
+        rect.size.width /= 4;
+        rect.size.height /= 4;
+
+        rect.origin.x = 20 - rect.size.width / 4;
+        rect.origin.y = 20 - rect.size.height / 4;
+
+        [badge_ drawInRect:rect];
+    }
+
+    if (highlighted)
+        UISetColor(White_);
+
+    if (!highlighted)
+        UISetColor(commercial_ ? Purple_ : Black_);
+    [name_ drawAtPoint:CGPointMake(36, 8) forWidth:(width - (placard_ == nil ? 68 : 94)) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
+
+    if (placard_ != nil)
+        [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
+}
+
+- (void) drawNormalContentRect:(CGRect)rect {
+    bool highlighted(highlighted_);
+    float width([self bounds].size.width);
 
     if (icon_ != nil) {
         CGRect rect;
@@ -5470,6 +5508,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (placard_ != nil)
         [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
+}
+
+- (void) drawContentRect:(CGRect)rect {
+    if (summarized_)
+        [self drawSummaryContentRect:rect];
+    else
+        [self drawNormalContentRect:rect];
 }
 
 @end
@@ -5903,6 +5948,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database title:(NSString *)title;
 - (void) setDelegate:(id)delegate;
 - (void) resetCursor;
+- (void) clearData;
 
 @end
 
@@ -5912,6 +5958,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ setDataSource:nil];
     [list_ setDelegate:nil];
     [super dealloc];
+}
+
+- (bool) isSummarized {
+    return false;
 }
 
 - (void) deselectWithAnimation:(BOOL)animated {
@@ -6033,7 +6083,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     PackageCell *cell((PackageCell *) [table dequeueReusableCellWithIdentifier:@"Package"]);
     if (cell == nil)
         cell = [[[PackageCell alloc] init] autorelease];
-    [cell setPackage:[self packageAtIndexPath:path]];
+    [cell setPackage:[self packageAtIndexPath:path] asSummary:[self isSummarized]];
     return cell;
 }
 
@@ -6044,6 +6094,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
+    if ([self isSummarized])
+        return nil;
+
     return index_;
 }
 
@@ -6055,6 +6108,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 
     return index;
+}
+
+- (void) updateHeight {
+    [list_ setRowHeight:([self isSummarized] ? 38 : 73)];
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title {
@@ -6077,7 +6134,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [list_ setRowHeight:73];
         [[self view] addSubview:list_];
 
         // XXX: is 20 the most optimal number here?
@@ -6085,6 +6141,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [(UITableView *) list_ setDataSource:self];
         [list_ setDelegate:self];
+
+        [self updateHeight];
     } return self;
 }
 
@@ -6164,6 +6222,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     {
         [index_ removeAllObjects];
 
+        bool summary([self isSummarized]);
+        if (summary) {
+            section = [[[Section alloc] initWithName:nil localize:false] autorelease];
+            [sections_ addObject:section];
+        }
+
         _profile(PackageTable$reloadData$Section)
             for (size_t offset(0), end([packages_ count]); offset != end; ++offset) {
                 Package *package;
@@ -6174,7 +6238,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     index = [package index];
                 _end
 
-                if (section == nil || [section index] != index) {
+                if (!summary && (section == nil || [section index] != index)) {
                     _profile(PackageTable$reloadData$Section$Allocate)
                         section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
                     _end
@@ -6192,7 +6256,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         _end
     }
 
+    [self updateHeight];
+
     _profile(PackageTable$reloadData$List)
+        [(UITableView *) list_ setDataSource:self];
         [list_ reloadData];
     _end
 }
@@ -6204,6 +6271,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) resetCursor {
     [list_ scrollRectToVisible:CGRectMake(0, 0, 1, 1) animated:NO];
+}
+
+- (void) clearData {
+    [self updateHeight];
+
+    [list_ setDataSource:nil];
+    [list_ reloadData];
+
+    [self resetCursor];
 }
 
 @end
@@ -7225,7 +7301,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     PackageCell *cell((PackageCell *) [table dequeueReusableCellWithIdentifier:@"Package"]);
     if (cell == nil)
         cell = [[[PackageCell alloc] init] autorelease];
-    [cell setPackage:[self packageAtIndexPath:path]];
+    [cell setPackage:[self packageAtIndexPath:path] asSummary:false];
     return cell;
 }
 
@@ -7427,14 +7503,28 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [search_ text]]];
 }
 
+- (void) useSearch {
+    [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+    [self clearData];
+    [self reloadData];
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+
+    if ([self filter] == @selector(isUnfilteredAndSelectedForBy:))
+        [self useSearch];
+}
+
 - (void) searchBarTextDidBeginEditing:(UISearchBar *)searchBar {
     [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSelectedForBy:)];
+    [self clearData];
+    [self reloadData];
 }
 
 - (void) searchBarButtonClicked:(UISearchBar *)searchBar {
-    [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [search_ resignFirstResponder];
-    [self reloadData];
+    [self useSearch];
 }
 
 - (void) searchBarCancelButtonClicked:(UISearchBar *)searchBar {
@@ -7453,6 +7543,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (bool) shouldYield {
     return [self filter] == @selector(isUnfilteredAndSearchedForBy:);
+}
+
+- (bool) isSummarized {
+    return [self filter] == @selector(isUnfilteredAndSelectedForBy:);
 }
 
 - (id) initWithDatabase:(Database *)database query:(NSString *)query {

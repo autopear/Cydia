@@ -279,83 +279,6 @@ static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSC
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareCaseInsensitive | kCFCompareNonliteral | kCFCompareLocalized | kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
 
-/* Radix Sort {{{ */
-typedef uint32_t (*SKRadixFunction)(id, void *);
-
-@interface NSMutableArray (Radix)
-- (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument;
-@end
-
-struct RadixItem_ {
-    size_t index;
-    uint32_t key;
-};
-
-@implementation NSMutableArray (Radix)
-
-- (void) radixSortUsingFunction:(SKRadixFunction)function withContext:(void *)argument {
-    size_t count([self count]);
-    struct RadixItem_ *swap(new RadixItem_[count * 2]);
-
-    for (size_t i(0); i != count; ++i) {
-        RadixItem_ &item(swap[i]);
-        item.index = i;
-
-        id object([self objectAtIndex:i]);
-        item.key = function(object, argument);
-    }
-
-    struct RadixItem_ *lhs(swap), *rhs(swap + count);
-
-    static const size_t width = 32;
-    static const size_t bits = 11;
-    static const size_t slots = 1 << bits;
-    static const size_t passes = (width + (bits - 1)) / bits;
-
-    size_t *hist(new size_t[slots]);
-
-    for (size_t pass(0); pass != passes; ++pass) {
-        memset(hist, 0, sizeof(size_t) * slots);
-
-        for (size_t i(0); i != count; ++i) {
-            uint32_t key(lhs[i].key);
-            key >>= pass * bits;
-            key &= _not(uint32_t) >> width - bits;
-            ++hist[key];
-        }
-
-        size_t offset(0);
-        for (size_t i(0); i != slots; ++i) {
-            size_t local(offset);
-            offset += hist[i];
-            hist[i] = local;
-        }
-
-        for (size_t i(0); i != count; ++i) {
-            uint32_t key(lhs[i].key);
-            key >>= pass * bits;
-            key &= _not(uint32_t) >> width - bits;
-            rhs[hist[key]++] = lhs[i];
-        }
-
-        RadixItem_ *tmp(lhs);
-        lhs = rhs;
-        rhs = tmp;
-    }
-
-    delete [] hist;
-
-    const void **values(new const void *[count]);
-    for (size_t i(0); i != count; ++i)
-        values[i] = [self objectAtIndex:lhs[i].index];
-    CFArrayReplaceValues((CFMutableArrayRef) self, CFRangeMake(0, count), values, count);
-    delete [] values;
-
-    delete [] swap;
-}
-
-@end
-/* }}} */
 /* Insertion Sort {{{ */
 
 CFIndex SKBSearch_(const void *element, CFIndex elementSize, const void *list, CFIndex count, CFComparatorFunction comparator, void *context) {
@@ -3508,9 +3431,9 @@ static NSString *Warning_;
             packages_ = [[NSArray alloc] initWithObjects:&packages.front() count:packages.size()];
         _trace();*/
 
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(16)];
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(4)];
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(0)];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(16)];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(4)];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(0)];
 
         /*_trace();
         PrintTimes();
@@ -7306,7 +7229,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _end
     _trace();
     _profile(ChangesController$_reloadPackages$radixSort)
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<SKRadixFunction>(&PackageChangesRadix) withContext:NULL];
+        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackageChangesRadix) withContext:NULL];
     _end
     _trace();
 }

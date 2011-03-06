@@ -37,11 +37,15 @@
 */
 /* }}} */
 
-#ifndef Menes_Menes_H
-#define Menes_Menes_H
+#ifndef Menes_radixSort_H
+#define Menes_radixSort_H
 
-#include "Menes/invocationWithSelector.h"
-#include "Menes/radixSortWithSelector.h"
-#include "Menes/yieldToSelector.h"
+#include <Foundation/Foundation.h>
 
-#endif//Menes_Menes_H
+typedef uint32_t (*MenesRadixSortFunction)(id, void *);
+
+@interface NSMutableArray (MenesRadixSortWithSelector)
+- (void) radixSortUsingFunction:(MenesRadixSortFunction)function withContext:(void *)argument;
+@end
+
+#endif//Menes_radixSort_H

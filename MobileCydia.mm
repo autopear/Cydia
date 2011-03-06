@@ -6201,7 +6201,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) resetCursor {
-    [list_ scrollRectToVisible:CGRectMake(0, 0, 0, 0) animated:NO];
+    [list_ scrollRectToVisible:CGRectMake(0, 0, 1, 1) animated:NO];
 }
 
 @end

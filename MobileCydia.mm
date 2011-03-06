@@ -6044,8 +6044,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
-    // XXX: is 20 the most optimal number here?
-    return [packages_ count] > 20 ? index_ : nil;
+    return index_;
 }
 
 - (NSInteger) tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index {
@@ -6080,6 +6079,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [list_ setRowHeight:73];
         [[self view] addSubview:list_];
+
+        // XXX: is 20 the most optimal number here?
+        [list_ setSectionIndexMinimumDisplayRowCount:20];
 
         [(UITableView *) list_ setDataSource:self];
         [list_ setDelegate:self];

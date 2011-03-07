@@ -5833,10 +5833,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     delegate_ = delegate;
 }
 
-- (bool) hasPackage:(Package *)package {
-    return true;
-}
-
 - (bool) shouldYield {
     return false;
 }
@@ -5848,15 +5844,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (NSArray *) _reloadPackages:(NSArray *)packages {
 // XXX: maybe move @synchronized() to _reloadData?
 @synchronized (database_) {
-    NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
-
-    _profile(PackageTable$reloadData$Filter)
-        for (Package *package in packages)
-            if ([self hasPackage:package])
-                [filtered addObject:package];
-    _end
-
-    return filtered;
+    return [NSArray arrayWithArray:packages];
 } }
 
 - (void) _reloadData {
@@ -6018,6 +6006,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) setFilter:(SEL)filter {
+@synchronized (self) {
     filter_ = filter;
 
     /* XXX: this is an unsafe optimization of doomy hell */
@@ -6025,22 +6014,41 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _assert(method != NULL);
     imp_ = method_getImplementation(method);
     _assert(imp_ != NULL);
-}
+} }
 
 - (void) setObject:(id)object {
+@synchronized (self) {
     object_ = object;
-}
+} }
 
 - (void) setObject:(id)object forFilter:(SEL)filter {
     [self setFilter:filter];
     [self setObject:object];
 }
 
-- (bool) hasPackage:(Package *)package {
-    _profile(FilteredPackageTable$hasPackage)
-        return [package valid] && (*reinterpret_cast<bool (*)(id, SEL, id)>(imp_))(package, filter_, object_);
+- (NSArray *) _reloadPackages:(NSArray *)packages {
+// XXX: maybe move @synchronized() to _reloadData?
+@synchronized (database_) {
+    NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
+
+    IMP imp;
+    SEL filter;
+    _H<NSObject> object;
+
+    @synchronized (self) {
+        imp = imp_;
+        filter = filter_;
+        object = object_;
+    }
+
+    _profile(PackageTable$reloadData$Filter)
+        for (Package *package in packages)
+            if ([package valid] && (*reinterpret_cast<bool (*)(id, SEL, id)>(imp))(package, filter, object))
+                [filtered addObject:package];
     _end
-}
+
+    return filtered;
+} }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title filter:(SEL)filter with:(id)object {
     if ((self = [super initWithDatabase:database title:title]) != nil) {

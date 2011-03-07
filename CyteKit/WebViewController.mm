@@ -324,7 +324,7 @@ float CYScrollViewDecelerationRateNormal;
         return;
 
     if ([[error domain] isEqualToString:WebKitErrorDomain] && [error code] == WebKitErrorFrameLoadInterruptedByPolicyChange) {
-        request_ = (id) stage2_;
+        request_ = stage2_;
         stage1_ = nil;
         stage2_ = nil;
         return;
@@ -414,7 +414,7 @@ float CYScrollViewDecelerationRateNormal;
     if ([frame parentFrame] == nil)
         if (decision == CYWebPolicyDecisionUse)
             if (!error_) {
-                stage1_ = (id) request_;
+                stage1_ = request_;
                 request_ = request;
             }
 }
@@ -525,7 +525,7 @@ float CYScrollViewDecelerationRateNormal;
         style_ = nil;
         function_ = nil;
 
-        stage2_ = (id) stage1_;
+        stage2_ = stage1_;
         stage1_ = nil;
 
         [self setHidesNavigationBar:NO];

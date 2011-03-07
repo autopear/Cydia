@@ -85,6 +85,10 @@ class MenesObjectHandle {
                 CFRelease((CFTypeRef) old);
         } return *this;
     }
+
+    _finline MenesObjectHandle &operator =(const MenesObjectHandle &value) {
+        return this->operator =(value.operator Type_ *());
+    }
 };
 
 #define _H MenesObjectHandle

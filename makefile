@@ -144,9 +144,12 @@ package: MobileCydia $(images)
 	
 	cd MobileCydia.app && find . -name '*.png' -exec cp -af ../Images/MobileCydia.app/{} ../_/Applications/Cydia.app/{} ';'
 	
+	#mkdir -p _/Applications/AppleTV.app/Appliances
+	#cp -a Cydia.frappliance _/Applications/AppleTV.app/Appliances
+	#cp -a CydiaAppliance _/Applications/AppleTV.app/Appliances/Cydia.frappliance
+	
 	#mkdir -p _/Applications/Lowtide.app/Appliances
-	#cp -a Cydia.frappliance _/Applications/Lowtide.app/Appliances
-	#cp -a CydiaAppliance _/Applications/Lowtide.app/Appliances/Cydia.frappliance
+	#ln -s {/Applications/AppleTV,_/Applications/Lowtide}.app/Appliances/Cydia.frappliance
 	
 	mkdir -p _/DEBIAN
 	./control.sh _ >_/DEBIAN/control

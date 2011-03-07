@@ -130,6 +130,7 @@ extern "C" {
 #include "CyteKit/stringWithUTF8Bytes.h"
 
 #include "Cydia/MIMEAddress.h"
+#include "Cydia/LoadingViewController.h"
 #include "Cydia/ProgressEvent.h"
 
 #include "SDURLCache/SDURLCache.h"
@@ -2966,7 +2967,7 @@ struct PackageNameOrdering :
 /* }}} */
 
 static NSString *Colon_;
-static NSString *Elision_;
+NSString *Elision_;
 static NSString *Error_;
 static NSString *Warning_;
 
@@ -4176,103 +4177,6 @@ static _H<NSMutableSet> Diversions_;
 @end
 /* }}} */
 
-/* @ Loading... Indicator {{{ */
-@interface CYLoadingIndicator : UIView {
-    _H<UIActivityIndicatorView> spinner_;
-    _H<UILabel> label_;
-    _H<UIView> container_;
-}
-
-@end
-
-@implementation CYLoadingIndicator
-
-- (id) initWithFrame:(CGRect)frame {
-    if ((self = [super initWithFrame:frame]) != nil) {
-        container_ = [[[UIView alloc] init] autorelease];
-        [container_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
-
-        spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray] autorelease];
-        [spinner_ startAnimating];
-        [container_ addSubview:spinner_];
-
-        label_ = [[[UILabel alloc] init] autorelease];
-        [label_ setFont:[UIFont boldSystemFontOfSize:15.0f]];
-        [label_ setBackgroundColor:[UIColor clearColor]];
-        [label_ setTextColor:[UIColor blackColor]];
-        [label_ setShadowColor:[UIColor whiteColor]];
-        [label_ setShadowOffset:CGSizeMake(0, 1)];
-        [label_ setText:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil]];
-        [container_ addSubview:label_];
-
-        CGSize viewsize = frame.size;
-        CGSize spinnersize = [spinner_ bounds].size;
-        CGSize textsize = [[label_ text] sizeWithFont:[label_ font]];
-        float bothwidth = spinnersize.width + textsize.width + 5.0f;
-
-        CGRect containrect = {
-            CGPointMake(floorf((viewsize.width / 2) - (bothwidth / 2)), floorf((viewsize.height / 2) - (spinnersize.height / 2))),
-            CGSizeMake(bothwidth, spinnersize.height)
-        };
-        CGRect textrect = {
-            CGPointMake(spinnersize.width + 5.0f, floorf((spinnersize.height / 2) - (textsize.height / 2))),
-            textsize
-        };
-        CGRect spinrect = {
-            CGPointZero,
-            spinnersize
-        };
-
-        [container_ setFrame:containrect];
-        [spinner_ setFrame:spinrect];
-        [label_ setFrame:textrect];
-        [self addSubview:container_];
-    } return self;
-}
-
-@end
-/* }}} */
-/* Emulated Loading Controller {{{ */
-@interface CYEmulatedLoadingController : CyteViewController {
-    _H<CYLoadingIndicator> indicator_;
-    _H<UITabBar> tabbar_;
-    _H<UINavigationBar> navbar_;
-}
-
-@end
-
-@implementation CYEmulatedLoadingController
-
-- (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
-
-    UITableView *table([[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease]);
-    [table setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [[self view] addSubview:table];
-
-    indicator_ = [[[CYLoadingIndicator alloc] initWithFrame:[[self view] bounds]] autorelease];
-    [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [[self view] addSubview:indicator_];
-
-    tabbar_ = [[[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)] autorelease];
-    [tabbar_ setFrame:CGRectMake(0.0f, [[self view] bounds].size.height - [tabbar_ bounds].size.height, [[self view] bounds].size.width, [tabbar_ bounds].size.height)];
-    [tabbar_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth];
-    [[self view] addSubview:tabbar_];
-
-    navbar_ = [[[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)] autorelease];
-    [navbar_ setFrame:CGRectMake(0.0f, 0.0f, [[self view] bounds].size.width, [navbar_ bounds].size.height)];
-    [navbar_ setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth];
-    [[self view] addSubview:navbar_];
-}
-
-- (void) releaseSubviews {
-    indicator_ = nil;
-    tabbar_ = nil;
-    navbar_ = nil;
-}
-
-@end
-/* }}} */
 
 /* Cydia Browser Controller {{{ */
 @implementation CydiaWebViewController
@@ -8496,7 +8400,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 > {
     _H<UIWindow> window_;
     _H<CYTabBarController> tabbar_;
-    _H<CYEmulatedLoadingController> emulated_;
+    _H<CydiaLoadingViewController> emulated_;
 
     _H<NSMutableArray> essential_;
     _H<NSMutableArray> broken_;
@@ -9372,7 +9276,7 @@ _trace();
     [window_ setUserInteractionEnabled:NO];
     [self setupViewControllers];
 
-    emulated_ = [[[CYEmulatedLoadingController alloc] init] autorelease];
+    emulated_ = [[[CydiaLoadingViewController alloc] init] autorelease];
     [window_ addSubview:[emulated_ view]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];

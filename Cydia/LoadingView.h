@@ -37,17 +37,19 @@
 */
 /* }}} */
 
-#ifndef CyteKit_Localize_H
-#define CyteKit_Localize_H
+#ifndef Cydia_LoadingView_H
+#define Cydia_LoadingView_H
 
-#include <Foundation/Foundation.h>
+#include "Menes/ObjectHandle.h"
 
-static inline NSString *UCLocalizeEx(NSString *key, NSString *value = nil) {
-    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:nil];
+#include <UIKit/UIKit.h>
+
+@interface CydiaLoadingView : UIView {
+    _H<UIActivityIndicatorView> spinner_;
+    _H<UILabel> label_;
+    _H<UIView> container_;
 }
 
-#define UCLocalize(key) UCLocalizeEx(@ key)
+@end
 
-extern NSString *Elision_;
-
-#endif//CyteKit_Localize_H
+#endif//Cydia_LoadingView_H

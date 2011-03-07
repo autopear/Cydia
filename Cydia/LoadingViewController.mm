@@ -37,17 +37,36 @@
 */
 /* }}} */
 
-#ifndef CyteKit_Localize_H
-#define CyteKit_Localize_H
+#include "Cydia/LoadingViewController.h"
 
-#include <Foundation/Foundation.h>
+@implementation CydiaLoadingViewController
 
-static inline NSString *UCLocalizeEx(NSString *key, NSString *value = nil) {
-    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:nil];
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    UITableView *table([[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease]);
+    [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [[self view] addSubview:table];
+
+    indicator_ = [[[CydiaLoadingView alloc] initWithFrame:[[self view] bounds]] autorelease];
+    [indicator_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [[self view] addSubview:indicator_];
+
+    tabbar_ = [[[UITabBar alloc] initWithFrame:CGRectMake(0, 0, 0, 49.0f)] autorelease];
+    [tabbar_ setFrame:CGRectMake(0.0f, [[self view] bounds].size.height - [tabbar_ bounds].size.height, [[self view] bounds].size.width, [tabbar_ bounds].size.height)];
+    [tabbar_ setAutoresizingMask:(UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth)];
+    [[self view] addSubview:tabbar_];
+
+    navbar_ = [[[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, 0, 44.0f)] autorelease];
+    [navbar_ setFrame:CGRectMake(0.0f, 0.0f, [[self view] bounds].size.width, [navbar_ bounds].size.height)];
+    [navbar_ setAutoresizingMask:(UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth)];
+    [[self view] addSubview:navbar_];
 }
 
-#define UCLocalize(key) UCLocalizeEx(@ key)
+- (void) releaseSubviews {
+    indicator_ = nil;
+    tabbar_ = nil;
+    navbar_ = nil;
+}
 
-extern NSString *Elision_;
-
-#endif//CyteKit_Localize_H
+@end

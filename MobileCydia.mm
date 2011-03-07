@@ -5803,12 +5803,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 > {
     _transient Database *database_;
     unsigned era_;
-    _H<NSMutableArray> packages_;
+    _H<NSArray> packages_;
     _H<NSMutableArray> sections_;
     _H<UITableView> list_;
     _H<NSMutableArray> index_;
     _H<NSMutableDictionary> indices_;
     _H<NSString> title_;
+    unsigned reloading_;
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title;
@@ -5995,7 +5996,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         indices_ = [NSMutableDictionary dictionaryWithCapacity:32];
 
-        packages_ = [NSMutableArray arrayWithCapacity:16];
+        packages_ = [NSArray array];
         sections_ = [NSMutableArray arrayWithCapacity:16];
 
         list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
@@ -6024,31 +6025,56 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return false;
 }
 
-- (void) _reloadPackages:(NSArray *)packages {
-    [packages_ removeAllObjects];
-    [sections_ removeAllObjects];
+- (bool) shouldBlock {
+    return false;
+}
+
+- (NSArray *) _reloadPackages:(NSArray *)packages {
+    NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
 
     _profile(PackageTable$reloadData$Filter)
         for (Package *package in packages)
             if ([self hasPackage:package])
-                [packages_ addObject:package];
+                [filtered addObject:package];
     _end
+
+    return filtered;
 }
 
 - (void) _reloadData {
+    if (reloading_ != 0) {
+        reloading_ = 2;
+        return;
+    }
+
     era_ = [database_ era];
     NSArray *packages = [database_ packages];
 
     if ([self shouldYield]) {
-        UIProgressHUD *hud([delegate_ addProgressHUD]);
-        [hud setText:UCLocalize("LOADING")];
-        [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
-        [delegate_ removeProgressHUD:hud];
+        UIProgressHUD *hud;
+
+        if (![self shouldBlock])
+            hud = nil;
+        else {
+            hud = [delegate_ addProgressHUD];
+            [hud setText:UCLocalize("LOADING")];
+        }
+
+        do {
+            reloading_ = 1;
+            packages_ = [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
+        } while (reloading_ == 2);
+
+        reloading_ = 0;
+
+        if (hud != nil)
+            [delegate_ removeProgressHUD:hud];
     } else {
-        [self _reloadPackages:packages];
+        packages_ = [self _reloadPackages:packages];
     }
 
     [indices_ removeAllObjects];
+    [sections_ removeAllObjects];
 
     Section *section = nil;
 
@@ -7108,7 +7134,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 > {
     _transient Database *database_;
     unsigned era_;
-    CFMutableArrayRef packages_;
+    _H<NSArray> packages_;
     _H<NSMutableArray> sections_;
     _H<UITableView> list_;
     unsigned upgrades_;
@@ -7119,11 +7145,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation ChangesController
-
-- (void) dealloc {
-    CFRelease(packages_);
-    [super dealloc];
-}
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://changes"];
@@ -7151,10 +7172,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [[sections_ objectAtIndex:section] count];
 }
 
-- (Package *) packageAtIndex:(NSUInteger)index {
-    return (Package *) CFArrayGetValueAtIndex(packages_, index);
-}
-
 - (Package *) packageAtIndexPath:(NSIndexPath *)path {
 @synchronized (database_) {
     if ([database_ era] != era_)
@@ -7165,7 +7182,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return nil;
     Section *section([sections_ objectAtIndex:sectionIndex]);
     NSInteger row([path row]);
-    return [[[self packageAtIndex:([section row] + row)] retain] autorelease];
+    return [[[packages_ objectAtIndex:([section row] + row)] retain] autorelease];
 } }
 
 - (UITableViewCell *) tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -7218,28 +7235,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
 
-        packages_ = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
+        packages_ = [NSArray array];
         sections_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
-// this mostly works because reloadData (below) is @synchronized (database_)
-// XXX: that said, I've been running into problems with NSRangeExceptions :(
-- (void) _reloadPackages:(NSArray *)packages {
-    CFRelease(packages_);
-    packages_ = CFArrayCreateMutable(kCFAllocatorDefault, [packages count], NULL);
+- (NSArray *) _reloadPackages:(NSArray *)packages {
+    NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
 
     _trace();
     _profile(ChangesController$_reloadPackages$Filter)
         for (Package *package in packages)
             if ([package upgradableAndEssential:YES] || [package visible])
-                CFArrayAppendValue(packages_, package);
+                CFArrayAppendValue((CFMutableArrayRef) filtered, package);
     _end
     _trace();
     _profile(ChangesController$_reloadPackages$radixSort)
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackageChangesRadix) withContext:NULL];
+        [filtered radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackageChangesRadix) withContext:NULL];
     _end
     _trace();
+
+    return filtered;
 }
 
 - (void) _reloadData {
@@ -7251,10 +7267,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIProgressHUD *hud([delegate_ addProgressHUD]);
     [hud setText:UCLocalize("LOADING")];
     //NSLog(@"HUD:%@::%@", delegate_, hud);
-    [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
+    packages_ = [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
     [delegate_ removeProgressHUD:hud];
 #else
-    [self _reloadPackages:packages];
+    packages_ = [self _reloadPackages:packages];
 #endif
 
     [sections_ removeAllObjects];
@@ -7269,8 +7285,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     CFDateFormatterRef formatter(CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle));
 
-    for (size_t offset = 0, count = CFArrayGetCount(packages_); offset != count; ++offset) {
-        Package *package = [self packageAtIndex:offset];
+    for (size_t offset = 0, count = [packages_ count]; offset != count; ++offset) {
+        Package *package = [packages_ objectAtIndex:offset];
 
         BOOL uae = [package upgradableAndEssential:YES];
 
@@ -7310,7 +7326,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (unseens) {
         Section *last = [sections_ lastObject];
         size_t count = [last count];
-        CFArrayReplaceValues(packages_, CFRangeMake(CFArrayGetCount(packages_) - count, count), NULL, 0);
+        [packages_ removeObjectsInRange:NSMakeRange([packages_ count] - count, count)];
         [sections_ removeLastObject];
     }
 
@@ -7413,6 +7429,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (bool) shouldYield {
+    return YES;
+}
+
+- (bool) shouldBlock {
     return [self filter] == @selector(isUnfilteredAndSearchedForBy:);
 }
 

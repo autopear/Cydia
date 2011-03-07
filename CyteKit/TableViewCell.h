@@ -56,7 +56,7 @@
 
 @end
 
-@interface CYTableViewCell : UITableViewCell {
+@interface CyteTableViewCell : UITableViewCell {
     _H<CyteTableViewCellContentView, 1> content_;
     bool highlighted_;
 }

@@ -5161,7 +5161,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Package Cell {{{ */
-@interface PackageCell : CYTableViewCell <
+@interface PackageCell : CyteTableViewCell <
     CyteTableViewCellDelegate
 > {
     _H<UIImage> icon_;
@@ -5383,7 +5383,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 /* }}} */
 /* Section Cell {{{ */
-@interface SectionCell : CYTableViewCell <
+@interface SectionCell : CyteTableViewCell <
     CyteTableViewCellDelegate
 > {
     _H<NSString> basic_;
@@ -7714,7 +7714,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Source Cell {{{ */
-@interface SourceCell : CYTableViewCell <
+@interface SourceCell : CyteTableViewCell <
     CyteTableViewCellDelegate
 > {
     _H<UIImage> icon_;

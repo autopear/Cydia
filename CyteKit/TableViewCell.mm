@@ -60,7 +60,7 @@
 
 @end
 
-@implementation CYTableViewCell
+@implementation CyteTableViewCell
 
 - (void) _updateHighlightColorsForView:(UIView *)view highlighted:(BOOL)highlighted {
     if (view == (UIView *) content_)

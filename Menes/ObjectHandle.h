@@ -37,13 +37,56 @@
 */
 /* }}} */
 
-#ifndef Menes_Menes_H
-#define Menes_Menes_H
+#ifndef Menes_ObjectHandle_H
+#define Menes_ObjectHandle_H
 
-#include "Menes/ObjectHandle.h"
+template <typename Type_>
+class MenesObjectHandle {
+  private:
+    Type_ *value_;
 
-#include "Menes/invocationWithSelector.h"
-#include "Menes/radixSortWithSelector.h"
-#include "Menes/yieldToSelector.h"
+    _finline void Retain_() {
+        if (value_ != nil)
+            CFRetain((CFTypeRef) value_);
+    }
 
-#endif//Menes_Menes_H
+    _finline void Clear_() {
+        if (value_ != nil)
+            CFRelease((CFTypeRef) value_);
+    }
+
+  public:
+    _finline MenesObjectHandle(const MenesObjectHandle &rhs) :
+        value_(rhs.value_ == nil ? nil : (Type_ *) CFRetain((CFTypeRef) rhs.value_))
+    {
+    }
+
+    _finline MenesObjectHandle(Type_ *value = NULL, bool mended = false) :
+        value_(value)
+    {
+        if (!mended)
+            Retain_();
+    }
+
+    _finline ~MenesObjectHandle() {
+        Clear_();
+    }
+
+    _finline operator Type_ *() const {
+        return value_;
+    }
+
+    _finline MenesObjectHandle &operator =(Type_ *value) {
+        if (value_ != value) {
+            Type_ *old(value_);
+            value_ = value;
+            Retain_();
+            if (old != nil)
+                CFRelease((CFTypeRef) old);
+        } return *this;
+    }
+};
+
+#define _H MenesObjectHandle
+
+#endif//Menes_ObjectHandle_H

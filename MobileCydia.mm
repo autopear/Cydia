@@ -120,6 +120,7 @@ extern "C" {
 
 #include <Cytore.hpp>
 
+#include <CydiaSubstrate/CydiaSubstrate.h>
 #include "Menes/Menes.h"
 
 #include "CyteKit/PerlCompatibleRegEx.hpp"
@@ -131,8 +132,6 @@ extern "C" {
 #include "Cydia/ProgressEvent.h"
 
 #include "SDURLCache/SDURLCache.h"
-
-#include <CydiaSubstrate/CydiaSubstrate.h>
 /* }}} */
 
 /* Profiler {{{ */

@@ -4233,7 +4233,6 @@ static _H<NSMutableSet> Diversions_;
 /* }}} */
 /* Emulated Loading Controller {{{ */
 @interface CYEmulatedLoadingController : CyteViewController {
-    _transient Database *database_;
     _H<CYLoadingIndicator> indicator_;
     _H<UITabBar> tabbar_;
     _H<UINavigationBar> navbar_;
@@ -4242,12 +4241,6 @@ static _H<NSMutableSet> Diversions_;
 @end
 
 @implementation CYEmulatedLoadingController
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-    } return self;
-}
 
 - (void) loadView {
     [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
@@ -9351,7 +9344,7 @@ _trace();
     [window_ setUserInteractionEnabled:NO];
     [self setupViewControllers];
 
-    emulated_ = [[[CYEmulatedLoadingController alloc] initWithDatabase:database_] autorelease];
+    emulated_ = [[[CYEmulatedLoadingController alloc] init] autorelease];
     [window_ addSubview:[emulated_ view]];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];

@@ -6015,6 +6015,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSArray *) _reloadPackages:(NSArray *)packages {
+// XXX: maybe move @synchronized() to _reloadData?
+@synchronized (database_) {
     NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
 
     _profile(PackageTable$reloadData$Filter)
@@ -6024,7 +6026,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _end
 
     return filtered;
-}
+} }
 
 - (void) _reloadData {
     if (reloading_ != 0) {

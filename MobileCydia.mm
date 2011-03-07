@@ -5857,24 +5857,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSArray *packages = [database_ packages];
 
     if ([self shouldYield]) {
-        UIProgressHUD *hud;
-
-        if (![self shouldBlock])
-            hud = nil;
-        else {
-            hud = [delegate_ addProgressHUD];
-            [hud setText:UCLocalize("LOADING")];
-        }
-
         do {
+            UIProgressHUD *hud;
+
+            if (![self shouldBlock])
+                hud = nil;
+            else {
+                hud = [delegate_ addProgressHUD];
+                [hud setText:UCLocalize("LOADING")];
+            }
+
             reloading_ = 1;
             packages_ = [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
+
+            if (hud != nil)
+                [delegate_ removeProgressHUD:hud];
         } while (reloading_ == 2);
 
         reloading_ = 0;
-
-        if (hud != nil)
-            [delegate_ removeProgressHUD:hud];
     } else {
         packages_ = [self _reloadPackages:packages];
     }

@@ -6843,7 +6843,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             goto fail;
         path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
         NSString *section(Simplify(path));
-        UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]]);
+        UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, [section stringByReplacingOccurrencesOfString:@" " withString:@"_"]]]);
         if (icon == nil)
             icon = [UIImage applicationImageNamed:@"unknown.png"];
         [self _returnPNGWithImage:icon forRequest:request];

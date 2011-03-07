@@ -27,9 +27,11 @@ flags += -fmessage-length=0
 flags += -g0 -O2
 flags += -fobjc-exceptions
 flags += -fno-guess-branch-probability
+flags += -fvisibility=hidden
 
 xflags :=
 xflags += -fobjc-call-cxx-cdtors
+xflags += -fvisibility-inlines-hidden
 
 link += -framework CoreFoundation
 link += -framework CoreGraphics

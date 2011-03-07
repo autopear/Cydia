@@ -3036,6 +3036,15 @@ static NSString *Elision_;
 static NSString *Error_;
 static NSString *Warning_;
 
+class CydiaLogCleaner :
+    public pkgArchiveCleaner
+{
+  protected:
+    virtual void Erase(const char *File, std::string Pkg, std::string Ver, struct stat &St) {
+        unlink(File);
+    }
+};
+
 /* Database Implementation {{{ */
 @implementation Database
 
@@ -3498,15 +3507,7 @@ static NSString *Warning_;
     pkgAcquire fetcher;
     fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
 
-    class LogCleaner :
-        public pkgArchiveCleaner
-    {
-      protected:
-        virtual void Erase(const char *File, std::string Pkg, std::string Ver, struct stat &St) {
-            unlink(File);
-        }
-    } cleaner;
-
+    CydiaLogCleaner cleaner;
     if ([self popErrorWithTitle:title forOperation:cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
         return false;
 

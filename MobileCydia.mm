@@ -7669,7 +7669,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if ([base length] != 0) {
             NSURL *url([NSURL URLWithString:[base stringByAppendingString:@"CydiaIcon.png"]]);
 
-            if (NSData *data = [NSData dataWithContentsOfURL:url])
+            if (NSData *data = [NSURLConnection
+                sendSynchronousRequest:[NSURLRequest
+                    requestWithURL:url
+                    //cachePolicy:NSURLRequestUseProtocolCachePolicy
+                    //timeoutInterval:5
+                ]
+
+                returningResponse:NULL
+                error:NULL
+            ])
                 if (UIImage *image = [UIImage imageWithData:data])
                     [self performSelectorOnMainThread:@selector(_setImage:) withObject:image waitUntilDone:NO];
         }

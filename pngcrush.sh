@@ -5,10 +5,15 @@ out=$2
 
 steps=()
 
+src=_.png
+dst=__.png
+
+copy=("${src}" "${dst}")
+
 function step() {
     "$@"
-    mv -f {_,}_.png
-    steps+=($(stat -f "%z" _.png))
+    mv -f "${dst}" "${src}"
+    steps+=($(stat -f "%z" "${src}"))
 }
 
 pngcrush=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush
@@ -21,20 +26,20 @@ if grep CgBI "${png}" &>/dev/null; then
     exit 0
 fi
 
-step cp -fa "${png}" __.png
+step cp -fa "${png}" "${dst}"
 
-#step "${pngcrush}" -q -rem alla -reduce -brute -iphone {,_}_.png
+#step "${pngcrush}" -q -rem alla -reduce -brute -iphone "${copy[@]}"
 
-#step "${pngcrush}" -q -rem alla -reduce -brute {,_}_.png
-#step pincrush {,_}_.png
+#step "${pngcrush}" -q -rem alla -reduce -brute "${copy[@]}"
+#step pincrush "${copy[@]}"
 
-step "${pngcrush}" -q -rem alla -reduce -iphone {,_}_.png
+step "${pngcrush}" -q -rem alla -reduce -iphone "${copy[@]}"
 
 #"${pngcrush}" -q -rem alla -reduce -brute -iphone "${png}" 1.png
 #"${pngcrush}" -q -iphone _.png 2.png
 #ls -la 1.png 2.png
 
-mv -f _.png "${out}"
+mv -f "${src}" "${out}"
 
 echo -n "${png##*/} "
 for ((i = 0; i != ${#steps[@]}; ++i)); do

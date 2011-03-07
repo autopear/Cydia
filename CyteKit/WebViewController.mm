@@ -525,6 +525,8 @@ float CYScrollViewDecelerationRateNormal;
         style_ = nil;
         function_ = nil;
 
+        allowsNavigationAction_ = true;
+
         stage2_ = stage1_;
         stage1_ = nil;
 

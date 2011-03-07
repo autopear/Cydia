@@ -127,7 +127,7 @@ MobileCydia: sysroot $(object)
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
 
-package: MobileCydia $(images)
+debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find MobileCydia.app)
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
@@ -165,4 +165,6 @@ package: MobileCydia $(images)
 	$(dpkg) -b _ Cydia.deb
 	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
 
-.PHONY: all clean sign
+package: debs/cydia_$(version)_iphoneos-arm.deb
+
+.PHONY: all clean package sign

@@ -5841,9 +5841,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return false;
 }
 
-- (NSArray *) _reloadPackages:(NSArray *)packages {
-// XXX: maybe move @synchronized() to _reloadData?
+- (NSArray *) _reloadPackages {
 @synchronized (database_) {
+    era_ = [database_ era];
+    NSArray *packages([database_ packages]);
+
     return [NSArray arrayWithArray:packages];
 } }
 
@@ -5852,9 +5854,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         reloading_ = 2;
         return;
     }
-
-    era_ = [database_ era];
-    NSArray *packages = [database_ packages];
 
     if ([self shouldYield]) {
         do {
@@ -5868,7 +5867,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             }
 
             reloading_ = 1;
-            packages_ = [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
+            packages_ = [self yieldToSelector:@selector(_reloadPackages)];
 
             if (hud != nil)
                 [delegate_ removeProgressHUD:hud];
@@ -5876,7 +5875,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         reloading_ = 0;
     } else {
-        packages_ = [self _reloadPackages:packages];
+        packages_ = [self _reloadPackages];
     }
 
     [indices_ removeAllObjects];
@@ -6026,9 +6025,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setObject:object];
 }
 
-- (NSArray *) _reloadPackages:(NSArray *)packages {
-// XXX: maybe move @synchronized() to _reloadData?
+- (NSArray *) _reloadPackages {
 @synchronized (database_) {
+    era_ = [database_ era];
+    NSArray *packages([database_ packages]);
+
     NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
 
     IMP imp;
@@ -7065,7 +7066,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (NSArray *) _reloadPackages:(NSArray *)packages {
+- (NSArray *) _reloadPackages {
+@synchronized (database_) {
+    era_ = [database_ era];
+    NSArray *packages([database_ packages]);
+
     NSMutableArray *filtered([NSMutableArray arrayWithCapacity:[packages count]]);
 
     _trace();
@@ -7081,22 +7086,23 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _trace();
 
     return filtered;
-}
+} }
 
 - (void) _reloadData {
-@synchronized (database_) {
-    era_ = [database_ era];
-    NSArray *packages = [database_ packages];
+  reload:
+    if (true) {
+        UIProgressHUD *hud([delegate_ addProgressHUD]);
+        [hud setText:UCLocalize("LOADING")];
+        //NSLog(@"HUD:%@::%@", delegate_, hud);
+        packages_ = [self yieldToSelector:@selector(_reloadPackages)];
+        [delegate_ removeProgressHUD:hud];
+    } else {
+        packages_ = [self _reloadPackages];
+    }
 
-#if 1
-    UIProgressHUD *hud([delegate_ addProgressHUD]);
-    [hud setText:UCLocalize("LOADING")];
-    //NSLog(@"HUD:%@::%@", delegate_, hud);
-    packages_ = [self yieldToSelector:@selector(_reloadPackages:) withObject:packages];
-    [delegate_ removeProgressHUD:hud];
-#else
-    packages_ = [self _reloadPackages:packages];
-#endif
+@synchronized (database_) {
+    if (era_ != [database_ era])
+        goto reload;
 
     [sections_ removeAllObjects];
 

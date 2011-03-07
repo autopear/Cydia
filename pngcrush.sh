@@ -5,8 +5,8 @@ out=$2
 
 steps=()
 
-src=_.png
-dst=__.png
+src=${out}.src.png
+dst=${out}.dst.png
 
 copy=("${src}" "${dst}")
 

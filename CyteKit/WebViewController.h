@@ -46,7 +46,7 @@
 #include <UIKit/UIKit.h>
 #include <MessageUI/MessageUI.h>
 
-#include <CydiaSubstrate/CydiaSubstrate.h>
+#include <Menes/ObjectHandle.h>
 
 @class IndirectDelegate;
 
@@ -62,11 +62,11 @@
     MFMailComposeViewControllerDelegate,
     UIWebViewDelegate
 > {
-    _transient CyteWebView *webview_;
+    _H<CyteWebView, 1> webview_;
     _transient UIScrollView *scroller_;
 
     _H<UIActivityIndicatorView> indicator_;
-    _H<IndirectDelegate> indirect_;
+    _H<IndirectDelegate, 1> indirect_;
     _H<NSURLAuthenticationChallenge> challenge_;
 
     bool error_;

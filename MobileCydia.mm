@@ -4896,7 +4896,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ProgressDelegate
 > {
     _transient Database *database_;
-    _H<CydiaProgressData> progress_;
+    _H<CydiaProgressData, 1> progress_;
     unsigned cancel_;
 }
 
@@ -4913,7 +4913,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) dealloc {
     [database_ setProgressDelegate:nil];
-    [progress_ setDelegate:nil];
     [super dealloc];
 }
 
@@ -5511,7 +5510,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _H<Package> package_;
     _H<NSString> name_;
     _H<NSMutableArray> files_;
-    _H<UITableView> list_;
+    _H<UITableView, 2> list_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -5520,12 +5519,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation FileTable
-
-- (void) dealloc {
-    [(UITableView *) list_ setDataSource:nil];
-    [list_ setDelegate:nil];
-    [super dealloc];
-}
 
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return files_ == nil ? 0 : [files_ count];
@@ -5803,7 +5796,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     unsigned era_;
     _H<NSArray> packages_;
     _H<NSMutableArray> sections_;
-    _H<UITableView> list_;
+    _H<UITableView, 2> list_;
     _H<NSMutableArray> index_;
     _H<NSMutableDictionary> indices_;
     _H<NSString> title_;
@@ -5818,12 +5811,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation PackageListController
-
-- (void) dealloc {
-    [list_ setDataSource:nil];
-    [list_ setDelegate:nil];
-    [super dealloc];
-}
 
 - (bool) isSummarized {
     return false;
@@ -6467,7 +6454,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ProgressDelegate
 > {
     _transient Database *database_;
-    _H<RefreshBar> refreshbar_;
+    _H<RefreshBar, 1> refreshbar_;
 
     bool dropped_;
     bool updating_;
@@ -6546,7 +6533,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) dealloc {
-    [refreshbar_ setDelegate:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 
     [super dealloc];
@@ -6932,7 +6918,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     _H<NSMutableArray> sections_;
     _H<NSMutableArray> filtered_;
-    _H<UITableView> list_;
+    _H<UITableView, 2> list_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7134,7 +7120,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     unsigned era_;
     _H<NSArray> packages_;
     _H<NSMutableArray> sections_;
-    _H<UITableView> list_;
+    _H<UITableView, 2> list_;
     unsigned upgrades_;
 }
 
@@ -7365,7 +7351,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface SearchController : FilteredPackageListController <
     UISearchBarDelegate
 > {
-    _H<UISearchBar> search_;
+    _H<UISearchBar, 1> search_;
     BOOL searchloaded_;
 }
 
@@ -7375,11 +7361,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation SearchController
-
-- (void) dealloc {
-    [search_ setDelegate:nil];
-    [super dealloc];
-}
 
 - (NSURL *) navigationURL {
     if ([search_ text] == nil || [[search_ text] isEqualToString:@""])
@@ -7491,7 +7472,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     _H<NSString> name_;
     _H<Package> package_;
-    _H<UITableView> table_;
+    _H<UITableView, 2> table_;
     _H<UISwitch> subscribedSwitch_;
     _H<UISwitch> ignoredSwitch_;
     _H<UITableViewCell> subscribedCell_;
@@ -7677,10 +7658,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation InstalledController
 
-- (void) dealloc {
-    [super dealloc];
-}
-
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://installed"];
 }
@@ -7845,7 +7822,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
-    _H<UITableView> list_;
+    _H<UITableView, 2> list_;
     _H<NSMutableArray> sources_;
     int offset_;
 
@@ -8286,7 +8263,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _transient Database *database_;
     // XXX: ok, "roledelegate_"?...
     _transient id roledelegate_;
-    _H<UITableView> table_;
+    _H<UITableView, 2> table_;
     _H<UISegmentedControl> segment_;
     _H<UIView> container_;
 }

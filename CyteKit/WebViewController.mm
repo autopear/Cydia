@@ -25,6 +25,9 @@ extern NSString * const kCAFilterNearest;
 #include <WebKit/DOMHTMLBodyElement.h>
 #include <WebKit/DOMRGBColor.h>
 
+#include <dlfcn.h>
+#include <objc/runtime.h>
+
 #define ForSaurik 0
 #define DefaultTimeout_ 120.0
 
@@ -137,9 +140,6 @@ float CYScrollViewDecelerationRateNormal;
 #if LogBrowser
     NSLog(@"[CyteWebViewController dealloc]");
 #endif
-
-    [webview_ setDelegate:nil];
-    [indirect_ setDelegate:nil];
 
     if ([loading_ count] != 0)
         [delegate_ releaseNetworkActivityIndicator];
@@ -919,7 +919,7 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) dispatchEvent:(NSString *)event {
-    [webview_ dispatchEvent:event];
+    [(CyteWebView *) webview_ dispatchEvent:event];
 }
 
 - (bool) hidesNavigationBar {

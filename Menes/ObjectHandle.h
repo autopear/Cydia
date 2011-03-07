@@ -40,7 +40,31 @@
 #ifndef Menes_ObjectHandle_H
 #define Menes_ObjectHandle_H
 
+template <typename Type_, unsigned Delegate_>
+struct MenesObjectHandle_;
+
 template <typename Type_>
+struct MenesObjectHandle_<Type_, 0> {
+    static _finline void Execute(Type_ *value) {
+    }
+};
+
+template <typename Type_>
+struct MenesObjectHandle_<Type_, 1> {
+    static _finline void Execute(Type_ *value) {
+        [value setDelegate:nil];
+    }
+};
+
+template <typename Type_>
+struct MenesObjectHandle_<Type_, 2> {
+    static _finline void Execute(Type_ *value) {
+        [value setDelegate:nil];
+        [value setDataSource:nil];
+    }
+};
+
+template <typename Type_, unsigned Delegate_ = 0>
 class MenesObjectHandle {
   private:
     Type_ *value_;
@@ -51,8 +75,10 @@ class MenesObjectHandle {
     }
 
     _finline void Clear_() {
-        if (value_ != nil)
+        if (value_ != nil) {
+            MenesObjectHandle_<Type_, Delegate_>::Execute(value_);
             CFRelease((CFTypeRef) value_);
+        }
     }
 
   public:

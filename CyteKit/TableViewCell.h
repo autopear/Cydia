@@ -44,7 +44,7 @@
 
 #include <UIKit/UIKit.h>
 
-#include <CydiaSubstrate/CydiaSubstrate.h>
+#include <Menes/ObjectHandle.h>
 
 @protocol CyteTableViewCellDelegate
 - (void) drawContentRect:(CGRect)rect;
@@ -57,7 +57,7 @@
 @end
 
 @interface CYTableViewCell : UITableViewCell {
-    _H<CyteTableViewCellContentView> content_;
+    _H<CyteTableViewCellContentView, 1> content_;
     bool highlighted_;
 }
 

@@ -41,6 +41,8 @@
 
 #include "Menes/radixSortWithSelector.h"
 
+#include <objc/runtime.h>
+
 struct RadixItem_ {
     size_t index;
     uint32_t key;
@@ -107,6 +109,14 @@ struct RadixItem_ {
     delete [] values;
 
     delete [] swap;
+}
+
+- (void) radixSortUsingSelector:(SEL)selector {
+    if ([self count] == 0)
+        return;
+
+    IMP imp(class_getMethodImplementation([[self lastObject] class], selector));
+    [self radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(imp) withContext:selector];
 }
 
 @end

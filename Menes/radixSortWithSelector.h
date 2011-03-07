@@ -46,6 +46,7 @@ typedef uint32_t (*MenesRadixSortFunction)(id, void *);
 
 @interface NSMutableArray (MenesRadixSortWithSelector)
 - (void) radixSortUsingFunction:(MenesRadixSortFunction)function withContext:(void *)argument;
+- (void) radixSortUsingSelector:(SEL)selector;
 @end
 
 #endif//Menes_radixSort_H

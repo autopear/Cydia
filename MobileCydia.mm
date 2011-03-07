@@ -1685,6 +1685,8 @@ struct ParsedPackage {
 
     apr_pool_t *pool_;
 
+    uint32_t rank_;
+
     _transient Database *database_;
 
     pkgCache::VerIterator version_;
@@ -1768,6 +1770,7 @@ struct ParsedPackage {
 
 - (Source *) source;
 
+- (uint32_t) rank;
 - (BOOL) matches:(NSString *)text;
 
 - (bool) hasSupportingRole;
@@ -2672,30 +2675,40 @@ struct PackageNameOrdering :
     return source_ == (Source *) [NSNull null] ? nil : source_;
 }
 
+- (uint32_t) rank {
+    return rank_;
+}
+
 - (BOOL) matches:(NSString *)text {
     if (text == nil)
         return NO;
 
+    rank_ = 0;
+
+    NSString *string;
     NSRange range;
+    NSUInteger length;
 
-    range = [[self id] rangeOfString:text options:MatchCompareOptions_];
+    string = [self id];
+    range = [string rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
-        return YES;
+        rank_ -= 10 * (100000 / [string length]);
 
-    range = [[self name] rangeOfString:text options:MatchCompareOptions_];
+    string = [self name];
+    range = [string rangeOfString:text options:MatchCompareOptions_];
     if (range.location != NSNotFound)
-        return YES;
+        rank_ -= 6  * (100000 / [string length]);
 
     [self parse];
 
-    NSString *description([self shortDescription]);
-    NSUInteger length([description length]);
+    string = [self shortDescription];
+    length = [string length];
 
-    range = [[self shortDescription] rangeOfString:text options:MatchCompareOptions_ range:NSMakeRange(0, std::min<NSUInteger>(length, 100))];
+    range = [string rangeOfString:text options:MatchCompareOptions_ range:NSMakeRange(0, std::min<NSUInteger>(length, 100))];
     if (range.location != NSNotFound)
-        return YES;
+        rank_ -= 2 * (100000 / length);
 
-    return NO;
+    return rank_ != 0;
 }
 
 - (bool) hasSupportingRole {
@@ -5647,6 +5660,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return false;
 }
 
+- (bool) showsSections {
+    return true;
+}
+
 - (void) deselectWithAnimation:(BOOL)animated {
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
 }
@@ -5777,7 +5794,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
-    if ([self isSummarized])
+    if ([self showsSections])
         return nil;
 
     return index_;
@@ -5841,12 +5858,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return false;
 }
 
-- (NSArray *) _reloadPackages {
+- (NSMutableArray *) _reloadPackages {
 @synchronized (database_) {
     era_ = [database_ era];
     NSArray *packages([database_ packages]);
 
-    return [NSArray arrayWithArray:packages];
+    return [NSMutableArray arrayWithArray:packages];
 } }
 
 - (void) _reloadData {
@@ -5919,8 +5936,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     {
         [index_ removeAllObjects];
 
-        bool summary([self isSummarized]);
-        if (summary) {
+        bool sectioned([self showsSections]);
+        if (!sectioned) {
             section = [[[Section alloc] initWithName:nil localize:false] autorelease];
             [sections_ addObject:section];
         }
@@ -5935,7 +5952,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     index = [package index];
                 _end
 
-                if (!summary && (section == nil || [section index] != index)) {
+                if (sectioned && (section == nil || [section index] != index)) {
                     _profile(PackageTable$reloadData$Section$Allocate)
                         section = [[[Section alloc] initWithIndex:index row:offset] autorelease];
                     _end
@@ -6025,7 +6042,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setObject:object];
 }
 
-- (NSArray *) _reloadPackages {
+- (NSMutableArray *) _reloadPackages {
 @synchronized (database_) {
     era_ = [database_ era];
     NSArray *packages([database_ packages]);
@@ -7066,7 +7083,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
-- (NSArray *) _reloadPackages {
+- (NSMutableArray *) _reloadPackages {
 @synchronized (database_) {
     era_ = [database_ era];
     NSArray *packages([database_ packages]);
@@ -7264,6 +7281,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (bool) isSummarized {
     return [self filter] == @selector(isUnfilteredAndSelectedForBy:);
+}
+
+- (bool) showsSections {
+    return false;
+}
+
+- (NSMutableArray *) _reloadPackages {
+    NSMutableArray *packages([super _reloadPackages]);
+    if ([self filter] == @selector(isUnfilteredAndSearchedForBy:))
+        [packages radixSortUsingSelector:@selector(rank)];
+    return packages;
 }
 
 - (id) initWithDatabase:(Database *)database query:(NSString *)query {

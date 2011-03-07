@@ -4171,9 +4171,6 @@ static _H<NSMutableSet> Diversions_;
     _H<UIView> container_;
 }
 
-@property (readonly, nonatomic) UILabel *label;
-@property (readonly, nonatomic) UIActivityIndicatorView *activityIndicatorView;
-
 @end
 
 @implementation CYLoadingIndicator
@@ -4219,14 +4216,6 @@ static _H<NSMutableSet> Diversions_;
         [label_ setFrame:textrect];
         [self addSubview:container_];
     } return self;
-}
-
-- (UILabel *) label {
-    return label_;
-}
-
-- (UIActivityIndicatorView *) activityIndicatorView {
-    return spinner_;
 }
 
 @end

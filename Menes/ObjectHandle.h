@@ -40,6 +40,11 @@
 #ifndef Menes_ObjectHandle_H
 #define Menes_ObjectHandle_H
 
+#include "CyteKit/UCPlatform.h"
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <Foundation/Foundation.h>
+
 template <typename Type_, unsigned Delegate_>
 struct MenesObjectHandle_;
 

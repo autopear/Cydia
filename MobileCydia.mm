@@ -129,6 +129,7 @@ extern "C" {
 #include "CyteKit/WebViewController.h"
 #include "CyteKit/stringWithUTF8Bytes.h"
 
+#include "Cydia/MIMEAddress.h"
 #include "Cydia/ProgressEvent.h"
 
 #include "SDURLCache/SDURLCache.h"
@@ -588,74 +589,6 @@ struct NSStringMapEqual :
 };
 /* }}} */
 
-/* Mime Addresses {{{ */
-@interface Address : NSObject {
-    _H<NSString> name_;
-    _H<NSString> address_;
-}
-
-- (NSString *) name;
-- (NSString *) address;
-
-- (void) setAddress:(NSString *)address;
-
-+ (Address *) addressWithString:(NSString *)string;
-- (Address *) initWithString:(NSString *)string;
-
-@end
-
-@implementation Address
-
-- (NSString *) name {
-    return name_;
-}
-
-- (NSString *) address {
-    return address_;
-}
-
-- (void) setAddress:(NSString *)address {
-    address_ = address;
-}
-
-+ (Address *) addressWithString:(NSString *)string {
-    return [[[Address alloc] initWithString:string] autorelease];
-}
-
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"address",
-        @"name",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
-}
-
-- (Address *) initWithString:(NSString *)string {
-    if ((self = [super init]) != nil) {
-        const char *data = [string UTF8String];
-        size_t size = [string length];
-
-        static Pcre address_r("^\"?(.*)\"? <([^>]*)>$");
-
-        if (address_r(data, size)) {
-            name_ = address_r[1];
-            address_ = address_r[2];
-        } else {
-            name_ = string;
-            address_ = nil;
-        }
-    } return self;
-}
-
-@end
-/* }}} */
 /* CoreGraphics Primitives {{{ */
 class CYColor {
   private:
@@ -1776,7 +1709,7 @@ struct ParsedPackage {
 
 - (NSString *) uri;
 
-- (Address *) maintainer;
+- (MIMEAddress *) maintainer;
 - (size_t) size;
 - (NSString *) longDescription;
 - (NSString *) shortDescription;
@@ -1812,7 +1745,7 @@ struct ParsedPackage {
 - (UIImage *) icon;
 - (NSString *) homepage;
 - (NSString *) depiction;
-- (Address *) author;
+- (MIMEAddress *) author;
 
 - (NSString *) support;
 
@@ -2318,14 +2251,14 @@ struct PackageNameOrdering :
 #endif
 }
 
-- (Address *) maintainer {
+- (MIMEAddress *) maintainer {
 @synchronized (database_) {
     if ([database_ era] != era_ || file_.end())
         return nil;
 
     pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
     const std::string &maintainer(parser->Maintainer());
-    return maintainer.empty() ? nil : [Address addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
+    return maintainer.empty() ? nil : [MIMEAddress addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
 } }
 
 - (size_t) size {
@@ -2553,12 +2486,12 @@ struct PackageNameOrdering :
     return parsed_ != NULL && !parsed_->depiction_.empty() ? parsed_->depiction_ : [[self source] depictionForPackage:id_];
 }
 
-- (Address *) sponsor {
-    return parsed_ == NULL || parsed_->sponsor_.empty() ? nil : [Address addressWithString:parsed_->sponsor_];
+- (MIMEAddress *) sponsor {
+    return parsed_ == NULL || parsed_->sponsor_.empty() ? nil : [MIMEAddress addressWithString:parsed_->sponsor_];
 }
 
-- (Address *) author {
-    return parsed_ == NULL || parsed_->author_.empty() ? nil : [Address addressWithString:parsed_->author_];
+- (MIMEAddress *) author {
+    return parsed_ == NULL || parsed_->author_.empty() ? nil : [MIMEAddress addressWithString:parsed_->author_];
 }
 
 - (NSString *) support {

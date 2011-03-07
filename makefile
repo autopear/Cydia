@@ -82,11 +82,14 @@ object := $(object:.m=.o)
 object := $(object:.mm=.o)
 object := $(object:%=Objects/%)
 
+images := $(shell find MobileCydia.app -name '*.png')
+images := $(images:%=Images/%)
+
 all: MobileCydia
 
 clean:
 	rm -f MobileCydia
-	rm -rf Objects/
+	rm -rf Objects/ Images/
 
 Objects/%.o: %.c $(header)
 	@mkdir -p $(dir $@)
@@ -102,6 +105,11 @@ Objects/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) -c -o $@ $< $(flags) $(xflags)
+
+Images/%.png: %.png
+	@mkdir -p $(dir $@)
+	@echo "[pngc] $<"
+	@./pngcrush.sh $< $@
 
 sysroot:
 	@echo "Please read compiling.txt: you do not have a ./sysroot/ folder with the on-device requirements." 1>&2
@@ -119,7 +127,7 @@ MobileCydia: sysroot $(object)
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
 
-package: MobileCydia
+package: MobileCydia $(images)
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
@@ -134,6 +142,8 @@ package: MobileCydia
 	cp -a MobileCydia.app _/Applications/Cydia.app
 	cp -a MobileCydia _/Applications/Cydia.app/MobileCydia
 	
+	cd MobileCydia.app && find . -name '*.png' -exec cp -af ../Images/MobileCydia.app/{} ../_/Applications/Cydia.app/{} ';'
+	
 	#mkdir -p _/Applications/Lowtide.app/Appliances
 	#cp -a Cydia.frappliance _/Applications/Lowtide.app/Appliances
 	#cp -a CydiaAppliance _/Applications/Lowtide.app/Appliances/Cydia.frappliance
@@ -141,7 +151,6 @@ package: MobileCydia
 	mkdir -p _/DEBIAN
 	./control.sh _ >_/DEBIAN/control
 	
-	find _ -name '*.png' -exec ./pngcrush.sh '{}' '{}' ';'
 	find _ -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
 	
 	sudo chown -R 0 _

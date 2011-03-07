@@ -775,6 +775,9 @@ float CYScrollViewDecelerationRateNormal;
         [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
         [preferences setOfflineWebApplicationCacheEnabled:YES];
 
+        if ([webview respondsToSelector:@selector(setShouldUpdateWhileOffscreen:)])
+            [webview setShouldUpdateWhileOffscreen:NO];
+
 #if LogMessages
         if ([document respondsToSelector:@selector(setAllowsMessaging:)])
             [document setAllowsMessaging:YES];

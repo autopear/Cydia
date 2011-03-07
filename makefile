@@ -140,6 +140,7 @@ package: MobileCydia
 	./control.sh _ >_/DEBIAN/control
 	
 	find _ -name '*.png' -exec ./pngcrush.sh '{}' ';'
+	find _ -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
 	
 	sudo chown -R 0 _
 	sudo chgrp -R 0 _

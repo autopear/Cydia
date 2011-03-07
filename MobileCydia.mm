@@ -1261,6 +1261,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     CYString uri_;
     CYString distribution_;
     CYString type_;
+    CYString base_;
     CYString version_;
 
     _H<NSString> host_;
@@ -1285,6 +1286,9 @@ static void PackageImport(const void *key, const void *value, void *context) {
 - (NSString *) uri;
 - (NSString *) distribution;
 - (NSString *) type;
+
+- (NSString *) base;
+
 - (NSString *) key;
 - (NSString *) host;
 
@@ -1304,6 +1308,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
     uri_.clear();
     distribution_.clear();
     type_.clear();
+
+    base_.clear();
 
     description_.clear();
     label_.clear();
@@ -1353,6 +1359,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
     debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
     if (dindex != NULL) {
+        base_.set(pool, dindex->MetaIndexURI(""));
+
         FileFd fd;
         if (!fd.Open(dindex->MetaIndexFile("Release"), FileFd::ReadOnly))
             _error->Discard();
@@ -1455,6 +1463,10 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 - (NSString *) type {
     return type_;
+}
+
+- (NSString *) base {
+    return base_;
 }
 
 - (NSString *) key {
@@ -7645,17 +7657,35 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SourceCell
 
+- (void) _setImage:(UIImage *)image {
+    icon_ = image;
+    [content_ setNeedsDisplay];
+}
+
+- (void) _setSource:(Source *)source {
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
+    if (NSString *base = [source base])
+        if ([base length] != 0) {
+            NSURL *url([NSURL URLWithString:[base stringByAppendingString:@"CydiaIcon.png"]]);
+
+            if (NSData *data = [NSData dataWithContentsOfURL:url])
+                if (UIImage *image = [UIImage imageWithData:data])
+                    [self performSelectorOnMainThread:@selector(_setImage:) withObject:image waitUntilDone:NO];
+        }
+
+    [pool release];
+}
+
 - (void) setSource:(Source *)source {
-    icon_ = nil;
-    if (icon_ == nil)
-        icon_ = [UIImage applicationImageNamed:[NSString stringWithFormat:@"Sources/%@.png", [source host]]];
-    if (icon_ == nil)
-        icon_ = [UIImage applicationImageNamed:@"unknown.png"];
+    icon_ = [UIImage applicationImageNamed:@"unknown.png"];
 
     origin_ = [source name];
     label_ = [source uri];
 
     [content_ setNeedsDisplay];
+
+    [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:source];
 }
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {

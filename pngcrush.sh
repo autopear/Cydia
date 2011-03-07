@@ -1,6 +1,8 @@
 #!/bin/bash
 
 png=$1
+out=$2
+
 steps=()
 
 function step() {
@@ -11,7 +13,13 @@ function step() {
 
 pngcrush=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush
 
-grep CgBI "${png}" &>/dev/null && exit 0
+if grep CgBI "${png}" &>/dev/null; then
+    if [[ ${png} != ${out} ]]; then
+        cp -a "${png}" "${out}"
+    fi
+
+    exit 0
+fi
 
 step cp -fa "${png}" __.png
 
@@ -26,7 +34,7 @@ step "${pngcrush}" -q -rem alla -reduce -iphone {,_}_.png
 #"${pngcrush}" -q -iphone _.png 2.png
 #ls -la 1.png 2.png
 
-mv -f _.png "${png}"
+mv -f _.png "${out}"
 
 echo -n "${png##*/} "
 for ((i = 0; i != ${#steps[@]}; ++i)); do

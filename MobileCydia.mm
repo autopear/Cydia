@@ -1771,7 +1771,7 @@ struct ParsedPackage {
 - (Source *) source;
 
 - (uint32_t) rank;
-- (BOOL) matches:(NSString *)text;
+- (BOOL) matches:(NSArray *)query;
 
 - (bool) hasSupportingRole;
 - (BOOL) hasTag:(NSString *)tag;
@@ -1788,7 +1788,7 @@ struct ParsedPackage {
 - (void) install;
 - (void) remove;
 
-- (bool) isUnfilteredAndSearchedForBy:(NSString *)search;
+- (bool) isUnfilteredAndSearchedForBy:(NSArray *)query;
 - (bool) isUnfilteredAndSelectedForBy:(NSString *)search;
 - (bool) isInstalledAndUnfiltered:(NSNumber *)number;
 - (bool) isVisibleInSection:(NSString *)section;
@@ -2679,8 +2679,8 @@ struct PackageNameOrdering :
     return rank_;
 }
 
-- (BOOL) matches:(NSString *)text {
-    if (text == nil)
+- (BOOL) matches:(NSArray *)query {
+    if (query == nil || [query count] == 0)
         return NO;
 
     rank_ = 0;
@@ -2689,24 +2689,34 @@ struct PackageNameOrdering :
     NSRange range;
     NSUInteger length;
 
+    [self parse];
+
     string = [self id];
-    range = [string rangeOfString:text options:MatchCompareOptions_];
-    if (range.location != NSNotFound)
-        rank_ -= 10 * (100000 / [string length]);
+    length = [string length];
+
+    for (NSString *term in query) {
+        range = [string rangeOfString:term options:MatchCompareOptions_];
+        if (range.location != NSNotFound)
+            rank_ -= 10 * 100000 / length;
+    }
 
     string = [self name];
-    range = [string rangeOfString:text options:MatchCompareOptions_];
-    if (range.location != NSNotFound)
-        rank_ -= 6  * (100000 / [string length]);
 
-    [self parse];
+    for (NSString *term in query) {
+        range = [string rangeOfString:term options:MatchCompareOptions_];
+        if (range.location != NSNotFound)
+            rank_ -= 6 * 100000 / length;
+    }
 
     string = [self shortDescription];
     length = [string length];
+    NSUInteger stop(std::min<NSUInteger>(length, 100));
 
-    range = [string rangeOfString:text options:MatchCompareOptions_ range:NSMakeRange(0, std::min<NSUInteger>(length, 100))];
-    if (range.location != NSNotFound)
-        rank_ -= 2 * (100000 / length);
+    for (NSString *term in query) {
+        range = [string rangeOfString:term options:MatchCompareOptions_ range:NSMakeRange(0, stop)];
+        if (range.location != NSNotFound)
+            rank_ -= 2 * 100000 / length;
+    }
 
     return rank_ != 0;
 }
@@ -2812,7 +2822,7 @@ struct PackageNameOrdering :
     cache->MarkDelete(iterator_, true);
 } }
 
-- (bool) isUnfilteredAndSearchedForBy:(NSString *)search {
+- (bool) isUnfilteredAndSearchedForBy:(NSArray *)query {
     _profile(Package$isUnfilteredAndSearchedForBy)
         bool value(true);
 
@@ -2821,7 +2831,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$isUnfilteredAndSearchedForBy$Match)
-            value &= [self matches:search];
+            value &= [self matches:query];
         _end
 
         return value;
@@ -6038,9 +6048,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 } }
 
 - (void) setObject:(id)object forFilter:(SEL)filter {
+@synchronized (self) {
     [self setFilter:filter];
     [self setObject:object];
-}
+} }
 
 - (NSMutableArray *) _reloadPackages {
 @synchronized (database_) {
@@ -7234,7 +7245,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) useSearch {
-    [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+    [self setObject:[[search_ text] componentsSeparatedByString:@" "] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [self clearData];
     [self reloadData];
 }
@@ -7295,7 +7306,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database query:(NSString *)query {
-    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:query])) {
+    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:[query componentsSeparatedByString:@" "]])) {
         search_ = [[[UISearchBar alloc] init] autorelease];
         [search_ setDelegate:self];
 
@@ -7326,7 +7337,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadData {
-    [self setObject:[search_ text]];
+    id object([search_ text]);
+    if ([self filter] == @selector(isUnfilteredAndSearchedForBy:))
+        object = [object componentsSeparatedByString:@" "];
+
+    [self setObject:object];
     [self resetCursor];
 
     [super reloadData];

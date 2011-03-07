@@ -26,6 +26,7 @@ flags += -Wall -Werror -Wno-deprecated-declarations
 flags += -fmessage-length=0
 flags += -g0 -O2
 flags += -fobjc-exceptions
+flags += -fno-guess-branch-probability
 
 xflags :=
 xflags += -fobjc-call-cxx-cdtors
@@ -108,8 +109,10 @@ sysroot:
 MobileCydia: sysroot $(object)
 	@echo "[link] $(object:Objects/%=%)"
 	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(uikit)
+	@echo "[strp] $@"
+	@strip -no_uuid $@
 	@echo "[sign] $@"
-	@ldid -Slaunch.xml $@ || { rm -f $@ && false; }
+	@ldid -T0 -Slaunch.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)

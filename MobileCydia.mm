@@ -205,15 +205,6 @@ void PrintTimes() {
 #define _end }
 /* }}} */
 
-#define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
-
-#define CYPoolStart() \
-    NSAutoreleasePool *_pool([[NSAutoreleasePool alloc] init]); \
-    do
-#define CYPoolEnd() \
-    while (false); \
-    [_pool release];
-
 #define Cydia_ CYDIA_VERSION
 
 #define lprintf(args...) fprintf(stderr, args)
@@ -3073,7 +3064,7 @@ class CydiaLogCleaner :
     [super dealloc];
 }
 
-- (void) _readCydia:(NSNumber *)fd { _pooled
+- (void) _readCydia:(NSNumber *)fd {
     __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
     std::istream is(&ib);
     std::string line;
@@ -3081,6 +3072,8 @@ class CydiaLogCleaner :
     static Pcre finish_r("^finish:([^:]*)$");
 
     while (std::getline(is, line)) {
+        NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
         const char *data(line.c_str());
         size_t size = line.size();
         lprintf("C:%s\n", data);
@@ -3091,12 +3084,14 @@ class CydiaLogCleaner :
             if (index != INT_MAX && index > Finish_)
                 Finish_ = index;
         }
+
+        [pool release];
     }
 
     _assume(false);
 }
 
-- (void) _readStatus:(NSNumber *)fd { _pooled
+- (void) _readStatus:(NSNumber *)fd {
     __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
     std::istream is(&ib);
     std::string line;
@@ -3105,6 +3100,8 @@ class CydiaLogCleaner :
     static Pcre pmstatus_r("^([^:]*):([^:]*):([^:]*):(.*)$");
 
     while (std::getline(is, line)) {
+        NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
         const char *data(line.c_str());
         size_t size(line.size());
         lprintf("S:%s\n", data);
@@ -3144,21 +3141,27 @@ class CydiaLogCleaner :
                 lprintf("E:unknown pmstatus\n");
         } else
             lprintf("E:unknown status\n");
+
+        [pool release];
     }
 
     _assume(false);
 }
 
-- (void) _readOutput:(NSNumber *)fd { _pooled
+- (void) _readOutput:(NSNumber *)fd {
     __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
     std::istream is(&ib);
     std::string line;
 
     while (std::getline(is, line)) {
+        NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
         lprintf("O:%s\n", line.c_str());
 
         CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:line.c_str()] ofType:kCydiaProgressEventTypeInformation]);
         [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
+
+        [pool release];
     }
 
     _assume(false);
@@ -3304,7 +3307,7 @@ class CydiaLogCleaner :
     return [self popErrorWithTitle:title] || !success;
 }
 
-- (void) reloadDataWithInvocation:(NSInvocation *)invocation { CYPoolStart() {
+- (void) reloadDataWithInvocation:(NSInvocation *)invocation {
 @synchronized (self) {
     ++era_;
 
@@ -3470,7 +3473,7 @@ class CydiaLogCleaner :
 
         _trace();
     }
-} } CYPoolEnd() _trace(); }
+} }
 
 - (void) clear {
 @synchronized (self) {
@@ -6555,7 +6558,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ];
 }
 
-- (void) performUpdate { _pooled
+- (void) performUpdate {
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
     Status status;
     status.setDelegate(self);
     [database_ updateWithStatus:status];
@@ -6565,6 +6570,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         withObject:nil
         waitUntilDone:NO
     ];
+
+    [pool release];
 }
 
 - (void) stopUpdateWithSelector:(SEL)selector {
@@ -8667,37 +8674,36 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     //  - We already auto-refreshed this launch.
     //  - Auto-refresh is disabled.
     if (recently || loaded_ || ManualRefresh) {
-        [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
-
         // If we are cancelling, we need to make sure it knows it's already loaded.
         loaded_ = true;
-        return;
+
+        [self performSelectorOnMainThread:@selector(_loaded) withObject:nil waitUntilDone:NO];
     } else {
         // We are going to load, so remember that.
         loaded_ = true;
+
+        SCNetworkReachabilityFlags flags; {
+            SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, "cydia.saurik.com"));
+            SCNetworkReachabilityGetFlags(reachability, &flags);
+            CFRelease(reachability);
+        }
+
+        // XXX: this elaborate mess is what Apple is using to determine this? :(
+        // XXX: do we care if the user has to intervene? maybe that's ok?
+        bool reachable(
+            (flags & kSCNetworkReachabilityFlagsReachable) != 0 && (
+                (flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0 || (
+                    (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) != 0 ||
+                    (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0
+                ) && (flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0 ||
+                (flags & kSCNetworkReachabilityFlagsIsWWAN) != 0
+            )
+        );
+
+        // If we can reach the server, auto-refresh!
+        if (reachable)
+            [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
     }
-
-    SCNetworkReachabilityFlags flags; {
-        SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, "cydia.saurik.com"));
-        SCNetworkReachabilityGetFlags(reachability, &flags);
-        CFRelease(reachability);
-    }
-
-    // XXX: this elaborate mess is what Apple is using to determine this? :(
-    // XXX: do we care if the user has to intervene? maybe that's ok?
-    bool reachable(
-        (flags & kSCNetworkReachabilityFlagsReachable) != 0 && (
-            (flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0 || (
-                (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) != 0 ||
-                (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0
-            ) && (flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0 ||
-            (flags & kSCNetworkReachabilityFlagsIsWWAN) != 0
-        )
-    );
-
-    // If we can reach the server, auto-refresh!
-    if (reachable)
-        [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
 
     [pool release];
 }
@@ -9037,10 +9043,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-- (void) system:(NSString *)command { _pooled
+- (void) system:(NSString *)command {
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
     _trace();
     system([command UTF8String]);
     _trace();
+
+    [pool release];
 }
 
 - (void) applicationWillSuspend {
@@ -9622,7 +9632,9 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
     } return self;
 }
 
-int main(int argc, char *argv[]) { _pooled
+int main(int argc, char *argv[]) {
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
     _trace();
 
     UpdateExternalStatus(0);
@@ -9964,5 +9976,6 @@ int main(int argc, char *argv[]) { _pooled
     CGColorSpaceRelease(space_);
     CFRelease(Locale_);
 
+    [pool release];
     return value;
 }

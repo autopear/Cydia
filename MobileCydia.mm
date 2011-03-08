@@ -8686,8 +8686,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
     }
 
-    NSLog(@"changes:#%u", changes);
-
     UITabBarItem *changesItem = [[[tabbar_ viewControllers] objectAtIndex:2] tabBarItem];
     if (changes != 0) {
         _trace();

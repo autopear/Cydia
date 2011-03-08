@@ -4238,6 +4238,13 @@ static _H<NSMutableSet> Diversions_;
         [window setValue:cydia_ forKey:@"cydia"];
 }
 
+- (void) _setupMail:(MFMailComposeViewController *)controller {
+    [controller addAttachmentData:[NSData dataWithContentsOfFile:@"/tmp/cydia.log"] mimeType:@"text/plain" fileName:@"cydia.log"];
+
+    system("/usr/bin/dpkg -l >/tmp/dpkgl.log");
+    [controller addAttachmentData:[NSData dataWithContentsOfFile:@"/tmp/dpkgl.log"] mimeType:@"text/plain" fileName:@"dpkgl.log"];
+}
+
 - (NSURL *) URLWithURL:(NSURL *)url {
     return [Diversion divertURL:url];
 }

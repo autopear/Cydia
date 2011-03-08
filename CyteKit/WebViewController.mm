@@ -281,12 +281,17 @@ float CYScrollViewDecelerationRateNormal;
     [self dismissModalViewControllerAnimated:YES];
 }
 
+- (void) _setupMail:(MFMailComposeViewController *)controller {
+}
+
 - (void) _openMailToURL:(NSURL *)url {
     if ($MFMailComposeViewController != nil && [$MFMailComposeViewController canSendMail]) {
         MFMailComposeViewController *controller([[[$MFMailComposeViewController alloc] init] autorelease]);
         [controller setMailComposeDelegate:self];
 
         [controller setMailToURL:url];
+
+        [self _setupMail:controller];
 
         [self presentModalViewController:controller animated:YES];
         return;

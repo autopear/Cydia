@@ -84,7 +84,7 @@ extern bool IsWildcat_;
 }
 
 - (void) releaseSubviews {
-    // Do nothing.
+    loaded_ = NO;
 }
 
 - (void) setView:(UIView *)view {

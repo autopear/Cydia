@@ -863,6 +863,8 @@ float CYScrollViewDecelerationRateNormal;
 
     [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+
+    ready_ = false;
 }
 
 - (void) releaseSubviews {

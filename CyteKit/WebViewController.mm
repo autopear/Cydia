@@ -868,6 +868,8 @@ float CYScrollViewDecelerationRateNormal;
 - (void) releaseSubviews {
     webview_ = nil;
     scroller_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithWidth:(float)width {

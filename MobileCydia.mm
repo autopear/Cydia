@@ -5441,6 +5441,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) releaseSubviews {
     list_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -5898,6 +5900,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) releaseSubviews {
     list_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (void) setDelegate:(id)delegate {
@@ -6943,6 +6947,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) releaseSubviews {
     list_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -7120,6 +7126,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) releaseSubviews {
     list_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -7549,6 +7557,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     table_ = nil;
     ignoredSwitch_ = nil;
     subscribedSwitch_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database package:(NSString *)package {
@@ -8110,6 +8120,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) releaseSubviews {
     list_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
@@ -8273,6 +8285,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     table_ = nil;
     segment_ = nil;
     container_ = nil;
+
+    [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
@@ -8460,6 +8474,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     spinner_ = nil;
     status_ = nil;
     caption_ = nil;
+
+    [super releaseSubviews];
 }
 
 @end

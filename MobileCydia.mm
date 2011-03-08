@@ -8456,6 +8456,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [[self view] addSubview:status_];
 }
 
+- (void) releaseSubviews {
+    spinner_ = nil;
+    status_ = nil;
+    caption_ = nil;
+}
+
 @end
 /* }}} */
 

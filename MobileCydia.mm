@@ -5896,6 +5896,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         return;
     }
 
+    NSArray *packages;
+
     if ([self shouldYield]) {
         do {
             UIProgressHUD *hud;
@@ -5908,7 +5910,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             }
 
             reloading_ = 1;
-            packages_ = [self yieldToSelector:@selector(_reloadPackages)];
+            packages = [self yieldToSelector:@selector(_reloadPackages)];
 
             if (hud != nil)
                 [delegate_ removeProgressHUD:hud];
@@ -5916,8 +5918,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         reloading_ = 0;
     } else {
-        packages_ = [self _reloadPackages];
+        packages = [self _reloadPackages];
     }
+
+    packages_ = packages;
 
     [indices_ removeAllObjects];
     [sections_ removeAllObjects];
@@ -7126,21 +7130,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 } }
 
 - (void) _reloadData {
+    NSArray *packages;
+
   reload:
     if (true) {
         UIProgressHUD *hud([delegate_ addProgressHUD]);
         [hud setText:UCLocalize("LOADING")];
         //NSLog(@"HUD:%@::%@", delegate_, hud);
-        packages_ = [self yieldToSelector:@selector(_reloadPackages)];
+        packages = [self yieldToSelector:@selector(_reloadPackages)];
         [delegate_ removeProgressHUD:hud];
     } else {
-        packages_ = [self _reloadPackages];
+        packages = [self _reloadPackages];
     }
 
 @synchronized (database_) {
     if (era_ != [database_ era])
         goto reload;
 
+    packages_ = packages;
     [sections_ removeAllObjects];
 
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];

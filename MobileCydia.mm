@@ -8711,6 +8711,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) update_ {
     [database_ update];
+    [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:YES];
 }
 
 - (void) disemulate {
@@ -8790,8 +8791,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     fclose(file);
 
     [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:@"UPDATING_SOURCES"];
-
-    [self reloadData];
 }
 
 - (void) addTrivialSource:(NSString *)href {
@@ -8881,12 +8880,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (void) perform_ {
+    [database_ perform];
+    [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:YES];
+}
+
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
     Queuing_ = false;
     ++locked_;
-    [self detachNewProgressSelector:@selector(perform) toTarget:database_ forController:navigation title:@"RUNNING"];
+    [self detachNewProgressSelector:@selector(perform_) toTarget:self forController:navigation title:@"RUNNING"];
     --locked_;
-    [self reloadData];
 }
 
 - (void) showSettings {

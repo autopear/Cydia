@@ -153,6 +153,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find Mobil
 	
 	mkdir -p _/DEBIAN
 	./control.sh _ >_/DEBIAN/control
+	cp -a preinst _/DEBIAN/
 	
 	find _ -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
 	

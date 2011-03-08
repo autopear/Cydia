@@ -3904,6 +3904,8 @@ static _H<NSMutableSet> Diversions_;
         return @"statfs";
     else if (selector == @selector(supports:))
         return @"supports";
+    else if (selector == @selector(unload))
+        return @"unload";
     else
         return nil;
 }
@@ -3914,6 +3916,10 @@ static _H<NSMutableSet> Diversions_;
 
 - (BOOL) supports:(NSString *)feature {
     return [feature isEqualToString:@"window.open"];
+}
+
+- (void) unload {
+    [delegate_ performSelectorOnMainThread:@selector(unloadData) withObject:nil waitUntilDone:NO];
 }
 
 - (void) addInternalRedirect:(NSString *)from :(NSString *)to {

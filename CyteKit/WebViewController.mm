@@ -701,7 +701,7 @@ float CYScrollViewDecelerationRateNormal;
         else if (button == (UIBarButtonItem *) [NSNull null])
             button = nil;
 
-        [[self navigationItem] setRightBarButtonItem:button];
+        [[self navigationItem] setRightBarButtonItem:button animated:YES];
     }
 }
 

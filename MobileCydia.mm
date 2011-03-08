@@ -8658,7 +8658,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [NSThread detachNewThreadSelector:@selector(_refreshIfPossible:) toTarget:self withObject:[Metadata_ objectForKey:@"LastUpdate"]];
 }
 
-- (void) _reloadDataWithInvocation:(NSInvocation *)invocation {
+- (void) reloadDataWithInvocation:(NSInvocation *)invocation {
+@synchronized (self) {
     UIProgressHUD *hud(loaded_ ? [self addProgressHUD] : nil);
     [hud setText:UCLocalize("RELOADING_DATA")];
 
@@ -8702,7 +8703,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self _updateData];
 
     [self refreshIfPossible];
-}
+} }
 
 - (void) updateData {
     [self _updateData];
@@ -8710,12 +8711,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) update_ {
     [database_ update];
-}
-
-- (void) complete {
-    @synchronized (self) {
-        [self _reloadDataWithInvocation:nil];
-    }
 }
 
 - (void) disemulate {
@@ -8772,6 +8767,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self performSelectorOnMainThread:@selector(repairWithInvocation:) withObject:[NSInvocation invocationWithSelector:selector forTarget:database_] waitUntilDone:YES];
 }
 
+- (void) reloadData {
+    [self reloadDataWithInvocation:nil];
+}
+
 - (void) syncData {
     [self _saveConfig];
 
@@ -8792,7 +8791,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:@"UPDATING_SOURCES"];
 
-    [self complete];
+    [self reloadData];
 }
 
 - (void) addTrivialSource:(NSString *)href {
@@ -8803,16 +8802,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href]];
 
     Changed_ = true;
-}
-
-- (void) reloadDataWithInvocation:(NSInvocation *)invocation {
-    @synchronized (self) {
-        [self _reloadDataWithInvocation:invocation];
-    }
-}
-
-- (void) reloadData {
-    [self reloadDataWithInvocation:nil];
 }
 
 - (void) resolve {
@@ -8897,7 +8886,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ++locked_;
     [self detachNewProgressSelector:@selector(perform) toTarget:database_ forController:navigation title:@"RUNNING"];
     --locked_;
-    [self complete];
+    [self reloadData];
 }
 
 - (void) showSettings {

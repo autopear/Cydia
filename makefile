@@ -85,6 +85,8 @@ object := $(object:%=Objects/%)
 images := $(shell find MobileCydia.app -name '*.png')
 images := $(images:%=Images/%)
 
+lproj_deb := debs/cydia-lproj_$(version)_iphoneos-arm.deb
+
 all: MobileCydia
 
 clean:
@@ -140,6 +142,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find Mobil
 	
 	mkdir -p _/Applications
 	cp -a MobileCydia.app _/Applications/Cydia.app
+	rm -rf _/Applications/Cydia.app/*.lproj
 	cp -a MobileCydia _/Applications/Cydia.app/MobileCydia
 	
 	cd MobileCydia.app && find . -name '*.png' -exec cp -af ../Images/MobileCydia.app/{} ../_/Applications/Cydia.app/{} ';'
@@ -152,7 +155,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find Mobil
 	#ln -s {/Applications/AppleTV,_/Applications/Lowtide}.app/Appliances/Cydia.frappliance
 	
 	mkdir -p _/DEBIAN
-	./control.sh _ >_/DEBIAN/control
+	./control.sh cydia.control _ >_/DEBIAN/control
 	cp -a preinst _/DEBIAN/
 	
 	find _ -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
@@ -166,6 +169,24 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find Mobil
 	$(dpkg) -b _ Cydia.deb
 	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
 
-package: debs/cydia_$(version)_iphoneos-arm.deb
+$(lproj_deb): $(shell find MobileCydia.app -name '*.strings')
+	sudo rm -rf __
+	mkdir -p __/Applications/Cydia.app
+	
+	cp -a MobileCydia.app/*.lproj __/Applications/Cydia.app
+	
+	mkdir -p __/DEBIAN
+	./control.sh cydia-lproj.control __ >__/DEBIAN/control
+	cp -a preinst __/DEBIAN/
+	
+	sudo chown -R 0 __
+	sudo chgrp -R 0 __
+	
+	mkdir -p debs
+	ln -sf debs/cydia-lproj_$(version)_iphoneos-arm.deb Cydia_.deb
+	$(dpkg) -b __ Cydia_.deb
+	@echo "$$(stat -L -f "%z" Cydia_.deb) $$(stat -f "%Y" Cydia_.deb)"
+	
+package: debs/cydia_$(version)_iphoneos-arm.deb $(lproj_deb)
 
 .PHONY: all clean package sign

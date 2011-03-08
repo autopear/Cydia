@@ -6403,16 +6403,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) unloadData {
-    UIViewController *selected([self selectedViewController]);
+    [super unloadData];
+
     for (UINavigationController *controller in [self viewControllers])
         [controller unloadData];
 
-    [selected reloadData];
+    if (UIViewController *selected = [self selectedViewController])
+        [selected reloadData];
 
-    if (UIViewController *unselected = [self unselectedViewController])
+    if (UIViewController *unselected = [self unselectedViewController]) {
+        [unselected unloadData];
         [unselected reloadData];
-
-    [super unloadData];
+    }
 }
 
 - (void) dealloc {

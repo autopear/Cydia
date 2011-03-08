@@ -5092,12 +5092,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Source *source = [package source];
 
     icon_ = [package icon];
-    name_ = [package name];
+    name_ = [NSString stringWithString:[package name]];
 
-    if (IsWildcat_)
-        description_ = [package longDescription];
-    if (description_ == nil)
-        description_ = [package shortDescription];
+    NSString *description(nil);
+    if (description == nil && IsWildcat_)
+        description = [package longDescription];
+    if (description == nil)
+        description = [package shortDescription];
+
+    description_ = [NSString stringWithString:description];
 
     commercial_ = [package isCommercial];
 

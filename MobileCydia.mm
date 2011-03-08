@@ -6136,11 +6136,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease];
 }
 
-- (void) unloadData {
-    [super unloadData];
-    [self reloadData];
-}
-
 @end
 /* }}} */
 /* Manage Controller {{{ */

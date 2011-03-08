@@ -71,6 +71,7 @@
 
     bool error_;
     _H<NSURLRequest> request_;
+    bool ready_;
 
     _H<NSURLRequest> stage1_;
     _H<NSURLRequest> stage2_;

@@ -178,6 +178,7 @@ float CYScrollViewDecelerationRateNormal;
 #endif
 
     error_ = false;
+    ready_ = true;
 
     WebThreadLocked lock;
     [webview_ loadRequest:request];
@@ -216,7 +217,11 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) reloadData {
     [super reloadData];
-    [self reloadURLWithCache:YES];
+
+    if (ready_)
+        [self dispatchEvent:@"CydiaReloadData"];
+    else
+        [self reloadURLWithCache:YES];
 }
 
 - (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {

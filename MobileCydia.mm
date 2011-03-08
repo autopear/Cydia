@@ -5877,19 +5877,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         packages_ = [NSArray array];
         sections_ = [NSMutableArray arrayWithCapacity:16];
-
-        list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
-        [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [[self view] addSubview:list_];
-
-        // XXX: is 20 the most optimal number here?
-        [list_ setSectionIndexMinimumDisplayRowCount:20];
-
-        [(UITableView *) list_ setDataSource:self];
-        [list_ setDelegate:self];
-
-        [self updateHeight];
     } return self;
+}
+
+- (void) loadView {
+    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+
+    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
+    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+    [[self view] addSubview:list_];
+
+    // XXX: is 20 the most optimal number here?
+    [list_ setSectionIndexMinimumDisplayRowCount:20];
+
+    [(UITableView *) list_ setDataSource:self];
+    [list_ setDelegate:self];
+
+    [self updateHeight];
+}
+
+- (void) releaseSubviews {
+    list_ = nil;
 }
 
 - (void) setDelegate:(id)delegate {

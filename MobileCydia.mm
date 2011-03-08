@@ -266,6 +266,11 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
     notify_post("com.saurik.Cydia.status");
 }
 
+static CGFloat CYStatusBarHeight(UIInterfaceOrientation orientation) {
+    CGSize size([[UIApplication sharedApplication] statusBarFrame].size);
+    return UIInterfaceOrientationIsPortrait(orientation) ? size.height : size.width;
+}
+
 /* NSForcedOrderingSearch doesn't work on the iPhone */
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
@@ -6533,14 +6538,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     updatedelegate_ = delegate;
 }
 
-- (CGFloat) statusBarHeight {
-    if (UIInterfaceOrientationIsPortrait([self interfaceOrientation])) {
-        return [[UIApplication sharedApplication] statusBarFrame].size.height;
-    } else {
-        return [[UIApplication sharedApplication] statusBarFrame].size.width;
-    }
-}
-
 - (UIView *) transitionView {
     if ([self respondsToSelector:@selector(_transitionView)])
         return [self _transitionView];
@@ -6559,7 +6556,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CGRect barframe([refreshbar_ frame]);
 
     if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
-        barframe.origin.y = [self statusBarHeight];
+        barframe.origin.y = CYStatusBarHeight([self interfaceOrientation]);
     else
         barframe.origin.y = 0;
 

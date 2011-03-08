@@ -704,6 +704,7 @@ static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
 static _H<NSMutableSet> BridgedHosts_;
 static _H<NSMutableSet> PipelinedHosts_;
+static _H<NSMutableSet> CachedURLs_;
 
 static NSString *kCydiaProgressEventTypeError = @"Error";
 static NSString *kCydiaProgressEventTypeInformation = @"Information";
@@ -8454,6 +8455,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 }
 
+- (void) storeCachedResponse:(NSCachedURLResponse *)cached forRequest:(NSURLRequest *)request {
+    if (NSURLResponse *response = [cached response])
+        if (NSString *mime = [response MIMEType])
+            if ([mime isEqualToString:@"text/cache-manifest"]) {
+                NSURL *url([response URL]);
+
+#if !ForRelease
+                NSLog(@"###: %@", [url absoluteString]);
+#endif
+
+                @synchronized (HostConfig_) {
+                    [CachedURLs_ addObject:url];
+                }
+            }
+
+    [super storeCachedResponse:cached forRequest:request];
+}
+
 @end
 
 @interface Cydia : UIApplication <
@@ -9537,6 +9556,8 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
     NSMutableURLRequest *copy([request mutableCopy]);
 
     NSURL *url([copy URL]);
+
+    NSString *href([url absoluteString]);
     NSString *host([url host]);
     NSString *scheme([[url scheme] lowercaseString]);
 
@@ -9546,6 +9567,20 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
         if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
             if ([PipelinedHosts_ containsObject:host] || [PipelinedHosts_ containsObject:compound])
                 [copy setHTTPShouldUsePipelining:YES];
+
+        if (NSString *control = [copy valueForHTTPHeaderField:@"Cache-Control"])
+            if ([control isEqualToString:@"max-age=0"])
+                if ([CachedURLs_ containsObject:href]) {
+#if !ForRelease
+                    NSLog(@"~~~: %@", href);
+#endif
+
+                    [copy setCachePolicy:NSURLRequestReturnCacheDataDontLoad];
+
+                    [copy setValue:nil forHTTPHeaderField:@"Cache-Control"];
+                    [copy setValue:nil forHTTPHeaderField:@"If-Modified-Since"];
+                    [copy setValue:nil forHTTPHeaderField:@"If-None-Match"];
+                }
     }
 
     if ((self = _NSURLConnection$init$(self, _cmd, copy, delegate, usesCache, maxContentLength, startImmediately, connectionProperties)) != nil) {
@@ -9590,6 +9625,7 @@ int main(int argc, char *argv[]) {
     @synchronized (HostConfig_) {
         BridgedHosts_ = [NSMutableSet setWithCapacity:4];
         PipelinedHosts_ = [NSMutableSet setWithCapacity:4];
+        CachedURLs_ = [NSMutableSet setWithCapacity:32];
     }
 
     UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);

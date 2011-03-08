@@ -5747,6 +5747,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CGRect viewframe = [[base view] convertRect:[list_ frame] fromView:[list_ superview]];
     CGRect intersection = CGRectIntersection(viewframe, kbframe);
 
+    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
+        intersection.size.height += CYStatusBarHeight([self interfaceOrientation]);
+
     [self resizeForKeyboardBounds:intersection duration:duration curve:curve];
 }
 

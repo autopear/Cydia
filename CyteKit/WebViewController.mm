@@ -147,6 +147,10 @@ float CYScrollViewDecelerationRateNormal;
     [super dealloc];
 }
 
+- (CyteWebView *) webView {
+    return (CyteWebView *) [self view];
+}
+
 - (NSURL *) URLWithURL:(NSURL *)url {
     return url;
 }
@@ -181,7 +185,7 @@ float CYScrollViewDecelerationRateNormal;
     ready_ = true;
 
     WebThreadLocked lock;
-    [webview_ loadRequest:request];
+    [[self webView] loadRequest:request];
 }
 
 - (void) reloadURLWithCache:(BOOL)cache {
@@ -257,7 +261,7 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) _setViewportWidth {
-    [[webview_ _documentView] setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
+    [[[self webView] _documentView] setViewportSize:CGSizeMake(width_, UIWebViewGrowsAndShrinksToFitHeight) forDocumentTypes:0x10];
 }
 
 - (void) setViewportWidth:(float)width {
@@ -619,7 +623,7 @@ float CYScrollViewDecelerationRateNormal;
         } else if (button == [alert firstOtherButtonIndex]) {
             if (request_ != nil) {
                 WebThreadLocked lock;
-                [webview_ loadRequest:request_];
+                [[self webView] loadRequest:request_];
             }
         }
 
@@ -740,94 +744,13 @@ float CYScrollViewDecelerationRateNormal;
 
 - (id) initWithWidth:(float)width ofClass:(Class)_class {
     if ((self = [super init]) != nil) {
+        width_ = width;
+        class_ = _class;
+
         allowsNavigationAction_ = true;
 
-        class_ = _class;
         loading_ = [NSMutableSet setWithCapacity:5];
-
         indirect_ = [[[IndirectDelegate alloc] initWithDelegate:self] autorelease];
-
-        CGRect bounds([[self view] bounds]);
-
-        webview_ = [[[CyteWebView alloc] initWithFrame:bounds] autorelease];
-        [webview_ setDelegate:self];
-        [self setView:webview_];
-
-        if ([webview_ respondsToSelector:@selector(setDataDetectorTypes:)])
-            [webview_ setDataDetectorTypes:UIDataDetectorTypeAutomatic];
-        else
-            [webview_ setDetectsPhoneNumbers:NO];
-
-        [webview_ setScalesPageToFit:YES];
-
-        UIWebDocumentView *document([webview_ _documentView]);
-
-        // XXX: I think this improves scrolling; the hardcoded-ness sucks
-        [document setTileSize:CGSizeMake(320, 500)];
-
-        [document setBackgroundColor:[UIColor clearColor]];
-
-        // XXX: this is terribly (too?) expensive
-        [document setDrawsBackground:NO];
-
-        WebView *webview([document webView]);
-        WebPreferences *preferences([webview preferences]);
-
-        // XXX: I have no clue if I actually /want/ this modification
-        if ([webview respondsToSelector:@selector(_setLayoutInterval:)])
-            [webview _setLayoutInterval:0];
-        else if ([preferences respondsToSelector:@selector(_setLayoutInterval:)])
-            [preferences _setLayoutInterval:0];
-
-        [preferences setCacheModel:WebCacheModelDocumentBrowser];
-        [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
-        [preferences setOfflineWebApplicationCacheEnabled:YES];
-
-        if ([webview respondsToSelector:@selector(setShouldUpdateWhileOffscreen:)])
-            [webview setShouldUpdateWhileOffscreen:NO];
-
-#if LogMessages
-        if ([document respondsToSelector:@selector(setAllowsMessaging:)])
-            [document setAllowsMessaging:YES];
-        if ([webview respondsToSelector:@selector(_setAllowsMessaging:)])
-            [webview _setAllowsMessaging:YES];
-#endif
-
-        if ([webview_ respondsToSelector:@selector(_scrollView)]) {
-            scroller_ = [webview_ _scrollView];
-
-            [scroller_ setDirectionalLockEnabled:YES];
-            [scroller_ setDecelerationRate:CYScrollViewDecelerationRateNormal];
-            [scroller_ setDelaysContentTouches:NO];
-
-            [scroller_ setCanCancelContentTouches:YES];
-        } else if ([webview_ respondsToSelector:@selector(_scroller)]) {
-            UIScroller *scroller([webview_ _scroller]);
-            scroller_ = (UIScrollView *) scroller;
-
-            [scroller setDirectionalScrolling:YES];
-            // XXX: we might be better off /not/ setting this on older systems
-            [scroller setScrollDecelerationFactor:CYScrollViewDecelerationRateNormal]; /* 0.989324 */
-            [scroller setScrollHysteresis:0]; /* 8 */
-
-            [scroller setThumbDetectionEnabled:NO];
-
-            // use NO with UIApplicationUseLegacyEvents(YES)
-            [scroller setEventMode:YES];
-
-            // XXX: this is handled by setBounces, right?
-            //[scroller setAllowsRubberBanding:YES];
-        }
-
-        [scroller_ setFixedBackgroundPattern:YES];
-        [scroller_ setBackgroundColor:[UIColor clearColor]];
-        [scroller_ setClipsSubviews:YES];
-
-        [scroller_ setBounces:YES];
-        [scroller_ setScrollingEnabled:YES];
-        [scroller_ setShowBackgroundShadow:NO];
-
-        [self setViewportWidth:width];
 
         reloaditem_ = [[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("RELOAD")
@@ -845,17 +768,106 @@ float CYScrollViewDecelerationRateNormal;
 
         indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite] autorelease];
         [indicator_ setFrame:CGRectMake(15, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
-
-        UITableView *table([[[UITableView alloc] initWithFrame:bounds style:UITableViewStyleGrouped] autorelease]);
-        [webview_ insertSubview:table atIndex:0];
+        [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
 
         [self applyLeftButton];
         [self applyRightButton];
-
-        [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-        [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-        [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
     } return self;
+}
+
+- (void) loadView {
+    CGRect bounds([[UIScreen mainScreen] applicationFrame]);
+
+    webview_ = [[[CyteWebView alloc] initWithFrame:bounds] autorelease];
+    [webview_ setDelegate:self];
+    [self setView:webview_];
+
+    if ([webview_ respondsToSelector:@selector(setDataDetectorTypes:)])
+        [webview_ setDataDetectorTypes:UIDataDetectorTypeAutomatic];
+    else
+        [webview_ setDetectsPhoneNumbers:NO];
+
+    [webview_ setScalesPageToFit:YES];
+
+    UIWebDocumentView *document([webview_ _documentView]);
+
+    // XXX: I think this improves scrolling; the hardcoded-ness sucks
+    [document setTileSize:CGSizeMake(320, 500)];
+
+    [document setBackgroundColor:[UIColor clearColor]];
+
+    // XXX: this is terribly (too?) expensive
+    [document setDrawsBackground:NO];
+
+    WebView *webview([document webView]);
+    WebPreferences *preferences([webview preferences]);
+
+    // XXX: I have no clue if I actually /want/ this modification
+    if ([webview respondsToSelector:@selector(_setLayoutInterval:)])
+        [webview _setLayoutInterval:0];
+    else if ([preferences respondsToSelector:@selector(_setLayoutInterval:)])
+        [preferences _setLayoutInterval:0];
+
+    [preferences setCacheModel:WebCacheModelDocumentBrowser];
+    [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
+    [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+    if ([webview respondsToSelector:@selector(setShouldUpdateWhileOffscreen:)])
+        [webview setShouldUpdateWhileOffscreen:NO];
+
+#if LogMessages
+    if ([document respondsToSelector:@selector(setAllowsMessaging:)])
+        [document setAllowsMessaging:YES];
+    if ([webview respondsToSelector:@selector(_setAllowsMessaging:)])
+        [webview _setAllowsMessaging:YES];
+#endif
+
+    if ([webview_ respondsToSelector:@selector(_scrollView)]) {
+        scroller_ = [webview_ _scrollView];
+
+        [scroller_ setDirectionalLockEnabled:YES];
+        [scroller_ setDecelerationRate:CYScrollViewDecelerationRateNormal];
+        [scroller_ setDelaysContentTouches:NO];
+
+        [scroller_ setCanCancelContentTouches:YES];
+    } else if ([webview_ respondsToSelector:@selector(_scroller)]) {
+        UIScroller *scroller([webview_ _scroller]);
+        scroller_ = (UIScrollView *) scroller;
+
+        [scroller setDirectionalScrolling:YES];
+        // XXX: we might be better off /not/ setting this on older systems
+        [scroller setScrollDecelerationFactor:CYScrollViewDecelerationRateNormal]; /* 0.989324 */
+        [scroller setScrollHysteresis:0]; /* 8 */
+
+        [scroller setThumbDetectionEnabled:NO];
+
+        // use NO with UIApplicationUseLegacyEvents(YES)
+        [scroller setEventMode:YES];
+
+        // XXX: this is handled by setBounces, right?
+        //[scroller setAllowsRubberBanding:YES];
+    }
+
+    [scroller_ setFixedBackgroundPattern:YES];
+    [scroller_ setBackgroundColor:[UIColor clearColor]];
+    [scroller_ setClipsSubviews:YES];
+
+    [scroller_ setBounces:YES];
+    [scroller_ setScrollingEnabled:YES];
+    [scroller_ setShowBackgroundShadow:NO];
+
+    [self setViewportWidth:width_];
+
+    UITableView *table([[[UITableView alloc] initWithFrame:[webview_ bounds] style:UITableViewStyleGrouped] autorelease]);
+    [webview_ insertSubview:table atIndex:0];
+
+    [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+}
+
+- (void) releaseSubviews {
+    webview_ = nil;
+    scroller_ = nil;
 }
 
 - (id) initWithWidth:(float)width {
@@ -875,7 +887,7 @@ float CYScrollViewDecelerationRateNormal;
 - (void) callFunction:(WebScriptObject *)function {
     WebThreadLocked lock;
 
-    WebView *webview([[webview_ _documentView] webView]);
+    WebView *webview([[[self webView] _documentView] webView]);
     WebFrame *frame([webview mainFrame]);
 
     JSGlobalContextRef context([frame globalContext]);
@@ -932,7 +944,7 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) dispatchEvent:(NSString *)event {
-    [(CyteWebView *) webview_ dispatchEvent:event];
+    [[self webView] dispatchEvent:event];
 }
 
 - (bool) hidesNavigationBar {

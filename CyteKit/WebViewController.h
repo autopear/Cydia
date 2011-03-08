@@ -100,6 +100,8 @@
 
 + (void) _initialize;
 
+- (CyteWebView *) webView;
+
 - (void) setURL:(NSURL *)url;
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;

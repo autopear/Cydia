@@ -5713,15 +5713,27 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self resizeForKeyboardBounds:bounds duration:0];
 }
 
+- (void) getKeyboardCurve:(UIViewAnimationCurve *)curve duration:(NSTimeInterval *)duration forNotification:(NSNotification *)notification {
+    if (&UIKeyboardAnimationCurveUserInfoKey == NULL)
+        *curve = UIViewAnimationCurveEaseInOut;
+    else
+        [[[notification userInfo] objectForKey:UIKeyboardAnimationCurveUserInfoKey] getValue:curve];
+
+    if (&UIKeyboardAnimationDurationUserInfoKey == NULL)
+        *duration = 0.3;
+    else
+        [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:duration];
+}
+
 - (void) keyboardWillShow:(NSNotification *)notification {
     CGRect bounds;
     CGPoint center;
-    NSTimeInterval duration;
-    UIViewAnimationCurve curve;
     [[[notification userInfo] objectForKey:UIKeyboardBoundsUserInfoKey] getValue:&bounds];
     [[[notification userInfo] objectForKey:UIKeyboardCenterEndUserInfoKey] getValue:&center];
-    [[[notification userInfo] objectForKey:UIKeyboardAnimationCurveUserInfoKey] getValue:&curve];
-    [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
+
+    NSTimeInterval duration;
+    UIViewAnimationCurve curve;
+    [self getKeyboardCurve:&curve duration:&duration forNotification:notification];
 
     CGRect kbframe = CGRectMake(round(center.x - bounds.size.width / 2.0), round(center.y - bounds.size.height / 2.0), bounds.size.width, bounds.size.height);
     UIViewController *base = self;
@@ -5736,8 +5748,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) keyboardWillHide:(NSNotification *)notification {
     NSTimeInterval duration;
     UIViewAnimationCurve curve;
-    [[[notification userInfo] objectForKey:UIKeyboardAnimationCurveUserInfoKey] getValue:&curve];
-    [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
+    [self getKeyboardCurve:&curve duration:&duration forNotification:notification];
 
     [self resizeForKeyboardBounds:CGRectZero duration:duration curve:curve];
 }

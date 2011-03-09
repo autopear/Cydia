@@ -709,6 +709,7 @@ static NSString *Idiom_;
 static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
 static _H<NSMutableSet> BridgedHosts_;
+static _H<NSMutableSet> TokenHosts_;
 static _H<NSMutableSet> PipelinedHosts_;
 static _H<NSMutableSet> CachedURLs_;
 
@@ -3841,6 +3842,8 @@ static _H<NSMutableSet> Diversions_;
         return @"addInternalRedirect";
     else if (selector == @selector(addPipelinedHost:scheme:))
         return @"addPipelinedHost";
+    else if (selector == @selector(addTokenHost:))
+        return @"addTokenHost";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
     else if (selector == @selector(close))
@@ -3993,6 +3996,11 @@ static _H<NSMutableSet> Diversions_;
 - (void) addBridgedHost:(NSString *)host {
 @synchronized (HostConfig_) {
     [BridgedHosts_ addObject:host];
+} }
+
+- (void) addTokenHost:(NSString *)host {
+@synchronized (HostConfig_) {
+    [TokenHosts_ addObject:host];
 } }
 
 - (void) addPipelinedHost:(NSString *)host scheme:(NSString *)scheme {
@@ -4263,14 +4271,25 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    NSURL *url([request URL]);
+    NSString *host([url host]);
+
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
 
     if (System_ != NULL && [copy valueForHTTPHeaderField:@"X-System"] == nil)
         [copy setValue:System_ forHTTPHeaderField:@"X-System"];
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
-        [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
+
+    bool token;
+    @synchronized (HostConfig_) {
+        token = [TokenHosts_ containsObject:host];
+    }
+
+    if (token) {
+        if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
+            [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
+    }
 
     return copy;
 }
@@ -9672,6 +9691,7 @@ int main(int argc, char *argv[]) {
     HostConfig_ = [[[NSObject alloc] init] autorelease];
     @synchronized (HostConfig_) {
         BridgedHosts_ = [NSMutableSet setWithCapacity:4];
+        TokenHosts_ = [NSMutableSet setWithCapacity:4];
         PipelinedHosts_ = [NSMutableSet setWithCapacity:4];
         CachedURLs_ = [NSMutableSet setWithCapacity:32];
     }

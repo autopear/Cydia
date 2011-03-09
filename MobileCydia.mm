@@ -2700,21 +2700,24 @@ struct PackageNameOrdering :
 
     [self parse];
 
-    string = [self id];
+    string = [self name];
     length = [string length];
 
     for (NSString *term in query) {
         range = [string rangeOfString:term options:MatchCompareOptions_];
         if (range.location != NSNotFound)
-            rank_ -= 10 * 100000 / length;
+            rank_ -= 6 * 1000000 / length;
     }
 
-    string = [self name];
+    if (rank_ == 0) {
+        string = [self id];
+        length = [string length];
 
-    for (NSString *term in query) {
-        range = [string rangeOfString:term options:MatchCompareOptions_];
-        if (range.location != NSNotFound)
-            rank_ -= 6 * 100000 / length;
+        for (NSString *term in query) {
+            range = [string rangeOfString:term options:MatchCompareOptions_];
+            if (range.location != NSNotFound)
+                rank_ -= 6 * 1000000 / length;
+        }
     }
 
     string = [self shortDescription];
@@ -2724,7 +2727,7 @@ struct PackageNameOrdering :
     for (NSString *term in query) {
         range = [string rangeOfString:term options:MatchCompareOptions_ range:NSMakeRange(0, stop)];
         if (range.location != NSNotFound)
-            rank_ -= 2 * 100000 / length;
+            rank_ -= 2 * 100000;
     }
 
     return rank_ != 0;

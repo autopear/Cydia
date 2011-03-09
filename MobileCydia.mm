@@ -5892,7 +5892,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSArray *) sectionIndexTitlesForTableView:(UITableView *)tableView {
-    if ([self showsSections])
+    if (![self showsSections])
         return nil;
 
     return index_;

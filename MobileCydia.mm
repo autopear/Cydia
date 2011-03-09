@@ -4265,11 +4265,11 @@ static _H<NSMutableSet> Diversions_;
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
 
-    if (System_ != NULL)
+    if (System_ != NULL && [copy valueForHTTPHeaderField:@"X-System"] == nil)
         [copy setValue:System_ forHTTPHeaderField:@"X-System"];
-    if (Machine_ != NULL)
+    if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (Token_ != nil)
+    if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
         [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
 
     return copy;

@@ -8,3 +8,4 @@ debs
 .DS_Store
 *.o
 Images/
+Version.h

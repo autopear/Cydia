@@ -63,8 +63,6 @@ version := $(shell ./version.sh)
 gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
 cycc = $(gxx) -mthumb -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F{sysroot,}/Library/Frameworks
 
-flags += -DCYDIA_VERSION='"$(version)"'
-
 dirs := Menes CyteKit Cydia SDURLCache
 
 code := $(foreach dir,$(dirs),$(wildcard $(foreach ext,h hpp c cpp m mm,$(dir)/*.$(ext))))
@@ -107,6 +105,8 @@ Objects/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) -c -o $@ $< $(flags) $(xflags)
+
+Objects/MobileCydia.o: version.h
 
 Images/%.png: %.png
 	@mkdir -p $(dir $@)

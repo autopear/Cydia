@@ -206,6 +206,7 @@ void PrintTimes() {
 #define _end }
 /* }}} */
 
+#include "Version.h"
 #define Cydia_ CYDIA_VERSION
 
 #define lprintf(args...) fprintf(stderr, args)

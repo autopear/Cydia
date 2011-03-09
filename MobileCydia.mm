@@ -4309,7 +4309,7 @@ static _H<NSMutableSet> Diversions_;
 
     bool token;
     @synchronized (HostConfig_) {
-        token = [TokenHosts_ containsObject:host];
+        token = [TokenHosts_ containsObject:host] || [BridgedHosts_ containsObject:host];
     }
 
     if ([url isCydiaSecure] && token) {

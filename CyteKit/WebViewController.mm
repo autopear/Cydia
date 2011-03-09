@@ -775,6 +775,10 @@ float CYScrollViewDecelerationRateNormal;
     } return self;
 }
 
+- (NSString *) applicationNameForUserAgent {
+    return nil;
+}
+
 - (void) loadView {
     CGRect bounds([[UIScreen mainScreen] applicationFrame]);
 
@@ -811,6 +815,9 @@ float CYScrollViewDecelerationRateNormal;
     [preferences setCacheModel:WebCacheModelDocumentBrowser];
     [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
     [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+    if (NSString *agent = [self applicationNameForUserAgent])
+        [webview setApplicationNameForUserAgent:agent];
 
     if ([webview respondsToSelector:@selector(setShouldUpdateWhileOffscreen:)])
         [webview setShouldUpdateWhileOffscreen:NO];

@@ -4279,22 +4279,22 @@ static _H<NSMutableSet> Diversions_;
     [cydia_ setDelegate:delegate];
 }
 
+- (NSString *) applicationNameForUserAgent {
+    NSString *application([NSString stringWithFormat:@"Cydia/%@", @ Cydia_]);
+
+    if (Safari_ != nil)
+        application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];
+    if (Build_ != nil)
+        application = [NSString stringWithFormat:@"Mobile/%@ %@", Build_, application];
+    if (Product_ != nil)
+        application = [NSString stringWithFormat:@"Version/%@ %@", Product_, application];
+
+    return application;
+}
+
 - (id) init {
     if ((self = [super initWithWidth:0 ofClass:[CydiaWebViewController class]]) != nil) {
         cydia_ = [[[CydiaObject alloc] initWithDelegate:indirect_] autorelease];
-
-        WebView *webview([[webview_ _documentView] webView]);
-
-        NSString *application([NSString stringWithFormat:@"Cydia/%@", @ Cydia_]);
-
-        if (Safari_ != nil)
-            application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];
-        if (Build_ != nil)
-            application = [NSString stringWithFormat:@"Mobile/%@ %@", Build_, application];
-        if (Product_ != nil)
-            application = [NSString stringWithFormat:@"Version/%@ %@", Product_, application];
-
-        [webview setApplicationNameForUserAgent:application];
     } return self;
 }
 

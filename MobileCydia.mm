@@ -710,6 +710,7 @@ static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
 static _H<NSMutableSet> BridgedHosts_;
 static _H<NSMutableSet> TokenHosts_;
+static _H<NSMutableSet> InsecureHosts_;
 static _H<NSMutableSet> PipelinedHosts_;
 static _H<NSMutableSet> CachedURLs_;
 
@@ -3838,6 +3839,8 @@ static _H<NSMutableSet> Diversions_;
     if (false);
     else if (selector == @selector(addBridgedHost:))
         return @"addBridgedHost";
+    else if (selector == @selector(addInsecureHost:))
+        return @"addInsecureHost";
     else if (selector == @selector(addInternalRedirect::))
         return @"addInternalRedirect";
     else if (selector == @selector(addPipelinedHost:scheme:))
@@ -3996,6 +3999,11 @@ static _H<NSMutableSet> Diversions_;
 - (void) addBridgedHost:(NSString *)host {
 @synchronized (HostConfig_) {
     [BridgedHosts_ addObject:host];
+} }
+
+- (void) addInsecureHost:(NSString *)host {
+@synchronized (HostConfig_) {
+    [InsecureHosts_ addObject:host];
 } }
 
 - (void) addTokenHost:(NSString *)host {
@@ -4221,6 +4229,24 @@ static _H<NSMutableSet> Diversions_;
 @end
 /* }}} */
 
+@interface NSURL (CydiaSecure)
+@end
+
+@implementation NSURL (CydiaSecure)
+
+- (bool) isCydiaSecure {
+    if ([[[self scheme] lowercaseString] isEqualToString:@"https"])
+        return true;
+
+    @synchronized (HostConfig_) {
+        if ([InsecureHosts_ containsObject:[self host]])
+            return true;
+    }
+
+    return false;
+}
+
+@end
 
 /* Cydia Browser Controller {{{ */
 @implementation CydiaWebViewController
@@ -4286,7 +4312,7 @@ static _H<NSMutableSet> Diversions_;
         token = [TokenHosts_ containsObject:host];
     }
 
-    if (token) {
+    if ([url isCydiaSecure] && token) {
         if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
             [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
     }
@@ -8051,8 +8077,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
+    NSURL *url([NSURL URLWithString:href]);
+
     NSMutableURLRequest *request = [NSMutableURLRequest
-        requestWithURL:[NSURL URLWithString:href]
+        requestWithURL:url
         cachePolicy:NSURLRequestUseProtocolCachePolicy
         timeoutInterval:120.0
     ];
@@ -8061,8 +8089,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (Machine_ != NULL)
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
-    if (UniqueID_ != nil)
-        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+
+    if ([url isCydiaSecure]) {
+        if (UniqueID_ != nil)
+            [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+    }
 
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
 }
@@ -9692,6 +9723,7 @@ int main(int argc, char *argv[]) {
     @synchronized (HostConfig_) {
         BridgedHosts_ = [NSMutableSet setWithCapacity:4];
         TokenHosts_ = [NSMutableSet setWithCapacity:4];
+        InsecureHosts_ = [NSMutableSet setWithCapacity:4];
         PipelinedHosts_ = [NSMutableSet setWithCapacity:4];
         CachedURLs_ = [NSMutableSet setWithCapacity:32];
     }

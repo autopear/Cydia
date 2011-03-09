@@ -697,6 +697,7 @@ static NSMutableDictionary *Metadata_;
 static _transient NSMutableDictionary *Settings_;
 static _transient NSString *Role_;
 static _transient NSMutableDictionary *Packages_;
+static _transient NSMutableDictionary *Values_;
 static _transient NSMutableDictionary *Sections_;
 static _transient NSMutableDictionary *Sources_;
 static bool Changed_;
@@ -3874,6 +3875,8 @@ static _H<NSMutableSet> Diversions_;
         return @"getPreferredLanguages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
+    else if (selector == @selector(getMetadataValue:))
+        return @"getMetadataValue";
     else if (selector == @selector(getSessionValue:))
         return @"getSessionValue";
     else if (selector == @selector(installPackages:))
@@ -3886,6 +3889,8 @@ static _H<NSMutableSet> Diversions_;
         return @"refreshSources";
     else if (selector == @selector(removeButton))
         return @"removeButton";
+    else if (selector == @selector(setMetadataValue::))
+        return @"setMetadataValue";
     else if (selector == @selector(setSessionValue::))
         return @"setSessionValue";
     else if (selector == @selector(substitutePackageNames:))
@@ -3985,6 +3990,21 @@ static _H<NSMutableSet> Diversions_;
 
     return value;
 }
+
+- (id) getMetadataValue:(NSString *)key {
+@synchronized (Values_) {
+    return [Values_ objectForKey:key];
+} }
+
+- (void) setMetadataValue:(NSString *)key :(NSString *)value {
+@synchronized (Values_) {
+    if (value == (id) [WebUndefined undefined])
+        [Values_ removeObjectForKey:key];
+    else
+        [Values_ setObject:value forKey:key];
+
+    [delegate_ performSelectorOnMainThread:@selector(updateValues) withObject:nil waitUntilDone:YES];
+} }
 
 - (id) getSessionValue:(NSString *)key {
 @synchronized (SessionData_) {
@@ -8905,6 +8925,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     Changed_ = true;
 }
 
+- (void) updateValues {
+    Changed_ = true;
+}
+
 - (void) resolve {
     pkgProblemResolver *resolver = [database_ resolver];
 
@@ -9908,6 +9932,8 @@ int main(int argc, char *argv[]) {
         Settings_ = [Metadata_ objectForKey:@"Settings"];
 
         Packages_ = [Metadata_ objectForKey:@"Packages"];
+
+        Values_ = [Metadata_ objectForKey:@"Values"];
         Sections_ = [Metadata_ objectForKey:@"Sections"];
         Sources_ = [Metadata_ objectForKey:@"Sources"];
 
@@ -9916,6 +9942,11 @@ int main(int argc, char *argv[]) {
 
     if (Settings_ != nil)
         Role_ = [Settings_ objectForKey:@"Role"];
+
+    if (Values_ == nil) {
+        Values_ = [[[NSMutableDictionary alloc] initWithCapacity:4] autorelease];
+        [Metadata_ setObject:Values_ forKey:@"Values"];
+    }
 
     if (Sections_ == nil) {
         Sections_ = [[[NSMutableDictionary alloc] initWithCapacity:32] autorelease];

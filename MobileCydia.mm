@@ -1790,6 +1790,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 struct ParsedPackage {
     CYString tagline_;
 
+    CYString architecture_;
     CYString icon_;
 
     CYString depiction_;
@@ -2082,6 +2083,7 @@ struct PackageNameOrdering :
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"applications",
+        @"architecture",
         @"author",
         @"depiction",
         @"essential",
@@ -2128,6 +2130,12 @@ struct PackageNameOrdering :
     return relations;
 } }
 
+- (NSString *) architecture {
+    [self parse];
+@synchronized (database_) {
+    return parsed_->architecture_.empty() ? [NSNull null] : (id) parsed_->architecture_;
+} }
+
 - (NSString *) getField:(NSString *)name {
 @synchronized (database_) {
     if ([database_ era] != era_ || file_.end())
@@ -2166,6 +2174,7 @@ struct PackageNameOrdering :
                 const char *name_;
                 CYString *value_;
             } names[] = {
+                {"architecture", &parsed->architecture_},
                 {"icon", &parsed->icon_},
                 {"depiction", &parsed->depiction_},
                 {"homepage", &parsed->homepage_},

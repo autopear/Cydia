@@ -741,7 +741,7 @@ static void WriteSources() {
     FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
     _assert(file != NULL);
 
-    fprintf(file, "deb http://%s/ tangelo main\n",
+    fprintf(file, "deb http://%s/ tangelo-3.7 main\n",
         [CydiaSource_ UTF8String]
     );
 

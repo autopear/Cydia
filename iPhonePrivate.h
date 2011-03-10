@@ -151,6 +151,10 @@ typedef enum {
 // }}}
 
 // @interface NS* (*) {{{
+@interface NSMutableURLRequest (Apple)
+- (void) setHTTPShouldUsePipelining:(BOOL)pipelining;
+@end
+
 @interface NSString (Apple)
 - (NSString *) stringByAddingPercentEscapes;
 - (NSString *) stringByReplacingCharacter:(UniChar)from withCharacter:(UniChar)to;

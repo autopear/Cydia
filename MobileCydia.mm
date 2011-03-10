@@ -700,6 +700,8 @@ static _transient NSMutableDictionary *Packages_;
 static _transient NSMutableDictionary *Values_;
 static _transient NSMutableDictionary *Sections_;
 static _transient NSMutableDictionary *Sources_;
+static _transient NSNumber *Version_;
+static _transient _H<NSString> CydiaSource_;
 static bool Changed_;
 static time_t now_;
 
@@ -720,6 +722,45 @@ static NSString *kCydiaProgressEventTypeInformation = @"Information";
 static NSString *kCydiaProgressEventTypeStatus = @"Status";
 static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 /* }}} */
+
+static void AddSource(NSDictionary *source) {
+    [Sources_ setObject:source forKey:[NSString stringWithFormat:@"%@:%@:%@", [source objectForKey:@"Type"], [source objectForKey:@"URI"], [source objectForKey:@"Distribution"]]];
+    Changed_ = true;
+}
+
+static void AddSource(NSString *href, NSString *distribution, NSArray *sections = nil) {
+    AddSource([NSMutableDictionary dictionaryWithObjectsAndKeys:
+        @"deb", @"Type",
+        href, @"URI",
+        distribution, @"Distribution",
+        sections ?: [NSMutableArray array], @"Sections",
+    nil]);
+}
+
+static void WriteSources() {
+    FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
+    _assert(file != NULL);
+
+    fprintf(file, "deb http://%s/ tangelo main\n",
+        [CydiaSource_ UTF8String]
+    );
+
+    for (NSString *key in [Sources_ allKeys]) {
+        NSDictionary *source([Sources_ objectForKey:key]);
+
+        NSArray *sections([source objectForKey:@"Sections"] ?: [NSArray array]);
+
+        fprintf(file, "%s %s %s%s%s\n",
+            [[source objectForKey:@"Type"] UTF8String],
+            [[source objectForKey:@"URI"] UTF8String],
+            [[source objectForKey:@"Distribution"] UTF8String],
+            [sections count] == 0 ? "" : " ",
+            [[sections componentsJoinedByString:@" "] UTF8String]
+        );
+    }
+
+    fclose(file);
+}
 
 /* Display Helpers {{{ */
 inline float Interpolate(float begin, float end, float fraction) {
@@ -842,6 +883,7 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 - (void) loadData;
 - (void) updateData;
 - (void) syncData;
+- (void) addSource:(NSDictionary *)source;
 - (void) addTrivialSource:(NSString *)href;
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
@@ -1335,6 +1377,22 @@ static void PackageImport(const void *key, const void *value, void *context) {
     authority_ = nil;
 }
 
++ (NSString *) webScriptNameForSelector:(SEL)selector {
+    if (false);
+    else if (selector == @selector(addSection:))
+        return @"addSection";
+    else if (selector == @selector(removeSection:))
+        return @"removeSection";
+    else if (selector == @selector(remove))
+        return @"remove";
+    else
+        return nil;
+}
+
++ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
+    return [self webScriptNameForSelector:selector] == nil;
+}
+
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"distribution",
@@ -1343,6 +1401,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
         @"label",
         @"name",
         @"origin",
+        @"sections",
         @"shortDescription",
         @"trusted",
         @"type",
@@ -1454,6 +1513,62 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 - (NSString *) supportForPackage:(NSString *)package {
     return support_.empty() ? nil : [static_cast<id>(support_) stringByReplacingOccurrencesOfString:@"*" withString:package];
+}
+
+- (NSArray *) sections {
+    return record_ == nil ? (id) [NSNull null] : [record_ objectForKey:@"Sections"] ?: [NSArray array];
+}
+
+- (void) _addSection:(NSString *)section {
+    if (record_ == nil)
+        return;
+    else if (NSMutableArray *sections = [record_ objectForKey:@"Sections"]) {
+        if (![sections containsObject:section]) {
+            [sections addObject:section];
+            Changed_ = true;
+        }
+    } else {
+        [record_ setObject:[NSMutableArray arrayWithObject:section] forKey:@"Sections"];
+        Changed_ = true;
+    }
+}
+
+- (bool) addSection:(NSString *)section {
+    if (record_ == nil)
+        return false;
+
+    [self performSelectorOnMainThread:@selector(_addSection:) withObject:section waitUntilDone:NO];
+    return true;
+}
+
+- (void) _removeSection:(NSString *)section {
+    if (record_ == nil)
+        return;
+
+    if (NSMutableArray *sections = [record_ objectForKey:@"Sections"])
+        if ([sections containsObject:section]) {
+            [sections removeObject:section];
+            Changed_ = true;
+        }
+}
+
+- (bool) removeSection:(NSString *)section {
+    if (record_ == nil)
+        return false;
+
+    [self performSelectorOnMainThread:@selector(_removeSection:) withObject:section waitUntilDone:NO];
+    return true;
+}
+
+- (void) _remove {
+    [Sources_ removeObjectForKey:[self key]];
+    Changed_ = true;
+}
+
+- (bool) remove {
+    bool value(record_ != nil);
+    [self performSelectorOnMainThread:@selector(_remove) withObject:nil waitUntilDone:NO];
+    return value;
 }
 
 - (NSDictionary *) record {
@@ -3769,6 +3884,7 @@ static _H<NSMutableSet> Diversions_;
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"bbsnum",
+        @"cydiaSource",
         @"device",
         @"ecid",
         @"firmware",
@@ -3849,6 +3965,8 @@ static _H<NSMutableSet> Diversions_;
         return @"addInternalRedirect";
     else if (selector == @selector(addPipelinedHost:scheme:))
         return @"addPipelinedHost";
+    else if (selector == @selector(addSource:::))
+        return @"addSource";
     else if (selector == @selector(addTokenHost:))
         return @"addTokenHost";
     else if (selector == @selector(addTrivialSource:))
@@ -3889,6 +4007,10 @@ static _H<NSMutableSet> Diversions_;
         return @"refreshSources";
     else if (selector == @selector(removeButton))
         return @"removeButton";
+    else if (selector == @selector(saveConfig))
+        return @"saveConfig";
+    else if (selector == @selector(setCydiaSource:))
+        return @"setCydiaSource";
     else if (selector == @selector(setMetadataValue::))
         return @"setMetadataValue";
     else if (selector == @selector(setSessionValue::))
@@ -3991,6 +4113,25 @@ static _H<NSMutableSet> Diversions_;
     return value;
 }
 
+- (void) _setCydiaSource:(NSString *)source {
+    @synchronized (HostConfig_) {
+        CydiaSource_ = source;
+        [Metadata_ setObject:source forKey:@"CydiaSource"];
+    }
+
+    Changed_ = true;
+}
+
+- (void) setCydiaSource:(NSString *)source {
+    [self performSelectorOnMainThread:@selector(_setCydiaSource:) withObject:source waitUntilDone:NO];
+}
+
+- (NSString *) cydiaSource {
+    @synchronized (HostConfig_) {
+        return (id) CydiaSource_ ?: [NSNull null];
+    }
+}
+
 - (id) getMetadataValue:(NSString *)key {
 @synchronized (Values_) {
     return [Values_ objectForKey:key];
@@ -3998,7 +4139,7 @@ static _H<NSMutableSet> Diversions_;
 
 - (void) setMetadataValue:(NSString *)key :(NSString *)value {
 @synchronized (Values_) {
-    if (value == (id) [WebUndefined undefined])
+    if (value == nil || value == (id) [WebUndefined undefined] || value == (id) [NSNull null])
         [Values_ removeObjectForKey:key];
     else
         [Values_ setObject:value forKey:key];
@@ -4048,12 +4189,30 @@ static _H<NSMutableSet> Diversions_;
     [indirect_ performSelectorOnMainThread:@selector(popViewControllerWithNumber:) withObject:value waitUntilDone:NO];
 }
 
+- (void) addSource:(NSString *)href :(NSString *)distribution :(WebScriptObject *)sections {
+    NSMutableArray *array([NSMutableArray arrayWithCapacity:[sections count]]);
+
+    for (NSString *section in sections)
+        [array addObject:section];
+
+    [delegate_ performSelectorOnMainThread:@selector(addSource:) withObject:[NSMutableDictionary dictionaryWithObjectsAndKeys:
+        @"deb", @"Type",
+        href, @"URI",
+        distribution, @"Distribution",
+        array, @"Sections",
+    nil] waitUntilDone:NO];
+}
+
 - (void) addTrivialSource:(NSString *)href {
     [delegate_ performSelectorOnMainThread:@selector(addTrivialSource:) withObject:href waitUntilDone:NO];
 }
 
 - (void) refreshSources {
     [delegate_ performSelectorOnMainThread:@selector(syncData) withObject:nil waitUntilDone:NO];
+}
+
+- (void) saveConfig {
+    [delegate_ performSelectorOnMainThread:@selector(_saveConfig) withObject:nil waitUntilDone:NO];
 }
 
 - (NSArray *) getAllSources {
@@ -8701,6 +8860,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             NSLog(@"failure to serialize metadata: %@", error);
         }
     }
+
+    WriteSources();
 }
 
 // Navigation controller for the queuing badge.
@@ -8715,7 +8876,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) _updateData {
     [self _saveConfig];
-
     [self unloadData];
 
     UINavigationController *navigation = [self queueNavigationController];
@@ -8895,33 +9055,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) syncData {
     [self _saveConfig];
-
-    FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
-    _assert(file != NULL);
-
-    for (NSString *key in [Sources_ allKeys]) {
-        NSDictionary *source([Sources_ objectForKey:key]);
-
-        fprintf(file, "%s %s %s\n",
-            [[source objectForKey:@"Type"] UTF8String],
-            [[source objectForKey:@"URI"] UTF8String],
-            [[source objectForKey:@"Distribution"] UTF8String]
-        );
-    }
-
-    fclose(file);
-
     [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:@"UPDATING_SOURCES"];
 }
 
-- (void) addTrivialSource:(NSString *)href {
-    [Sources_ setObject:[NSDictionary dictionaryWithObjectsAndKeys:
-        @"deb", @"Type",
-        href, @"URI",
-        @"./", @"Distribution",
-    nil] forKey:[NSString stringWithFormat:@"deb:%@:./", href]];
+- (void) addSource:(NSDictionary *) source {
+    AddSource(source);
+}
 
-    Changed_ = true;
+- (void) addSource:(NSString *)href withDistribution:(NSString *)distribution andSections:(NSArray *)sections {
+    AddSource(href, distribution, sections);
+}
+
+- (void) addTrivialSource:(NSString *)href {
+    AddSource(href, @"./");
 }
 
 - (void) updateValues {
@@ -9894,7 +10040,7 @@ int main(int argc, char *argv[]) {
     ChipID_ = [CYHex((NSData *) CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true) uppercaseString];
     BBSNum_ = CYHex((NSData *) CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
 
-    UniqueID_ = [[UIDevice currentDevice] uniqueIdentifier];
+    UniqueID_ = [device uniqueIdentifier];
 
     CFStringRef (*$CTSIMSupportCopyMobileSubscriberCountryCode)(CFAllocatorRef);
     $CTSIMSupportCopyMobileSubscriberCountryCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberCountryCode"));
@@ -9937,6 +10083,12 @@ int main(int argc, char *argv[]) {
         Sources_ = [Metadata_ objectForKey:@"Sources"];
 
         Token_ = [Metadata_ objectForKey:@"Token"];
+
+        Version_ = [Metadata_ objectForKey:@"Version"];
+
+        @synchronized (HostConfig_) {
+            CydiaSource_ = [Metadata_ objectForKey:@"CydiaSource"];
+        }
     }
 
     if (Settings_ != nil)
@@ -9956,7 +10108,33 @@ int main(int argc, char *argv[]) {
         Sources_ = [[[NSMutableDictionary alloc] initWithCapacity:0] autorelease];
         [Metadata_ setObject:Sources_ forKey:@"Sources"];
     }
+
+    if (Version_ == nil) {
+        Version_ = [NSNumber numberWithUnsignedInt:0];
+        [Metadata_ setObject:Version_ forKey:@"Version"];
+    }
+
+    @synchronized (HostConfig_) {
+        if (CydiaSource_ == nil) {
+            CydiaSource_ = @"apt.saurik.com";
+            [Metadata_ setObject:CydiaSource_ forKey:@"CydiaSource"];
+        }
+    }
+
+    if ([Version_ unsignedIntValue] == 0) {
+        AddSource(@"http://apt.thebigboss.org/repofiles/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
+        AddSource(@"http://apt.modmyi.com/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
+        AddSource(@"http://cydia.zodttd.com/repo/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
+        AddSource(@"http://repo666.ultrasn0w.com/", @"./");
+
+        Version_ = [NSNumber numberWithUnsignedInt:1];
+        [Metadata_ setObject:Version_ forKey:@"Version"];
+
+        Changed_ = true;
+    }
     /* }}} */
+
+    WriteSources();
 
     _trace();
     MetaFile_.Open("/var/lib/cydia/metadata.cb0");

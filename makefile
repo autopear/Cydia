@@ -129,9 +129,13 @@ MobileCydia: sysroot $(object)
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
 
-debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find MobileCydia.app)
+debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find MobileCydia.app) cydia.control
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
+	
+	mkdir -p _/etc/apt
+	cp -a Trusted.gpg _/etc/apt/trusted.gpg.d
+	cp -a Sources.list _/etc/apt/sources.list.d
 	
 	mkdir -p _/usr/libexec
 	cp -a Library _/usr/libexec/cydia
@@ -169,7 +173,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find Mobil
 	$(dpkg) -b _ Cydia.deb
 	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
 
-$(lproj_deb): $(shell find MobileCydia.app -name '*.strings')
+$(lproj_deb): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.control
 	sudo rm -rf __
 	mkdir -p __/Applications/Cydia.app
 	

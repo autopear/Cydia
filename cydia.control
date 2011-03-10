@@ -4,12 +4,13 @@ Section: Packaging
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
 Version: 
-Replaces: com.sosiphone.addcydia
-Depends: apr-lib, apt7-lib, apt7-key, cydia-lproj, darwintools, pcre, sed, shell-cmds, system-cmds, uikittools (>= 1.1.0)
-Pre-Depends: dpkg (>= 1.14.25-8)
-Conflicts: com.sosiphone.addcydia
+Replaces: bigboss, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, saurik, ste, yellowsn0w.com, zodttd
+Depends: apr-lib, apt7-lib, apt7-key, cydia-lproj, darwintools, debianutils, pcre, sed, shell-cmds, system-cmds, uikittools (>= 1.1.0)
+Conflicts: bigboss, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, ste, yellowsn0w.com, zodttd
+Pre-Depends: debianutils
+Provides: cydia-sources
 Description: graphical iPhone front-end for APT
 Name: Cydia Installer
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Depiction: http://cydia.saurik.com/info/cydia/
-Tag: purpose::uikit, cydia::essential, role::enduser
+Tag: purpose::uikit, role::enduser

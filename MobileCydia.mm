@@ -871,6 +871,7 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 @class CYPackageController;
 
 @protocol CydiaDelegate
+- (void) saveState;
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
 - (void) clearPackage:(Package *)package;
@@ -5071,6 +5072,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) close {
     UpdateExternalStatus(0);
+
+    if (Finish_ > 1)
+        [delegate_ saveState];
 
     switch (Finish_) {
         case 0:
@@ -9478,13 +9482,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [super applicationWillResignActive:application];
 }
 
-- (void) applicationWillTerminate:(UIApplication *)application {
-    Changed_ = true;
+- (void) saveState {
     [Metadata_ setObject:[tabbar_ navigationURLCollection] forKey:@"InterfaceState"];
     [Metadata_ setObject:[NSDate date] forKey:@"LastClosed"];
     [Metadata_ setObject:[NSNumber numberWithInt:[tabbar_ selectedIndex]] forKey:@"InterfaceIndex"];
+    Changed_ = true;
 
     [self _saveConfig];
+}
+
+- (void) applicationWillTerminate:(UIApplication *)application {
+    [self saveState];
 }
 
 - (void) setConfigurationData:(NSString *)data {

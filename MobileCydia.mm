@@ -245,6 +245,11 @@ union SplitHash {
 };
 // }}}
 
+static NSString *Colon_;
+NSString *Elision_;
+static NSString *Error_;
+static NSString *Warning_;
+
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
 static _finline NSString *CydiaURL(NSString *path) {
@@ -3144,11 +3149,6 @@ struct PackageNameOrdering :
 
 @end
 /* }}} */
-
-static NSString *Colon_;
-NSString *Elision_;
-static NSString *Error_;
-static NSString *Warning_;
 
 class CydiaLogCleaner :
     public pkgArchiveCleaner

@@ -1489,7 +1489,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     NSDictionary *lhr = [self record];
     NSDictionary *rhr = [source record];
 
-    if (lhr != rhr)
+    if ((lhr == nil) != (rhr == nil))
         return lhr == nil ? NSOrderedDescending : NSOrderedAscending;
 
     NSString *lhs = [self name];

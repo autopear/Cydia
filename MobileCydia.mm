@@ -4667,8 +4667,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _doContinue {
-    [self dismissModalViewControllerAnimated:YES];
     [delegate_ cancelAndClear:NO];
+    [self dismissModalViewControllerAnimated:YES];
 }
 
 - (id) invokeDefaultMethodWithArguments:(NSArray *)args {

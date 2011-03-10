@@ -13,4 +13,4 @@ Description: graphical iPhone front-end for APT
 Name: Cydia Installer
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Depiction: http://cydia.saurik.com/info/cydia/
-Tag: purpose::uikit, role::enduser
+Tag: purpose::uikit, cydia::essential, role::enduser

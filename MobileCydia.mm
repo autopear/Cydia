@@ -3991,6 +3991,8 @@ static _H<NSMutableSet> Diversions_;
         return @"getPreferredLanguages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
+    else if (selector == @selector(getMetadataKeys))
+        return @"getMetadataKeys";
     else if (selector == @selector(getMetadataValue:))
         return @"getMetadataValue";
     else if (selector == @selector(getSessionValue:))
@@ -4129,6 +4131,11 @@ static _H<NSMutableSet> Diversions_;
         return (id) CydiaSource_ ?: [NSNull null];
     }
 }
+
+- (NSArray *) getMetadataKeys {
+@synchronized (Values_) {
+    return [Values_ allKeys];
+} }
 
 - (id) getMetadataValue:(NSString *)key {
 @synchronized (Values_) {

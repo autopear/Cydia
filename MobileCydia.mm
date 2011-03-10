@@ -7178,6 +7178,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) upgradeButtonClicked {
     [delegate_ distUpgrade];
+    [[self navigationItem] setRightBarButtonItem:nil animated:YES];
 }
 
 - (void) loadView {
@@ -7317,21 +7318,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [list_ reloadData];
 
-    if (upgrades_ > 0)
-        [[self navigationItem] setRightBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]]
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(upgradeButtonClicked)
-        ] autorelease]];
+    [[self navigationItem] setRightBarButtonItem:(upgrades_ == 0 ? nil : [[[UIBarButtonItem alloc]
+        initWithTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]]
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(upgradeButtonClicked)
+    ] autorelease]) animated:YES];
 
-    if (![delegate_ updating])
-        [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("REFRESH")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(refreshButtonClicked)
-        ] autorelease]];
+    [[self navigationItem] setLeftBarButtonItem:([delegate_ updating] ? nil : [[[UIBarButtonItem alloc]
+        initWithTitle:UCLocalize("REFRESH")
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(refreshButtonClicked)
+    ] autorelease]) animated:YES];
 
     PrintTimes();
 } }

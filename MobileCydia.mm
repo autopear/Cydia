@@ -2443,8 +2443,29 @@ struct PackageNameOrdering :
 } }
 
 - (NSString *) shortDescription {
-    return parsed_ == NULL ? nil : static_cast<NSString *>(parsed_->tagline_);
-}
+    if (parsed_ != NULL)
+        return static_cast<NSString *>(parsed_->tagline_);
+
+@synchronized (database_) {
+    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
+
+    const char *start, *end;
+    if (!parser.ShortDesc(start, end))
+        return nil;
+
+    if (end - start > 100)
+        end = start + 100;
+
+    /*
+    if (const char *stop = reinterpret_cast<const char *>(memchr(start, '\n', end - start)))
+        end = stop;
+
+    while (end != start && end[-1] == '\r')
+        --end;
+    */
+
+    return [(id) CYStringCreate(start, end - start) autorelease];
+} }
 
 - (unichar) index {
     _profile(Package$index)
@@ -2821,8 +2842,6 @@ struct PackageNameOrdering :
     NSString *string;
     NSRange range;
     NSUInteger length;
-
-    [self parse];
 
     string = [self name];
     length = [string length];
@@ -5289,7 +5308,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     bool commercial_;
     _H<NSString> source_;
     _H<UIImage> badge_;
-    _H<Package> package_;
     _H<UIImage> placard_;
     bool summarized_;
 }
@@ -5331,7 +5349,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     source_ = nil;
     badge_ = nil;
     placard_ = nil;
-    package_ = nil;
 
     [package parse];
 
@@ -5353,8 +5370,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         description_ = [NSString stringWithString:description];
 
     commercial_ = [package isCommercial];
-
-    package_ = package;
 
     NSString *label = nil;
     bool trusted = false;
@@ -5383,7 +5398,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIColor *color;
     NSString *placard;
 
-    if (NSString *mode = [package_ mode]) {
+    if (NSString *mode = [package mode]) {
         if ([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) {
             color = RemovingColor_;
             //placard = @"removing";
@@ -6081,7 +6096,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     PackageCell *cell((PackageCell *) [table dequeueReusableCellWithIdentifier:@"Package"]);
     if (cell == nil)
         cell = [[[PackageCell alloc] init] autorelease];
-    [cell setPackage:[self packageAtIndexPath:path] asSummary:[self isSummarized]];
+
+    Package *package([database_ packageWithName:[[self packageAtIndexPath:path] id]]);
+    [cell setPackage:package asSummary:[self isSummarized]];
     return cell;
 }
 
@@ -7336,7 +7353,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     PackageCell *cell((PackageCell *) [table dequeueReusableCellWithIdentifier:@"Package"]);
     if (cell == nil)
         cell = [[[PackageCell alloc] init] autorelease];
-    [cell setPackage:[self packageAtIndexPath:path] asSummary:false];
+
+    Package *package([database_ packageWithName:[[self packageAtIndexPath:path] id]]);
+    [cell setPackage:package asSummary:false];
     return cell;
 }
 

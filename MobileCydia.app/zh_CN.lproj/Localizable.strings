@@ -23,7 +23,7 @@
 "CLEAN_ARCHIVES" = "清除存档";
 "CLEAR" = "清除";
 "CLOSE" = "关闭";
-"CLOSE_CYDIA" = "关闭 Cydia (重新启动)";
+"CLOSE_CYDIA" = "关闭 Cydia（重新启动）";
 "COLON_DELIMITED" = "%@：%@";
 "COMING_SOON" = "即将推出！";
 "COMMA_DELIMITED" = "%@，%@";
@@ -61,7 +61,7 @@
 "ESSENTIAL_UPGRADES" = "%d 个必要更新";
 "ESSENTIAL_UPGRADE_EX" = "一个或多个必要软件包已过期，不更新有可能会导致系统错误。";
 "EXCLAMATION" = "%@！";
-"EXIT_WHEN_COMPLETE" = "(Cydia 会在完成后退出。)";
+"EXIT_WHEN_COMPLETE" = "（Cydia 会在完成后退出。）";
 "EXPANDED_SIZE" = "解包大小";
 "EXPERT" = "专业人士";
 "FAQ" = "常见问题";
@@ -118,13 +118,13 @@
 "NOT_RATED" = "未评级";
 "NOT_REPOSITORY" = "未找到软件源";
 "NOT_REPOSITORY_EX" = "软件源未找到。可能是因为您添加的是 Cydia 不支持的 Installer 软件源。并且，此界面仅适用于完整的软件源网络地址。如果您自己搭建了一个软件源，欢迎联系 Cydia 的作者。";
-"NO_SECTION" = "(无分类)";
+"NO_SECTION" = "（无分类）";
 "OK" = "确定";
 "OKAY" = "确定";
 "PACKAGES" = "软件包";
 "PACKAGES_EX" = "查看已安装软件包信息或管理已安装的软件包。";
-"PACKAGE_CANNOT_BE_FOUND" = "在当前软件源中无法找到软件包 %@。更多软件源也许能够解决此问题。";
-"PACKAGE_CANNOT_BE_FOUND_EX" = "该问题亦可能由其它因素引起。最常见的情况是您的软件包目录已过期。请点击“更新”中的“刷新”按钮以手动刷新目录。该软件包也许不存在。也有可能是您使用的是较老的固件版本：用户应该尽量根据 Apple 官方信息保持固件的更新。";
+"PACKAGE_CANNOT_BE_FOUND" = "在当前软件源中无法找到软件包:\n%@\n添加更多软件源或许能够解决此问题。";
+"PACKAGE_CANNOT_BE_FOUND_EX" = "该问题亦可能由其它因素引起。最常见的情况是您的软件包目录已过期。请点击“变更”中的“刷新”按钮以手动刷新目录。该软件包也许不存在。也有可能是您使用的是较老的固件版本：用户应该尽量根据 Apple 官方信息保持固件的更新。";
 "PACKAGE_DAMAGED" = "软件包已损坏";
 "PACKAGE_DETAILS" = "软件包详情";
 "PACKAGE_QUEUE" = "软件包队列";
@@ -159,9 +159,7 @@
 "RESUBMIT_FORM" = "您确定要再次提交此表格？";
 "RESUMING_AT" = "继续在";
 "RETURN_TO_CYDIA" = "回到 Cydia";
-"ROLE_EX" = "Cydia 中可下载的软件包并非为所有用户而设计，因此请明确自己的身份以帮助 Cydia 过滤显示某些软件包。
-
-该项设定可在“管理”标签（iPhone 或 iPod Touch）或“软件源”标签（iPad）中的“设置”更改。";
+"ROLE_EX" = "Cydia 中可下载的软件包并非为所有用户而设计，因此请明确自己的身份以帮助 Cydia 过滤显示某些软件包。\n\n该项设定可在“管理”标签（iPhone 或 iPod Touch）或“软件源”标签（iPad）中的“设置”更改。";
 "RUNNING" = "运行中";
 "SAFE" = "安全";
 "SAMPLE" = "示例";
@@ -176,9 +174,7 @@
 "SEE_WHAT_CHANGED" = "查看更新详情";
 "SETTINGS" = "设置";
 "SHOW_ALL_CHANGES" = "显示所有变更";
-"SHOW_ALL_CHANGES_EX" = "Cydia 只会显示已安装软件包的更新，避免某些软件开发者的骚扰。
-	
-启用此选项使 Cydia 显示未安装软件包的更新。";
+"SHOW_ALL_CHANGES_EX" = "Cydia 只会显示已安装软件包的更新，避免某些软件开发者的骚扰。\n\n启用此选项使 Cydia 显示未安装软件包的更新。";
 "SIGNED_PACKAGE" = "此软件包已通过验证。";
 "SIMPLE" = "简单";
 "SINGLE_QUOTED" = "‘%@’";

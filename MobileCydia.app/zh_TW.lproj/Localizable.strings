@@ -123,8 +123,8 @@
 "OKAY" = "確定";
 "PACKAGES" = "軟體包";
 "PACKAGES_EX" = "查看或卸載已安裝的軟體包。";
-"PACKAGE_CANNOT_BE_FOUND" = "在當前軟體源中無法找到軟體包 %@。添加更多軟體源或許能夠解決此問題。";
-"PACKAGE_CANNOT_BE_FOUND_EX" = "該問題亦可能由其它因素引起。最常見的情況是您的軟體包目錄已過期。請點擊“更新”中的“刷新”按鈕以手動刷新目錄。該軟體包也許不存在。也有可能是您使用的是較老的韌體版本：用戶應該儘量根據 Apple 官方資訊保持韌體的更新。";
+"PACKAGE_CANNOT_BE_FOUND" = "在當前軟體源中無法找到軟體包:\n%@\n添加更多軟體源或許能夠解決此問題。";
+"PACKAGE_CANNOT_BE_FOUND_EX" = "該問題亦可能由其它因素引起。最常見的情況是您的軟體包目錄已過期。請點擊“變更”中的“刷新”按鈕以手動刷新目錄。該軟體包也許不存在。也有可能是您使用的是較老的韌體版本：用戶應該儘量根據 Apple 官方資訊保持韌體的更新。";
 "PACKAGE_DAMAGED" = "軟體包已損壞";
 "PACKAGE_DETAILS" = "軟體包詳情";
 "PACKAGE_QUEUE" = "軟體包隊列";
@@ -159,9 +159,7 @@
 "RESUBMIT_FORM" = "您確定要再次提交此表格？";
 "RESUMING_AT" = "繼續在";
 "RETURN_TO_CYDIA" = "回到 Cydia";
-"ROLE_EX" = "Cydia 中可下載的軟體包並非為所有用戶而設計，因此請明確自己的身份以説明 Cydia 過濾顯示某些軟體包。
-
-該項設定可在“管理”標簽（iPhone 或 iPod Touch）或“軟體源”標簽（iPad）中的“設定”更改。";
+"ROLE_EX" = "Cydia 中可下載的軟體包並非為所有用戶而設計，因此請明確自己的身份以説明 Cydia 過濾顯示某些軟體包。\n\n該項設定可在“管理”標簽（iPhone 或 iPod Touch）或“軟體源”標簽（iPad）中的“設定”更改。";
 "RUNNING" = "運行中";
 "SAFE" = "安全";
 "SAMPLE" = "示例";
@@ -176,9 +174,7 @@
 "SEE_WHAT_CHANGED" = "查看更新詳情";
 "SETTINGS" = "設定";
 "SHOW_ALL_CHANGES" = "顯示所有變更";
-"SHOW_ALL_CHANGES_EX" = "Cydia 只會顯示已安裝軟體包的更新以避免某些軟體發展者的騷擾。
-	
-啟用此選項以使 Cydia 顯示未安裝軟體包的更新。";
+"SHOW_ALL_CHANGES_EX" = "Cydia 只會顯示已安裝軟體包的更新以避免某些軟體發展者的騷擾。\n\n啟用此選項以使 Cydia 顯示未安裝軟體包的更新。";
 "SIGNED_PACKAGE" = "此軟體包已通過驗證。";
 "SIMPLE" = "簡單";
 "SINGLE_QUOTED" = "‘%@’";

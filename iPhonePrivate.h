@@ -61,9 +61,9 @@ typedef enum {
 @end
 
 @interface UIProgressHUD : UIView
-- (id) initWithWindow:(UIWindow *)window;
+- (void) hide;
 - (void) setText:(NSString *)text;
-- (void) show:(BOOL)show;
+- (void) showInView:(UIView *)view;
 @end
 
 @interface UIProgressIndicator : UIView

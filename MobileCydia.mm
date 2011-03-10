@@ -9367,7 +9367,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (UIProgressHUD *) addProgressHUD {
-    UIProgressHUD *hud([[[UIProgressHUD alloc] initWithWindow:window_] autorelease]);
+    UIProgressHUD *hud([[[UIProgressHUD alloc] init] autorelease]);
     [hud setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
 
     [window_ setUserInteractionEnabled:NO];
@@ -9379,7 +9379,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UIView *view([target view]);
     [view addSubview:hud];
 
-    [hud show:YES];
+    [hud showInView:[tabbar_ view]];
 
     ++locked_;
     return hud;
@@ -9387,7 +9387,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) removeProgressHUD:(UIProgressHUD *)hud {
     --locked_;
-    [hud show:NO];
+    [hud hide];
     [hud removeFromSuperview];
     [window_ setUserInteractionEnabled:YES];
 }

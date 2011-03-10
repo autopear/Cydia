@@ -3294,6 +3294,8 @@ class CydiaLogCleaner :
 }
 
 - (Package *) packageWithName:(NSString *)name {
+    if (name == nil)
+        return nil;
 @synchronized (self) {
     if (static_cast<pkgDepCache *>(cache_) == NULL)
         return nil;

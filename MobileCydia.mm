@@ -871,6 +871,7 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 @class CYPackageController;
 
 @protocol CydiaDelegate
+- (void) returnToCydia;
 - (void) saveState;
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
@@ -5108,6 +5109,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     switch (Finish_) {
         case 0:
+            [delegate_ returnToCydia];
         break;
 
         case 1:
@@ -8886,6 +8888,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (void) returnToCydia {
+    [self _loaded];
+}
+
 - (void) _saveConfig {
     _trace();
     MetaFile_.Sync();
@@ -9028,8 +9034,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     [self _updateData];
-
-    [self refreshIfPossible];
 } }
 
 - (void) updateData {
@@ -9097,6 +9101,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     [self reloadDataWithInvocation:nil];
+    if ([database_ progressDelegate] == nil)
+        [self _loaded];
 }
 
 - (void) syncData {
@@ -9207,6 +9213,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ++locked_;
     [self detachNewProgressSelector:@selector(perform_) toTarget:self forController:navigation title:@"RUNNING"];
     --locked_;
+    [self refreshIfPossible];
 }
 
 - (void) showSettings {
@@ -9714,7 +9721,8 @@ _trace();
         [window_ setUserInteractionEnabled:NO];
     }
 
-    [self reloadData];
+    [self reloadDataWithInvocation:nil];
+    [self refreshIfPossible];
     PrintTimes();
 
     [self disemulate];

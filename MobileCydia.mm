@@ -2606,14 +2606,12 @@ struct PackageNameOrdering :
     if (parsed_ != NULL)
         if (NSString *href = parsed_->icon_)
             if ([href hasPrefix:@"file:///"])
-                // XXX: correct escaping
-                icon = [UIImage imageAtPath:[href substringFromIndex:7]];
+                icon = [UIImage imageAtPath:[[href substringFromIndex:7] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     if (icon == nil) if (section != nil)
-        icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, section]];
+        icon = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, [section stringByReplacingOccurrencesOfString:@" " withString:@"_"]]];
     if (icon == nil) if (Source *source = [self source]) if (NSString *dicon = [source defaultIcon])
         if ([dicon hasPrefix:@"file:///"])
-            // XXX: correct escaping
-            icon = [UIImage imageAtPath:[dicon substringFromIndex:7]];
+            icon = [UIImage imageAtPath:[[dicon substringFromIndex:7] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     if (icon == nil)
         icon = [UIImage applicationImageNamed:@"unknown.png"];
     return icon;

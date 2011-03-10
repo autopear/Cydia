@@ -2454,8 +2454,8 @@ struct PackageNameOrdering :
     if (!parser.ShortDesc(start, end))
         return nil;
 
-    if (end - start > 100)
-        end = start + 100;
+    if (end - start > 200)
+        end = start + 200;
 
     /*
     if (const char *stop = reinterpret_cast<const char *>(memchr(start, '\n', end - start)))
@@ -2866,7 +2866,7 @@ struct PackageNameOrdering :
 
     string = [self shortDescription];
     length = [string length];
-    NSUInteger stop(std::min<NSUInteger>(length, 100));
+    NSUInteger stop(std::min<NSUInteger>(length, 200));
 
     for (NSString *term in query) {
         range = [string rangeOfString:term options:MatchCompareOptions_ range:NSMakeRange(0, stop)];

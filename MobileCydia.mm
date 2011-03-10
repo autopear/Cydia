@@ -6927,8 +6927,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) reloadData {
     [super reloadData];
 
-    if (UIViewController *visible = [self visibleViewController])
+    UIViewController *visible([self visibleViewController]);
+    if (visible != nil)
         [visible reloadData];
+
+    // on the iPad, this view controller is ALSO visible. :(
+    if (IsWildcat_)
+        if (UIViewController *top = [self topViewController])
+            if (top != visible)
+                [top reloadData];
 }
 
 - (void) unloadData {

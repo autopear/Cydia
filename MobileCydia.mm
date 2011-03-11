@@ -4522,7 +4522,9 @@ static _H<NSMutableSet> Diversions_;
     return request_ == nil ? nil : [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request_ URL] absoluteString]]];
 }
 
-+ (void) initialize {
++ (void) _initialize {
+    [super _initialize];
+
     Diversions_ = [NSMutableSet setWithCapacity:0];
 }
 

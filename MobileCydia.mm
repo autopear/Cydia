@@ -1860,11 +1860,12 @@ struct ParsedPackage {
 };
 
 @interface Package : NSObject {
-    uint32_t era_ : 26;
+    uint32_t era_ : 25;
     uint32_t role_ : 3;
     uint32_t essential_ : 1;
     uint32_t obsolete_ : 1;
     uint32_t ignored_ : 1;
+    uint32_t pooled_ : 1;
 
     apr_pool_t *pool_;
 
@@ -2111,6 +2112,8 @@ struct PackageNameOrdering :
 }
 
 - (void) dealloc {
+    if (!pooled_)
+        apr_pool_destroy(pool_);
     if (parsed_ != NULL)
         delete parsed_;
     [super dealloc];
@@ -2279,7 +2282,12 @@ struct PackageNameOrdering :
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
-        pool_ = pool;
+        if (pool == NULL)
+            apr_pool_create(&pool_, NULL);
+        else {
+            pool_ = pool;
+            pooled_ = true;
+        }
 
         database_ = database;
         era_ = [database era];
@@ -3357,7 +3365,7 @@ class CydiaLogCleaner :
     if (static_cast<pkgDepCache *>(cache_) == NULL)
         return nil;
     pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
-    return iterator.end() ? nil : [Package packageWithIterator:iterator withZone:NULL inPool:pool_ database:self];
+    return iterator.end() ? nil : [Package packageWithIterator:iterator withZone:NULL inPool:NULL database:self];
 } }
 
 - (id) init {

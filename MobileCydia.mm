@@ -6329,7 +6329,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) reloadData {
     [super reloadData];
-    [self performSelector:@selector(_reloadData) withObject:nil afterDelay:0];
+
+    if ([self shouldYield])
+        [self performSelector:@selector(_reloadData) withObject:nil afterDelay:0];
+    else
+        [self _reloadData];
 }
 
 - (void) resetCursor {

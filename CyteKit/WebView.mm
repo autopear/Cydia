@@ -121,6 +121,10 @@
     [super dealloc];
 }
 
+- (NSString *) description {
+    return [NSString stringWithFormat:@"<%s: %p, %@>", class_getName([self class]), self, [[[self request] URL] absoluteString]];
+}
+
 - (id<CyteWebViewDelegate>) delegate {
     return (id<CyteWebViewDelegate>) [super delegate];
 }

@@ -8453,7 +8453,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [list_ setRowHeight:56];
+    [list_ setRowHeight:53];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
     [[self view] addSubview:list_];

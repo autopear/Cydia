@@ -749,8 +749,13 @@ static void WriteSources() {
     FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
     _assert(file != NULL);
 
-    fprintf(file, "deb http://%s/ tangelo-3.7 main\n",
-        [CydiaSource_ UTF8String]
+    NSString *distribution(@"ios");
+    if (Firmware_ != nil)
+        distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"-%@", Firmware_]];
+
+    fprintf(file, "deb http://%s/ %s main\n",
+        [CydiaSource_ UTF8String],
+        [distribution UTF8String]
     );
 
     for (NSString *key in [Sources_ allKeys]) {

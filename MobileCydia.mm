@@ -715,6 +715,7 @@ bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
 static NSString *Firmware_;
+static NSString *Major_;
 
 static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
@@ -10032,8 +10033,11 @@ int main(int argc, char *argv[]) {
     }
 
     Pcre pattern("^([0-9]+\\.[0-9]+)");
+
     if (pattern([device systemVersion]))
         Firmware_ = pattern[1];
+    if (pattern(Cydia_))
+        Major_ = pattern[1];
 
     SessionData_ = [NSMutableDictionary dictionaryWithCapacity:4];
 
@@ -10047,10 +10051,9 @@ int main(int argc, char *argv[]) {
     }
 
     NSString *ui(@"ui/ios");
-    if (Firmware_ != nil)
-        ui = [ui stringByAppendingString:[NSString stringWithFormat:@"-%@", Firmware_]];
     if (Idiom_ != nil)
         ui = [ui stringByAppendingString:[NSString stringWithFormat:@"~%@", Idiom_]];
+    ui = [ui stringByAppendingString:[NSString stringWithFormat:@"/%@", Major_]];
     UI_ = CydiaURL(ui);
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));

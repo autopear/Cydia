@@ -10036,7 +10036,10 @@ int main(int argc, char *argv[]) {
         CachedURLs_ = [NSMutableSet setWithCapacity:32];
     }
 
-    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@", Idiom_]);
+    NSString *ui(@"ui/ios");
+    if (Idiom_ != nil)
+        ui = [ui stringByAppendingString:[NSString stringWithFormat:@"~%@", Idiom_]];
+    UI_ = CydiaURL(ui);
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 

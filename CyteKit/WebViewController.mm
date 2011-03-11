@@ -147,6 +147,10 @@ float CYScrollViewDecelerationRateNormal;
     [super dealloc];
 }
 
+- (NSString *) description {
+    return [NSString stringWithFormat:@"<%s: %p, %@>", class_getName([self class]), self, [[request_ URL] absoluteString]];
+}
+
 - (CyteWebView *) webView {
     return (CyteWebView *) [self view];
 }

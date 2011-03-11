@@ -1351,7 +1351,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 - (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(apr_pool_t *)pool;
 
-- (NSComparisonResult) compareByNameAndType:(Source *)source;
+- (NSComparisonResult) compareByName:(Source *)source;
 
 - (NSString *) depictionForPackage:(NSString *)package;
 - (NSString *) supportForPackage:(NSString *)package;
@@ -1540,13 +1540,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
 } }
 
-- (NSComparisonResult) compareByNameAndType:(Source *)source {
-    NSDictionary *lhr = [self record];
-    NSDictionary *rhr = [source record];
-
-    if ((lhr == nil) != (rhr == nil))
-        return lhr == nil ? NSOrderedDescending : NSOrderedAscending;
-
+- (NSComparisonResult) compareByName:(Source *)source {
     NSString *lhs = [self name];
     NSString *rhs = [source name];
 
@@ -8206,37 +8200,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
-    return offset_ == 0 ? 1 : 2;
+    return 1;
 }
 
 - (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    switch (section + (offset_ == 0 ? 1 : 0)) {
-        case 0: return UCLocalize("ENTERED_BY_USER");
-        case 1: return UCLocalize("INSTALLED_BY_PACKAGE");
-
-        _nodefault
-    }
+    return nil;
 }
 
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    int count = [sources_ count];
-    switch (section) {
-        case 0: return (offset_ == 0 ? count : offset_);
-        case 1: return count - offset_;
-
-        _nodefault
-    }
+    return [sources_ count];
 }
 
 - (Source *) sourceAtIndexPath:(NSIndexPath *)indexPath {
-    unsigned idx = 0;
-    switch (indexPath.section) {
-        case 0: idx = indexPath.row; break;
-        case 1: idx = indexPath.row + offset_; break;
-
-        _nodefault
-    }
-    return [sources_ objectAtIndex:idx];
+    return [sources_ objectAtIndex:[indexPath row]];
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -8512,7 +8488,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     sources_ = [NSMutableArray arrayWithCapacity:16];
     [sources_ addObjectsFromArray:[database_ sources]];
     _trace();
-    [sources_ sortUsingSelector:@selector(compareByNameAndType:)];
+    [sources_ sortUsingSelector:@selector(compareByName:)];
     _trace();
 
     int count([sources_ count]);

@@ -5902,7 +5902,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [NSMutableArray arrayWithCapacity:4];
-        name_ = [NSString stringWithString:name];
+        name_ = name == nil ? @"" : [NSString stringWithString:name];
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, (id) name_]]];
     } return self;
 }

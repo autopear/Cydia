@@ -4564,6 +4564,18 @@ static _H<NSMutableSet> Diversions_;
 }
 
 @end
+
+@interface AppCacheController : CydiaWebViewController {
+}
+
+@end
+
+@implementation AppCacheController
+
+- (void) didReceiveMemoryWarning {
+}
+
+@end
 /* }}} */
 
 // CydiaScript {{{
@@ -6429,6 +6441,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://home"];
+}
+
+- (void) didReceiveMemoryWarning {
 }
 
 - (void) aboutButtonClicked {
@@ -9653,7 +9668,7 @@ _trace();
     broken_ = [NSMutableArray arrayWithCapacity:4];
 
     // XXX: I really need this thing... like, seriously... I'm sorry
-    [[[CydiaWebViewController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
+    [[[AppCacheController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
 
     window_ = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
     [window_ orderFront:self];

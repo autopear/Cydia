@@ -113,8 +113,8 @@ Images/%.png: %.png
 	@echo "[pngc] $<"
 	@./pngcrush.sh $< $@
 
-sysroot:
-	@echo "Please read compiling.txt: you do not have a ./sysroot/ folder with the on-device requirements." 1>&2
+sysroot: sysroot.sh
+	@echo "Your ./sysroot/ is either missing or out of date. Please read compiling.txt for help." 1>&2
 	@echo 1>&2
 	@exit 1
 

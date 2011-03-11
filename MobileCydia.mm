@@ -5370,78 +5370,82 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     badge_ = nil;
     placard_ = nil;
 
-    [package parse];
+    if (package == nil)
+        [content_ setBackgroundColor:[UIColor whiteColor]];
+    else {
+        [package parse];
 
-    Source *source = [package source];
+        Source *source = [package source];
 
-    icon_ = [package icon];
+        icon_ = [package icon];
 
-    if (NSString *name = [package name])
-        name_ = [NSString stringWithString:name];
+        if (NSString *name = [package name])
+            name_ = [NSString stringWithString:name];
 
-    NSString *description(nil);
+        NSString *description(nil);
 
-    if (description == nil && IsWildcat_)
-        description = [package longDescription];
-    if (description == nil)
-        description = [package shortDescription];
+        if (description == nil && IsWildcat_)
+            description = [package longDescription];
+        if (description == nil)
+            description = [package shortDescription];
 
-    if (description != nil)
-        description_ = [NSString stringWithString:description];
+        if (description != nil)
+            description_ = [NSString stringWithString:description];
 
-    commercial_ = [package isCommercial];
+        commercial_ = [package isCommercial];
 
-    NSString *label = nil;
-    bool trusted = false;
+        NSString *label = nil;
+        bool trusted = false;
 
-    if (source != nil) {
-        label = [source label];
-        trusted = [source trusted];
-    } else if ([[package id] isEqualToString:@"firmware"])
-        label = UCLocalize("APPLE");
-    else
-        label = [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("UNKNOWN"), UCLocalize("LOCAL")];
+        if (source != nil) {
+            label = [source label];
+            trusted = [source trusted];
+        } else if ([[package id] isEqualToString:@"firmware"])
+            label = UCLocalize("APPLE");
+        else
+            label = [NSString stringWithFormat:UCLocalize("SLASH_DELIMITED"), UCLocalize("UNKNOWN"), UCLocalize("LOCAL")];
 
-    NSString *from(label);
+        NSString *from(label);
 
-    NSString *section = [package simpleSection];
-    if (section != nil && ![section isEqualToString:label]) {
-        section = [[NSBundle mainBundle] localizedStringForKey:section value:nil table:@"Sections"];
-        from = [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), from, section];
-    }
-
-    source_ = [NSString stringWithFormat:UCLocalize("FROM"), from];
-
-    if (NSString *purpose = [package primaryPurpose])
-        badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]];
-
-    UIColor *color;
-    NSString *placard;
-
-    if (NSString *mode = [package mode]) {
-        if ([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) {
-            color = RemovingColor_;
-            //placard = @"removing";
-        } else {
-            color = InstallingColor_;
-            //placard = @"installing";
+        NSString *section = [package simpleSection];
+        if (section != nil && ![section isEqualToString:label]) {
+            section = [[NSBundle mainBundle] localizedStringForKey:section value:nil table:@"Sections"];
+            from = [NSString stringWithFormat:UCLocalize("PARENTHETICAL"), from, section];
         }
 
-        // XXX: the removing/installing placards are not @2x
-        placard = nil;
-    } else {
-        color = [UIColor whiteColor];
+        source_ = [NSString stringWithFormat:UCLocalize("FROM"), from];
 
-        if ([package installed] != nil)
-            placard = @"installed";
-        else
+        if (NSString *purpose = [package primaryPurpose])
+            badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]];
+
+        UIColor *color;
+        NSString *placard;
+
+        if (NSString *mode = [package mode]) {
+            if ([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) {
+                color = RemovingColor_;
+                //placard = @"removing";
+            } else {
+                color = InstallingColor_;
+                //placard = @"installing";
+            }
+
+            // XXX: the removing/installing placards are not @2x
             placard = nil;
+        } else {
+            color = [UIColor whiteColor];
+
+            if ([package installed] != nil)
+                placard = @"installed";
+            else
+                placard = nil;
+        }
+
+        [content_ setBackgroundColor:color];
+
+        if (placard != nil)
+            placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]];
     }
-
-    [content_ setBackgroundColor:color];
-
-    if (placard != nil)
-        placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]];
 
     [self setNeedsDisplay];
     [content_ setNeedsDisplay];

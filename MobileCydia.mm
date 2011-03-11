@@ -5731,14 +5731,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) releaseSubviews {
     list_ = nil;
 
+    package_ = nil;
+    files_ = nil;
+
     [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-
-        files_ = [NSMutableArray arrayWithCapacity:32];
     } return self;
 }
 
@@ -5746,7 +5747,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     package_ = nil;
     name_ = nil;
 
-    [files_ removeAllObjects];
+    files_ = [NSMutableArray arrayWithCapacity:32];
 
     if (package != nil) {
         package_ = package;
@@ -6158,18 +6159,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         database_ = database;
         title_ = [title copy];
         [[self navigationItem] setTitle:title_];
-
-#if TryIndexedCollation
-        if ([[self class] hasIndexedCollation])
-            index_ = [[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles];
-        else
-#endif
-            index_ = [NSMutableArray arrayWithCapacity:32];
-
-        indices_ = [NSMutableDictionary dictionaryWithCapacity:32];
-
-        packages_ = [NSArray array];
-        sections_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -6191,6 +6180,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) releaseSubviews {
     list_ = nil;
+
+    packages_ = nil;
+    sections_ = nil;
+    index_ = nil;
+    indices_ = nil;
 
     [super releaseSubviews];
 }
@@ -6248,13 +6242,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     packages_ = packages;
 
-    [indices_ removeAllObjects];
-    [sections_ removeAllObjects];
+    indices_ = [NSMutableDictionary dictionaryWithCapacity:32];
+    sections_ = [NSMutableArray arrayWithCapacity:16];
 
     Section *section = nil;
 
 #if TryIndexedCollation
     if ([[self class] hasIndexedCollation]) {
+        index_ = [[objc_getClass("UILocalizedIndexedCollation") currentCollation] sectionIndexTitles];
+
         id collation = [objc_getClass("UILocalizedIndexedCollation") currentCollation];
         NSArray *titles = [collation sectionIndexTitles];
         int secidx = -1;
@@ -6287,7 +6283,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else
 #endif
     {
-        [index_ removeAllObjects];
+        index_ = [NSMutableArray arrayWithCapacity:32];
 
         bool sectioned([self showsSections]);
         if (!sectioned) {
@@ -7248,15 +7244,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) releaseSubviews {
     list_ = nil;
 
+    sections_ = nil;
+    filtered_ = nil;
+
     [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-
-        sections_ = [NSMutableArray arrayWithCapacity:16];
-        filtered_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -7265,8 +7261,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSArray *packages = [database_ packages];
 
-    [sections_ removeAllObjects];
-    [filtered_ removeAllObjects];
+    sections_ = [NSMutableArray arrayWithCapacity:16];
+    filtered_ = [NSMutableArray arrayWithCapacity:16];
 
     NSMutableDictionary *sections([NSMutableDictionary dictionaryWithCapacity:32]);
 
@@ -7430,15 +7426,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) releaseSubviews {
     list_ = nil;
 
+    packages_ = nil;
+    sections_ = nil;
+
     [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-
-        packages_ = [NSArray array];
-        sections_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -7483,7 +7479,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         goto reload;
 
     packages_ = packages;
-    [sections_ removeAllObjects];
+    sections_ = [NSMutableArray arrayWithCapacity:16];
 
     Section *upgradable = [[[Section alloc] initWithName:UCLocalize("AVAILABLE_UPGRADES") localize:NO] autorelease];
     Section *ignored = nil;
@@ -8427,13 +8423,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) releaseSubviews {
     list_ = nil;
 
+    sources_ = nil;
+
     [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
-        sources_ = [NSMutableArray arrayWithCapacity:16];
     } return self;
 }
 
@@ -8444,7 +8441,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([database_ popErrorWithTitle:UCLocalize("SOURCES") forOperation:list.ReadMainList()])
         return;
 
-    [sources_ removeAllObjects];
+    sources_ = [NSMutableArray arrayWithCapacity:16];
     [sources_ addObjectsFromArray:[database_ sources]];
     _trace();
     [sources_ sortUsingSelector:@selector(compareByNameAndType:)];

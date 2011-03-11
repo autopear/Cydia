@@ -8058,7 +8058,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SourceController
 
 - (NSURL *) navigationURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sources/%@", [source_ name]]];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sources/%@", [key_ stringByAddingPercentEscapesIncludingReserved]]];
 }
 
 - (id) initWithDatabase:(Database *)database source:(Source *)source {
@@ -9485,7 +9485,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
                 [(SourcesController *)controller showAddSourcePrompt];
             } else {
-                Source *source = [database_ sourceWithKey:argument];
+                Source *source = [database_ sourceWithKey:[argument stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
                 controller = [[[SourceController alloc] initWithDatabase:database_ source:source] autorelease];
             }
         }

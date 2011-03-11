@@ -66,6 +66,8 @@
 
 #include <IOKit/IOKitLib.h>
 
+#include <QuartzCore/CALayer.h>
+
 #include <WebCore/WebCoreThread.h>
 
 #include <algorithm>
@@ -8059,6 +8061,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [content_ setDelegate:self];
         [content_ setOpaque:YES];
+
+        [[content_ layer] setContentsGravity:kCAGravityTopLeft];
     } return self;
 }
 

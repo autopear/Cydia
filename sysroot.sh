@@ -119,7 +119,7 @@ else
     ')
 fi
 
-for framework in ApplicationServices CoreServices IOKit IOSurface JavaScriptCore QuartzCore WebKit; do
+for framework in ApplicationServices CoreServices IOKit IOSurface JavaScriptCore WebKit; do
     ln -s /System/Library/Frameworks/"${framework}".framework/Headers "${framework}"
 done
 

@@ -713,6 +713,7 @@ static time_t now_;
 bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
+static NSString *Firmware_;
 
 static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
@@ -10019,6 +10020,10 @@ int main(int argc, char *argv[]) {
         else
             NSLog(@"unknown UIUserInterfaceIdiom!");
     }
+
+    Pcre pattern("^([0-9]+\\.[0-9]+)");
+    if (pattern([device systemVersion]))
+        Firmware_ = pattern[1];
 
     SessionData_ = [NSMutableDictionary dictionaryWithCapacity:4];
 

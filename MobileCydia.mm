@@ -2194,7 +2194,7 @@ struct PackageNameOrdering :
     if (!parser.Find([name UTF8String], start, end))
         return (NSString *) [NSNull null];
 
-    return [(NSString *) CYStringCreate(start, end - start) autorelease];
+    return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
 } }
 
 - (void) parse {

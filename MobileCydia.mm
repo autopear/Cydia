@@ -929,6 +929,7 @@ class Status :
     }
 
     virtual void IMSHit(pkgAcquire::ItemDesc &item) {
+        Done(item);
     }
 
     virtual void Fetch(pkgAcquire::ItemDesc &item) {
@@ -938,6 +939,9 @@ class Status :
     }
 
     virtual void Done(pkgAcquire::ItemDesc &item) {
+        NSString *name([NSString stringWithUTF8String:item.ShortDesc.c_str()]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:Colon_, UCLocalize("DONE"), name] ofType:kCydiaProgressEventTypeStatus forItem:item]);
+        [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
     virtual void Fail(pkgAcquire::ItemDesc &item) {

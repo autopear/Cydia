@@ -10046,6 +10046,8 @@ int main(int argc, char *argv[]) {
     }
 
     NSString *ui(@"ui/ios");
+    if (Firmware_ != nil)
+        ui = [ui stringByAppendingString:[NSString stringWithFormat:@"-%@", Firmware_]];
     if (Idiom_ != nil)
         ui = [ui stringByAppendingString:[NSString stringWithFormat:@"~%@", Idiom_]];
     UI_ = CydiaURL(ui);

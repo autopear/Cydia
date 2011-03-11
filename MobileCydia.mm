@@ -7717,7 +7717,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation PackageSettingsController
 
 - (NSURL *) navigationURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/settings", [package_ id]]];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/settings", (id) name_]];
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {

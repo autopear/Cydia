@@ -8082,11 +8082,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if (!highlighted)
         UISetColor(Black_);
-    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 80) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
+    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 60) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (!highlighted)
         UISetColor(Blue_);
-    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
+    [label_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 75) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
 }
 
 @end

@@ -9636,7 +9636,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [tabbar_ setUpdateDelegate:self];
 }
 
+- (void) _sendMemoryWarningNotification {
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"UIApplicationDidReceiveMemoryWarningNotification" object:[UIApplication sharedApplication]];
+}
+
+- (void) _sendMemoryWarningNotifications {
+    while (true) {
+        [self performSelectorOnMainThread:@selector(_sendMemoryWarningNotification) withObject:nil waitUntilDone:NO];
+        usleep(250000);
+    }
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
+    //[NSThread detachNewThreadSelector:@selector(_sendMemoryWarningNotifications) toTarget:self withObject:nil];
+
 _trace();
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];

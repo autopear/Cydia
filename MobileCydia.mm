@@ -273,9 +273,9 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
     notify_post("com.saurik.Cydia.status");
 }
 
-static CGFloat CYStatusBarHeight(UIInterfaceOrientation orientation) {
+static CGFloat CYStatusBarHeight() {
     CGSize size([[UIApplication sharedApplication] statusBarFrame].size);
-    return UIInterfaceOrientationIsPortrait(orientation) ? size.height : size.width;
+    return UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]) ? size.height : size.width;
 }
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
@@ -6087,7 +6087,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CGRect intersection = CGRectIntersection(viewframe, kbframe);
 
     if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
-        intersection.size.height += CYStatusBarHeight([self interfaceOrientation]);
+        intersection.size.height += CYStatusBarHeight();
 
     [self resizeForKeyboardBounds:intersection duration:duration curve:curve];
 }
@@ -6912,7 +6912,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     CGRect barframe([refreshbar_ frame]);
 
     if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
-        barframe.origin.y = CYStatusBarHeight([self interfaceOrientation]);
+        barframe.origin.y = CYStatusBarHeight();
     else
         barframe.origin.y = 0;
 

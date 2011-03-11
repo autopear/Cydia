@@ -1316,6 +1316,10 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 /* Source Class {{{ */
 @interface Source : NSObject {
+    unsigned era_;
+    Database *database_;
+    metaIndex *index_;
+
     CYString depiction_;
     CYString description_;
     CYString label_;
@@ -1337,7 +1341,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     BOOL trusted_;
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool;
+- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(apr_pool_t *)pool;
 
 - (NSComparisonResult) compareByNameAndType:(Source *)source;
 
@@ -1392,6 +1396,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
     if (false);
     else if (selector == @selector(addSection:))
         return @"addSection";
+    else if (selector == @selector(getField:))
+        return @"getField";
     else if (selector == @selector(removeSection:))
         return @"removeSection";
     else if (selector == @selector(remove))
@@ -1489,11 +1495,42 @@ static void PackageImport(const void *key, const void *value, void *context) {
         authority_ = [url path];
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
+- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(apr_pool_t *)pool {
     if ((self = [super init]) != nil) {
+        era_ = [database era];
+        database_ = database;
+        index_ = index;
+
         [self setMetaIndex:index inPool:pool];
     } return self;
 }
+
+- (NSString *) getField:(NSString *)name {
+@synchronized (database_) {
+    if ([database_ era] != era_ || index_ == NULL)
+        return nil;
+
+    debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index_));
+    if (dindex == NULL)
+        return nil;
+
+    FileFd fd;
+    if (!fd.Open(dindex->MetaIndexFile("Release"), FileFd::ReadOnly)) {
+         _error->Discard();
+         return nil;
+    }
+
+    pkgTagFile tags(&fd);
+
+    pkgTagSection section;
+    tags.Step(section);
+
+    const char *start, *end;
+    if (!section.Find([name UTF8String], start, end))
+        return (NSString *) [NSNull null];
+
+    return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
+} }
 
 - (NSComparisonResult) compareByNameAndType:(Source *)source {
     NSDictionary *lhr = [self record];
@@ -3539,7 +3576,7 @@ class CydiaLogCleaner :
     }
 
     for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-        Source *object([[[Source alloc] initWithMetaIndex:*source inPool:pool_] autorelease]);
+        Source *object([[[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:pool_] autorelease]);
         [sourceList_ addObject:object];
 
         std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();

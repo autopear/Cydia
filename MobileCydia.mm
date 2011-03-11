@@ -10220,6 +10220,8 @@ int main(int argc, char *argv[]) {
         Version_ = [NSNumber numberWithUnsignedInt:1];
         [Metadata_ setObject:Version_ forKey:@"Version"];
 
+        [Metadata_ removeObjectForKey:@"LastUpdate"];
+
         Changed_ = true;
     }
     /* }}} */

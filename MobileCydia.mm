@@ -1843,6 +1843,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 /* }}} */
 /* Package Class {{{ */
 struct ParsedPackage {
+    CYString md5sum_;
     CYString tagline_;
 
     CYString architecture_;
@@ -2150,6 +2151,7 @@ struct PackageNameOrdering :
         @"longDescription",
         @"longSection",
         @"maintainer",
+        @"md5sum",
         @"mode",
         @"name",
         @"purposes",
@@ -2238,6 +2240,7 @@ struct PackageNameOrdering :
                 {"support", &parsed->support_},
                 {"sponsor", &parsed->sponsor_},
                 {"author", &parsed->author_},
+                {"md5sum", &parsed->md5sum_},
             };
 
             for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
@@ -2466,6 +2469,10 @@ struct PackageNameOrdering :
     const std::string &maintainer(parser->Maintainer());
     return maintainer.empty() ? nil : [MIMEAddress addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
 } }
+
+- (NSString *) md5sum {
+    return parsed_ == NULL ? nil : (id) parsed_->md5sum_;
+}
 
 - (size_t) size {
 @synchronized (database_) {

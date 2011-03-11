@@ -208,8 +208,7 @@ void PrintTimes() {
 #define _end }
 /* }}} */
 
-#include "Version.h"
-#define Cydia_ CYDIA_VERSION
+extern NSString *Cydia_;
 
 #define lprintf(args...) fprintf(stderr, args)
 
@@ -3987,7 +3986,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSString *) version {
-    return @ Cydia_;
+    return Cydia_;
 }
 
 - (NSString *) device {
@@ -4594,7 +4593,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSString *) applicationNameForUserAgent {
-    NSString *application([NSString stringWithFormat:@"Cydia/%@", @ Cydia_]);
+    NSString *application([NSString stringWithFormat:@"Cydia/%@", Cydia_]);
 
     if (Safari_ != nil)
         application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];

@@ -67,7 +67,7 @@ dirs := Menes CyteKit Cydia SDURLCache
 
 code := $(foreach dir,$(dirs),$(wildcard $(foreach ext,h hpp c cpp m mm,$(dir)/*.$(ext))))
 code := $(filter-out SDURLCache/SDURLCacheTests.m,$(code))
-code += MobileCydia.mm iPhonePrivate.h Cytore.hpp lookup3.c
+code += MobileCydia.mm Version.mm iPhonePrivate.h Cytore.hpp lookup3.c
 
 source := $(filter %.m,$(code)) $(filter %.mm,$(code))
 source += $(filter %.c,$(code)) $(filter %.cpp,$(code))
@@ -106,7 +106,7 @@ Objects/%.o: %.mm $(header)
 	@echo "[cycc] $<"
 	@$(cycc) -c -o $@ $< $(flags) $(xflags)
 
-Objects/MobileCydia.o: version.h
+Objects/Version.o: version.h
 
 Images/%.png: %.png
 	@mkdir -p $(dir $@)

@@ -36,6 +36,30 @@ declare -A dpkgz
 dpkgz[gz]=gunzip
 dpkgz[lzma]=unlzma
 
+function extract() {
+    package=$1
+    url=$2
+
+    wget -O "${package}.deb" "${url}"
+    for z in lzma gz; do
+        compressed=data.tar.${z}
+
+        if ar -x "${package}.deb" "${compressed}" 2>/dev/null; then
+            ${dpkgz[${z}]} "${compressed}"
+            break
+        fi
+    done
+
+    if ! [[ -e data.tar ]]; then
+        echo "unable to extract package" 1>&2
+        exit 1
+    fi
+
+    ls -la data.tar
+    tar -xf ./data.tar
+    rm -f data.tar
+}
+
 wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
     regex='^([^ \t]*): *(.*)'
     declare -A fields
@@ -45,25 +69,7 @@ wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture
             package=${fields[package]}
             if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|coreutils|mobilesubstrate|pcre) ]]; then
                 filename=${fields[filename]}
-
-                wget -O "${package}.deb" "${repository}${filename}"
-                for z in lzma gz; do
-                    compressed=data.tar.${z}
-
-                    if ar -x "${package}.deb" "${compressed}" 2>/dev/null; then
-                        ${dpkgz[${z}]} "${compressed}"
-                        break
-                    fi
-                done
-
-                if ! [[ -e data.tar ]]; then
-                    echo "unable to extract package" 1>&2
-                    exit 1
-                fi
-
-                ls -la data.tar
-                tar -xf ./data.tar
-                rm -f data.tar
+                extract "${package}" "${repository}${filename}"
             fi
 
             unset fields

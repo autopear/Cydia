@@ -4,9 +4,9 @@ Section: Packaging
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
 Version: 
-Replaces: bigboss, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, saurik, ste, yellowsn0w.com, zodttd
-Depends: apr-lib, apt7-lib, apt7-key, cydia-lproj, darwintools, debianutils, pcre, sed, shell-cmds, system-cmds, uikittools (>= 1.1.0)
-Conflicts: bigboss, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, ste, yellowsn0w.com, zodttd
+Replaces: com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, saurik, ste, yellowsn0w.com, zodttd
+Depends: apr-lib, apt7-lib, apt7-key, bigboss (>= 1-15), cydia-lproj, darwintools, debianutils, pcre, sed, shell-cmds, system-cmds, uikittools (>= 1.1.0)
+Conflicts: com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, ste, yellowsn0w.com, zodttd
 Pre-Depends: debianutils
 Provides: cydia-sources
 Description: graphical iPhone front-end for APT

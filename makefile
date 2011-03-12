@@ -80,7 +80,7 @@ object := $(object:.m=.o)
 object := $(object:.mm=.o)
 object := $(object:%=Objects/%)
 
-images := $(shell find BigBoss.png/ MobileCydia.app/ -type f -name '*.png')
+images := $(shell find MobileCydia.app/ -type f -name '*.png')
 images := $(images:%=Images/%)
 
 lproj_deb := debs/cydia-lproj_$(version)_iphoneos-arm.deb
@@ -154,8 +154,8 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst $(images) $
 	
 	cd MobileCydia.app && find . -name '*.png' -exec cp -af ../Images/MobileCydia.app/{} ../_/Applications/Cydia.app/{} ';'
 	
-	mkdir -p _/usr/share/bigboss/icons
-	cd BigBoss.png && find . -name '*.png' -exec cp -af ../Images/BigBoss.png/{} ../_/usr/share/bigboss/icons/{} ';'
+	mkdir -p _/Applications/Cydia.app/Sources
+	ln -s /usr/share/bigboss/icons/bigboss.png _/Applications/Cydia.app/Sources/apt.bigboss.us.com.png
 	ln -s /usr/share/bigboss/icons/planetiphones.png _/Applications/Cydia.app/Sections/"Planet-iPhones Mods.png"
 	
 	#mkdir -p _/Applications/AppleTV.app/Appliances

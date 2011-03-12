@@ -121,6 +121,7 @@ extern "C" {
 #include <errno.h>
 
 #include <Cytore.hpp>
+#include "Sources.h"
 
 #include <CydiaSubstrate/CydiaSubstrate.h>
 #include "Menes/Menes.h"
@@ -705,16 +706,16 @@ static _transient NSString *Role_;
 static _transient NSMutableDictionary *Packages_;
 static _transient NSMutableDictionary *Values_;
 static _transient NSMutableDictionary *Sections_;
-static _transient NSMutableDictionary *Sources_;
+_H<NSMutableDictionary> Sources_;
 static _transient NSNumber *Version_;
-static _transient _H<NSString> CydiaSource_;
-static bool Changed_;
+_H<NSString> CydiaSource_;
+bool Changed_;
 static time_t now_;
 
 bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
-static NSString *Firmware_;
+_H<NSString> Firmware_;
 static NSString *Major_;
 
 static _H<NSMutableDictionary> SessionData_;
@@ -730,50 +731,6 @@ static NSString *kCydiaProgressEventTypeInformation = @"Information";
 static NSString *kCydiaProgressEventTypeStatus = @"Status";
 static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 /* }}} */
-
-static void AddSource(NSDictionary *source) {
-    [Sources_ setObject:source forKey:[NSString stringWithFormat:@"%@:%@:%@", [source objectForKey:@"Type"], [source objectForKey:@"URI"], [source objectForKey:@"Distribution"]]];
-    Changed_ = true;
-}
-
-static void AddSource(NSString *href, NSString *distribution, NSArray *sections = nil) {
-    AddSource([NSMutableDictionary dictionaryWithObjectsAndKeys:
-        @"deb", @"Type",
-        href, @"URI",
-        distribution, @"Distribution",
-        sections ?: [NSMutableArray array], @"Sections",
-    nil]);
-}
-
-static void WriteSources() {
-    FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
-    _assert(file != NULL);
-
-    NSString *distribution(@"ios");
-    if (Firmware_ != nil)
-        distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"-%@", Firmware_]];
-
-    fprintf(file, "deb http://%s/ %s main\n",
-        [CydiaSource_ UTF8String],
-        [distribution UTF8String]
-    );
-
-    for (NSString *key in [Sources_ allKeys]) {
-        NSDictionary *source([Sources_ objectForKey:key]);
-
-        NSArray *sections([source objectForKey:@"Sections"] ?: [NSArray array]);
-
-        fprintf(file, "%s %s %s%s%s\n",
-            [[source objectForKey:@"Type"] UTF8String],
-            [[source objectForKey:@"URI"] UTF8String],
-            [[source objectForKey:@"Distribution"] UTF8String],
-            [sections count] == 0 ? "" : " ",
-            [[sections componentsJoinedByString:@" "] UTF8String]
-        );
-    }
-
-    fclose(file);
-}
 
 /* Display Helpers {{{ */
 inline float Interpolate(float begin, float end, float fraction) {
@@ -5531,13 +5488,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect rect;
         rect.size = [(UIImage *) icon_ size];
 
-        while (rect.size.width > 32 || rect.size.height > 32) {
+        while (rect.size.width > 16 || rect.size.height > 16) {
             rect.size.width /= 2;
             rect.size.height /= 2;
         }
 
-        rect.origin.x = 14 - rect.size.width / 4;
-        rect.origin.y = 14 - rect.size.height / 4;
+        rect.origin.x = 18 - rect.size.width / 2;
+        rect.origin.y = 18 - rect.size.height / 2;
 
         [icon_ drawInRect:rect];
     }
@@ -5549,8 +5506,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         rect.size.width /= 4;
         rect.size.height /= 4;
 
-        rect.origin.x = 20 - rect.size.width / 4;
-        rect.origin.y = 20 - rect.size.height / 4;
+        rect.origin.x = 23 - rect.size.width / 2;
+        rect.origin.y = 23 - rect.size.height / 2;
 
         [badge_ drawInRect:rect];
     }
@@ -5574,7 +5531,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect rect;
         rect.size = [(UIImage *) icon_ size];
 
-        while (rect.size.width > 64 || rect.size.height > 64) {
+        while (rect.size.width > 32 || rect.size.height > 32) {
             rect.size.width /= 2;
             rect.size.height /= 2;
         }
@@ -8097,8 +8054,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     bool highlighted(highlighted_);
     float width(rect.size.width);
 
-    if (icon_ != nil)
-        [icon_ drawInRect:CGRectMake(10, 10, 30, 30)];
+    if (icon_ != nil) {
+        CGRect rect;
+        rect.size = [(UIImage *) icon_ size];
+
+        while (rect.size.width > 32 || rect.size.height > 32) {
+            rect.size.width /= 2;
+            rect.size.height /= 2;
+        }
+
+        rect.origin.x = 25 - rect.size.width / 2;
+        rect.origin.y = 25 - rect.size.height / 2;
+
+        [icon_ drawInRect:rect];
+    }
 
     if (highlighted)
         UISetColor(White_);
@@ -8985,7 +8954,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
     }
 
-    WriteSources();
+    CydiaWriteSources();
 }
 
 // Navigation controller for the queuing badge.
@@ -9183,15 +9152,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) addSource:(NSDictionary *) source {
-    AddSource(source);
+    CydiaAddSource(source);
 }
 
 - (void) addSource:(NSString *)href withDistribution:(NSString *)distribution andSections:(NSArray *)sections {
-    AddSource(href, distribution, sections);
+    CydiaAddSource(href, distribution, sections);
 }
 
 - (void) addTrivialSource:(NSString *)href {
-    AddSource(href, @"./");
+    CydiaAddSource(href, @"./");
 }
 
 - (void) updateValues {
@@ -10276,10 +10245,10 @@ int main(int argc, char *argv[]) {
     }
 
     if ([Version_ unsignedIntValue] == 0) {
-        AddSource(@"http://apt.thebigboss.org/repofiles/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
-        AddSource(@"http://apt.modmyi.com/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
-        AddSource(@"http://cydia.zodttd.com/repo/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
-        AddSource(@"http://repo666.ultrasn0w.com/", @"./");
+        CydiaAddSource(@"http://apt.thebigboss.org/repofiles/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
+        CydiaAddSource(@"http://apt.modmyi.com/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
+        CydiaAddSource(@"http://cydia.zodttd.com/repo/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
+        CydiaAddSource(@"http://repo666.ultrasn0w.com/", @"./");
 
         Version_ = [NSNumber numberWithUnsignedInt:1];
         [Metadata_ setObject:Version_ forKey:@"Version"];
@@ -10290,7 +10259,7 @@ int main(int argc, char *argv[]) {
     }
     /* }}} */
 
-    WriteSources();
+    CydiaWriteSources();
 
     _trace();
     MetaFile_.Open("/var/lib/cydia/metadata.cb0");

@@ -42,6 +42,7 @@
 
 #include <pcre.h>
 
+#include "CyteKit/UCPlatform.h"
 #include "CyteKit/stringWithUTF8Bytes.h"
 
 class Pcre {

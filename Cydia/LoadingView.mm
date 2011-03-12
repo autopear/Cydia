@@ -54,7 +54,7 @@
         label_ = [[[UILabel alloc] init] autorelease];
         [label_ setFont:[UIFont boldSystemFontOfSize:15.0f]];
         [label_ setBackgroundColor:[UIColor clearColor]];
-        [label_ setTextColor:[UIColor blackColor]];
+        [label_ setTextColor:[UIColor viewFlipsideBackgroundColor]];
         [label_ setShadowColor:[UIColor whiteColor]];
         [label_ setShadowOffset:CGSizeMake(0, 1)];
         [label_ setText:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil]];

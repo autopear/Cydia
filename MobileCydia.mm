@@ -4608,6 +4608,8 @@ static _H<NSMutableSet> Diversions_;
     if ([url isCydiaSecure] && token) {
         if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
             [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
+        if (UniqueID_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Id"] == nil)
+            [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
     }
 
     return copy;
@@ -8392,8 +8394,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 
     if ([url isCydiaSecure]) {
-        if (UniqueID_ != nil)
+        if (UniqueID_ != nil) {
             [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+            [request setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
+        }
     }
 
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];

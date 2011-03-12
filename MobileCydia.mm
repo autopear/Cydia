@@ -1359,11 +1359,9 @@ static void PackageImport(const void *key, const void *value, void *context) {
 - (NSDictionary *) record;
 - (BOOL) trusted;
 
-- (NSString *) uri;
+- (NSString *) rooturi;
 - (NSString *) distribution;
 - (NSString *) type;
-
-- (NSString *) base;
 
 - (NSString *) key;
 - (NSString *) host;
@@ -1375,6 +1373,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 - (NSString *) version;
 
 - (NSString *) defaultIcon;
+- (NSURL *) iconURL;
 
 @end
 
@@ -1420,17 +1419,19 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
+        @"baseuri",
         @"distribution",
         @"host",
         @"key",
+        @"iconuri",
         @"label",
         @"name",
         @"origin",
+        @"rooturi",
         @"sections",
         @"shortDescription",
         @"trusted",
         @"type",
-        @"uri",
         @"version",
     nil];
 }
@@ -1629,7 +1630,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     return trusted_;
 }
 
-- (NSString *) uri {
+- (NSString *) rooturi {
     return uri_;
 }
 
@@ -1641,8 +1642,21 @@ static void PackageImport(const void *key, const void *value, void *context) {
     return type_;
 }
 
-- (NSString *) base {
-    return base_;
+- (NSString *) baseuri {
+    return base_.empty() ? nil : (id) base_;
+}
+
+- (NSString *) iconuri {
+    if (NSString *base = [self baseuri])
+        return [base stringByAppendingString:@"CydiaIcon.png"];
+
+    return nil;
+}
+
+- (NSURL *) iconURL {
+    if (NSString *uri = [self iconuri])
+        return [NSURL URLWithString:uri];
+    return nil;
 }
 
 - (NSString *) key {
@@ -8030,26 +8044,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [content_ setNeedsDisplay];
 }
 
-- (void) _setSource:(Source *)source {
+- (void) _setSource:(NSURL *) url {
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
-    if (NSString *base = [source base])
-        if ([base length] != 0) {
-            NSURL *url([NSURL URLWithString:[base stringByAppendingString:@"CydiaIcon.png"]]);
+    if (NSData *data = [NSURLConnection
+        sendSynchronousRequest:[NSURLRequest
+            requestWithURL:url
+            //cachePolicy:NSURLRequestUseProtocolCachePolicy
+            //timeoutInterval:5
+        ]
 
-            if (NSData *data = [NSURLConnection
-                sendSynchronousRequest:[NSURLRequest
-                    requestWithURL:url
-                    //cachePolicy:NSURLRequestUseProtocolCachePolicy
-                    //timeoutInterval:5
-                ]
-
-                returningResponse:NULL
-                error:NULL
-            ])
-                if (UIImage *image = [UIImage imageWithData:data])
-                    [self performSelectorOnMainThread:@selector(_setImage:) withObject:image waitUntilDone:NO];
-        }
+        returningResponse:NULL
+        error:NULL
+    ])
+        if (UIImage *image = [UIImage imageWithData:data])
+            [self performSelectorOnMainThread:@selector(_setImage:) withObject:image waitUntilDone:NO];
 
     [pool release];
 }
@@ -8058,11 +8067,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     icon_ = [UIImage applicationImageNamed:@"unknown.png"];
 
     origin_ = [source name];
-    label_ = [source uri];
+    label_ = [source rooturi];
 
     [content_ setNeedsDisplay];
 
-    [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:source];
+    if (NSURL *url = [source iconURL])
+        [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:url];
 }
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {

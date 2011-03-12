@@ -70,7 +70,7 @@ urls[coreutils]=http://apt.saurik.com/debs/coreutils_7.4-11_iphoneos-arm.deb
 urls[mobilesubstrate]=http://apt.saurik.com/debs/mobilesubstrate_0.9.3367-1_iphoneos-arm.deb
 urls[pcre]=http://apt.saurik.com/debs/pcre_7.9-3_iphoneos-arm.deb
 
-if [[ 1 ]]; then
+if [[ 0 ]]; then
     wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
         regex='^([^ \t]*): *(.*)'
         declare -A fields

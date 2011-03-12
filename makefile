@@ -129,7 +129,7 @@ MobileCydia: sysroot $(object)
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
 
-debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia $(images) $(shell find MobileCydia.app) cydia.control
+debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst $(images) $(shell find MobileCydia.app) cydia.control
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
@@ -185,7 +185,6 @@ $(lproj_deb): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.contro
 	
 	mkdir -p __/DEBIAN
 	./control.sh cydia-lproj.control __ >__/DEBIAN/control
-	cp -a preinst __/DEBIAN/
 	
 	sudo chown -R 0 __
 	sudo chgrp -R 0 __

@@ -88,7 +88,7 @@ lproj_deb := debs/cydia-lproj_$(version)_iphoneos-arm.deb
 all: MobileCydia
 
 clean:
-	rm -f MobileCydia
+	rm -f MobileCydia postinst
 	rm -rf Objects/ Images/
 
 Objects/%.o: %.c $(header)
@@ -129,7 +129,10 @@ MobileCydia: sysroot $(object)
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
 
-debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst $(images) $(shell find MobileCydia.app) cydia.control
+postinst: postinst.mm Sources.mm Sources.h CyteKit/stringWithUTF8Bytes.mm CyteKit/stringWithUTF8Bytes.h CyteKit/UCPlatform.h
+	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation -framework Foundation -framework UIKit -lpcre
+
+debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst $(images) $(shell find MobileCydia.app) cydia.control
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
@@ -164,7 +167,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst $(images) $(shell fi
 	
 	mkdir -p _/DEBIAN
 	./control.sh cydia.control _ >_/DEBIAN/control
-	cp -a preinst _/DEBIAN/
+	cp -a preinst postinst _/DEBIAN/
 	
 	find _ -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
 	

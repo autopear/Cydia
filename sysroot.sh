@@ -60,6 +60,8 @@ function extract() {
     rm -f data.tar
 }
 
+declare -A urls
+
 wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
     regex='^([^ \t]*): *(.*)'
     declare -A fields
@@ -69,7 +71,7 @@ wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture
             package=${fields[package]}
             if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|coreutils|mobilesubstrate|pcre) ]]; then
                 filename=${fields[filename]}
-                extract "${package}" "${repository}${filename}"
+                urls[${package}]=${repository}${filename}
             fi
 
             unset fields
@@ -81,6 +83,10 @@ wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture
         fi
     done
 }
+
+for package in "${!urls[@]}"; do
+    extract "${package}" "${urls[${package}]}"
+done
 
 rm -f *.deb
 

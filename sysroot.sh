@@ -62,27 +62,29 @@ function extract() {
 
 declare -A urls
 
-wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
-    regex='^([^ \t]*): *(.*)'
-    declare -A fields
+if [[ 1 ]]; then
+    wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
+        regex='^([^ \t]*): *(.*)'
+        declare -A fields
 
-    while IFS= read -r line; do
-        if [[ ${line} == '' ]]; then
-            package=${fields[package]}
-            if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|coreutils|mobilesubstrate|pcre) ]]; then
-                filename=${fields[filename]}
-                urls[${package}]=${repository}${filename}
+        while IFS= read -r line; do
+            if [[ ${line} == '' ]]; then
+                package=${fields[package]}
+                if [[ ${package} == *(apr|apr-lib|apt7|apt7-lib|coreutils|mobilesubstrate|pcre) ]]; then
+                    filename=${fields[filename]}
+                    urls[${package}]=${repository}${filename}
+                fi
+
+                unset fields
+                declare -A fields
+            elif [[ ${line} =~ ${regex} ]]; then
+                name=${BASH_REMATCH[1],,}
+                value=${BASH_REMATCH[2]}
+                fields[${name}]=${value}
             fi
-
-            unset fields
-            declare -A fields
-        elif [[ ${line} =~ ${regex} ]]; then
-            name=${BASH_REMATCH[1],,}
-            value=${BASH_REMATCH[2]}
-            fields[${name}]=${value}
-        fi
-    done
-}
+        done
+    }
+fi
 
 for package in "${!urls[@]}"; do
     extract "${package}" "${urls[${package}]}"

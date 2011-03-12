@@ -5531,8 +5531,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect rect;
         rect.size = [(UIImage *) icon_ size];
 
-        rect.size.width /= 4;
-        rect.size.height /= 4;
+        while (rect.size.width > 32 || rect.size.height > 32) {
+            rect.size.width /= 2;
+            rect.size.height /= 2;
+        }
 
         rect.origin.x = 14 - rect.size.width / 4;
         rect.origin.y = 14 - rect.size.height / 4;
@@ -5572,8 +5574,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         CGRect rect;
         rect.size = [(UIImage *) icon_ size];
 
-        rect.size.width /= 2;
-        rect.size.height /= 2;
+        while (rect.size.width > 64 || rect.size.height > 64) {
+            rect.size.width /= 2;
+            rect.size.height /= 2;
+        }
 
         rect.origin.x = 25 - rect.size.width / 2;
         rect.origin.y = 25 - rect.size.height / 2;
@@ -7123,15 +7127,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             goto fail;
         [package parse];
         UIImage *icon([package icon]);
-        [self _returnPNGWithImage:icon forRequest:request];
-    } else if ([command isEqualToString:@"source-icon"]) {
-        if (path == nil)
-            goto fail;
-        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        NSString *source(Simplify(path));
-        UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sources/%@.png", App_, source]]);
-        if (icon == nil)
-            icon = [UIImage applicationImageNamed:@"unknown.png"];
         [self _returnPNGWithImage:icon forRequest:request];
     } else if ([command isEqualToString:@"uikit-image"]) {
         if (path == nil)

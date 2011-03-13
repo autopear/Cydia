@@ -40,6 +40,8 @@
 #include "CyteKit/dispatchEvent.h"
 #include "CyteKit/WebThreadLocked.hpp"
 
+#include <WebCore/WebEvent.h>
+
 #include <WebKit/WebFrame.h>
 #include <WebKit/WebScriptObject.h>
 #include <WebKit/WebView.h>
@@ -78,9 +80,15 @@
 MSHook(void, UIWebBrowserView$_webTouchEventsRecognized$, UIWebBrowserView *self, SEL _cmd, UIWebTouchEventsGestureRecognizer *recognizer) {
     _UIWebBrowserView$_webTouchEventsRecognized$(self, _cmd, recognizer);
 
-    if ([recognizer type] == 8)
-    //if ([[recognizer _typeDescription] isEqualToString:@"WebEventTouchEnd"])
-        [self dispatchEvent:@"CydiaTouchEnd"];
+    switch ([recognizer type]) {
+        case WebEventTouchEnd:
+            [self dispatchEvent:@"CydiaTouchEnd"];
+        break;
+
+        case WebEventTouchCancel:
+            [self dispatchEvent:@"CydiaTouchCancel"];
+        break;
+    }
 }
 
 __attribute__((__constructor__)) static void $() {

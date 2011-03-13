@@ -117,6 +117,7 @@ wget -O CoreFoundation/CFUniChar.h "http://www.opensource.apple.com/source/CF/CF
 if true; then
     mkdir -p WebCore
     wget -O WebCore/WebCoreThread.h 'http://www.opensource.apple.com/source/WebCore/WebCore-658.28/wak/WebCoreThread.h?txt'
+    wget -O WebCore/WebEvent.h 'http://www.opensource.apple.com/source/WebCore/WebCore-658.28/platform/iphone/WebEvent.h?txt'
 else
     wget -O WebCore.tgz http://www.opensource.apple.com/tarballs/WebCore/WebCore-658.28.tar.gz
     tar -zx --transform 's@^[^/]*/@WebCore.d/@' -f WebCore.tgz

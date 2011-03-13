@@ -74,3 +74,20 @@
 }
 
 @end
+
+MSHook(void, UIWebBrowserView$_webTouchEventsRecognized$, UIWebBrowserView *self, SEL _cmd, UIWebTouchEventsGestureRecognizer *recognizer) {
+    _UIWebBrowserView$_webTouchEventsRecognized$(self, _cmd, recognizer);
+
+    if ([recognizer type] == 8)
+    //if ([[recognizer _typeDescription] isEqualToString:@"WebEventTouchEnd"])
+        [self dispatchEvent:@"CydiaTouchEnd"];
+}
+
+__attribute__((__constructor__)) static void $() {
+    if (Class $UIWebBrowserView = objc_getClass("UIWebBrowserView")) {
+        if (Method method = class_getInstanceMethod($UIWebBrowserView, @selector(_webTouchEventsRecognized:))) {
+            _UIWebBrowserView$_webTouchEventsRecognized$ = reinterpret_cast<void (*)(UIWebBrowserView *, SEL, id)>(method_getImplementation(method));
+            method_setImplementation(method, reinterpret_cast<IMP>(&$UIWebBrowserView$_webTouchEventsRecognized$));
+        }
+    }
+}

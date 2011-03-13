@@ -149,6 +149,15 @@ typedef enum {
 + (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
 @end
 // }}}
+// @interface UIWeb* : * {{{
+@interface UIWebBrowserView : UIWebDocumentView
+@end
+
+@interface UIWebTouchEventsGestureRecognizer : UIGestureRecognizer
+- (int) type;
+- (NSString *) _typeDescription;
+@end
+// }}}
 
 // @interface NS* (*) {{{
 @interface NSMutableURLRequest (Apple)

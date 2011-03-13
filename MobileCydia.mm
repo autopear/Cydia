@@ -8276,12 +8276,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [delegate_ removeProgressHUD:hud_];
         hud_ = nil;
 
-        bool defer(false);
-
         if (cydia_) {
             if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
-                defer = true;
-
                 UIAlertView *alert = [[[UIAlertView alloc]
                     initWithTitle:UCLocalize("SOURCE_WARNING")
                     message:warning
@@ -8295,8 +8291,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [alert setContext:@"warning"];
                 [alert setNumberOfRows:1];
                 [alert show];
-            } else
-                [self complete];
+
+                // XXX: there used to be this great mechanism called yieldToPopup... who deleted it?
+                error_ = nil;
+                return;
+            }
+
+            [self complete];
         } else if (error_ != nil) {
             UIAlertView *alert = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("VERIFICATION_ERROR")

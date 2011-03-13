@@ -84,6 +84,9 @@ void CydiaAddSource(NSDictionary *source) {
 }
 
 void CydiaAddSource(NSString *href, NSString *distribution, NSArray *sections) {
+    if (href == nil || distribution == nil)
+        return;
+
     CydiaAddSource([NSMutableDictionary dictionaryWithObjectsAndKeys:
         @"deb", @"Type",
         href, @"URI",

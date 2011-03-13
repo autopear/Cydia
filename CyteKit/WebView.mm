@@ -37,8 +37,8 @@
 */
 /* }}} */
 
+#include "CyteKit/dispatchEvent.h"
 #include "CyteKit/WebView.h"
-#include "CyteKit/WebThreadLocked.hpp"
 
 #include <CydiaSubstrate/CydiaSubstrate.h>
 
@@ -329,26 +329,7 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 }
 
 - (void) dispatchEvent:(NSString *)event {
-    WebThreadLocked lock;
-
-    NSString *script([NSString stringWithFormat:@
-        "(function() {"
-            "var event = this.document.createEvent('Events');"
-            "event.initEvent('%@', false, false);"
-            "this.document.dispatchEvent(event);"
-        "})();"
-    , event]);
-
-    NSMutableArray *frames([NSMutableArray arrayWithObjects:
-        [[[self _documentView] webView] mainFrame]
-    , nil]);
-
-    while (WebFrame *frame = [frames lastObject]) {
-        WebScriptObject *object([frame windowObject]);
-        [object evaluateWebScript:script];
-        [frames removeLastObject];
-        [frames addObjectsFromArray:[frame childFrames]];
-    }
+    [[self _documentView] dispatchEvent:event];
 }
 
 - (void) reloadFromOrigin {

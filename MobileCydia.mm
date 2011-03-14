@@ -265,6 +265,15 @@ static _finline NSString *CydiaURL(NSString *path) {
     return [[NSString stringWithUTF8String:page] stringByAppendingString:path];
 }
 
+static void ReapZombie(pid_t pid) {
+    int status;
+  wait:
+    if (waitpid(pid, &status, 0) == -1)
+        if (errno == EINTR)
+            goto wait;
+        else _assert(false);
+}
+
 static _finline void UpdateExternalStatus(uint64_t newStatus) {
     int notify_token;
     if (notify_register_check("com.saurik.Cydia.status", &notify_token) == NOTIFY_STATUS_OK) {
@@ -4355,12 +4364,7 @@ static _H<NSMutableSet> Diversions_;
         fclose(du);
     } else _assert(close(fds[0]));
 
-    int status;
-  wait:
-    if (waitpid(pid, &status, 0) == -1)
-        if (errno == EINTR)
-            goto wait;
-        else _assert(false);
+    ReapZombie(pid);
 
     return value;
 }
@@ -7825,15 +7829,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         _assert(false);
     }
 
-    _forever {
-        int status;
-        int result(waitpid(pid, &status, 0));
-
-        if (result != -1) {
-            _assert(result == pid);
-            break;
-        }
-    }
+    ReapZombie(pid);
 }
 
 - (void) onIgnored:(id)control {
@@ -9664,10 +9660,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [self removeStashController];
 
-    if (ExecFork() == 0) {
+    pid_t pid(ExecFork());
+    if (pid == 0) {
         execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
         perror("launchctl stop");
+        exit(0);
     }
+
+    ReapZombie(pid);
 }
 
 - (void) setupViewControllers {

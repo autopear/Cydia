@@ -54,7 +54,7 @@ void CydiaWriteSources() {
 
     NSString *distribution(@"ios");
     if (Firmware_ != nil)
-        distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"-%@", (id) Firmware_]];
+        distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"/%@", (id) Firmware_]];
 
     fprintf(file, "deb http://%s/ %s main\n",
         [CydiaSource_ UTF8String],

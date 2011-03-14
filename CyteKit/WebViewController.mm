@@ -581,7 +581,7 @@ float CYScrollViewDecelerationRateNormal;
 // }}}
 
 - (void) close {
-    [[self navigationController] dismissModalViewControllerAnimated:YES];
+    [[[self navigationController] parentViewController] dismissModalViewControllerAnimated:YES];
 }
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {

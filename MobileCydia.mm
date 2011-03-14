@@ -6763,6 +6763,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return items;
 }
 
+- (void) dismissModalViewControllerAnimated:(BOOL)animated {
+    if ([self modalViewController] == nil && [self unselectedViewController] != nil)
+        [self setUnselectedViewController:nil];
+    else
+        [super dismissModalViewControllerAnimated:YES];
+}
+
 - (void) unloadData {
     [super unloadData];
 

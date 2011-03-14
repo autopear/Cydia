@@ -8131,6 +8131,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UITableViewDelegate
 > {
     _transient Database *database_;
+    unsigned era_;
+
     _H<UITableView, 2> list_;
     _H<NSMutableArray> sources_;
     int offset_;
@@ -8195,8 +8197,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (Source *) sourceAtIndexPath:(NSIndexPath *)indexPath {
+@synchronized (database_) {
+    if ([database_ era] != era_)
+        return nil;
+
     return [sources_ objectAtIndex:[indexPath row]];
-}
+} }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *cellIdentifier = @"SourceCell";
@@ -8467,6 +8473,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) reloadData {
     [super reloadData];
 
+@synchronized (database_) {
+    era_ = [database_ era];
+
     pkgSourceList list;
     if ([database_ popErrorWithTitle:UCLocalize("SOURCES") forOperation:list.ReadMainList()])
         return;
@@ -8488,7 +8497,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [list_ setEditing:NO];
     [self updateButtonsForEditingStatus:NO animated:NO];
     [list_ reloadData];
-}
+} }
 
 - (void) showAddSourcePrompt {
     UIAlertView *alert = [[[UIAlertView alloc]

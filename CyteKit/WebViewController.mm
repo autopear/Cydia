@@ -53,6 +53,14 @@ float CYScrollViewDecelerationRateNormal;
 - (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
 @end
 
+@implementation WebFrame (Cydia)
+
+- (NSString *) description {
+    return [NSString stringWithFormat:@"<%s: %p, %@>", class_getName([self class]), self, [[[([self provisionalDataSource] ?: [self dataSource]) request] URL] absoluteString]];
+}
+
+@end
+
 /* Indirect Delegate {{{ */
 @interface IndirectDelegate : NSObject {
     _transient volatile id delegate_;

@@ -4557,16 +4557,22 @@ static _H<NSMutableSet> Diversions_;
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 
+    bool bridged;
     bool token;
+
     @synchronized (HostConfig_) {
-        token = [TokenHosts_ containsObject:host] || [BridgedHosts_ containsObject:host];
+        bridged = [BridgedHosts_ containsObject:host];
+        token = [TokenHosts_ containsObject:host];
     }
 
-    if ([url isCydiaSecure] && token) {
-        if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
-            [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
-        if (UniqueID_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Id"] == nil)
-            [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
+    if ([url isCydiaSecure]) {
+        if (bridged) {
+            if (UniqueID_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Id"] == nil)
+                [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
+        } else if (token) {
+            if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
+                [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
+        }
     }
 
     return copy;

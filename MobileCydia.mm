@@ -404,7 +404,6 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 /* Cydia NSString Additions {{{ */
 @interface NSString (Cydia)
 - (NSComparisonResult) compareByPath:(NSString *)other;
-- (NSString *) stringByCachingURLWithCurrentCDN;
 - (NSString *) stringByAddingPercentEscapesIncludingReserved;
 @end
 
@@ -438,13 +437,6 @@ NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *s
 
     NSComparisonResult result = [lpath compare:rpath];
     return result == NSOrderedSame ? value : result;
-}
-
-- (NSString *) stringByCachingURLWithCurrentCDN {
-    return [self
-        stringByReplacingOccurrencesOfString:@"://cydia.saurik.com/"
-        withString:@"://cache.cydia.saurik.com/"
-    ];
 }
 
 - (NSString *) stringByAddingPercentEscapesIncludingReserved {
@@ -8273,7 +8265,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         href = [href substringFromIndex:(colon.location + 3)];
     href = [href stringByAddingPercentEscapes];
     href = [CydiaURL(@"api/repotag/") stringByAppendingString:href];
-    href = [href stringByCachingURLWithCurrentCDN];
 
     NSURL *url([NSURL URLWithString:href]);
 

@@ -9426,10 +9426,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (UIViewController *modal = [target modalViewController])
         target = modal;
 
-    UIView *view([target view]);
-    [view addSubview:hud];
-
-    [hud showInView:[tabbar_ view]];
+    [hud showInView:[target view]];
 
     ++locked_;
     return hud;

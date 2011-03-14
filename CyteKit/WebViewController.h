@@ -102,6 +102,7 @@
 
 - (CyteWebView *) webView;
 
+- (void) setRequest:(NSURLRequest *)request;
 - (void) setURL:(NSURL *)url;
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;

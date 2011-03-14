@@ -167,9 +167,13 @@ float CYScrollViewDecelerationRateNormal;
     ];
 }
 
-- (void) setURL:(NSURL *)url {
+- (void) setRequest:(NSURLRequest *)request {
     _assert(request_ == nil);
-    request_ = [self requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy];
+    request_ = request;
+}
+
+- (void) setURL:(NSURL *)url {
+    [self setRequest:[self requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy]];
 }
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {

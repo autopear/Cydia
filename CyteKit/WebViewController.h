@@ -73,9 +73,6 @@
     _H<NSURLRequest> request_;
     bool ready_;
 
-    _H<NSURLRequest> stage1_;
-    _H<NSURLRequest> stage2_;
-
     _transient NSNumber *sensitive_;
 
     _H<NSString> title_;

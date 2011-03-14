@@ -354,9 +354,7 @@ float CYScrollViewDecelerationRateNormal;
         return;
 
     if ([[error domain] isEqualToString:WebKitErrorDomain] && [error code] == WebKitErrorFrameLoadInterruptedByPolicyChange) {
-        request_ = stage2_;
-        stage1_ = nil;
-        stage2_ = nil;
+        request_ = nil;
         return;
     }
 
@@ -441,10 +439,8 @@ float CYScrollViewDecelerationRateNormal;
 - (void) webView:(WebView *)view didDecidePolicy:(CYWebPolicyDecision)decision forNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame {
     if ([frame parentFrame] == nil)
         if (decision == CYWebPolicyDecisionUse)
-            if (!error_) {
-                stage1_ = request_;
+            if (!error_)
                 request_ = request;
-            }
 }
 
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
@@ -502,9 +498,6 @@ float CYScrollViewDecelerationRateNormal;
     [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
-        stage1_ = nil;
-        stage2_ = nil;
-
         if (DOMDocument *document = [frame DOMDocument])
             if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
                 for (DOMHTMLBodyElement *body in (id) bodies) {
@@ -564,9 +557,6 @@ float CYScrollViewDecelerationRateNormal;
         function_ = nil;
 
         allowsNavigationAction_ = true;
-
-        stage2_ = stage1_;
-        stage1_ = nil;
 
         [self setHidesNavigationBar:NO];
 

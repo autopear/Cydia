@@ -8585,6 +8585,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UCLocalize("DEVELOPER"),
     nil];
     segment_ = [[[UISegmentedControl alloc] initWithItems:items] autorelease];
+    [segment_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin)];
     container_ = [[[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)] autorelease];
     [container_ addSubview:segment_];
 }

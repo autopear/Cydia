@@ -870,6 +870,7 @@ float CYScrollViewDecelerationRateNormal;
     [self setViewportWidth:width_];
 
     UITableView *table([[[UITableView alloc] initWithFrame:[webview_ bounds] style:UITableViewStyleGrouped] autorelease]);
+    [table setScrollsToTop:NO];
     [webview_ insertSubview:table atIndex:0];
 
     [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];

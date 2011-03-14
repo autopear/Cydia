@@ -9467,7 +9467,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([[url absoluteString] length] <= [scheme length] + 3)
         return nil;
     NSString *path([[url absoluteString] substringFromIndex:[scheme length] + 3]);
-    NSArray *components([path pathComponents]);
+    NSArray *components([path componentsSeparatedByString:@"/"]);
 
     if ([scheme isEqualToString:@"apptapp"] && [components count] > 0 && [[components objectAtIndex:0] isEqualToString:@"package"])
         return [self pageForPackage:[components objectAtIndex:1]];

@@ -9050,9 +9050,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [database_ yieldToSelector:@selector(reloadDataWithInvocation:) withObject:invocation];
 
-    if (hud != nil)
-        [self removeProgressHUD:hud];
-
     size_t changes(0);
 
     [essential_ removeAllObjects];
@@ -9084,6 +9081,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     [self _updateData];
+
+    if (hud != nil)
+        [self removeProgressHUD:hud];
 } }
 
 - (void) updateData {

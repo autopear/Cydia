@@ -8255,6 +8255,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) complete {
     [delegate_ addTrivialSource:href_];
+    href_ = nil;
+
     [delegate_ syncData];
 }
 
@@ -8295,13 +8297,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         trivial_bz2_ == nil &&
         trivial_gz_ == nil
     ) {
+        NSString *warning(cydia_ ? [self yieldToSelector:@selector(getWarning)] : nil);
+
         [delegate_ releaseNetworkActivityIndicator];
 
         [delegate_ removeProgressHUD:hud_];
         hud_ = nil;
 
         if (cydia_) {
-            if (NSString *warning = [self yieldToSelector:@selector(getWarning)]) {
+            if (warning != nil) {
                 UIAlertView *alert = [[[UIAlertView alloc]
                     initWithTitle:UCLocalize("SOURCE_WARNING")
                     message:warning
@@ -8333,6 +8337,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             [alert setContext:@"urlerror"];
             [alert show];
+
+            href_ = nil;
         } else {
             UIAlertView *alert = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("NOT_REPOSITORY")
@@ -8344,9 +8350,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             [alert setContext:@"trivial"];
             [alert show];
+
+            href_ = nil;
         }
 
-        href_ = nil;
         error_ = nil;
     }
 }
@@ -8434,7 +8441,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     else if ([context isEqualToString:@"warning"]) {
         switch (button) {
             case 1:
-                [self complete];
+                [self performSelector:@selector(complete) withObject:nil afterDelay:0];
             break;
 
             case 0:
@@ -8442,8 +8449,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             _nodefault
         }
-
-        href_ = nil;
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
     }

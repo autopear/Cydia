@@ -5204,6 +5204,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease];
 }
 
+- (void) uicache {
+    _trace();
+    system("su -c /usr/bin/uicache mobile");
+    _trace();
+}
+
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
     UpdateExternalStatus(1);
 
@@ -5281,9 +5287,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 4: [progress_ setFinish:UCLocalize("REBOOT_DEVICE")]; break;
     }
 
-    _trace();
-    system("su -c /usr/bin/uicache mobile");
-    _trace();
+    UIProgressHUD *hud([delegate_ addProgressHUD]);
+    [hud setText:UCLocalize("LOADING")];
+    [self yieldToSelector:@selector(uicache)];
+    [delegate_ removeProgressHUD:hud];
 
     UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
 

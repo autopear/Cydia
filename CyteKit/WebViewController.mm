@@ -464,6 +464,15 @@ float CYScrollViewDecelerationRateNormal;
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
 }
 
+- (void) webView:(WebView *)view didCommitLoadForFrame:(WebFrame *)frame {
+#if LogBrowser
+    NSLog(@"didCommitLoadForFrame:%@", frame);
+#endif
+
+    if ([frame parentFrame] == nil) {
+    }
+}
+
 - (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
 #if LogBrowser
     NSLog(@"didFailLoadWithError:%@ forFrame:%@", error, frame);

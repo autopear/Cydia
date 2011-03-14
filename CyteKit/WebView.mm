@@ -198,6 +198,21 @@ static void $UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$(UIW
         [super webView:view didClearWindowObject:window forFrame:frame];
 }
 // }}}
+// webView:didCommitLoadForFrame: (3.0+) {{{
+static void $UIWebViewWebViewDelegate$webView$didCommitLoadForFrame$(UIWebViewWebViewDelegate *self, SEL sel, WebView *view, WebFrame *frame) {
+    UIWebView *uiWebView(MSHookIvar<UIWebView *>(self, "uiWebView"));
+    if ([uiWebView respondsToSelector:@selector(webView:didCommitLoadForFrame:)])
+        [uiWebView webView:view didCommitLoadForFrame:frame];
+}
+
+- (void) webView:(WebView *)view didCommitLoadForFrame:(WebFrame *)frame {
+    id<CyteWebViewDelegate> delegate([self delegate]);
+    if ([delegate respondsToSelector:@selector(webView:didCommitLoadForFrame:)])
+        [delegate webView:view didCommitLoadForFrame:frame];
+    if ([UIWebView instancesRespondToSelector:@selector(webView:didCommitLoadForFrame:)])
+        [super webView:view didCommitLoadForFrame:frame];
+}
+// }}}
 // webView:didFailLoadWithError:forFrame: (2.0+) {{{
 - (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame {
     id<CyteWebViewDelegate> delegate([self delegate]);
@@ -343,6 +358,7 @@ __attribute__((__constructor__)) static void $() {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:addMessageToConsole:), (IMP) &$UIWebViewWebViewDelegate$webView$addMessageToConsole$, "v16@0:4@8@12");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:), (IMP) &$UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$request$newFrameName$decisionListener$, "v28@0:4@8@12@16@20@24");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didClearWindowObject:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didClearWindowObject$forFrame$, "v20@0:4@8@12@16");
+        class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didCommitLoadForFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didCommitLoadForFrame$, "v16@0:4@8@12");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didReceiveTitle:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$, "v20@0:4@8@12@16");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:), (IMP) &$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$, "@28@0:4@8@12@16@20@24");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webViewClose:), (IMP) &$UIWebViewWebViewDelegate$webViewClose$, "v12@0:4@8");

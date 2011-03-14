@@ -6546,7 +6546,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/manage/", UI_]]];
+        [self setURL:[NSURL fileURLWithPath:[[NSBundle mainBundle] pathForResource:@"manage" ofType:@"html"]]];
     } return self;
 }
 
@@ -6571,13 +6571,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [delegate_ queue];
 }
 
-- (UIBarButtonItem *) customButton {
+- (UIBarButtonItem *) rightButton {
     return Queuing_ ? [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("QUEUE")
         style:UIBarButtonItemStyleDone
         target:self
         action:@selector(queueButtonClicked)
-    ] autorelease] : [super customButton];
+    ] autorelease] : nil;
 }
 
 - (void) queueStatusDidChange {
@@ -9496,6 +9496,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } else if (!external && [components count] == 1) {
         if ([base isEqualToString:@"manage"]) {
             controller = [[[ManageController alloc] init] autorelease];
+        }
+
+        if ([base isEqualToString:@"storage"]) {
+            controller = [[[CydiaWebViewController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/storage/", UI_]]] autorelease];
         }
 
         if ([base isEqualToString:@"sources"]) {

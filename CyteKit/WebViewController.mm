@@ -370,7 +370,7 @@ float CYScrollViewDecelerationRateNormal;
 
     if (page == nil) {
         CyteWebViewController *browser([[[class_ alloc] init] autorelease]);
-        [browser loadRequest:request];
+        [browser setRequest:request];
         page = browser;
     }
 

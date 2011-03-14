@@ -7996,6 +7996,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @interface SourceCell : CyteTableViewCell <
     CyteTableViewCellDelegate
 > {
+    _H<NSURL> url_;
     _H<UIImage> icon_;
     _H<NSString> origin_;
     _H<NSString> label_;
@@ -8007,9 +8008,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation SourceCell
 
-- (void) _setImage:(UIImage *)image {
-    icon_ = image;
-    [content_ setNeedsDisplay];
+- (void) _setImage:(NSArray *)data {
+    if ([url_ isEqual:[data objectAtIndex:0]]) {
+        icon_ = [data objectAtIndex:1];
+        [content_ setNeedsDisplay];
+    }
 }
 
 - (void) _setSource:(NSURL *) url {
@@ -8026,7 +8029,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         error:NULL
     ])
         if (UIImage *image = [UIImage imageWithData:data])
-            [self performSelectorOnMainThread:@selector(_setImage:) withObject:image waitUntilDone:NO];
+            [self performSelectorOnMainThread:@selector(_setImage:) withObject:[NSArray arrayWithObjects:url, image, nil] waitUntilDone:NO];
 
     [pool release];
 }
@@ -8039,8 +8042,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     [content_ setNeedsDisplay];
 
-    if (NSURL *url = [source iconURL])
-        [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:url];
+    url_ = [source iconURL];
+    [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:url_];
 }
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {

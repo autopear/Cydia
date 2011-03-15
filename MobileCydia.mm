@@ -8964,9 +8964,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _saveConfig {
-    _trace();
-    MetaFile_.Sync();
-    _trace();
+    @synchronized (database_) {
+        _trace();
+        MetaFile_.Sync();
+        _trace();
+    }
 
     if (Changed_) {
         NSString *error(nil);

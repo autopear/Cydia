@@ -9974,7 +9974,6 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
 
     NSURL *url([copy URL]);
 
-    NSString *href([url absoluteString]);
     NSString *host([url host]);
     NSString *scheme([[url scheme] lowercaseString]);
 
@@ -9987,9 +9986,9 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
 
         if (NSString *control = [copy valueForHTTPHeaderField:@"Cache-Control"])
             if ([control isEqualToString:@"max-age=0"])
-                if ([CachedURLs_ containsObject:href]) {
+                if ([CachedURLs_ containsObject:url]) {
 #if !ForRelease
-                    NSLog(@"~~~: %@", href);
+                    NSLog(@"~~~: %@", url);
 #endif
 
                     [copy setCachePolicy:NSURLRequestReturnCacheDataDontLoad];

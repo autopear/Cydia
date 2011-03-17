@@ -559,6 +559,7 @@ float CYScrollViewDecelerationRateNormal;
         allowsNavigationAction_ = true;
 
         [self setHidesNavigationBar:NO];
+        [self setScrollAlwaysBounceVertical:true];
         [self setScrollIndicatorStyle:UIScrollViewIndicatorStyleDefault];
 
         // XXX: do we still need to do this?
@@ -994,6 +995,20 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) setHidesNavigationBarByNumber:(NSNumber *)value {
     [self setHidesNavigationBar:[value boolValue]];
+}
+
+- (void) setScrollAlwaysBounceVertical:(bool)value {
+    if ([webview_ respondsToSelector:@selector(_scrollView)]) {
+        UIScrollView *scroller([webview_ _scrollView]);
+        [scroller setAlwaysBounceVertical:value];
+    } else if ([webview_ respondsToSelector:@selector(_scroller)]) {
+        //UIScroller *scroller([webview_ _scroller]);
+        // XXX: I am sad here.
+    } else return;
+}
+
+- (void) setScrollAlwaysBounceVerticalNumber:(NSNumber *)value {
+    [self setScrollAlwaysBounceVertical:[value boolValue]];
 }
 
 - (void) setScrollIndicatorStyle:(UIScrollViewIndicatorStyle)style {

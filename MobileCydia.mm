@@ -4113,6 +4113,8 @@ static _H<NSMutableSet> Diversions_;
         return @"setPasteboardString";
     else if (selector == @selector(setPasteboardURL:))
         return @"setPasteboardURL";
+    else if (selector == @selector(setScrollAlwaysBounceVertical:))
+        return @"setScrollAlwaysBounceVertical";
     else if (selector == @selector(setScrollIndicatorStyle:))
         return @"setScrollIndicatorStyle";
     else if (selector == @selector(setToken:))
@@ -4139,6 +4141,10 @@ static _H<NSMutableSet> Diversions_;
 
 - (void) unload {
     [delegate_ performSelectorOnMainThread:@selector(unloadData) withObject:nil waitUntilDone:NO];
+}
+
+- (void) setScrollAlwaysBounceVertical:(NSNumber *)value {
+    [indirect_ performSelectorOnMainThread:@selector(setScrollAlwaysBounceVerticalNumber:) withObject:value waitUntilDone:NO];
 }
 
 - (void) setScrollIndicatorStyle:(NSString *)style {

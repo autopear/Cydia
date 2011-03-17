@@ -146,6 +146,7 @@
 
 - (void) setViewportWidthOnMainThread:(float)value;
 
+- (void) setScrollAlwaysBounceVertical:(bool)value;
 - (void) setScrollIndicatorStyle:(UIScrollViewIndicatorStyle)style;
 
 @end

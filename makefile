@@ -200,4 +200,4 @@ $(lproj_deb): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.contro
 	
 package: debs/cydia_$(version)_iphoneos-arm.deb $(lproj_deb)
 
-.PHONY: all clean package sign
+.PHONY: all clean package

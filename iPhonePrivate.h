@@ -80,6 +80,7 @@ typedef enum {
 - (void) setOffset:(CGPoint)offset;
 - (void) setScrollDecelerationFactor:(float)factor;
 - (void) setScrollHysteresis:(float)hysteresis;
+- (void) setScrollerIndicatorStyle:(UIScrollViewIndicatorStyle)style;
 - (void) setThumbDetectionEnabled:(BOOL)enabled;
 @end
 

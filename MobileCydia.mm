@@ -4113,6 +4113,8 @@ static _H<NSMutableSet> Diversions_;
         return @"setPasteboardString";
     else if (selector == @selector(setPasteboardURL:))
         return @"setPasteboardURL";
+    else if (selector == @selector(setScrollIndicatorStyle:))
+        return @"setScrollIndicatorStyle";
     else if (selector == @selector(setToken:))
         return @"setToken";
     else if (selector == @selector(setViewportWidth:))
@@ -4137,6 +4139,10 @@ static _H<NSMutableSet> Diversions_;
 
 - (void) unload {
     [delegate_ performSelectorOnMainThread:@selector(unloadData) withObject:nil waitUntilDone:NO];
+}
+
+- (void) setScrollIndicatorStyle:(NSString *)style {
+    [indirect_ performSelectorOnMainThread:@selector(setScrollIndicatorStyleWithName:) withObject:style waitUntilDone:NO];
 }
 
 - (void) addInternalRedirect:(NSString *)from :(NSString *)to {

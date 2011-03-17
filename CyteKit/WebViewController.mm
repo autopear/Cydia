@@ -559,6 +559,7 @@ float CYScrollViewDecelerationRateNormal;
         allowsNavigationAction_ = true;
 
         [self setHidesNavigationBar:NO];
+        [self setScrollIndicatorStyle:UIScrollViewIndicatorStyleDefault];
 
         // XXX: do we still need to do this?
         [[self navigationItem] setTitle:nil];
@@ -993,6 +994,31 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) setHidesNavigationBarByNumber:(NSNumber *)value {
     [self setHidesNavigationBar:[value boolValue]];
+}
+
+- (void) setScrollIndicatorStyle:(UIScrollViewIndicatorStyle)style {
+    if ([webview_ respondsToSelector:@selector(_scrollView)]) {
+        UIScrollView *scroller([webview_ _scrollView]);
+        [scroller setIndicatorStyle:style];
+    } else if ([webview_ respondsToSelector:@selector(_scroller)]) {
+        UIScroller *scroller([webview_ _scroller]);
+        [scroller setScrollerIndicatorStyle:style];
+    } else return;
+}
+
+- (void) setScrollIndicatorStyleWithName:(NSString *)style {
+    UIScrollViewIndicatorStyle value;
+
+    if (false);
+    else if ([style isEqualToString:@"default"])
+        value = UIScrollViewIndicatorStyleDefault;
+    else if ([style isEqualToString:@"black"])
+        value = UIScrollViewIndicatorStyleBlack;
+    else if ([style isEqualToString:@"white"])
+        value = UIScrollViewIndicatorStyleWhite;
+    else return;
+
+    [self setScrollIndicatorStyle:value];
 }
 
 - (void) viewWillAppear:(BOOL)animated {

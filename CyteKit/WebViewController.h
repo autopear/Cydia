@@ -146,6 +146,8 @@
 
 - (void) setViewportWidthOnMainThread:(float)value;
 
+- (void) setScrollIndicatorStyle:(UIScrollViewIndicatorStyle)style;
+
 @end
 
 #endif//CyteKit_WebViewController_H

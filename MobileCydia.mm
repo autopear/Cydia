@@ -2620,11 +2620,19 @@ struct PackageNameOrdering :
 }
 
 - (BOOL) hasMode {
+@synchronized (database_) {
+    if ([database_ era] != era_ || iterator_.end())
+        return nil;
+
     pkgDepCache::StateCache &state([database_ cache][iterator_]);
     return state.Mode != pkgDepCache::ModeKeep;
-}
+} }
 
 - (NSString *) mode {
+@synchronized (database_) {
+    if ([database_ era] != era_ || iterator_.end())
+        return nil;
+
     pkgDepCache::StateCache &state([database_ cache][iterator_]);
 
     switch (state.Mode) {
@@ -2656,7 +2664,7 @@ struct PackageNameOrdering :
             }
         _nodefault
     }
-}
+} }
 
 - (NSString *) id {
     return id_;

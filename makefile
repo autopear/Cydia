@@ -131,6 +131,7 @@ CydiaAppliance: CydiaAppliance.mm
 
 postinst: postinst.mm Sources.mm Sources.h CyteKit/stringWithUTF8Bytes.mm CyteKit/stringWithUTF8Bytes.h CyteKit/UCPlatform.h
 	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation -framework Foundation -framework UIKit -lpcre
+	@ldid -T0 -S postinst
 
 debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst $(images) $(shell find MobileCydia.app) cydia.control
 	sudo rm -rf _

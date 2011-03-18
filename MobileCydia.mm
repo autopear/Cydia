@@ -3964,6 +3964,7 @@ static _H<NSMutableSet> Diversions_;
         @"mcc",
         @"mnc",
         @"model",
+        @"operator",
         @"role",
         @"serial",
         @"token",
@@ -4008,6 +4009,12 @@ static _H<NSMutableSet> Diversions_;
 - (NSString *) mnc {
     if (CFStringRef (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(CFAllocatorRef) = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberNetworkCode")))
         return [(NSString *) (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(kCFAllocatorDefault) autorelease];
+    return nil;
+}
+
+- (NSString *) operator {
+    if (CFStringRef (*$CTRegistrationCopyOperatorName)(CFAllocatorRef) = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTRegistrationCopyOperatorName")))
+        return [(NSString *) (*$CTRegistrationCopyOperatorName)(kCFAllocatorDefault) autorelease];
     return nil;
 }
 

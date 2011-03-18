@@ -10232,8 +10232,13 @@ int main(int argc, char *argv[]) {
     if (mcc != NULL && mnc != NULL)
         if (CFStringGetLength(mcc) == 3) {
             CFIndex length(CFStringGetLength(mnc));
-            if (length == 2 || length == 3)
+            if (length == 2 || length == 3) {
                 PLMN_ = [NSString stringWithFormat:@"%@%@", mcc, mnc];
+
+                Pcre pattern("^[0-9]{5,6}$");
+                if (!pattern(PLMN_))
+                    PLMN_ = nil;
+            }
         }
 
     if (mnc != NULL)

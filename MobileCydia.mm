@@ -10230,7 +10230,11 @@ int main(int argc, char *argv[]) {
     CFStringRef mnc($CTSIMSupportCopyMobileSubscriberNetworkCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(kCFAllocatorDefault));
 
     if (mcc != NULL && mnc != NULL)
-        PLMN_ = [NSString stringWithFormat:@"%@%@", mcc, mnc];
+        if (CFStringGetLength(mcc) == 3) {
+            CFIndex length(CFStringGetLength(mnc));
+            if (length == 2 || length == 3)
+                PLMN_ = [NSString stringWithFormat:@"%@%@", mcc, mnc];
+        }
 
     if (mnc != NULL)
         CFRelease(mnc);

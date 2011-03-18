@@ -10226,7 +10226,7 @@ int main(int argc, char *argv[]) {
     CFStringRef mcc($CTSIMSupportCopyMobileSubscriberCountryCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberCountryCode)(kCFAllocatorDefault));
 
     CFStringRef (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(CFAllocatorRef);
-    $CTSIMSupportCopyMobileSubscriberNetworkCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberCountryCode"));
+    $CTSIMSupportCopyMobileSubscriberNetworkCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberNetworkCode"));
     CFStringRef mnc($CTSIMSupportCopyMobileSubscriberNetworkCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(kCFAllocatorDefault));
 
     if (mcc != NULL && mnc != NULL)

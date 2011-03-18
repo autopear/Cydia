@@ -691,7 +691,6 @@ static NSString *ChipID_ = nil;
 static NSString *BBSNum_ = nil;
 static _H<NSString> Token_;
 static NSString *UniqueID_ = nil;
-static NSString *PLMN_ = nil;
 static NSString *Build_ = nil;
 static NSString *Product_ = nil;
 static NSString *Safari_ = nil;
@@ -3962,8 +3961,9 @@ static _H<NSMutableSet> Diversions_;
         @"firmware",
         @"hostname",
         @"idiom",
+        @"mcc",
+        @"mnc",
         @"model",
-        @"plmn",
         @"role",
         @"serial",
         @"token",
@@ -3999,8 +3999,16 @@ static _H<NSMutableSet> Diversions_;
     return (id) Idiom_ ?: [NSNull null];
 }
 
-- (NSString *) plmn {
-    return (id) PLMN_ ?: [NSNull null];
+- (NSString *) mcc {
+    if (CFStringRef (*$CTSIMSupportCopyMobileSubscriberCountryCode)(CFAllocatorRef) = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberCountryCode")))
+        return [(NSString *) (*$CTSIMSupportCopyMobileSubscriberCountryCode)(kCFAllocatorDefault) autorelease];
+    return nil;
+}
+
+- (NSString *) mnc {
+    if (CFStringRef (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(CFAllocatorRef) = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberNetworkCode")))
+        return [(NSString *) (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(kCFAllocatorDefault) autorelease];
+    return nil;
 }
 
 - (NSString *) bbsnum {
@@ -10220,31 +10228,6 @@ int main(int argc, char *argv[]) {
     BBSNum_ = CYHex((NSData *) CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
 
     UniqueID_ = [device uniqueIdentifier];
-
-    CFStringRef (*$CTSIMSupportCopyMobileSubscriberCountryCode)(CFAllocatorRef);
-    $CTSIMSupportCopyMobileSubscriberCountryCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberCountryCode"));
-    CFStringRef mcc($CTSIMSupportCopyMobileSubscriberCountryCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberCountryCode)(kCFAllocatorDefault));
-
-    CFStringRef (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(CFAllocatorRef);
-    $CTSIMSupportCopyMobileSubscriberNetworkCode = reinterpret_cast<CFStringRef (*)(CFAllocatorRef)>(dlsym(RTLD_DEFAULT, "CTSIMSupportCopyMobileSubscriberNetworkCode"));
-    CFStringRef mnc($CTSIMSupportCopyMobileSubscriberNetworkCode == NULL ? NULL : (*$CTSIMSupportCopyMobileSubscriberNetworkCode)(kCFAllocatorDefault));
-
-    if (mcc != NULL && mnc != NULL)
-        if (CFStringGetLength(mcc) == 3) {
-            CFIndex length(CFStringGetLength(mnc));
-            if (length == 2 || length == 3) {
-                PLMN_ = [NSString stringWithFormat:@"%@%@", mcc, mnc];
-
-                Pcre pattern("^[0-9]{5,6}$");
-                if (!pattern(PLMN_))
-                    PLMN_ = nil;
-            }
-        }
-
-    if (mnc != NULL)
-        CFRelease(mnc);
-    if (mcc != NULL)
-        CFRelease(mcc);
 
     if (NSDictionary *system = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"])
         Build_ = [system objectForKey:@"ProductBuildVersion"];

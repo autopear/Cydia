@@ -6295,6 +6295,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     NSArray *packages;
 
+  reload:
     if ([self shouldYield]) {
         do {
             UIProgressHUD *hud;
@@ -6312,11 +6313,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             if (hud != nil)
                 [delegate_ removeProgressHUD:hud];
         } while (reloading_ == 2);
-
-        reloading_ = 0;
     } else {
         packages = [self _reloadPackages];
     }
+
+@synchronized (database_) {
+    if (era_ != [database_ era])
+        goto reload;
+    reloading_ = 0;
 
     packages_ = packages;
 
@@ -6403,7 +6407,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [(UITableView *) list_ setDataSource:self];
         [list_ reloadData];
     _end
-}
+} }
 
 - (void) reloadData {
     [super reloadData];

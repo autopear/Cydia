@@ -9863,8 +9863,8 @@ _trace();
     NSDate *closed = [Metadata_ objectForKey:@"LastClosed"];
     if (valid && closed != nil) {
         NSTimeInterval interval([closed timeIntervalSinceNow]);
-        // XXX: Is 15 minutes the optimal time here?
-        if (interval <= -(15*60))
+        // XXX: Is 60 minutes the optimal time here?
+        if (interval <= -(60*60))
             valid = NO;
     }
 

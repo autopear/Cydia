@@ -121,6 +121,7 @@ sysroot: sysroot.sh
 MobileCydia: sysroot $(object)
 	@echo "[link] $(object:Objects/%=%)"
 	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(uikit)
+	@cp -a $@ $@-$(version)
 	@echo "[strp] $@"
 	@strip -no_uuid $@
 	@echo "[sign] $@"

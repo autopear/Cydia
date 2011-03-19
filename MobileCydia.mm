@@ -691,7 +691,6 @@ static NSString *ChipID_ = nil;
 static NSString *BBSNum_ = nil;
 static _H<NSString> Token_;
 static NSString *UniqueID_ = nil;
-static NSString *Build_ = nil;
 static NSString *Product_ = nil;
 static NSString *Safari_ = nil;
 
@@ -4623,8 +4622,8 @@ static _H<NSMutableSet> Diversions_;
 
     if (Safari_ != nil)
         application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];
-    if (Build_ != nil)
-        application = [NSString stringWithFormat:@"Mobile/%@ %@", Build_, application];
+    if (System_ != nil)
+        application = [NSString stringWithFormat:@"Mobile/%@ %@", System_, application];
     if (Product_ != nil)
         application = [NSString stringWithFormat:@"Version/%@ %@", Product_, application];
 
@@ -10236,8 +10235,6 @@ int main(int argc, char *argv[]) {
 
     UniqueID_ = [device uniqueIdentifier];
 
-    if (NSDictionary *system = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"])
-        Build_ = [system objectForKey:@"ProductBuildVersion"];
     if (NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"]) {
         Product_ = [info objectForKey:@"SafariProductVersion"];
         Safari_ = [info objectForKey:@"CFBundleVersion"];

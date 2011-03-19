@@ -9864,7 +9864,7 @@ _trace();
     if (valid && closed != nil) {
         NSTimeInterval interval([closed timeIntervalSinceNow]);
         // XXX: Is 15 minutes the optimal time here?
-        if (interval > 0 && interval <= -(15*60))
+        if (interval <= -(15*60))
             valid = NO;
     }
 

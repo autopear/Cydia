@@ -4586,8 +4586,6 @@ static _H<NSMutableSet> Diversions_;
 
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
 
-    if (System_ != NULL && [copy valueForHTTPHeaderField:@"X-System"] == nil)
-        [copy setValue:System_ forHTTPHeaderField:@"X-System"];
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 

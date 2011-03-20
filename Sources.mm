@@ -44,7 +44,6 @@
 #include <cstdio>
 
 extern _H<NSMutableDictionary> Sources_;
-extern _H<NSString> CydiaSource_;
 extern _H<NSString> System_;
 extern bool Changed_;
 
@@ -56,10 +55,7 @@ void CydiaWriteSources() {
     if (System_ != nil)
         distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"/%@", (id) System_]];
 
-    fprintf(file, "deb http://%s/ %s main\n",
-        [CydiaSource_ UTF8String],
-        [distribution UTF8String]
-    );
+    fprintf(file, "deb http://apt.saurik.com/ %s main\n", [distribution UTF8String]);
 
     for (NSString *key in [Sources_ allKeys]) {
         NSDictionary *source([Sources_ objectForKey:key]);

@@ -707,7 +707,6 @@ static _transient NSMutableDictionary *Values_;
 static _transient NSMutableDictionary *Sections_;
 _H<NSMutableDictionary> Sources_;
 static _transient NSNumber *Version_;
-_H<NSString> CydiaSource_;
 bool Changed_;
 static time_t now_;
 
@@ -4097,8 +4096,6 @@ static _H<NSMutableSet> Diversions_;
         return @"removeButton";
     else if (selector == @selector(saveConfig))
         return @"saveConfig";
-    else if (selector == @selector(setCydiaSource:))
-        return @"setCydiaSource";
     else if (selector == @selector(setMetadataValue::))
         return @"setMetadataValue";
     else if (selector == @selector(setSessionValue::))
@@ -4211,25 +4208,6 @@ static _H<NSMutableSet> Diversions_;
             value = CYHex((NSData *) value);
 
     return value;
-}
-
-- (void) _setCydiaSource:(NSString *)source {
-    @synchronized (HostConfig_) {
-        CydiaSource_ = source;
-        [Metadata_ setObject:source forKey:@"CydiaSource"];
-    }
-
-    Changed_ = true;
-}
-
-- (void) setCydiaSource:(NSString *)source {
-    [self performSelectorOnMainThread:@selector(_setCydiaSource:) withObject:source waitUntilDone:NO];
-}
-
-- (NSString *) cydiaSource {
-    @synchronized (HostConfig_) {
-        return (id) CydiaSource_ ?: [NSNull null];
-    }
 }
 
 - (NSArray *) getMetadataKeys {
@@ -10262,10 +10240,6 @@ int main(int argc, char *argv[]) {
         Token_ = [Metadata_ objectForKey:@"Token"];
 
         Version_ = [Metadata_ objectForKey:@"Version"];
-
-        @synchronized (HostConfig_) {
-            CydiaSource_ = [Metadata_ objectForKey:@"CydiaSource"];
-        }
     }
 
     if (Settings_ != nil)
@@ -10289,13 +10263,6 @@ int main(int argc, char *argv[]) {
     if (Version_ == nil) {
         Version_ = [NSNumber numberWithUnsignedInt:0];
         [Metadata_ setObject:Version_ forKey:@"Version"];
-    }
-
-    @synchronized (HostConfig_) {
-        if (CydiaSource_ == nil) {
-            CydiaSource_ = @"apt.saurik.com";
-            [Metadata_ setObject:CydiaSource_ forKey:@"CydiaSource"];
-        }
     }
 
     if ([Version_ unsignedIntValue] == 0) {

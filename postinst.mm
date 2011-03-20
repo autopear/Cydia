@@ -8,7 +8,6 @@
 #include "CyteKit/PerlCompatibleRegEx.hpp"
 
 _H<NSMutableDictionary> Sources_;
-_H<NSString> CydiaSource_;
 bool Changed_;
 
 _H<NSString> System_;
@@ -30,14 +29,10 @@ int main(int argc, const char *argv[]) {
 
     if (metadata != nil) {
         Sources_ = [metadata objectForKey:@"Sources"];
-        CydiaSource_ = [metadata objectForKey:@"CydiaSource"];
 
         if (NSNumber *number = [metadata objectForKey:@"Version"])
             version = [number unsignedIntValue];
     }
-
-    if (CydiaSource_ == nil)
-        CydiaSource_ = @"apt.saurik.com";
 
     if (Sources_ == nil)
         Sources_ = [NSMutableDictionary dictionaryWithCapacity:8];

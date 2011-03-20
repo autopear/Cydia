@@ -130,6 +130,8 @@ EOF
 
     pseudo "cy+kernel.$(lower <<<$(sysctl -n kern.ostype))" "$(sysctl -n kern.osrelease)" "virtual kernel dependency"
 
+    pseudo "cy+lib.corefoundation" "$(/usr/libexec/cydia/cfversion)" "virtual corefoundation dependency"
+
 } >"${status}"_
 
 mv -f "${status}"{_,}
@@ -139,5 +141,5 @@ if [[ ${cpu} == arm ]]; then
         cp -afT /User /var/mobile
     fi && rm -rf /User && ln -s "/var/mobile" /User
 
-    echo 4 >/var/lib/cydia/firmware.ver
+    echo 5 >/var/lib/cydia/firmware.ver
 fi

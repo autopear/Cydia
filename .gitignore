@@ -11,3 +11,4 @@ debs
 *.o
 Images/
 Version.h
+cfversion

@@ -130,11 +130,15 @@ MobileCydia: sysroot $(object)
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
 
+cfversion: cfversion.mm
+	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation
+	@ldid -T0 -S $@
+
 postinst: postinst.mm Sources.mm Sources.h CyteKit/stringWithUTF8Bytes.mm CyteKit/stringWithUTF8Bytes.h CyteKit/UCPlatform.h
 	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation -framework Foundation -framework UIKit -lpcre
 	@ldid -T0 -S $@
 
-debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst $(images) $(shell find MobileCydia.app) cydia.control
+debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion $(images) $(shell find MobileCydia.app) cydia.control Library/firmware.sh
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	
@@ -145,6 +149,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst $(images) $
 	mkdir -p _/usr/libexec
 	cp -a Library _/usr/libexec/cydia
 	cp -a sysroot/usr/bin/du _/usr/libexec/cydia
+	cp -a cfversion _/usr/libexec/cydia
 	
 	mkdir -p _/System/Library
 	cp -a LaunchDaemons _/System/Library/LaunchDaemons

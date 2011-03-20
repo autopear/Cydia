@@ -685,14 +685,15 @@ static _H<UIFont> Font18Bold_;
 static _H<UIFont> Font22Bold_;
 
 static const char *Machine_ = NULL;
-_H<NSString> System_;
+static _H<NSString> System_;
 static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
 static NSString *BBSNum_ = nil;
 static _H<NSString> Token_;
 static NSString *UniqueID_ = nil;
-static NSString *Product_ = nil;
-static NSString *Safari_ = nil;
+static _H<NSString> UserAgent_;
+static _H<NSString> Product_;
+static _H<NSString> Safari_;
 
 static CFLocaleRef Locale_;
 static NSArray *Languages_;
@@ -3953,6 +3954,8 @@ static _H<NSMutableSet> Diversions_;
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"bbsnum",
+        @"build",
+        @"coreFoundationVersionNumber",
         @"device",
         @"ecid",
         @"firmware",
@@ -3979,6 +3982,14 @@ static _H<NSMutableSet> Diversions_;
 
 - (NSString *) version {
     return Cydia_;
+}
+
+- (NSString *) build {
+    return System_;
+}
+
+- (NSString *) coreFoundationVersionNumber {
+    return [NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber];
 }
 
 - (NSString *) device {
@@ -4563,6 +4574,8 @@ static _H<NSMutableSet> Diversions_;
 
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
 
+    if ([copy valueForHTTPHeaderField:@"X-Cydia-Cf-Version"] == nil)
+        [copy setValue:[NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber] forHTTPHeaderField:@"X-Cydia-Cf-Version"];
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 
@@ -4593,16 +4606,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSString *) applicationNameForUserAgent {
-    NSString *application([NSString stringWithFormat:@"Cydia/%@", Cydia_]);
-
-    if (Safari_ != nil)
-        application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];
-    if (System_ != nil)
-        application = [NSString stringWithFormat:@"Mobile/%@ %@", (id) System_, application];
-    if (Product_ != nil)
-        application = [NSString stringWithFormat:@"Version/%@ %@", Product_, application];
-
-    return application;
+    return UserAgent_;
 }
 
 - (id) init {
@@ -10218,6 +10222,17 @@ int main(int argc, char *argv[]) {
         Product_ = [info objectForKey:@"SafariProductVersion"];
         Safari_ = [info objectForKey:@"CFBundleVersion"];
     }
+
+    NSString *agent([NSString stringWithFormat:@"Cydia/%@ CF/%.2f", Cydia_, kCFCoreFoundationVersionNumber]);
+
+    if (Pcre match = Pcre("^[0-9]+(\\.[0-9]+)+", Safari_))
+        agent = [NSString stringWithFormat:@"Safari/%@ %@", match[0], agent];
+    if (Pcre match = Pcre("^[0-9]+[A-Z][0-9]+[a-z]?", System_))
+        agent = [NSString stringWithFormat:@"Mobile/%@ %@", match[0], agent];
+    if (Pcre match = Pcre("^[0-9]+(\\.[0-9]+)+", Product_))
+        agent = [NSString stringWithFormat:@"Version/%@ %@", match[0], agent];
+
+    UserAgent_ = agent;
     /* }}} */
     /* Load Database {{{ */
     _trace();
@@ -10319,7 +10334,7 @@ int main(int argc, char *argv[]) {
     if (access("/tmp/.cydia.fw", F_OK) == 0) {
         unlink("/tmp/.cydia.fw");
         goto firmware;
-    } else if (access("/User", F_OK) != 0 || version < 4) {
+    } else if (access("/User", F_OK) != 0 || version < 5) {
       firmware:
         _trace();
         system("/usr/libexec/cydia/firmware.sh");

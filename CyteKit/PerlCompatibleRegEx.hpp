@@ -56,15 +56,20 @@ class Pcre {
   public:
     Pcre() :
         code_(NULL),
-        study_(NULL)
+        study_(NULL),
+        data_(NULL)
     {
     }
 
-    Pcre(const char *regex) :
+    Pcre(const char *regex, NSString *data = nil) :
         code_(NULL),
-        study_(NULL)
+        study_(NULL),
+        data_(NULL)
     {
         this->operator =(regex);
+
+        if (data != nil)
+            this->operator ()(data);
     }
 
     void operator =(const char *regex) {
@@ -102,8 +107,17 @@ class Pcre {
     }
 
     bool operator ()(const char *data, size_t size) {
-        data_ = data;
-        return pcre_exec(code_, study_, data, size, 0, 0, matches_, (capture_ + 1) * 3) >= 0;
+        if (pcre_exec(code_, study_, data, size, 0, 0, matches_, (capture_ + 1) * 3) >= 0) {
+            data_ = data;
+            return true;
+        } else {
+            data_ = NULL;
+            return false;
+        }
+    }
+
+    operator bool() const {
+        return data_ != NULL;
     }
 
     NSString *operator ->*(NSString *format) const {

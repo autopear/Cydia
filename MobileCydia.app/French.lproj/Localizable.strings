@@ -23,7 +23,7 @@
 "CLEAN_ARCHIVES" = "Nettoyer les archives";
 "CLEAR" = "Nettoyer";
 "CLOSE" = "Fermer";
-"CLOSE_CYDIA" = "Quitter Cydia (Redémarrer)";
+"CLOSE_CYDIA" = "Quitter Cydia";
 "COLON_DELIMITED" = "%@ : %@";
 "COMMA_DELIMITED" = "%@, %@";
 "COMING_SOON" = "À venir!";

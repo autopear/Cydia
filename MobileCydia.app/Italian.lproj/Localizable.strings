@@ -23,7 +23,7 @@
 "CLEAN_ARCHIVES" = "Pulisci Archivi";
 "CLEAR" = "Pulisci";
 "CLOSE" = "Chiudi";
-"CLOSE_CYDIA" = "Chiudi Cydia (Riavvia)";
+"CLOSE_CYDIA" = "Chiudi Cydia";
 "COLON_DELIMITED" = "%@: %@";
 "COMMA_DELIMITED" = "%@, %@";
 "COMING_SOON" = "In arrivo!";

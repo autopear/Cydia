@@ -23,7 +23,7 @@
 "CLEAN_ARCHIVES" = "Rensa arkiven";
 "CLEAR" = "Rensa";
 "CLOSE" = "Avsluta";
-"CLOSE_CYDIA" = "Avsluta Cydia (Omstart)";
+"CLOSE_CYDIA" = "Avsluta Cydia";
 "COLON_DELIMITED" = "%@: %@";
 "COMMA_DELIMITED" = "%@, %@";
 "COMING_SOON" = "Kommer snart!";

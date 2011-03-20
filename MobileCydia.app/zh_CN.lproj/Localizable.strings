@@ -23,7 +23,7 @@
 "CLEAN_ARCHIVES" = "清除存档";
 "CLEAR" = "清除";
 "CLOSE" = "关闭";
-"CLOSE_CYDIA" = "关闭 Cydia（重新启动）";
+"CLOSE_CYDIA" = "关闭 Cydia";
 "COLON_DELIMITED" = "%@：%@";
 "COMING_SOON" = "即将推出！";
 "COMMA_DELIMITED" = "%@，%@";

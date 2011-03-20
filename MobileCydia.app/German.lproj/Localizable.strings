@@ -23,7 +23,7 @@
 "CLEAN_ARCHIVES" = "Archive aufräumen";
 "CLEAR" = "Leeren";
 "CLOSE" = "Schließen";
-"CLOSE_CYDIA" = "Cydia beenden (neustarten)";
+"CLOSE_CYDIA" = "Cydia beenden";
 "COLON_DELIMITED" = "%@: %@";
 "COMMA_DELIMITED" = "%@, %@";
 "COMING_SOON" = "Bald verfügbar!";

@@ -45,7 +45,7 @@
 
 extern _H<NSMutableDictionary> Sources_;
 extern _H<NSString> CydiaSource_;
-extern _H<NSString> Firmware_;
+extern _H<NSString> System_;
 extern bool Changed_;
 
 void CydiaWriteSources() {
@@ -53,8 +53,8 @@ void CydiaWriteSources() {
     _assert(file != NULL);
 
     NSString *distribution(@"ios");
-    if (Firmware_ != nil)
-        distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"/%@", (id) Firmware_]];
+    if (System_ != nil)
+        distribution = [distribution stringByAppendingString:[NSString stringWithFormat:@"/%@", (id) System_]];
 
     fprintf(file, "deb http://%s/ %s main\n",
         [CydiaSource_ UTF8String],

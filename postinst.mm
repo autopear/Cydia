@@ -1,7 +1,9 @@
 #include <strings.h>
 #include <Sources.h>
 
-#include <UIKit/UIKit.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+
 #include <CydiaSubstrate/CydiaSubstrate.h>
 #include "CyteKit/PerlCompatibleRegEx.hpp"
 
@@ -9,7 +11,7 @@ _H<NSMutableDictionary> Sources_;
 _H<NSString> CydiaSource_;
 bool Changed_;
 
-_H<NSString> Firmware_;
+_H<NSString> System_;
 
 int main(int argc, const char *argv[]) {
     if (argc < 2 || strcmp(argv[1], "configure") != 0)
@@ -17,10 +19,11 @@ int main(int argc, const char *argv[]) {
 
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
-    Pcre pattern("^([0-9]+\\.[0-9]+)");
-
-    if (pattern([[UIDevice currentDevice] systemVersion]))
-        Firmware_ = pattern[1];
+    size_t size;
+    sysctlbyname("kern.osversion", NULL, &size, NULL, 0);
+    char *osversion = new char[size];
+    if (sysctlbyname("kern.osversion", osversion, &size, NULL, 0) != -1)
+        System_ = [NSString stringWithUTF8String:osversion];
 
     NSDictionary *metadata([[[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"] autorelease]);
     NSUInteger version(0);

@@ -685,7 +685,7 @@ static _H<UIFont> Font18Bold_;
 static _H<UIFont> Font22Bold_;
 
 static const char *Machine_ = NULL;
-static NSString *System_ = nil;
+_H<NSString> System_;
 static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
 static NSString *BBSNum_ = nil;
@@ -714,7 +714,7 @@ static time_t now_;
 bool IsWildcat_;
 static CGFloat ScreenScale_;
 static NSString *Idiom_;
-_H<NSString> Firmware_;
+static _H<NSString> Firmware_;
 static NSString *Major_;
 
 static _H<NSMutableDictionary> SessionData_;
@@ -4621,7 +4621,7 @@ static _H<NSMutableSet> Diversions_;
     if (Safari_ != nil)
         application = [NSString stringWithFormat:@"Safari/%@ %@", Safari_, application];
     if (System_ != nil)
-        application = [NSString stringWithFormat:@"Mobile/%@ %@", System_, application];
+        application = [NSString stringWithFormat:@"Mobile/%@ %@", (id) System_, application];
     if (Product_ != nil)
         application = [NSString stringWithFormat:@"Version/%@ %@", Product_, application];
 

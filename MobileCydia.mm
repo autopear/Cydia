@@ -3953,7 +3953,6 @@ static _H<NSMutableSet> Diversions_;
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
         @"bbsnum",
-        @"cydiaSource",
         @"device",
         @"ecid",
         @"firmware",

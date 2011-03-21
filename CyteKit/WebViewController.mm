@@ -739,9 +739,6 @@ float CYScrollViewDecelerationRateNormal;
 
     [delegate_ retainNetworkActivityIndicator];
     [self didStartLoading];
-
-    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0)
-        [self retain];
 }
 
 - (void) didFinishLoading {
@@ -757,9 +754,6 @@ float CYScrollViewDecelerationRateNormal;
 
     [delegate_ releaseNetworkActivityIndicator];
     [self didFinishLoading];
-
-    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0)
-        [self autorelease];
 }
 
 - (bool) isLoading {

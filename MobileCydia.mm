@@ -6514,9 +6514,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSURL URLWithString:@"cydia://home"];
 }
 
-- (void) didReceiveMemoryWarning {
-}
-
 - (void) aboutButtonClicked {
     UIAlertView *alert([[[UIAlertView alloc] init] autorelease]);
 

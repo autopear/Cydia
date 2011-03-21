@@ -171,7 +171,8 @@ static void $UIWebViewWebViewDelegate$webView$addMessageToConsole$(UIWebViewWebV
         [delegate webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
     if (![mediator decided] && [UIWebView instancesRespondToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
         [super webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
-    [delegate webView:view didDecidePolicy:[mediator decision] forNavigationAction:action request:request frame:frame];
+    if ([delegate respondsToSelector:@selector(webView:didDecidePolicy:forNavigationAction:request:frame:)])
+        [delegate webView:view didDecidePolicy:[mediator decision] forNavigationAction:action request:request frame:frame];
     [mediator decide];
 }
 // }}}

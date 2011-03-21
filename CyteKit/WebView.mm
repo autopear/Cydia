@@ -118,6 +118,15 @@
 }
 
 - (void) dealloc {
+    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
+        UIWebViewInternal *&_internal(MSHookIvar<UIWebViewInternal *>(self, "_internal"));
+        if (&_internal != NULL) {
+            UIWebViewWebViewDelegate *&webViewDelegate(MSHookIvar<UIWebViewWebViewDelegate *>(_internal, "webViewDelegate"));
+            if (&webViewDelegate != NULL)
+                [webViewDelegate _clearUIWebView];
+        }
+    }
+
     [super dealloc];
 }
 
@@ -353,6 +362,10 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
 
 @end
 
+static void $UIWebViewWebViewDelegate$_clearUIWebView(UIWebViewWebViewDelegate *self, SEL sel) {
+    MSHookIvar<UIWebView *>(self, "uiWebView") = nil;
+}
+
 __attribute__((__constructor__)) static void $() {
     if (Class $UIWebViewWebViewDelegate = objc_getClass("UIWebViewWebViewDelegate")) {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:addMessageToConsole:), (IMP) &$UIWebViewWebViewDelegate$webView$addMessageToConsole$, "v16@0:4@8@12");
@@ -362,5 +375,6 @@ __attribute__((__constructor__)) static void $() {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:didReceiveTitle:forFrame:), (IMP) &$UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$, "v20@0:4@8@12@16");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:), (IMP) &$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$, "@28@0:4@8@12@16@20@24");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webViewClose:), (IMP) &$UIWebViewWebViewDelegate$webViewClose$, "v12@0:4@8");
+        class_addMethod($UIWebViewWebViewDelegate, @selector(_clearUIWebView), (IMP) &$UIWebViewWebViewDelegate$_clearUIWebView, "v8@0:4");
     }
 }

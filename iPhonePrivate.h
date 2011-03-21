@@ -124,6 +124,9 @@ typedef enum {
 @interface UIWebViewWebViewDelegate : NSObject {
     @public UIWebView *uiWebView;
 }
+
+- (void) _clearUIWebView;
+
 @end
 // }}}
 // @interface *Button : * {{{

@@ -144,13 +144,18 @@ float CYScrollViewDecelerationRateNormal;
         CYScrollViewDecelerationRateNormal = 0.998;
 }
 
+- (bool) retainsNetworkActivityIndicator {
+    return true;
+}
+
 - (void) dealloc {
 #if LogBrowser
     NSLog(@"[CyteWebViewController dealloc]");
 #endif
 
     if ([loading_ count] != 0)
-        [delegate_ releaseNetworkActivityIndicator];
+        if ([self retainsNetworkActivityIndicator])
+            [delegate_ releaseNetworkActivityIndicator];
 
     [super dealloc];
 }
@@ -737,7 +742,9 @@ float CYScrollViewDecelerationRateNormal;
     if ([loading_ count] != 1)
         return;
 
-    [delegate_ retainNetworkActivityIndicator];
+    if ([self retainsNetworkActivityIndicator])
+        [delegate_ retainNetworkActivityIndicator];
+
     [self didStartLoading];
 }
 
@@ -752,7 +759,9 @@ float CYScrollViewDecelerationRateNormal;
     [self applyRightButton];
     [[self navigationItem] setTitle:title_];
 
-    [delegate_ releaseNetworkActivityIndicator];
+    if ([self retainsNetworkActivityIndicator])
+        [delegate_ releaseNetworkActivityIndicator];
+
     [self didFinishLoading];
 }
 

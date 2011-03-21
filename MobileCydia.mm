@@ -4627,6 +4627,10 @@ static _H<NSMutableSet> Diversions_;
 - (void) didReceiveMemoryWarning {
 }
 
+- (bool) retainsNetworkActivityIndicator {
+    return false;
+}
+
 @end
 /* }}} */
 

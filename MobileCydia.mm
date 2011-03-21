@@ -4625,6 +4625,7 @@ static _H<NSMutableSet> Diversions_;
 @implementation AppCacheController
 
 - (void) didReceiveMemoryWarning {
+    // XXX: this doesn't work
 }
 
 - (bool) retainsNetworkActivityIndicator {

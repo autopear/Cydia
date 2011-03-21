@@ -9739,13 +9739,11 @@ _trace();
         [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
     }
 
-    // on 3.[01], CFURLCacheResponse is backed by NSURLCacheResponse, and vice versa: fail
-    if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_2)
-        [NSURLCache setSharedURLCache:[[[CYURLCache alloc]
-            initWithMemoryCapacity:524288
-            diskCapacity:10485760
-            diskPath:[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia/SDURLCache", @"/var/root"]
-        ] autorelease]];
+    [NSURLCache setSharedURLCache:[[[CYURLCache alloc]
+        initWithMemoryCapacity:524288
+        diskCapacity:10485760
+        diskPath:[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia/SDURLCache", @"/var/root"]
+    ] autorelease]];
 
     [CydiaWebViewController _initialize];
 

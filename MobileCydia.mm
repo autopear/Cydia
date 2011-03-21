@@ -6225,9 +6225,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    list_ = [[[UITableView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame] style:UITableViewStylePlain] autorelease];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
+
+    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [self setView:list_];
+    [view addSubview:list_];
 
     // XXX: is 20 the most optimal number here?
     [list_ setSectionIndexMinimumDisplayRowCount:20];

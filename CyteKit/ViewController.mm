@@ -51,6 +51,7 @@ extern bool IsWildcat_;
 }
 
 - (void) reloadData {
+    [self view];
 }
 
 - (void) unloadData {

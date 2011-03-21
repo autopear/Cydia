@@ -148,14 +148,21 @@ float CYScrollViewDecelerationRateNormal;
     return true;
 }
 
+- (void) releaseNetworkActivityIndicator {
+    if ([loading_ count] != 0) {
+        [loading_ removeAllObjects];
+
+        if ([self retainsNetworkActivityIndicator])
+            [delegate_ releaseNetworkActivityIndicator];
+    }
+}
+
 - (void) dealloc {
 #if LogBrowser
     NSLog(@"[CyteWebViewController dealloc]");
 #endif
 
-    if ([loading_ count] != 0)
-        if ([self retainsNetworkActivityIndicator])
-            [delegate_ releaseNetworkActivityIndicator];
+    [self releaseNetworkActivityIndicator];
 
     [super dealloc];
 }
@@ -352,7 +359,11 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame {
-    [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
+    NSValue *object([NSValue valueWithNonretainedObject:frame]);
+    if (![loading_ containsObject:object])
+        return;
+    [loading_ removeObject:object];
+
     [self _didFinishLoading];
 
     if ([[error domain] isEqualToString:NSURLErrorDomain] && [error code] == NSURLErrorCancelled)
@@ -500,7 +511,10 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
-    [loading_ removeObject:[NSValue valueWithNonretainedObject:frame]];
+    NSValue *object([NSValue valueWithNonretainedObject:frame]);
+    if (![loading_ containsObject:object])
+        return;
+    [loading_ removeObject:object];
 
     if ([frame parentFrame] == nil) {
         if (DOMDocument *document = [frame DOMDocument])
@@ -905,6 +919,8 @@ float CYScrollViewDecelerationRateNormal;
 - (void) releaseSubviews {
     webview_ = nil;
     scroller_ = nil;
+
+    [self releaseNetworkActivityIndicator];
 
     [super releaseSubviews];
 }

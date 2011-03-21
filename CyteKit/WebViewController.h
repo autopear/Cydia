@@ -112,7 +112,10 @@
 - (void) reloadURL;
 
 - (id) init;
+
 - (id) initWithURL:(NSURL *)url;
+- (id) initWithRequest:(NSURLRequest *)request;
+
 - (id) initWithWidth:(float)width;
 - (id) initWithWidth:(float)width ofClass:(Class)_class;
 

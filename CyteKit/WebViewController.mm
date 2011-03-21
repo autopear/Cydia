@@ -939,6 +939,12 @@ float CYScrollViewDecelerationRateNormal;
     } return self;
 }
 
+- (id) initWithRequest:(NSURLRequest *)request {
+    if ((self = [self init]) != nil) {
+        [self setRequest:request];
+    } return self;
+}
+
 - (void) callFunction:(WebScriptObject *)function {
     WebThreadLocked lock;
 

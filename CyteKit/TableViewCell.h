@@ -54,6 +54,8 @@
     _transient id<CyteTableViewCellDelegate> delegate_;
 }
 
+- (void) setDelegate:(id<CyteTableViewCellDelegate>)delegate;
+
 @end
 
 @interface CyteTableViewCell : UITableViewCell {

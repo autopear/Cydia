@@ -79,10 +79,10 @@ class MenesObjectHandle {
             CFRetain((CFTypeRef) value_);
     }
 
-    _finline void Clear_() {
-        if (value_ != nil) {
-            MenesObjectHandle_<Type_, Delegate_>::Execute(value_);
-            CFRelease((CFTypeRef) value_);
+    _finline void Release_(Type_ *value) {
+        if (value != nil) {
+            MenesObjectHandle_<Type_, Delegate_>::Execute(value);
+            CFRelease((CFTypeRef) value);
         }
     }
 
@@ -100,7 +100,7 @@ class MenesObjectHandle {
     }
 
     _finline ~MenesObjectHandle() {
-        Clear_();
+        Release_(value_);
     }
 
     _finline operator Type_ *() const {
@@ -112,8 +112,7 @@ class MenesObjectHandle {
             Type_ *old(value_);
             value_ = value;
             Retain_();
-            if (old != nil)
-                CFRelease((CFTypeRef) old);
+            Release_(old);
         } return *this;
     }
 

@@ -5776,14 +5776,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds]] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:24.0f];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
-    [[self view] addSubview:list_];
+    [view addSubview:list_];
 }
 
 - (void) viewDidLoad {
@@ -6227,11 +6229,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [[self view] addSubview:list_];
+    [view addSubview:list_];
 
     // XXX: is 20 the most optimal number here?
     [list_ setSectionIndexMinimumDisplayRowCount:20];
@@ -7325,14 +7329,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds]] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:45.0f];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
-    [[self view] addSubview:list_];
+    [view addSubview:list_];
 }
 
 - (void) viewDidLoad {
@@ -7507,14 +7513,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:73];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
-    [[self view] addSubview:list_];
+    [view addSubview:list_];
 }
 
 - (void) viewDidLoad {
@@ -7907,13 +7915,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     table_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease];
     [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [(UITableView *) table_ setDataSource:self];
     [table_ setDelegate:self];
-    [[self view] addSubview:table_];
+    [view addSubview:table_];
 
     subscribedSwitch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(0, 0, 50, 20)] autorelease];
     [subscribedSwitch_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
@@ -8503,14 +8513,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:53];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
-    [[self view] addSubview:list_];
+    [view addSubview:list_];
 }
 
 - (void) viewDidLoad {
@@ -8651,13 +8663,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation SettingsController
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
 
     table_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease];
     [table_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [table_ setDelegate:self];
     [(UITableView *) table_ setDataSource:self];
-    [[self view] addSubview:table_];
+    [view addSubview:table_];
 
     NSArray *items = [NSArray arrayWithObjects:
         UCLocalize("USER"),
@@ -8834,8 +8848,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation StashController
 
 - (void) loadView {
-    [self setView:[[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]];
-    [[self view] setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
+
+    [view setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
 
     spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge] autorelease];
     CGRect spinrect = [spinner_ frame];
@@ -8843,7 +8860,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     spinrect.origin.y = [[self view] frame].size.height - 80.0f;
     [spinner_ setFrame:spinrect];
     [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
-    [[self view] addSubview:spinner_];
+    [view addSubview:spinner_];
     [spinner_ startAnimating];
 
     CGRect captrect;
@@ -8859,7 +8876,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [caption_ setBackgroundColor:[UIColor clearColor]];
     [caption_ setShadowColor:[UIColor blackColor]];
     [caption_ setTextAlignment:UITextAlignmentCenter];
-    [[self view] addSubview:caption_];
+    [view addSubview:caption_];
 
     CGRect statusrect;
     statusrect.size.width = [[self view] frame].size.width;
@@ -8874,7 +8891,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [status_ setBackgroundColor:[UIColor clearColor]];
     [status_ setShadowColor:[UIColor blackColor]];
     [status_ setTextAlignment:UITextAlignmentCenter];
-    [[self view] addSubview:status_];
+    [view addSubview:status_];
 }
 
 - (void) releaseSubviews {

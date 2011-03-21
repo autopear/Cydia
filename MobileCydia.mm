@@ -6747,6 +6747,20 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 @implementation CYTabBarController
 
+- (void) didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+
+    // presenting a UINavigationController on 2.x does not update its transitionView
+    // it thereby will not allow its topViewController to be unloaded by memory pressure
+    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
+        UIViewController *selected([self selectedViewController]);
+        for (UINavigationController *controller in [self viewControllers])
+            if (controller != selected)
+                if (UIViewController *top = [controller topViewController])
+                    [top unloadView];
+    }
+}
+
 - (void) setUnselectedViewController:(UIViewController *)transient {
     if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
         if (transient != nil) {
@@ -6786,6 +6800,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController {
     if ([self unselectedViewController])
         [self setUnselectedViewController:nil];
+
+    // presenting a UINavigationController on 2.x does not update its transitionView
+    // if this view was unloaded, the tranitionView may currently be presenting nothing
+    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
+        UINavigationController *navigation((UINavigationController *) viewController);
+        [navigation pushViewController:[[[UIViewController alloc] init] autorelease] animated:NO];
+        [navigation popViewControllerAnimated:NO];
+    }
 }
 
 - (NSArray *) navigationURLCollection {

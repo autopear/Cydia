@@ -296,6 +296,7 @@ typedef enum {
 
 @interface UIViewController (Apple)
 - (void) _updateLayoutForStatusBarAndInterfaceOrientation;
+- (void) unloadView;
 @end
 
 @interface UIWindow (Apple)

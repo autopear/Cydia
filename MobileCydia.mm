@@ -9732,7 +9732,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) _sendMemoryWarningNotifications {
     while (true) {
         [self performSelectorOnMainThread:@selector(_sendMemoryWarningNotification) withObject:nil waitUntilDone:NO];
-        usleep(250000);
+        sleep(2);
+        //usleep(2000000);
     }
 }
 

@@ -6751,6 +6751,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @implementation CYTabBarController
 
 - (void) setUnselectedViewController:(UIViewController *)transient {
+    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
+        if (transient != nil) {
+            [[[self viewControllers] objectAtIndex:0] pushViewController:transient animated:YES];
+            [self setSelectedIndex:0];
+        } return;
+    }
+
+    UINavigationController *navigation([[[UINavigationController alloc] init] autorelease]);
+    [navigation setViewControllers:[NSArray arrayWithObject:transient]];
+    transient = navigation;
+
     NSMutableArray *controllers = [[self viewControllers] mutableCopy];
     if (transient != nil) {
         if (transient_ == nil)
@@ -9590,11 +9601,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external {
     CyteViewController *page([self pageForURL:url forExternal:external]);
 
-    if (page != nil) {
-        UINavigationController *nav = [[[UINavigationController alloc] init] autorelease];
-        [nav setViewControllers:[NSArray arrayWithObject:page]];
-        [tabbar_ setUnselectedViewController:nav];
-    }
+    if (page != nil)
+        [tabbar_ setUnselectedViewController:page];
 
     return page != nil;
 }

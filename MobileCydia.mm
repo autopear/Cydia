@@ -9764,6 +9764,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
+- (void) applicationDidReceiveMemoryWarning:(UIApplication *)application {
+    NSLog(@"--");
+    [[NSURLCache sharedURLCache] removeAllCachedResponses];
+}
+
 - (void) applicationDidFinishLaunching:(id)unused {
     //[NSThread detachNewThreadSelector:@selector(_sendMemoryWarningNotifications) toTarget:self withObject:nil];
 

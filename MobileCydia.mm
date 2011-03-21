@@ -10362,11 +10362,7 @@ int main(int argc, char *argv[]) {
 
     int version([[NSString stringWithContentsOfFile:@"/var/lib/cydia/firmware.ver"] intValue]);
 
-    if (access("/tmp/.cydia.fw", F_OK) == 0) {
-        unlink("/tmp/.cydia.fw");
-        goto firmware;
-    } else if (access("/User", F_OK) != 0 || version < 5) {
-      firmware:
+    if (access("/User", F_OK) != 0 || version != 5) {
         _trace();
         system("/usr/libexec/cydia/firmware.sh");
         _trace();

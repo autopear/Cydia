@@ -6803,12 +6803,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         } return;
     }
 
-    UINavigationController *navigation([[[UINavigationController alloc] init] autorelease]);
-    [navigation setViewControllers:[NSArray arrayWithObject:transient]];
-    transient = navigation;
-
     NSMutableArray *controllers = [[self viewControllers] mutableCopy];
     if (transient != nil) {
+        UINavigationController *navigation([[[UINavigationController alloc] init] autorelease]);
+        [navigation setViewControllers:[NSArray arrayWithObject:transient]];
+        transient = navigation;
+
         if (transient_ == nil)
             remembered_ = [controllers objectAtIndex:0];
         transient_ = transient;

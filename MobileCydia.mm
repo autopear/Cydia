@@ -7205,7 +7205,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if (name == nil)
         name = @"all";
 
-    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sections/%@", name]];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sections/%@", [name stringByAddingPercentEscapesIncludingReserved]]];
 }
 
 - (id) initWithDatabase:(Database *)database section:(NSString *)name {
@@ -7768,7 +7768,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     if ([search_ text] == nil || [[search_ text] isEqualToString:@""])
         return [NSURL URLWithString:@"cydia://search"];
     else
-        return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [search_ text]]];
+        return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [[search_ text] stringByAddingPercentEscapesIncludingReserved]]];
 }
 
 - (void) useSearch {
@@ -9662,13 +9662,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
 
         if (!external && [base isEqualToString:@"search"]) {
-            controller = [[[SearchController alloc] initWithDatabase:database_ query:argument] autorelease];
+            controller = [[[SearchController alloc] initWithDatabase:database_ query:[argument stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]] autorelease];
         }
 
         if (!external && [base isEqualToString:@"sections"]) {
             if ([argument isEqualToString:@"all"])
                 argument = nil;
-            controller = [[[SectionController alloc] initWithDatabase:database_ section:argument] autorelease];
+            controller = [[[SectionController alloc] initWithDatabase:database_ section:[argument stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]] autorelease];
         }
 
         if (!external && [base isEqualToString:@"sources"]) {

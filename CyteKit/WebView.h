@@ -83,6 +83,7 @@ enum CYWebPolicyDecision {
 - (id<CyteWebViewDelegate>) delegate;
 - (void) dispatchEvent:(NSString *)event;
 - (void) reloadFromOrigin;
+- (UIScrollView *) scrollView;
 
 @end
 

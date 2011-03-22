@@ -361,6 +361,14 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     [[[self _documentView] webView] reloadFromOrigin:nil];
 }
 
+- (UIScrollView *) scrollView {
+    if ([self respondsToSelector:@selector(_scrollView)])
+        return [self _scrollView];
+    else if ([self respondsToSelector:@selector(_scroller)])
+        return (UIScrollView *) [self _scroller];
+    else return nil;
+}
+
 @end
 
 static void $UIWebViewWebViewDelegate$_clearUIWebView(UIWebViewWebViewDelegate *self, SEL sel) {

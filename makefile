@@ -118,14 +118,14 @@ sysroot: sysroot.sh
 	@echo 1>&2
 	@exit 1
 
-MobileCydia: sysroot $(object)
+MobileCydia: sysroot $(object) entitlements.xml
 	@echo "[link] $(object:Objects/%=%)"
 	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(uikit)
 	@cp -a $@ bins/$@-$(version)
 	@echo "[strp] $@"
 	@strip -no_uuid $@
 	@echo "[sign] $@"
-	@ldid -T0 -Slaunch.xml $@ || { rm -f $@ && false; }
+	@ldid -T0 -Sentitlements.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)

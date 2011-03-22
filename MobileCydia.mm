@@ -4569,10 +4569,10 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
-    NSURL *url([request URL]);
-    NSString *host([url host]);
-
     NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
+
+    NSURL *url([copy URL]);
+    NSString *host([url host]);
 
     if ([copy valueForHTTPHeaderField:@"X-Cydia-Cf-Version"] == nil)
         [copy setValue:[NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber] forHTTPHeaderField:@"X-Cydia-Cf-Version"];

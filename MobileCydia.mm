@@ -9615,8 +9615,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSString *path([[url absoluteString] substringFromIndex:[scheme length] + 3]);
     NSArray *components([path componentsSeparatedByString:@"/"]);
 
-    if ([scheme isEqualToString:@"apptapp"] && [components count] > 0 && [[components objectAtIndex:0] isEqualToString:@"package"])
-        return [self pageForPackage:[components objectAtIndex:1]];
+    if ([scheme isEqualToString:@"apptapp"] && [components count] > 0 && [[components objectAtIndex:0] isEqualToString:@"package"]) {
+        CyteViewController *controller([self pageForPackage:[components objectAtIndex:1]]);
+        if (controller != nil)
+            [controller setDelegate:self];
+        return controller;
+    }
 
     if ([components count] < 1 || ![scheme isEqualToString:@"cydia"])
         return nil;

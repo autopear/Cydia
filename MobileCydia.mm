@@ -3932,12 +3932,16 @@ static _H<NSMutableSet> Diversions_;
 
 @end
 
+@class CydiaObject;
+
 @interface CydiaWebViewController : CyteWebViewController {
     _H<CydiaObject> cydia_;
 }
 
 + (void) addDiversion:(Diversion *)diversion;
 + (NSURLRequest *) requestWithHeaders:(NSURLRequest *)request;
++ (void) didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame withCydia:(CydiaObject *)cydia;
+- (void) setDelegate:(id)delegate;
 
 @end
 
@@ -4540,7 +4544,10 @@ static _H<NSMutableSet> Diversions_;
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:view didClearWindowObject:window forFrame:frame];
+    [CydiaWebViewController didClearWindowObject:window forFrame:frame withCydia:cydia_];
+}
 
++ (void) didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame withCydia:(CydiaObject *)cydia {
     WebDataSource *source([frame dataSource]);
     NSURLResponse *response([source response]);
     NSURL *url([response URL]);
@@ -4557,7 +4564,7 @@ static _H<NSMutableSet> Diversions_;
     }
 
     if (bridged)
-        [window setValue:cydia_ forKey:@"cydia"];
+        [window setValue:cydia forKey:@"cydia"];
 }
 
 - (void) _setupMail:(MFMailComposeViewController *)controller {

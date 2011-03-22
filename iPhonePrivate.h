@@ -3,6 +3,7 @@
 
 // #include <*> {{{
 #include <GraphicsServices/GraphicsServices.h>
+#include <UIKit/UIKit.h>
 // }}}
 // #import <*> {{{
 #import <WebKit/WebPreferences.h>

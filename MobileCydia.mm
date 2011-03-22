@@ -7394,7 +7394,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    if ([self isEditing]) [self setEditing:NO];
+    [self setEditing:NO];
 }
 
 - (Section *) sectionAtIndexPath:(NSIndexPath *)indexPath {
@@ -8412,7 +8412,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database;
-- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated;
+- (void) updateButtonsForEditingStatusAnimated:(BOOL)animated;
 
 @end
 
@@ -8716,7 +8716,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super viewDidLoad];
 
     [[self navigationItem] setTitle:UCLocalize("SOURCES")];
-    [self updateButtonsForEditingStatus:NO animated:NO];
+    [self updateButtonsForEditingStatusAnimated:NO];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    [super viewWillAppear:animated];
+
+    [list_ setEditing:NO];
+    [self updateButtonsForEditingStatusAnimated:NO];
 }
 
 - (void) releaseSubviews {
@@ -8757,8 +8764,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         offset_++;
     }
 
-    [list_ setEditing:NO];
-    [self updateButtonsForEditingStatus:NO animated:NO];
     [list_ reloadData];
 } }
 
@@ -8792,7 +8797,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self showAddSourcePrompt];
 }
 
-- (void) updateButtonsForEditingStatus:(BOOL)editing animated:(BOOL)animated {
+- (void) updateButtonsForEditingStatusAnimated:(BOOL)animated { 
+    BOOL editing([list_ isEditing]);
+
     [[self navigationItem] setLeftBarButtonItem:(editing ? [[[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("ADD")
         style:UIBarButtonItemStylePlain
@@ -8822,8 +8829,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) editButtonClicked {
     [list_ setEditing:![list_ isEditing] animated:YES];
-
-    [self updateButtonsForEditingStatus:[list_ isEditing] animated:YES];
+    [self updateButtonsForEditingStatusAnimated:YES];
 }
 
 @end

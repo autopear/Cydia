@@ -252,6 +252,8 @@ NSString *Elision_;
 static NSString *Error_;
 static NSString *Warning_;
 
+static bool AprilFools_;
+
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
 static _finline NSString *CydiaURL(NSString *path) {
@@ -7433,7 +7435,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _H<NSArray> packages_;
     _H<NSMutableArray> sections_;
     _H<UITableView, 2> list_;
+    _H<CyteWebView, 1> dickbar_;
     unsigned upgrades_;
+    _H<IndirectDelegate, 1> indirect_;
+    _H<CydiaObject> cydia_;
 }
 
 - (id) initWithDatabase:(Database *)database;
@@ -7510,18 +7515,91 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) loadView {
-    list_ = [[[UITableView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame] style:UITableViewStylePlain] autorelease];
+    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+    [self setView:view];
+
+    list_ = [[[UITableView alloc] initWithFrame:[view bounds] style:UITableViewStylePlain] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     [list_ setRowHeight:73];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
-    [self setView:list_];
+    [view addSubview:list_];
+
+    if (AprilFools_ && kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
+        CGRect dickframe([view bounds]);
+        dickframe.size.height = 44;
+
+        dickbar_ = [[[CyteWebView alloc] initWithFrame:dickframe] autorelease];
+        [dickbar_ setDelegate:self];
+        [view addSubview:dickbar_];
+
+        [dickbar_ setBackgroundColor:[UIColor clearColor]];
+        [dickbar_ setScalesPageToFit:YES];
+
+        UIWebDocumentView *document([dickbar_ _documentView]);
+        [document setBackgroundColor:[UIColor clearColor]];
+        [document setDrawsBackground:NO];
+
+        WebView *webview([document webView]);
+        [webview setShouldUpdateWhileOffscreen:NO];
+
+        UIScrollView *scroller([dickbar_ scrollView]);
+        [scroller setScrollingEnabled:NO];
+        [scroller setFixedBackgroundPattern:YES];
+        [scroller setBackgroundColor:[UIColor clearColor]];
+
+        WebPreferences *preferences([webview preferences]);
+        [preferences setCacheModel:WebCacheModelDocumentBrowser];
+        [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
+        [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+        [dickbar_ loadRequest:[NSURLRequest
+            requestWithURL:[Diversion divertURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/dickbar/", UI_]]]
+            cachePolicy:NSURLRequestUseProtocolCachePolicy
+            timeoutInterval:120
+        ]];
+
+        UIEdgeInsets inset = {44, 0, 0, 0};
+        [list_ setContentInset:inset];
+
+        [dickbar_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
+    }
+}
+
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+    NSURL *url([request URL]);
+    if (url == nil)
+        return;
+
+    if ([frame isEqualToString:@"_open"])
+        [delegate_ openURL:url];
+    else {
+        CyteViewController *controller([delegate_ pageForURL:url forExternal:NO] ?: [[[CydiaWebViewController alloc] initWithRequest:request] autorelease]);
+        [controller setDelegate:delegate_];
+        [[self navigationController] pushViewController:controller animated:YES];
+    }
+
+    [listener ignore];
+}
+
+- (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    return [CydiaWebViewController requestWithHeaders:request];
+}
+
+- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+    [CydiaWebViewController didClearWindowObject:window forFrame:frame withCydia:cydia_];
+}
+
+- (void) setDelegate:(id)delegate {
+    [super setDelegate:delegate];
+    [cydia_ setDelegate:delegate];
 }
 
 - (void) viewDidLoad {
     [super viewDidLoad];
 
-    [[self navigationItem] setTitle:UCLocalize("CHANGES")];
+    [[self navigationItem] setTitle:(AprilFools_ ? @"Timeline" : UCLocalize("CHANGES"))];
 }
 
 - (void) releaseSubviews {
@@ -7529,12 +7607,15 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     packages_ = nil;
     sections_ = nil;
+    dickbar_ = nil;
 
     [super releaseSubviews];
 }
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
+        indirect_ = [[[IndirectDelegate alloc] initWithDelegate:self] autorelease];
+        cydia_ = [[[CydiaObject alloc] initWithDelegate:indirect_] autorelease];
         database_ = database;
     } return self;
 }
@@ -9729,7 +9810,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     NSMutableArray *items([NSMutableArray arrayWithObjects:
         [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:0] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
+        [[[UITabBarItem alloc] initWithTitle:(AprilFools_ ? @"Timeline" : UCLocalize("CHANGES")) image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
         [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:0] autorelease],
     nil]);
 
@@ -10435,6 +10516,13 @@ int main(int argc, char *argv[]) {
     Elision_ = UCLocalize("ELISION");
     Error_ = UCLocalize("ERROR");
     Warning_ = UCLocalize("WARNING");
+
+#if !ForRelease
+    AprilFools_ = true;
+#else
+    CFGregorianDate date(CFAbsoluteTimeGetGregorianDate(CFAbsoluteTimeGetCurrent(), CFTimeZoneCopySystem()));
+    AprilFools_ = date.month == 4 && date.day == 1;
+#endif
 
     _trace();
     int value(UIApplicationMain(argc, argv, @"Cydia", @"Cydia"));

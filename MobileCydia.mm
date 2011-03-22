@@ -3935,6 +3935,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 + (void) addDiversion:(Diversion *)diversion;
++ (NSURLRequest *) requestWithHeaders:(NSURLRequest *)request;
 
 @end
 
@@ -4569,7 +4570,11 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
-    NSMutableURLRequest *copy([[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source] mutableCopy]);
+    return [CydiaWebViewController requestWithHeaders:[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source]];
+}
+
++ (NSURLRequest *) requestWithHeaders:(NSURLRequest *)request {
+    NSMutableURLRequest *copy([request mutableCopy]);
 
     NSURL *url([copy URL]);
     NSString *host([url host]);

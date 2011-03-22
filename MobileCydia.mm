@@ -4603,8 +4603,8 @@ static _H<NSMutableSet> Diversions_;
     NSURL *url([copy URL]);
     NSString *host([url host]);
 
-    if ([copy valueForHTTPHeaderField:@"X-Cydia-Cf-Version"] == nil)
-        [copy setValue:[NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber] forHTTPHeaderField:@"X-Cydia-Cf-Version"];
+    if ([copy valueForHTTPHeaderField:@"X-Cydia-Cf"] == nil)
+        [copy setValue:[NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber] forHTTPHeaderField:@"X-Cydia-Cf"];
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 

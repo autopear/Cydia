@@ -5,6 +5,7 @@
 
 #include "iPhonePrivate.h"
 
+#include "CyteKit/IndirectDelegate.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/WebViewController.h"
 #include "CyteKit/PerlCompatibleRegEx.hpp"
@@ -56,14 +57,6 @@ float CYScrollViewDecelerationRateNormal;
 @end
 
 /* Indirect Delegate {{{ */
-@interface IndirectDelegate : NSObject {
-    _transient volatile id delegate_;
-}
-
-- (void) setDelegate:(id)delegate;
-- (id) initWithDelegate:(id)delegate;
-@end
-
 @implementation IndirectDelegate
 
 - (void) setDelegate:(id)delegate {

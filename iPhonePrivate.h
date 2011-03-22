@@ -4,6 +4,9 @@
 // #include <*> {{{
 #include <GraphicsServices/GraphicsServices.h>
 // }}}
+// #import <*> {{{
+#import <WebKit/WebPreferences.h>
+// }}}
 // typedef enum {*} *; {{{
 typedef enum {
     UIGestureAttributeMinDegrees,                 /*float*/
@@ -329,6 +332,13 @@ typedef enum {
 - (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
 - (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame;
 - (void) webViewClose:(WebView *)view;
+@end
+// }}}
+// @interface Web* (*) {{{
+@interface WebPreferences (Apple)
++ (void) _setInitialDefaultTextEncodingToSystemEncoding;
+- (void) _setLayoutInterval:(NSInteger)interval;
+- (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
 @end
 // }}}
 

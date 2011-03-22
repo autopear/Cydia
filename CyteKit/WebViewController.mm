@@ -16,8 +16,8 @@ extern NSString * const kCAFilterNearest;
 
 #include <WebCore/WebCoreThread.h>
 
-#include <WebKit/WebKitErrors.h>
-#include <WebKit/WebPreferences.h>
+#import <WebKit/WebKitErrors.h>
+#import <WebKit/WebPreferences.h>
 
 #include <WebKit/DOMCSSPrimitiveValue.h>
 #include <WebKit/DOMCSSStyleDeclaration.h>
@@ -45,12 +45,6 @@ float CYScrollViewDecelerationRateNormal;
 @interface WebView (Apple)
 - (void) _setLayoutInterval:(float)interval;
 - (void) _setAllowsMessaging:(BOOL)allows;
-@end
-
-@interface WebPreferences (Apple)
-+ (void) _setInitialDefaultTextEncodingToSystemEncoding;
-- (void) _setLayoutInterval:(NSInteger)interval;
-- (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
 @end
 
 @implementation WebFrame (Cydia)

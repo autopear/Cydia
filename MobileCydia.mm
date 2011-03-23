@@ -258,6 +258,26 @@ static NSString *Warning_;
 
 static bool AprilFools_;
 
+static bool IsReachable(const char *name) {
+    SCNetworkReachabilityFlags flags; {
+        SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, name));
+        SCNetworkReachabilityGetFlags(reachability, &flags);
+        CFRelease(reachability);
+    }
+
+    // XXX: this elaborate mess is what Apple is using to determine this? :(
+    // XXX: do we care if the user has to intervene? maybe that's ok?
+    return
+        (flags & kSCNetworkReachabilityFlagsReachable) != 0 && (
+            (flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0 || (
+                (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) != 0 ||
+                (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0
+            ) && (flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0 ||
+            (flags & kSCNetworkReachabilityFlagsIsWWAN) != 0
+        )
+    ;
+}
+
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
 static _finline NSString *CydiaURL(NSString *path) {
@@ -9294,26 +9314,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         // We are going to load, so remember that.
         loaded_ = true;
 
-        SCNetworkReachabilityFlags flags; {
-            SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, "cydia.saurik.com"));
-            SCNetworkReachabilityGetFlags(reachability, &flags);
-            CFRelease(reachability);
-        }
-
-        // XXX: this elaborate mess is what Apple is using to determine this? :(
-        // XXX: do we care if the user has to intervene? maybe that's ok?
-        bool reachable(
-            (flags & kSCNetworkReachabilityFlagsReachable) != 0 && (
-                (flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0 || (
-                    (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) != 0 ||
-                    (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0
-                ) && (flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0 ||
-                (flags & kSCNetworkReachabilityFlagsIsWWAN) != 0
-            )
-        );
-
         // If we can reach the server, auto-refresh!
-        if (reachable)
+        if (IsReachable("cydia.saurik.com"))
             [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
     }
 

@@ -260,7 +260,7 @@ static bool AprilFools_;
 
 static bool IsReachable(const char *name) {
     SCNetworkReachabilityFlags flags; {
-        SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(NULL, name));
+        SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(kCFAllocatorDefault, name));
         SCNetworkReachabilityGetFlags(reachability, &flags);
         CFRelease(reachability);
     }

@@ -5274,10 +5274,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         reload: {
             UIProgressHUD *hud([delegate_ addProgressHUD]);
             [hud setText:UCLocalize("LOADING")];
-            [self yieldToSelector:@selector(reloadSpringBoard)];
-            [delegate_ removeProgressHUD:hud];
-            _trace();
-        } break;
+            [self performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0];
+            return;
+        }
 
         case 4:
             _trace();

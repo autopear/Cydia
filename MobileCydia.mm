@@ -5014,8 +5014,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 
 - (void) cancelButtonClicked {
-    [self dismissModalViewControllerAnimated:YES];
     [delegate_ cancelAndClear:YES];
+    [self dismissModalViewControllerAnimated:YES];
 }
 
 #if !AlwaysReload

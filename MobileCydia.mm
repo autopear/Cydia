@@ -4127,6 +4127,8 @@ static _H<NSMutableSet> Diversions_;
         return @"getSessionValue";
     else if (selector == @selector(installPackages:))
         return @"installPackages";
+    else if (selector == @selector(isReachable:))
+        return @"isReachable";
     else if (selector == @selector(localizedStringForKey:value:table:))
         return @"localize";
     else if (selector == @selector(popViewController:))
@@ -4435,6 +4437,10 @@ static _H<NSMutableSet> Diversions_;
 
 - (void) close {
     [indirect_ performSelectorOnMainThread:@selector(close) withObject:nil waitUntilDone:NO];
+}
+
+- (NSNumber *) isReachable:(NSString *)name {
+    return [NSNumber numberWithBool:IsReachable([name UTF8String])];
 }
 
 - (void) installPackages:(NSArray *)packages {

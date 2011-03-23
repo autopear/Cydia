@@ -10344,6 +10344,10 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
     } return self;
 }
 
+static CGSize $WAKWindow$screenSize(id self, SEL _cmd) {
+    return [[UIScreen mainScreen] bounds].size;
+}
+
 int main(int argc, char *argv[]) {
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
@@ -10409,6 +10413,10 @@ int main(int argc, char *argv[]) {
 
     /* Library Hacks {{{ */
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
+
+    if (Class $WAKWindow = objc_getClass("WAKWindow"))
+        if (Method method = class_getInstanceMethod($WAKWindow, @selector(screenSize)))
+            method_setImplementation(method, (IMP) &$WAKWindow$screenSize);
 
     $CFXPreferencesPropertyListSource = objc_getClass("CFXPreferencesPropertyListSource");
 

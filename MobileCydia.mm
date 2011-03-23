@@ -5225,6 +5225,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super viewWillAppear:animated];
 }
 
+- (void) reloadSpringBoard {
+    system("/usr/bin/sbreload");
+}
+
 - (void) close {
     UpdateExternalStatus(0);
 
@@ -5252,10 +5256,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             _trace();
             goto reload;
 
-        reload:
-            system("/usr/bin/sbreload");
+        reload: {
+            UIProgressHUD *hud([delegate_ addProgressHUD]);
+            [hud setText:UCLocalize("LOADING")];
+            [self yieldToSelector:@selector(reloadSpringBoard)];
+            [delegate_ removeProgressHUD:hud];
             _trace();
-        break;
+        } break;
 
         case 4:
             _trace();

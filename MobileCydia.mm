@@ -6557,17 +6557,39 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 /* Home Controller {{{ */
 @interface HomeController : CydiaWebViewController {
+    CFRunLoopRef runloop_;
+    SCNetworkReachabilityRef reachability_;
 }
 
 @end
 
 @implementation HomeController
 
+static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachability, SCNetworkReachabilityFlags flags, void *info) {
+    [(HomeController *) info dispatchEvent:@"CydiaReachabilityCallback"];
+}
+
 - (id) init {
     if ((self = [super init]) != nil) {
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/home/", UI_]]];
         [self reloadData];
+
+        reachability_ = SCNetworkReachabilityCreateWithName(kCFAllocatorDefault, "cydia.saurik.com");
+        if (reachability_ != NULL) {
+            SCNetworkReachabilityContext context = {0, self, NULL, NULL, NULL};
+            SCNetworkReachabilitySetCallback(reachability_, HomeControllerReachabilityCallback, &context);
+
+            CFRunLoopRef runloop(CFRunLoopGetCurrent());
+            if (SCNetworkReachabilityScheduleWithRunLoop(reachability_, runloop, kCFRunLoopDefaultMode))
+                runloop_ = runloop;
+        }
     } return self;
+}
+
+- (void) dealloc {
+    if (reachability_ != NULL && runloop_ != NULL)
+        SCNetworkReachabilityUnscheduleFromRunLoop(reachability_, runloop_, kCFRunLoopDefaultMode);
+    [super dealloc];
 }
 
 - (NSURL *) navigationURL {

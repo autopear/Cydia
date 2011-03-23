@@ -5226,8 +5226,21 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadSpringBoard {
-    system("(/usr/bin/sbreload &)");
-    sleep(60);
+    pid_t pid(ExecFork());
+    if (pid == 0) {
+        pid_t pid(ExecFork());
+        if (pid == 0) {
+            execl("/usr/bin/sbreload", "sbreload", NULL);
+            perror("sbreload");
+            exit(0);
+        }
+
+        exit(0);
+    }
+
+    ReapZombie(pid);
+
+    sleep(15);
     system("/usr/bin/killall SpringBoard");
 }
 

@@ -7690,9 +7690,29 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     return path;
 }
 
+- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
+    NSString *context([alert context]);
+
+    if ([context isEqualToString:@"norefresh"])
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
+}
+
 - (void) refreshButtonClicked {
-    [delegate_ beginUpdate];
-    [[self navigationItem] setLeftBarButtonItem:nil animated:YES];
+    if (IsReachable("cydia.saurik.com")) {
+        [delegate_ beginUpdate];
+        [[self navigationItem] setLeftBarButtonItem:nil animated:YES];
+    } else {
+        UIAlertView *alert = [[[UIAlertView alloc]
+            initWithTitle:[NSString stringWithFormat:Colon_, Error_, UCLocalize("REFRESH")]
+            message:@"Host Unreachable" // XXX: Localize
+            delegate:self
+            cancelButtonTitle:UCLocalize("OK")
+            otherButtonTitles:nil
+        ] autorelease];
+
+        [alert setContext:@"norefresh"];
+        [alert show];
+    }
 }
 
 - (void) upgradeButtonClicked {

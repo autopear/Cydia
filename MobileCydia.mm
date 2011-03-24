@@ -7979,7 +7979,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (NSArray *) termsForQuery:(NSString *)query {
-    return [query componentsSeparatedByString:@" "];
+    NSMutableArray *terms([NSMutableArray arrayWithCapacity:2]);
+    for (NSString *component in [query componentsSeparatedByString:@" "])
+        if ([component length] != 0)
+            [terms addObject:component];
+
+    return terms;
 }
 
 - (void) useSearch {

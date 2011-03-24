@@ -369,6 +369,14 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
     else return nil;
 }
 
+- (void) setNeedsLayout {
+    [super setNeedsLayout];
+
+    WebFrame *frame([[[self _documentView] webView] mainFrame]);
+    if ([frame respondsToSelector:@selector(setNeedsLayout)])
+        [frame setNeedsLayout];
+}
+
 @end
 
 static void $UIWebViewWebViewDelegate$_clearUIWebView(UIWebViewWebViewDelegate *self, SEL sel) {

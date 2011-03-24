@@ -6,6 +6,7 @@
 #include <UIKit/UIKit.h>
 // }}}
 // #import <*> {{{
+#import <WebKit/WebFrame.h>
 #import <WebKit/WebPreferences.h>
 // }}}
 // typedef enum {*} *; {{{
@@ -341,6 +342,10 @@ typedef enum {
 @end
 // }}}
 // @interface Web* (*) {{{
+@interface WebFrame (Apple)
+- (void) setNeedsLayout;
+@end
+
 @interface WebPreferences (Apple)
 + (void) _setInitialDefaultTextEncodingToSystemEncoding;
 - (void) _setLayoutInterval:(NSInteger)interval;

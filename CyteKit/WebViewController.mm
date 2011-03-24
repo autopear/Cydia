@@ -1060,6 +1060,9 @@ float CYScrollViewDecelerationRateNormal;
     if ([self hidesNavigationBar])
         [self _setHidesNavigationBar:YES animated:animated];
 
+    // XXX: why isn't this evern called automatically?
+    [[self webView] setNeedsLayout];
+
     [self dispatchEvent:@"CydiaViewWillAppear"];
     [super viewWillAppear:animated];
 }

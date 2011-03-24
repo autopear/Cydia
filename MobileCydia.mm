@@ -3686,6 +3686,7 @@ class CydiaLogCleaner :
 }
 
 - (bool) clean {
+@synchronized (self) {
     // XXX: I don't remember this condition
     if (lock_ != NULL)
         return false;
@@ -3706,7 +3707,7 @@ class CydiaLogCleaner :
         return false;
 
     return true;
-}
+} }
 
 - (bool) prepare {
     fetcher_->Shutdown();

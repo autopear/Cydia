@@ -166,6 +166,11 @@ typedef enum {
 - (NSString *) _typeDescription;
 @end
 // }}}
+// @interface WAK* : * {{{
+@interface WAKWindow : NSObject
++ (BOOL) hasLandscapeOrientation;
+@end
+// }}}
 
 // @interface NS* (*) {{{
 @interface NSMutableURLRequest (Apple)

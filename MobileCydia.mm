@@ -7978,8 +7978,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://search/%@", [[search_ text] stringByAddingPercentEscapesIncludingReserved]]];
 }
 
+- (NSArray *) termsForQuery:(NSString *)query {
+    return [query componentsSeparatedByString:@" "];
+}
+
 - (void) useSearch {
-    [self setObject:[[search_ text] componentsSeparatedByString:@" "] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
+    [self setObject:[self termsForQuery:[search_ text]] forFilter:@selector(isUnfilteredAndSearchedForBy:)];
     [self clearData];
     [self reloadData];
 }
@@ -8040,7 +8044,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (id) initWithDatabase:(Database *)database query:(NSString *)query {
-    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:[query componentsSeparatedByString:@" "]])) {
+    if ((self = [super initWithDatabase:database title:UCLocalize("SEARCH") filter:@selector(isUnfilteredAndSearchedForBy:) with:[self termsForQuery:query]])) {
         search_ = [[[UISearchBar alloc] init] autorelease];
         [search_ setDelegate:self];
 
@@ -8073,7 +8077,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) reloadData {
     id object([search_ text]);
     if ([self filter] == @selector(isUnfilteredAndSearchedForBy:))
-        object = [object componentsSeparatedByString:@" "];
+        object = [self termsForQuery:object];
 
     [self setObject:object];
     [self resetCursor];

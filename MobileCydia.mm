@@ -673,7 +673,7 @@ class CYColor {
 /* }}} */
 
 /* Random Global Variables {{{ */
-static const int PulseInterval_ = 50000;
+static int PulseInterval_ = 500000;
 
 static const NSString *UI_;
 
@@ -10777,7 +10777,10 @@ int main(int argc, char *argv[]) {
     /* }}} */
 
     BOOL (*GSSystemHasCapability)(CFStringRef) = reinterpret_cast<BOOL (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemHasCapability"));
-    ShowPromoted_ = GSSystemHasCapability != NULL && GSSystemHasCapability(CFSTR("armv7"));
+    bool fast = GSSystemHasCapability != NULL && GSSystemHasCapability(CFSTR("armv7"));
+
+    ShowPromoted_ = fast;
+    PulseInterval_ = fast ? 50000 : 500000;
 
     Colon_ = UCLocalize("COLON_DELIMITED");
     Elision_ = UCLocalize("ELISION");

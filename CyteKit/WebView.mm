@@ -377,6 +377,11 @@ static void $UIWebViewWebViewDelegate$webViewClose$(UIWebViewWebViewDelegate *se
         [frame setNeedsLayout];
 }
 
+- (NSURLRequest *) request {
+    WebFrame *frame([[[self _documentView] webView] mainFrame]);
+    return [([frame provisionalDataSource] ?: [frame dataSource]) request];
+}
+
 @end
 
 static void $UIWebViewWebViewDelegate$_clearUIWebView(UIWebViewWebViewDelegate *self, SEL sel) {

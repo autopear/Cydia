@@ -84,6 +84,7 @@ enum CYWebPolicyDecision {
 - (void) dispatchEvent:(NSString *)event;
 - (void) reloadFromOrigin;
 - (UIScrollView *) scrollView;
+- (NSURLRequest *) request;
 
 @end
 

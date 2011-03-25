@@ -879,6 +879,7 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 - (void) distUpgrade;
 - (void) loadData;
 - (void) updateData;
+- (void) _saveConfig;
 - (void) syncData;
 - (void) addSource:(NSDictionary *)source;
 - (void) addTrivialSource:(NSString *)href;
@@ -8636,7 +8637,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if (editingStyle ==  UITableViewCellEditingStyleDelete) {
         Source *source = [self sourceAtIndexPath:indexPath];
         [Sources_ removeObjectForKey:[source key]];
-        [delegate_ syncData];
+        [delegate_ reloadDataWithInvocation:nil];
+        [delegate_ _saveConfig];
     }
 }
 

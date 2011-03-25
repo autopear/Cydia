@@ -3762,7 +3762,14 @@ class CydiaLogCleaner :
         if ((*item)->Status == pkgAcquire::Item::StatIdle)
             continue;
 
+        std::string uri = (*item)->DescURI();
+        std::string error = (*item)->ErrorText;
+
+        lprintf("pAf:%s:%s\n", uri.c_str(), error.c_str());
         failed = true;
+
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError]);
+        [delegate_ addProgressEventOnMainThread:event forTask:title];
     }
 
     [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];

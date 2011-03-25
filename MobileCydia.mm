@@ -10611,7 +10611,7 @@ int main(int argc, char *argv[]) {
         Safari_ = [info objectForKey:@"CFBundleVersion"];
     }
 
-    NSString *agent([NSString stringWithFormat:@"Cydia/%@ CF/%.2f", Cydia_, kCFCoreFoundationVersionNumber]);
+    NSString *agent([NSString stringWithFormat:@"Cydia/%@ CyF/%.2f", Cydia_, kCFCoreFoundationVersionNumber]);
 
     if (Pcre match = Pcre("^[0-9]+(\\.[0-9]+)+", Safari_))
         agent = [NSString stringWithFormat:@"Safari/%@ %@", match[0], agent];

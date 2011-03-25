@@ -3777,11 +3777,8 @@ class CydiaLogCleaner :
 
     _system->UnLock();
     pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
-
-    if (_error->PendingError()) {
-        _trace();
+    if ([self popErrorWithTitle:title])
         return;
-    }
 
     if (result == pkgPackageManager::Failed) {
         _trace();

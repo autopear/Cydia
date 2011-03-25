@@ -8601,7 +8601,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if ([database_ era] != era_)
         return nil;
 
-    return [sources_ objectAtIndex:[indexPath row]];
+    NSUInteger index([indexPath row]);
+    return index < [sources_ count] ? [sources_ objectAtIndex:index] : nil;
 } }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -8617,6 +8618,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     Source *source = [self sourceAtIndexPath:indexPath];
+    if (source == nil) return;
 
     SourceController *controller = [[[SourceController alloc]
         initWithDatabase:database_
@@ -8636,6 +8638,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle ==  UITableViewCellEditingStyleDelete) {
         Source *source = [self sourceAtIndexPath:indexPath];
+        if (source == nil) return;
+
         [Sources_ removeObjectForKey:[source key]];
         [delegate_ _saveConfig];
         [delegate_ reloadDataWithInvocation:nil];

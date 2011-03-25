@@ -52,10 +52,6 @@
     return cell;
 }
 
-- (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
-    NSLog(@"addMessageToConsole:%@", message);
-}
-
 - (id) initWithRequest:request {
     if ((self = [super init]) != nil) {
         UIView *view(self);
@@ -63,8 +59,6 @@
         webview_ = [[[CyteWebView alloc] initWithFrame:[view bounds]] autorelease];
         [webview_ setDelegate:self];
         [view addSubview:webview_];
-
-        NSLog(@"%@ %p", (id) webview_, (id) webview_);
 
         [webview_ setScalesPageToFit:YES];
 

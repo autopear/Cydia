@@ -8637,8 +8637,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if (editingStyle ==  UITableViewCellEditingStyleDelete) {
         Source *source = [self sourceAtIndexPath:indexPath];
         [Sources_ removeObjectForKey:[source key]];
-        [delegate_ reloadDataWithInvocation:nil];
         [delegate_ _saveConfig];
+        [delegate_ reloadDataWithInvocation:nil];
     }
 }
 

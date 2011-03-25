@@ -53,7 +53,7 @@
 @protocol CyteWebViewControllerDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
-- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external;
+- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer;
 - (void) unloadData;
 @end
 
@@ -101,6 +101,7 @@
 
 - (void) setRequest:(NSURLRequest *)request;
 - (void) setURL:(NSURL *)url;
+- (void) setURL:(NSURL *)url withReferrer:(NSString *)referrer;
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy;
 - (void) loadURL:(NSURL *)url;

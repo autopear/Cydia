@@ -166,12 +166,16 @@ float CYScrollViewDecelerationRateNormal;
     return url;
 }
 
-- (NSURLRequest *) requestWithURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
-    return [NSURLRequest
+- (NSURLRequest *) requestWithURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy referrer:(NSString *)referrer {
+    NSMutableURLRequest *request([NSMutableURLRequest
         requestWithURL:[self URLWithURL:url]
         cachePolicy:policy
         timeoutInterval:DefaultTimeout_
-    ];
+    ]);
+
+    [request setValue:referrer forHTTPHeaderField:@"Referer"];
+
+    return request;
 }
 
 - (void) setRequest:(NSURLRequest *)request {
@@ -180,11 +184,15 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) setURL:(NSURL *)url {
-    [self setRequest:[self requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy]];
+    [self setURL:url withReferrer:nil];
+}
+
+- (void) setURL:(NSURL *)url withReferrer:(NSString *)referrer {
+    [self setRequest:[self requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy referrer:referrer]];
 }
 
 - (void) loadURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy {
-    [self loadRequest:[self requestWithURL:url cachePolicy:policy]];
+    [self loadRequest:[self requestWithURL:url cachePolicy:policy referrer:nil]];
 }
 
 - (void) loadURL:(NSURL *)url {
@@ -371,11 +379,20 @@ float CYScrollViewDecelerationRateNormal;
     }
 }
 
-- (void) pushRequest:(NSURLRequest *)request asPop:(bool)pop {
+- (void) pushRequest:(NSURLRequest *)request forAction:(NSDictionary *)action asPop:(bool)pop {
+    WebFrame *frame(nil);
+    if (NSDictionary *WebActionElement = [action objectForKey:@"WebActionElementKey"])
+        frame = [WebActionElement objectForKey:@"WebElementFrame"];
+    if (frame == nil)
+        frame = [[[[self webView] _documentView] webView] mainFrame];
+
+    WebDataSource *source([frame provisionalDataSource] ?: [frame dataSource]);
+    NSString *referrer([request valueForHTTPHeaderField:@"Referer"] ?: [[[source request] URL] absoluteString]);
+
     NSURL *url([request URL]);
 
     // XXX: filter to internal usage?
-    CyteViewController *page([delegate_ pageForURL:url forExternal:NO]);
+    CyteViewController *page([delegate_ pageForURL:url forExternal:NO withReferrer:referrer]);
 
     if (page == nil) {
         CyteWebViewController *browser([[[class_ alloc] init] autorelease]);
@@ -423,7 +440,7 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
 #if LogBrowser
-    NSLog(@"decidePolicyForNavigationAction:%@ request:%@ frame:%@", action, request, frame);
+    NSLog(@"decidePolicyForNavigationAction:%@ request:%@ %@ frame:%@", action, request, [request allHTTPHeaderFields], frame);
 #endif
 
     if ([frame parentFrame] == nil) {
@@ -432,7 +449,7 @@ float CYScrollViewDecelerationRateNormal;
 
             if (request_ != nil && ![[request_ URL] isEqual:url] && ![self allowsNavigationAction]) {
                 if (url != nil)
-                    [self pushRequest:request asPop:NO];
+                    [self pushRequest:request forAction:action asPop:NO];
                 [listener ignore];
             }
         }
@@ -446,23 +463,23 @@ float CYScrollViewDecelerationRateNormal;
                 request_ = request;
 }
 
-- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
+- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {
 #if LogBrowser
-    NSLog(@"decidePolicyForNewWindowAction:%@ request:%@ newFrameName:%@", action, request, frame);
+    NSLog(@"decidePolicyForNewWindowAction:%@ request:%@ %@ newFrameName:%@", action, request, [request allHTTPHeaderFields], name);
 #endif
 
     NSURL *url([request URL]);
     if (url == nil)
         return;
 
-    if ([frame isEqualToString:@"_open"])
+    if ([name isEqualToString:@"_open"])
         [delegate_ openURL:url];
     else {
         NSString *scheme([[url scheme] lowercaseString]);
         if ([scheme isEqualToString:@"mailto"])
             [self _openMailToURL:url];
         else
-            [self pushRequest:request asPop:[frame isEqualToString:@"_popup"]];
+            [self pushRequest:request forAction:action asPop:[name isEqualToString:@"_popup"]];
     }
 
     [listener ignore];

@@ -885,7 +885,6 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 - (void) showSettings;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
-- (CyteViewController *) pageForPackage:(NSString *)name;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 @end
@@ -5940,7 +5939,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _H<UIBarButtonItem> button_;
 }
 
-- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name;
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer;
 
 @end
 
@@ -6038,12 +6037,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 #endif
 
-- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name {
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer {
     if ((self = [super init]) != nil) {
         database_ = database;
         buttons_ = [NSMutableArray arrayWithCapacity:4];
         name_ = name == nil ? @"" : [NSString stringWithString:name];
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, (id) name_]]];
+        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, (id) name_]] withReferrer:referrer];
     } return self;
 }
 
@@ -6118,6 +6117,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 @end
 
 @implementation PackageListController
+
+- (NSURL *) referrerURL {
+    return [self navigationURL];
+}
 
 - (bool) isSummarized {
     return false;
@@ -6217,7 +6220,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) didSelectPackage:(Package *)package {
-    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id]] autorelease]);
+    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id] withReferrer:[[self referrerURL] absoluteString]] autorelease]);
     [view setDelegate:delegate_];
     [[self navigationController] pushViewController:view animated:YES];
 }
@@ -7295,6 +7298,14 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 @implementation SectionController
 
+- (NSURL *) referrerURL {
+    NSString *name = section_;
+    if (name == nil)
+        name = @"all";
+
+    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/sections/%@", UI_, [name stringByAddingPercentEscapesIncludingReserved]]];
+}
+
 - (NSURL *) navigationURL {
     NSString *name = section_;
     if (name == nil)
@@ -7360,7 +7371,15 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if ([frame isEqualToString:@"_open"])
         [delegate_ openURL:url];
     else {
-        CyteViewController *controller([delegate_ pageForURL:url forExternal:NO] ?: [[[CydiaWebViewController alloc] initWithRequest:request] autorelease]);
+        WebFrame *frame(nil);
+        if (NSDictionary *WebActionElement = [action objectForKey:@"WebActionElementKey"])
+            frame = [WebActionElement objectForKey:@"WebElementFrame"];
+        if (frame == nil)
+            frame = [view mainFrame];
+
+        WebDataSource *source([frame provisionalDataSource] ?: [frame dataSource]);
+
+        CyteViewController *controller([delegate_ pageForURL:url forExternal:NO withReferrer:([request valueForHTTPHeaderField:@"Referer"] ?: [[[source request] URL] absoluteString])] ?: [[[CydiaWebViewController alloc] initWithRequest:request] autorelease]);
         [controller setDelegate:delegate_];
         [[self navigationController] pushViewController:controller animated:YES];
     }
@@ -7685,7 +7704,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (NSIndexPath *) tableView:(UITableView *)table willSelectRowAtIndexPath:(NSIndexPath *)path {
     Package *package([self packageAtIndexPath:path]);
-    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id]] autorelease]);
+    CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id] withReferrer:[NSString stringWithFormat:@"%@/#!/changes/", UI_]] autorelease]);
     [view setDelegate:delegate_];
     [[self navigationController] pushViewController:view animated:YES];
     return path;
@@ -7782,7 +7801,15 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if ([frame isEqualToString:@"_open"])
         [delegate_ openURL:url];
     else {
-        CyteViewController *controller([delegate_ pageForURL:url forExternal:NO] ?: [[[CydiaWebViewController alloc] initWithRequest:request] autorelease]);
+        WebFrame *frame(nil);
+        if (NSDictionary *WebActionElement = [action objectForKey:@"WebActionElementKey"])
+            frame = [WebActionElement objectForKey:@"WebElementFrame"];
+        if (frame == nil)
+            frame = [view mainFrame];
+
+        WebDataSource *source([frame provisionalDataSource] ?: [frame dataSource]);
+
+        CyteViewController *controller([delegate_ pageForURL:url forExternal:NO withReferrer:([request valueForHTTPHeaderField:@"Referer"] ?: [[[source request] URL] absoluteString])] ?: [[[CydiaWebViewController alloc] initWithRequest:request] autorelease]);
         [controller setDelegate:delegate_];
         [[self navigationController] pushViewController:controller animated:YES];
     }
@@ -7970,6 +7997,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 @end
 
 @implementation SearchController
+
+- (NSURL *) referrerURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/search?q=%@", UI_, [([search_ text] ?: @"") stringByAddingPercentEscapesIncludingReserved]]];
+}
 
 - (NSURL *) navigationURL {
     if ([search_ text] == nil || [[search_ text] isEqualToString:@""])
@@ -8287,6 +8318,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 @implementation InstalledController
 
+- (NSURL *) referrerURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/installed/", UI_]];
+}
+
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:@"cydia://installed"];
 }
@@ -8461,6 +8496,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 @end
 
 @implementation SourceController
+
+- (NSURL *) referrerURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/sources/%@", UI_, [key_ stringByAddingPercentEscapesIncludingReserved]]];
+}
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://sources/%@", [key_ stringByAddingPercentEscapesIncludingReserved]]];
@@ -9801,11 +9840,11 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [window_ setUserInteractionEnabled:YES];
 }
 
-- (CyteViewController *) pageForPackage:(NSString *)name {
-    return [[[CYPackageController alloc] initWithDatabase:database_ forPackage:name] autorelease];
+- (CyteViewController *) pageForPackage:(NSString *)name withReferrer:(NSString *)referrer {
+    return [[[CYPackageController alloc] initWithDatabase:database_ forPackage:name withReferrer:referrer] autorelease];
 }
 
-- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external {
+- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer {
     NSString *scheme([[url scheme] lowercaseString]);
     if ([[url absoluteString] length] <= [scheme length] + 3)
         return nil;
@@ -9813,7 +9852,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     NSArray *components([path componentsSeparatedByString:@"/"]);
 
     if ([scheme isEqualToString:@"apptapp"] && [components count] > 0 && [[components objectAtIndex:0] isEqualToString:@"package"]) {
-        CyteViewController *controller([self pageForPackage:[components objectAtIndex:1]]);
+        CyteViewController *controller([self pageForPackage:[components objectAtIndex:1] withReferrer:referrer]);
         if (controller != nil)
             [controller setDelegate:self];
         return controller;
@@ -9866,7 +9905,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         NSString *argument = [components objectAtIndex:1];
 
         if ([base isEqualToString:@"package"]) {
-            controller = [self pageForPackage:argument];
+            controller = [self pageForPackage:argument withReferrer:referrer];
         }
 
         if (!external && [base isEqualToString:@"search"]) {
@@ -9914,7 +9953,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external {
-    CyteViewController *page([self pageForURL:url forExternal:external]);
+    CyteViewController *page([self pageForURL:url forExternal:external withReferrer:nil]);
 
     if (page != nil)
         [tabbar_ setUnselectedViewController:page];
@@ -10217,7 +10256,7 @@ _trace();
         for (unsigned int nav = 0; nav < [stack count]; nav++) {
             NSString *addr = [stack objectAtIndex:nav];
             NSURL *url = [NSURL URLWithString:addr];
-            CyteViewController *page = [self pageForURL:url forExternal:NO];
+            CyteViewController *page = [self pageForURL:url forExternal:NO withReferrer:nil];
             if (page != nil)
                 [current addObject:page];
         }

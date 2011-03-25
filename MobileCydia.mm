@@ -7022,7 +7022,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) cancelUpdate {
-    [self stopUpdateWithSelector:@selector(updateData)];
+    [self stopUpdateWithSelector:@selector(updateDataAndLoad)];
 }
 
 - (void) cancelPressed {
@@ -9491,6 +9491,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) updateData {
     [self _updateData];
+}
+
+- (void) updateDataAndLoad {
+    [self _updateData];
+    if ([database_ progressDelegate] == nil)
+        [self _loaded];
 }
 
 - (void) update_ {

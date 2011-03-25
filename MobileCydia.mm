@@ -9470,8 +9470,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     for (Package *package in packages) {
         if ([package half])
             [broken_ addObject:package];
-        if ([package upgradableAndEssential:NO] && ![package ignored]) {
-            if ([package essential])
+        if ([package upgradableAndEssential:YES] && ![package ignored]) {
+            if ([package essential] && [package installed] != nil)
                 [essential_ addObject:package];
             ++changes;
         }

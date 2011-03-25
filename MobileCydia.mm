@@ -9666,7 +9666,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     ++locked_;
     [self detachNewProgressSelector:@selector(perform_) toTarget:self forController:navigation title:@"RUNNING"];
     --locked_;
-    [self refreshIfPossible];
 }
 
 - (void) showSettings {

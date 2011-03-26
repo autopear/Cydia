@@ -8792,7 +8792,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     NSMutableURLRequest *request = [NSMutableURLRequest
         requestWithURL:url
         cachePolicy:NSURLRequestUseProtocolCachePolicy
-        timeoutInterval:120.0
+        timeoutInterval:10
     ];
 
     [request setHTTPMethod:method];

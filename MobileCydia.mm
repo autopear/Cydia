@@ -4632,7 +4632,21 @@ static _H<NSMutableSet> Diversions_;
     NSMutableURLRequest *copy([request mutableCopy]);
 
     NSURL *url([copy URL]);
+    NSString *href([url absoluteString]);
     NSString *host([url host]);
+
+    if ([href hasPrefix:@"https://cydia.saurik.com/TSS/"]) {
+        if (NSString *agent = [copy valueForHTTPHeaderField:@"X-User-Agent"]) {
+            [copy setValue:agent forHTTPHeaderField:@"User-Agent"];
+            [copy setValue:nil forHTTPHeaderField:@"X-User-Agent"];
+        }
+
+        [copy setValue:nil forHTTPHeaderField:@"Referer"];
+        [copy setValue:nil forHTTPHeaderField:@"Origin"];
+
+        [copy setURL:[NSURL URLWithString:[@"http://gs.apple.com/TSS/" stringByAppendingString:[href substringFromIndex:29]]]];
+        return copy;
+    }
 
     if ([copy valueForHTTPHeaderField:@"X-Cydia-Cf"] == nil)
         [copy setValue:[NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber] forHTTPHeaderField:@"X-Cydia-Cf"];

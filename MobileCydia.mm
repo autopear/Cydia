@@ -4798,7 +4798,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if (button == [alert cancelButtonIndex])
             [self dismissModalViewControllerAnimated:YES];
         else if (button == [alert firstOtherButtonIndex]) {
-            [self complete];
+            [self performSelector:@selector(complete) withObject:nil afterDelay:0];
         }
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];

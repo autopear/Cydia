@@ -220,7 +220,7 @@ float CYScrollViewDecelerationRateNormal;
 
     request_ = request;
 
-    if ([request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
+    if (cache || [request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
         [self loadRequest:request_];
     else {
         UIAlertView *alert = [[[UIAlertView alloc]
@@ -236,10 +236,6 @@ float CYScrollViewDecelerationRateNormal;
         [alert setContext:@"submit"];
         [alert show];
     }
-}
-
-- (void) reloadURL {
-    [self reloadURLWithCache:YES];
 }
 
 - (void) reloadData {
@@ -961,7 +957,7 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) reloadButtonClicked {
-    [self reloadURLWithCache:YES];
+    [self reloadURLWithCache:NO];
 }
 
 - (void) _customButtonClicked {

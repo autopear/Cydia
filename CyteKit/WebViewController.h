@@ -109,9 +109,6 @@
 - (void) loadRequest:(NSURLRequest *)request;
 - (bool) isLoading;
 
-- (void) reloadURLWithCache:(BOOL)cache;
-- (void) reloadURL;
-
 - (id) init;
 
 - (id) initWithURL:(NSURL *)url;

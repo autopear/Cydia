@@ -4980,6 +4980,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             ] autorelease];
 
             [essential_ setContext:@"remove"];
+            [essential_ setNumberOfRows:2];
         } else {
             essential_ = [[[UIAlertView alloc]
                 initWithTitle:UCLocalize("UNABLE_TO_COMPLY")

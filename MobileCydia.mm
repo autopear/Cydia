@@ -8801,11 +8801,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if (Machine_ != NULL)
         [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 
+    if (UniqueID_ != nil)
+        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+
     if ([url isCydiaSecure]) {
-        if (UniqueID_ != nil) {
-            [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
+        if (UniqueID_ != nil)
             [request setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
-        }
     }
 
     return [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];

@@ -453,10 +453,26 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view didDecidePolicy:(CYWebPolicyDecision)decision forNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame {
-    if ([frame parentFrame] == nil)
-        if (decision == CYWebPolicyDecisionUse)
-            if (!error_)
-                request_ = request;
+#if LogBrowser
+    NSLog(@"didDecidePolicy:%u forNavigationAction:%@ request:%@ frame:%@", decision, action, request, [request allHTTPHeaderFields], frame);
+#endif
+
+    if ([frame parentFrame] == nil) {
+        switch (decision) {
+            case CYWebPolicyDecisionIgnore:
+                if ([[request_ URL] isEqual:[request URL]])
+                    request_ = nil;
+            break;
+
+            case CYWebPolicyDecisionUse:
+                if (!error_)
+                    request_ = request;
+            break;
+
+            default:
+            break;
+        }
+    }
 }
 
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener {

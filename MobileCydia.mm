@@ -8425,8 +8425,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if (NSData *data = [NSURLConnection
         sendSynchronousRequest:[NSURLRequest
             requestWithURL:url
-            //cachePolicy:NSURLRequestUseProtocolCachePolicy
-            //timeoutInterval:5
+            cachePolicy:NSURLRequestUseProtocolCachePolicy
+            timeoutInterval:10
         ]
 
         returningResponse:NULL

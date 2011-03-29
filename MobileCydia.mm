@@ -2373,7 +2373,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Section)
-            section_ = iterator.Section();
+            section_ = version_.Section();
         _end
 
         _profile(Package$initWithVersion$Flags)

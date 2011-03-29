@@ -871,7 +871,9 @@ float CYScrollViewDecelerationRateNormal;
 
     [preferences setCacheModel:WebCacheModelDocumentBrowser];
     [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
-    [preferences setOfflineWebApplicationCacheEnabled:YES];
+
+    if ([preferences respondsToSelector:@selector(setOfflineWebApplicationCacheEnabled:)])
+        [preferences setOfflineWebApplicationCacheEnabled:YES];
 
     if (NSString *agent = [self applicationNameForUserAgent])
         [webview setApplicationNameForUserAgent:agent];

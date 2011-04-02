@@ -3562,8 +3562,8 @@ class CydiaLogCleaner :
 
         if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
             [delegate_ repairWithSelector:@selector(configure)];
-        else if (error == "The package lists or status file could not be parsed or opened.")
-            [delegate_ repairWithSelector:@selector(update)];
+        //else if (error == "The package lists or status file could not be parsed or opened.")
+        //    [delegate_ repairWithSelector:@selector(update)];
         // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
         // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
         // else if (error == "Malformed Status line")

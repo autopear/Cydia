@@ -8918,10 +8918,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 @synchronized (database_) {
     era_ = [database_ era];
 
-    pkgSourceList list;
-    if ([database_ popErrorWithTitle:UCLocalize("SOURCES") forOperation:list.ReadMainList()])
-        return;
-
     sources_ = [NSMutableArray arrayWithCapacity:16];
     [sources_ addObjectsFromArray:[database_ sources]];
     _trace();

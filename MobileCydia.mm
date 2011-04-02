@@ -5332,12 +5332,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ] autorelease];
 }
 
-- (void) uicache {
-    _trace();
-    system("su -c /usr/bin/uicache mobile");
-    _trace();
-}
-
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
     UpdateExternalStatus(1);
 
@@ -5414,11 +5408,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         case 3: [progress_ setFinish:UCLocalize("RELOAD_SPRINGBOARD")]; break;
         case 4: [progress_ setFinish:UCLocalize("REBOOT_DEVICE")]; break;
     }
-
-    UIProgressHUD *hud([delegate_ addProgressHUD]);
-    [hud setText:UCLocalize("LOADING")];
-    [self yieldToSelector:@selector(uicache)];
-    [delegate_ removeProgressHUD:hud];
 
     UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
 
@@ -9690,9 +9679,23 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     }
 }
 
+- (void) _uicache {
+    _trace();
+    system("su -c /usr/bin/uicache mobile");
+    _trace();
+}
+
+- (void) uicache {
+    UIProgressHUD *hud([self addProgressHUD]);
+    [hud setText:UCLocalize("LOADING")];
+    [self yieldToSelector:@selector(_uicache)];
+    [self removeProgressHUD:hud];
+}
+
 - (void) perform_ {
     [database_ perform];
     [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:YES];
+    [self performSelectorOnMainThread:@selector(uicache) withObject:nil waitUntilDone:YES];
 }
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {

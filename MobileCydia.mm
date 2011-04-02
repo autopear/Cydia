@@ -3555,27 +3555,36 @@ class CydiaLogCleaner :
 
     _trace();
     OpProgress progress;
-    while (!cache_.Open(progress, true)) { pop:
-        std::string error;
-        bool warning(!_error->PopMessage(error));
-        lprintf("cache_.Open():[%s]\n", error.c_str());
+  open:
+    if (!cache_.Open(progress, true)) {
+        // XXX: what if there are errors, but Open() == true? this should be merged with popError:
+        while (!_error->empty()) {
+            std::string error;
+            bool warning(!_error->PopMessage(error));
 
-        if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
-            [delegate_ repairWithSelector:@selector(configure)];
-        //else if (error == "The package lists or status file could not be parsed or opened.")
-        //    [delegate_ repairWithSelector:@selector(update)];
-        // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
-        // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
-        // else if (error == "Malformed Status line")
-        // else if (error == "The list of sources could not be read.")
-        else {
+            lprintf("cache_.Open():[%s]\n", error.c_str());
+
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
-            return;
+
+            SEL repair(NULL);
+            if (false);
+            else if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
+                repair = @selector(configure);
+            //else if (error == "The package lists or status file could not be parsed or opened.")
+            //    repair = @selector(update);
+            // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
+            // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
+            // else if (error == "Malformed Status line")
+            // else if (error == "The list of sources could not be read.")
+
+            if (repair != NULL) {
+                _error->Discard();
+                [delegate_ repairWithSelector:repair];
+                goto open;
+            }
         }
 
-        if (warning)
-            goto pop;
-        _error->Discard();
+        return;
     }
     _trace();
 

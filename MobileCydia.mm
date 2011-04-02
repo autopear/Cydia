@@ -1338,6 +1338,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 - (NSString *) depictionForPackage:(NSString *)package;
 - (NSString *) supportForPackage:(NSString *)package;
 
+- (metaIndex *) metaIndex;
 - (NSDictionary *) record;
 - (BOOL) trusted;
 
@@ -1424,6 +1425,10 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 + (BOOL) isKeyExcludedFromWebScript:(const char *)name {
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+}
+
+- (metaIndex *) metaIndex {
+    return index_;
 }
 
 - (void) setMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
@@ -3539,6 +3544,15 @@ class CydiaLogCleaner :
 
     NSString *title(UCLocalize("DATABASE"));
 
+    list_ = new pkgSourceList();
+    if ([self popErrorWithTitle:title forOperation:list_->ReadMainList()])
+        return;
+
+    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
+        Source *object([[[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:pool_] autorelease]);
+        [sourceList_ addObject:object];
+    }
+
     _trace();
     OpProgress progress;
     while (!cache_.Open(progress, true)) { pop:
@@ -3575,10 +3589,6 @@ class CydiaLogCleaner :
     fetcher_ = new pkgAcquire(&status_);
     lock_ = NULL;
 
-    list_ = new pkgSourceList();
-    if ([self popErrorWithTitle:title forOperation:list_->ReadMainList()])
-        return;
-
     if (cache_->DelCount() != 0 || cache_->InstCount() != 0) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("COUNTS_NONZERO_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
         return;
@@ -3600,11 +3610,9 @@ class CydiaLogCleaner :
             return;
     }
 
-    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-        Source *object([[[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:pool_] autorelease]);
-        [sourceList_ addObject:object];
-
-        std::vector<pkgIndexFile *> *indices = (*source)->GetIndexFiles();
+    for (Source *object in (id) sourceList_) {
+        metaIndex *source([object metaIndex]);
+        std::vector<pkgIndexFile *> *indices = source->GetIndexFiles();
         for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
             // XXX: this could be more intelligent
             if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {

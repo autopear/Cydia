@@ -28,7 +28,7 @@
 "COMMA_DELIMITED" = "%@, %@";
 "COMING_SOON" = "Kommer snart!";
 "COMPLETE" = "Klar";
-"COMPLETE_UPGRADE" = "Uppgraderingen avklarad";
+"COMPLETE_UPGRADE" = "Uppgradera allt";
 "CONFIGURATION_UPGRADE" = "Uppgradering av konfiguration";
 "CONFIGURATION_UPGRADE_EX" = "Följande fil har ändrats av både paketägaren och av dig (eller för dig av ett skript).";
 "COMMERCIAL_APPLICATIONS" = "Kommersiella applikationer";
@@ -141,7 +141,7 @@
 "QUEUED_FOR" = "Köad för %@";
 "QUESTION" = "%@?";
 "REBOOT_DEVICE" = "Starta om enheten";
-"RECENT_CHANGES_UPDATES" = "Senaste ändringarna/uppdateringarna";
+"RECENT_CHANGES_UPDATES" = "Senaste ändringarna/uppgraderingarna";
 "RECOMMENDED_BOOKS" = "Rekommenderade böcker";
 "REFRESH" = "Uppdatera";
 "REFRESHING_DATA" = "Uppdaterar data";
@@ -202,7 +202,7 @@
 "UPDATING_DATABASE" = "Uppdaterar databasen";
 "UPDATING_SOURCES" = "Uppdaterar källorna";
 "UPGRADE" = "Uppdatera";
-"UPGRADE_ESSENTIAL" = "Uppdatera grundläggande";
+"UPGRADE_ESSENTIAL" = "Uppgradera grundläggande";
 "UPGRADING_TO_READ_THIS" = "Uppdatering till %@? Läs följande";
 "USER" = "Användare";
 "USER_EX" = "Appar, Anpassningar, och Teman.";

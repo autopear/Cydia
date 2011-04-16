@@ -4453,7 +4453,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSString *) substitutePackageNames:(NSString *)message {
-    NSMutableArray *words([[message componentsSeparatedByString:@" "] mutableCopy]);
+    NSMutableArray *words([[[message componentsSeparatedByString:@" "] mutableCopy] autorelease]);
     for (size_t i(0), e([words count]); i != e; ++i) {
         NSString *word([words objectAtIndex:i]);
         if (Package *package = [[Database sharedInstance] packageWithName:word])
@@ -4629,7 +4629,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 + (NSURLRequest *) requestWithHeaders:(NSURLRequest *)request {
-    NSMutableURLRequest *copy([request mutableCopy]);
+    NSMutableURLRequest *copy([[request mutableCopy] autorelease]);
 
     NSURL *url([copy URL]);
     NSString *href([url absoluteString]);
@@ -6896,7 +6896,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         } return;
     }
 
-    NSMutableArray *controllers = [[self viewControllers] mutableCopy];
+    NSMutableArray *controllers = [[[self viewControllers] mutableCopy] autorelease];
     if (transient != nil) {
         UINavigationController *navigation([[[UINavigationController alloc] init] autorelease]);
         [navigation setViewControllers:[NSArray arrayWithObject:transient]];
@@ -10238,7 +10238,7 @@ _trace();
     [self disemulate];
 
     int savedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
-    NSArray *saved = [[Metadata_ objectForKey:@"InterfaceState"] mutableCopy];
+    NSArray *saved = [[[Metadata_ objectForKey:@"InterfaceState"] mutableCopy] autorelease];
     int standardIndex = 0;
     NSArray *standard = [self defaultStartPages];
 
@@ -10391,7 +10391,7 @@ MSHook(void *, CFXPreferencesPropertyListSource$createPlistFromDisk, CFXPreferen
 Class $NSURLConnection;
 
 MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest *request, id delegate, BOOL usesCache, int64_t maxContentLength, BOOL startImmediately, NSDictionary *connectionProperties) {
-    NSMutableURLRequest *copy([request mutableCopy]);
+    NSMutableURLRequest *copy([[request mutableCopy] autorelease]);
 
     NSURL *url([copy URL]);
 

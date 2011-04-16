@@ -121,6 +121,7 @@ sysroot: sysroot.sh
 MobileCydia: sysroot $(object) entitlements.xml
 	@echo "[link] $(object:Objects/%=%)"
 	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(uikit)
+	@mkdir -p bins
 	@cp -a $@ bins/$@-$(version)
 	@echo "[strp] $@"
 	@strip -no_uuid $@

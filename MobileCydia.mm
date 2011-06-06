@@ -8050,13 +8050,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [self reloadData];
 }
 
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-
-    if ([self filter] == @selector(isUnfilteredAndSelectedForBy:))
-        [self useSearch];
-}
-
 - (void) searchBarTextDidBeginEditing:(UISearchBar *)searchBar {
     [self setObject:[search_ text] forFilter:@selector(isUnfilteredAndSelectedForBy:)];
     [self clearData];
@@ -8134,6 +8127,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         [textField setEnablesReturnKeyAutomatically:NO];
         [[self navigationItem] setTitleView:textField];
     }
+
+    if ([self isSummarized])
+        [search_ becomeFirstResponder];
 }
 
 - (void) reloadData {

@@ -138,6 +138,8 @@
 - (void) applyLeftButton;
 - (UIBarButtonItem *) leftButton;
 
+- (void) removeButton;
+
 - (void) _didStartLoading;
 - (void) _didFinishLoading;
 

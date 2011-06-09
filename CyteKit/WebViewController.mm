@@ -534,7 +534,7 @@ float CYScrollViewDecelerationRateNormal;
 
     if ([frame parentFrame] == nil) {
         if (DOMDocument *document = [frame DOMDocument])
-            if (DOMNodeList<NSFastEnumeration> *bodies = [document getElementsByTagName:@"body"])
+            if (DOMNodeList *bodies = [document getElementsByTagName:@"body"])
                 for (DOMHTMLBodyElement *body in (id) bodies) {
                     DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
 
@@ -697,7 +697,7 @@ float CYScrollViewDecelerationRateNormal;
 - (UIBarButtonItem *) customButton {
     if (custom_ == nil)
         return nil;
-    else if (custom_ == [NSNull null])
+    else if ((/*clang:*/id) custom_ == [NSNull null])
         return (UIBarButtonItem *) [NSNull null];
 
     return [[[UIBarButtonItem alloc]

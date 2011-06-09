@@ -1,8 +1,16 @@
-sdks := /Developer/Platforms/iPhoneOS.platform/Developer/SDKs
+dev := /Developer/Platforms/iPhoneOS.platform/Developer
+sdks := $(dev)/SDKs
 ioss := $(sort $(patsubst $(sdks)/iPhoneOS%.sdk,%,$(wildcard $(sdks)/iPhoneOS*.sdk)))
-
 ios := $(word $(words $(ioss)),$(ioss))
+
+# if you can tolerate clang, set this to blank
 gcc := 4.2
+
+ifeq ($(gcc),)
+gxx := $(dev)/usr/bin/clang++
+else
+gxx := $(dev)/usr/bin/g++-$(gcc)
+endif
 
 flags := 
 link := 
@@ -21,17 +29,28 @@ endif
 sdk := $(sdks)/iPhoneOS$(ios).sdk
 
 flags += -F$(sdk)/System/Library/PrivateFrameworks
-flags += -I. -isystem sysroot/usr/include -Lsysroot/usr/lib
-flags += -Wall -Werror -Wno-deprecated-declarations
+flags += -I. -isystem sysroot/usr/include
 flags += -fmessage-length=0
 flags += -g0 -O2
+flags += -fvisibility=hidden
+
+flags += -Wall
+
+ifeq ($(gcc),)
+flags += -Wno-unknown-warning-option
+flags += -Wno-logical-op-parentheses
+else
 flags += -fobjc-exceptions
 flags += -fno-guess-branch-probability
-flags += -fvisibility=hidden
+endif
+
+flags += -Wno-deprecated-declarations
 
 xflags :=
 xflags += -fobjc-call-cxx-cdtors
 xflags += -fvisibility-inlines-hidden
+
+link += -Lsysroot/usr/lib
 
 link += -framework CoreFoundation
 link += -framework CoreGraphics
@@ -59,9 +78,8 @@ backrow += -FAppleTV -framework BackRow -framework AppleTV
 
 version := $(shell ./version.sh)
 
-#cycc = cycc -r4.2 -i$(ios) -o$@
-gxx := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++-$(gcc)
 cycc = $(gxx) -mthumb -arch armv6 -o $@ -mcpu=arm1176jzf-s -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F{sysroot,}/Library/Frameworks
+#cycc = cycc -r4.2 -i$(ios) -o$@
 
 dirs := Menes CyteKit Cydia SDURLCache
 
@@ -94,17 +112,17 @@ clean:
 Objects/%.o: %.c $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c -o $@ -x c $<
+	@$(cycc) -c -x c $<
 
 Objects/%.o: %.m $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c -o $@ $< $(flags)
+	@$(cycc) -c $< $(flags)
 
 Objects/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c -o $@ $< $(flags) $(xflags)
+	@$(cycc) -c $< $(flags) $(xflags)
 
 Objects/Version.o: version.h
 

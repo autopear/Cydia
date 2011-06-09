@@ -138,6 +138,10 @@
     return (id<CyteWebViewDelegate>) [super delegate];
 }
 
+- (void) setDelegate:(id<CyteWebViewDelegate>)delegate {
+    [super setDelegate:delegate];
+}
+
 /*- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request {
     id<CyteWebViewDelegate> delegate([self delegate]);
     WebView *created(nil);

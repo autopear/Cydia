@@ -94,7 +94,7 @@ MSHook(void, UIWebBrowserView$_webTouchEventsRecognized$, UIWebBrowserView *self
 __attribute__((__constructor__)) static void $() {
     if (Class $UIWebBrowserView = objc_getClass("UIWebBrowserView")) {
         if (Method method = class_getInstanceMethod($UIWebBrowserView, @selector(_webTouchEventsRecognized:))) {
-            _UIWebBrowserView$_webTouchEventsRecognized$ = reinterpret_cast<void (*)(UIWebBrowserView *, SEL, id)>(method_getImplementation(method));
+            _UIWebBrowserView$_webTouchEventsRecognized$ = reinterpret_cast<void (*)(UIWebBrowserView *, SEL, UIWebTouchEventsGestureRecognizer *)>(method_getImplementation(method));
             method_setImplementation(method, reinterpret_cast<IMP>(&$UIWebBrowserView$_webTouchEventsRecognized$));
         }
     }

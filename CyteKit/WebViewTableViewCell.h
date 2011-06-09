@@ -45,7 +45,9 @@
 #include "Menes/ObjectHandle.h"
 #include "CyteKit/WebView.h"
 
-@interface CyteWebViewTableViewCell : UITableViewCell {
+@interface CyteWebViewTableViewCell : UITableViewCell <
+    CyteWebViewDelegate
+> {
     // XXX: I'm not really the delegate here: fix this!
     _H<CyteWebView, 1> webview_;
 }

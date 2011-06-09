@@ -211,6 +211,10 @@ void PrintTimes() {
 #define _end }
 /* }}} */
 
+// XXX: I hate clang. Apple: please get over your petty hatred of GPL and fix your gcc fork
+#define synchronized(lock) \
+    synchronized(static_cast<NSObject *>(lock))
+
 extern NSString *Cydia_;
 
 #define lprintf(args...) fprintf(stderr, args)
@@ -1327,7 +1331,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
     CYString defaultIcon_;
 
-    _H<NSDictionary> record_;
+    _H<NSMutableDictionary> record_;
     BOOL trusted_;
 }
 
@@ -3970,7 +3974,7 @@ static _H<NSMutableSet> Diversions_;
 @end
 
 @interface CydiaObject : NSObject {
-    _H<IndirectDelegate> indirect_;
+    _H<CyteWebViewController> indirect_;
     _transient id delegate_;
 }
 
@@ -3996,7 +4000,7 @@ static _H<NSMutableSet> Diversions_;
 
 - (id) initWithDelegate:(IndirectDelegate *)indirect {
     if ((self = [super init]) != nil) {
-        indirect_ = indirect;
+        indirect_ = (CyteWebViewController *) indirect;
     } return self;
 }
 
@@ -7659,12 +7663,13 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 /* Changes Controller {{{ */
 @interface ChangesController : CyteViewController <
+    CyteWebViewDelegate,
     UITableViewDataSource,
     UITableViewDelegate
 > {
     _transient Database *database_;
     unsigned era_;
-    _H<NSArray> packages_;
+    _H<NSMutableArray> packages_;
     _H<NSMutableArray> sections_;
     _H<UITableView, 2> list_;
     _H<CyteWebView, 1> dickbar_;
@@ -7903,7 +7908,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 } }
 
 - (void) _reloadData {
-    NSArray *packages;
+    NSMutableArray *packages;
 
   reload:
     if (true) {
@@ -10438,7 +10443,7 @@ MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest 
 
 Class $WAKWindow;
 
-static CGSize $WAKWindow$screenSize(WAKWindow self, SEL _cmd) {
+static CGSize $WAKWindow$screenSize(WAKWindow *self, SEL _cmd) {
     CGSize size([[UIScreen mainScreen] bounds].size);
     /*if ([$WAKWindow respondsToSelector:@selector(hasLandscapeOrientation)])
         if ([$WAKWindow hasLandscapeOrientation])

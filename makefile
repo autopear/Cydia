@@ -14,6 +14,7 @@ endif
 
 flags := 
 link := 
+libs := 
 
 ifeq (o,O) # gzip is actually better
 dpkg := /Library/Cydia/bin/dpkg-deb
@@ -51,24 +52,23 @@ xflags += -fobjc-call-cxx-cdtors
 xflags += -fvisibility-inlines-hidden
 
 link += -Lsysroot/usr/lib
-
-link += -framework CoreFoundation
-link += -framework CoreGraphics
-link += -framework Foundation
-link += -framework GraphicsServices
-link += -framework IOKit
-link += -framework JavaScriptCore
-link += -framework QuartzCore
-link += -framework SpringBoardServices
-link += -framework SystemConfiguration
-link += -framework WebCore
-link += -framework WebKit
-
-link += -lapr-1
-link += -lapt-pkg
-link += -lpcre
-
 link += -multiply_defined suppress
+
+libs += -framework CoreFoundation
+libs += -framework CoreGraphics
+libs += -framework Foundation
+libs += -framework GraphicsServices
+libs += -framework IOKit
+libs += -framework JavaScriptCore
+libs += -framework QuartzCore
+libs += -framework SpringBoardServices
+libs += -framework SystemConfiguration
+libs += -framework WebCore
+libs += -framework WebKit
+
+libs += -lapr-1
+libs += -lapt-pkg
+libs += -lpcre
 
 uikit := 
 uikit += -framework UIKit
@@ -138,7 +138,7 @@ sysroot: sysroot.sh
 
 MobileCydia: sysroot $(object) entitlements.xml
 	@echo "[link] $(object:Objects/%=%)"
-	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(uikit)
+	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(libs) $(uikit)
 	@mkdir -p bins
 	@cp -a $@ bins/$@-$(version)
 	@echo "[strp] $@"
@@ -147,14 +147,14 @@ MobileCydia: sysroot $(object) entitlements.xml
 	@ldid -T0 -Sentitlements.xml $@ || { rm -f $@ && false; }
 
 CydiaAppliance: CydiaAppliance.mm
-	$(cycc) $(filter %.mm,$^) $(flags) -bundle $(link) $(backrow)
+	$(cycc) $(filter %.mm,$^) $(flags) $(link) -bundle $(libs) $(backrow)
 
 cfversion: cfversion.mm
 	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation
 	@ldid -T0 -S $@
 
 postinst: postinst.mm Sources.mm Sources.h CyteKit/stringWithUTF8Bytes.mm CyteKit/stringWithUTF8Bytes.h CyteKit/UCPlatform.h
-	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation -framework Foundation -framework UIKit -lpcre
+	$(cycc) $(filter %.mm,$^) $(flags) $(link) -framework CoreFoundation -framework Foundation -framework UIKit -lpcre
 	@ldid -T0 -S $@
 
 debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion $(images) $(shell find MobileCydia.app) cydia.control Library/firmware.sh

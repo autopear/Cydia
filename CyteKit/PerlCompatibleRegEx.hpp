@@ -85,6 +85,7 @@ class Pcre {
         }
 
         pcre_fullinfo(code_, study_, PCRE_INFO_CAPTURECOUNT, &capture_);
+        _assert(capture_ >= 0);
         matches_ = new int[(capture_ + 1) * 3];
     }
 

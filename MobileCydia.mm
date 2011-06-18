@@ -10188,18 +10188,7 @@ _trace();
     [window_ makeKey:self];
     [window_ setHidden:NO];
 
-    if (
-        readlink("/Applications", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Ringtones", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/Library/Wallpaper", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/usr/bin", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/include", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/lib/pam", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/libexec", NULL, 0) == -1 && errno == EINVAL ||
-        readlink("/usr/share", NULL, 0) == -1 && errno == EINVAL ||
-        //readlink("/var/lib", NULL, 0) == -1 && errno == EINVAL ||
-        false
-    ) {
+    if (false) stash: {
         [self addStashController];
         // XXX: this would be much cleaner as a yieldToSelector:
         // that way the removeStashController could happen right here inline
@@ -10207,6 +10196,21 @@ _trace();
         [self performSelector:@selector(stash) withObject:nil afterDelay:0];
         return;
     }
+
+    #define Stash_(path) do { \
+        if (readlink((path), NULL, 0) == -1 && errno == EINVAL) \
+            goto stash; \
+    } while (false)
+
+    Stash_("/Applications");
+    Stash_("/Library/Ringtones");
+    Stash_("/Library/Wallpaper");
+    //Stash_("/usr/bin");
+    Stash_("/usr/include");
+    Stash_("/usr/lib/pam");
+    Stash_("/usr/libexec");
+    Stash_("/usr/share");
+    //Stash_("/var/lib");
 
     database_ = [Database sharedInstance];
     [database_ setDelegate:self];

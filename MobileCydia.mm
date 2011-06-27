@@ -10197,9 +10197,20 @@ _trace();
         return;
     }
 
+    struct stat root;
+    int error(stat("/", &root));
+    _assert(error != -1);
+
     #define Stash_(path) do { \
-        if (readlink((path), NULL, 0) == -1 && errno == EINVAL) \
-            goto stash; \
+        struct stat folder; \
+        int error(lstat((path), &folder)); \
+        if (error != -1 && ( \
+            folder.st_dev == root.st_dev && \
+            S_ISDIR(folder.st_mode) \
+        ) || error == -1 && ( \
+            errno == ENOENT || \
+            errno == ENOTDIR \
+        )) goto stash; \
     } while (false)
 
     Stash_("/Applications");

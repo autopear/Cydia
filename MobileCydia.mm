@@ -8890,7 +8890,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [self updateButtonsForEditingStatusAnimated:NO];
 }
 
-- (void) viewWillDisappear:(BOOL)animated {
+- (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
 
     [list_ setEditing:NO];

@@ -10374,14 +10374,6 @@ id Dealloc_(id self, SEL selector) {
     return object;
 }*/
 
-Class $WebDefaultUIKitDelegate;
-
-MSHook(void, UIWebDocumentView$_setUIKitDelegate$, UIWebDocumentView *self, SEL _cmd, id delegate) {
-    if (delegate == nil && $WebDefaultUIKitDelegate != nil)
-        delegate = [$WebDefaultUIKitDelegate sharedUIKitDelegate];
-    return _UIWebDocumentView$_setUIKitDelegate$(self, _cmd, delegate);
-}
-
 static NSSet *MobilizedFiles_;
 
 static NSURL *MobilizeURL(NSURL *url) {
@@ -10549,13 +10541,6 @@ int main(int argc, char *argv[]) {
     if (CFXPreferencesPropertyListSource$createPlistFromDisk != NULL) {
         _CFXPreferencesPropertyListSource$createPlistFromDisk = reinterpret_cast<void *(*)(CFXPreferencesPropertyListSource *, SEL)>(method_getImplementation(CFXPreferencesPropertyListSource$createPlistFromDisk));
         method_setImplementation(CFXPreferencesPropertyListSource$createPlistFromDisk, reinterpret_cast<IMP>(&$CFXPreferencesPropertyListSource$createPlistFromDisk));
-    }
-
-    $WebDefaultUIKitDelegate = objc_getClass("WebDefaultUIKitDelegate");
-    Method UIWebDocumentView$_setUIKitDelegate$(class_getInstanceMethod([WebView class], @selector(_setUIKitDelegate:)));
-    if (UIWebDocumentView$_setUIKitDelegate$ != NULL) {
-        _UIWebDocumentView$_setUIKitDelegate$ = reinterpret_cast<void (*)(UIWebDocumentView *, SEL, id)>(method_getImplementation(UIWebDocumentView$_setUIKitDelegate$));
-        method_setImplementation(UIWebDocumentView$_setUIKitDelegate$, reinterpret_cast<IMP>(&$UIWebDocumentView$_setUIKitDelegate$));
     }
 
     $NSURLConnection = objc_getClass("NSURLConnection");

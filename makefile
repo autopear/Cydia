@@ -9,7 +9,7 @@ gcc := 4.2
 ifeq ($(gcc),)
 gxx := $(dev)/usr/bin/clang++
 else
-gxx := $(dev)/usr/bin/g++-$(gcc)
+gxx := $(dev)/usr/bin/g++
 endif
 
 flags := 

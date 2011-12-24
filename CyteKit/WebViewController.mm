@@ -630,7 +630,7 @@ float CYScrollViewDecelerationRateNormal;
 // }}}
 
 - (void) close {
-    [[[self navigationController] parentViewController] dismissModalViewControllerAnimated:YES];
+    [[[self navigationController] parentOrPresentingViewController] dismissModalViewControllerAnimated:YES];
 }
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
@@ -714,7 +714,7 @@ float CYScrollViewDecelerationRateNormal;
         return nil;
 
     if (UINavigationController *navigation = [self navigationController])
-        if ([[navigation parentViewController] modalViewController] == navigation)
+        if ([[navigation parentOrPresentingViewController] modalViewController] == navigation)
             return [[[UIBarButtonItem alloc]
                 initWithTitle:UCLocalize("CLOSE")
                 style:UIBarButtonItemStylePlain

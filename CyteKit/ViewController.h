@@ -48,6 +48,7 @@
 - (BOOL) hasLoaded;
 - (void) reloadData;
 - (void) unloadData;
+- (UIViewController *) parentOrPresentingViewController;
 @end
 
 @interface CyteViewController : UIViewController {

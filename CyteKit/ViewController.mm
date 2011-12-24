@@ -59,6 +59,14 @@ extern bool IsWildcat_;
         [modal unloadData];
 }
 
+- (UIViewController *) parentOrPresentingViewController {
+    if (UIViewController *parent = [self parentViewController])
+        return parent;
+    if ([self respondsToSelector:@selector(presentingViewController)])
+        return [self presentingViewController];
+    return nil;
+}
+
 @end
 
 @implementation CyteViewController

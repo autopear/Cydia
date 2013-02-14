@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2011  Jay Freeman (saurik)
+ * Copyright (C) 2008-2012  Jay Freeman (saurik)
 */
 
 /* Modified BSD License {{{ */
@@ -78,6 +78,9 @@
     _H<NSString> title_;
     _H<NSMutableSet> loading_;
 
+    _H<NSMutableSet> registered_;
+    _H<NSTimer> timer_;
+
     // XXX: NSString * or UIImage *
     _H<NSObject> custom_;
     _H<NSString> style_;
@@ -151,6 +154,8 @@
 
 - (void) setScrollAlwaysBounceVertical:(bool)value;
 - (void) setScrollIndicatorStyle:(UIScrollViewIndicatorStyle)style;
+
+- (void) registerFrame:(WebFrame *)frame;
 
 @end
 

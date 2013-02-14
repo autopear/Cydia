@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2011  Jay Freeman (saurik)
+ * Copyright (C) 2008-2012  Jay Freeman (saurik)
 */
 
 /* Modified BSD License {{{ */
@@ -54,6 +54,7 @@
     _transient id<CyteTableViewCellDelegate> delegate_;
 }
 
+- (id) delegate;
 - (void) setDelegate:(id<CyteTableViewCellDelegate>)delegate;
 
 @end

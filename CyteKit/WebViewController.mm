@@ -48,16 +48,32 @@ float CYScrollViewDecelerationRateNormal;
 - (void) _setAllowsMessaging:(BOOL)allows;
 @end
 
+@interface WebFrame (Cydia)
+- (void) cydia$updateHeight;
+@end
+
 @implementation WebFrame (Cydia)
 
 - (NSString *) description {
     return [NSString stringWithFormat:@"<%s: %p, %@>", class_getName([self class]), self, [[[([self provisionalDataSource] ?: [self dataSource]) request] URL] absoluteString]];
 }
 
+- (void) cydia$updateHeight {
+    [[[self frameElement] style]
+        setProperty:@"height"
+        value:[NSString stringWithFormat:@"%dpx",
+            [[[self DOMDocument] body] scrollHeight]]
+        priority:nil];
+}
+
 @end
 
 /* Indirect Delegate {{{ */
 @implementation IndirectDelegate
+
+- (id) delegate {
+    return delegate_;
+}
 
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
@@ -498,6 +514,9 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
+#if LogBrowser
+    NSLog(@"didClearWindowObject:%@ forFrame:%@", window, frame);
+#endif
 }
 
 - (void) webView:(WebView *)view didCommitLoadForFrame:(WebFrame *)frame {
@@ -590,6 +609,9 @@ float CYScrollViewDecelerationRateNormal;
         custom_ = nil;
         style_ = nil;
         function_ = nil;
+
+        [registered_ removeAllObjects];
+        timer_ = nil;
 
         allowsNavigationAction_ = true;
 
@@ -807,6 +829,7 @@ float CYScrollViewDecelerationRateNormal;
         allowsNavigationAction_ = true;
 
         loading_ = [NSMutableSet setWithCapacity:5];
+        registered_ = [NSMutableSet setWithCapacity:5];
         indirect_ = [[[IndirectDelegate alloc] initWithDelegate:self] autorelease];
 
         reloaditem_ = [[[UIBarButtonItem alloc]
@@ -1116,6 +1139,18 @@ float CYScrollViewDecelerationRateNormal;
 - (void) viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     [self dispatchEvent:@"CydiaViewDidDisappear"];
+}
+
+- (void) updateHeights:(NSTimer *)timer {
+    for (WebFrame *frame in (id) registered_)
+        [frame cydia$updateHeight];
+}
+
+- (void) registerFrame:(WebFrame *)frame {
+    [registered_ addObject:frame];
+
+    if (timer_ == nil)
+        timer_ = [NSTimer scheduledTimerWithTimeInterval:0.2 target:self selector:@selector(updateHeights:) userInfo:nil repeats:YES];
 }
 
 @end

@@ -104,13 +104,15 @@ EOF
             s/([A-Z])/-\L\1/g; s/^"([^ ]*)"/\1/;
             s/^-//;
             / 0$/ d;
-        ' | while read -r name value; do
-            pseudo "gsc.${name}" "${value}" "virtual GraphicsServices dependency"
+        ' | while read -r name value; do case "${name}" in
+            (ipad) for name in ipad wildcat; do
+                pseudo "gsc.${name}" "${value}" "this device has a very large screen" "iPad"
+            done;;
 
-            if [[ ${name} == ipad ]]; then
-                pseudo "gsc.wildcat" "${value}" "virtual virtual GraphicsServices dependency"
-            fi
-        done
+            (*)
+                pseudo "gsc.${name}" "${value}" "virtual GraphicsServices dependency"
+            ;;
+        esac; done
     fi
 
     if [[ ${cpu} == arm ]]; then
@@ -141,5 +143,5 @@ if [[ ${cpu} == arm ]]; then
         cp -afT /User /var/mobile
     fi && rm -rf /User && ln -s "/var/mobile" /User
 
-    echo 5 >/var/lib/cydia/firmware.ver
+    echo 6 >/var/lib/cydia/firmware.ver
 fi

@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2011  Jay Freeman (saurik)
+ * Copyright (C) 2008-2012  Jay Freeman (saurik)
 */
 
 /* Modified BSD License {{{ */
@@ -69,6 +69,7 @@
 #include <QuartzCore/CALayer.h>
 
 #include <WebCore/WebCoreThread.h>
+#include <WebKit/DOMHTMLIFrameElement.h>
 
 #include <algorithm>
 #include <iomanip>
@@ -260,7 +261,11 @@ NSString *Elision_;
 static NSString *Error_;
 static NSString *Warning_;
 
+static NSString *Cache_;
+
 static bool AprilFools_;
+
+static void (*$SBSSetInterceptsMenuButtonForever)(bool);
 
 static bool IsReachable(const char *name) {
     SCNetworkReachabilityFlags flags; {
@@ -2319,9 +2324,14 @@ struct PackageNameOrdering :
             pkgCache::TagIterator tag(iterator.TagList());
             if (!tag.end()) {
                 tags_ = [NSMutableArray arrayWithCapacity:8];
-                do {
+
+                goto tag; for (; !tag.end(); ++tag) tag: {
                     const char *name(tag.Name());
-                    [tags_ addObject:[(NSString *)CYStringCreate(name) autorelease]];
+                    NSString *string((NSString *) CYStringCreate(name));
+                    if (string == nil)
+                        continue;
+
+                    [tags_ addObject:[string autorelease]];
 
                     if (role_ == 0 && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/) {
                         if (strcmp(name + 6, "enduser") == 0)
@@ -2342,9 +2352,7 @@ struct PackageNameOrdering :
                         else if (strcmp(name + 7, "obsolete") == 0)
                             obsolete_ = true;
                     }
-
-                    ++tag;
-                } while (!tag.end());
+                }
             }
         _end
 
@@ -2878,7 +2886,8 @@ struct PackageNameOrdering :
 
                 NSString *bundle([file stringByDeletingLastPathComponent]);
                 NSString *icon([info objectForKey:@"CFBundleIconFile"]);
-                if (icon == nil || [icon length] == 0)
+                // XXX: maybe this should check if this is really a string, not just for length
+                if (icon == nil || ![icon respondsToSelector:@selector(length)] || [icon length] == 0)
                     icon = @"icon.png";
                 NSURL *url([NSURL fileURLWithPath:[bundle stringByAppendingPathComponent:icon]]);
 
@@ -4130,7 +4139,7 @@ static _H<NSMutableSet> Diversions_;
     else if (selector == @selector(stringWithFormat:arguments:))
         return @"format";
     else if (selector == @selector(getAllSources))
-        return @"getAllSourcs";
+        return @"getAllSources";
     else if (selector == @selector(getKernelNumber:))
         return @"getKernelNumber";
     else if (selector == @selector(getKernelString:))
@@ -4161,6 +4170,8 @@ static _H<NSMutableSet> Diversions_;
         return @"popViewController";
     else if (selector == @selector(refreshSources))
         return @"refreshSources";
+    else if (selector == @selector(registerFrame:))
+        return @"registerFrame";
     else if (selector == @selector(removeButton))
         return @"removeButton";
     else if (selector == @selector(saveConfig))
@@ -4285,6 +4296,11 @@ static _H<NSMutableSet> Diversions_;
 @synchronized (Values_) {
     return [Values_ allKeys];
 } }
+
+- (void) registerFrame:(DOMHTMLIFrameElement *)iframe {
+    WebFrame *frame([iframe contentFrame]);
+    [indirect_ registerFrame:frame];
+}
 
 - (void) _setShowPromoted:(NSNumber *)value {
     [Metadata_ setObject:value forKey:@"ShowPromoted"];
@@ -5120,6 +5136,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     } return self;
 }
 
+- (id) delegate {
+    return delegate_;
+}
+
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
 }
@@ -5267,6 +5287,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) reloadSpringBoard {
+    if (kCFCoreFoundationVersionNumber > 700) { // XXX: iOS 6.x
+        system("/bin/launchctl stop com.apple.backboardd");
+        sleep(15);
+        system("/usr/bin/killall backboardd SpringBoard sbreload");
+        return;
+    }
+
     pid_t pid(ExecFork());
     if (pid == 0) {
         pid_t pid(ExecFork());
@@ -5282,7 +5309,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     ReapZombie(pid);
 
     sleep(15);
-    system("/usr/bin/killall SpringBoard");
+    system("/usr/bin/killall backboardd SpringBoard sbreload");
 }
 
 - (void) close {
@@ -5523,7 +5550,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (NSString *) accessibilityLabel {
-    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), (id) name_, (id) description_];
+    return name_;
 }
 
 - (void) setPackage:(Package *)package asSummary:(bool)summary {
@@ -6042,20 +6069,10 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 }
 
-// We don't want to allow non-commercial packages to do custom things to the install button,
-// so it must call customButtonClicked with a custom commercial_ == 1 fallthrough.
-- (void) customButtonClicked {
-    if (commercial_)
-        [super customButtonClicked];
-    else
-        [self _customButtonClicked];
-}
-
 - (void) reloadButtonClicked {
-    // Don't reload a commerical package by tapping the loading button,
-    // but if it's not an Install button, we should forward it on.
-    if (![package_ uninstalled])
-        [self _customButtonClicked];
+    if (commercial_ && function_ == nil && [package_ uninstalled])
+        return;
+    [self customButtonClicked];
 }
 
 - (void) applyLoadingTitle {
@@ -6659,7 +6676,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [alert setCancelButtonIndex:0];
 
     [alert setMessage:
-        @"Copyright \u00a9 2008-2011\n"
+        @"Copyright \u00a9 2008-2012\n"
         "SaurikIT, LLC\n"
         "\n"
         "Jay Freeman (saurik)\n"
@@ -6742,7 +6759,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 @interface RefreshBar : UINavigationBar {
     _H<UIProgressIndicator> indicator_;
     _H<UITextLabel> prompt_;
-    _H<UIProgressBar> progress_;
     _H<UINavigationButton> cancel_;
 }
 
@@ -6756,13 +6772,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     frame.origin.x = [self frame].size.width - frame.size.width - 5;
     frame.origin.y = ([self frame].size.height - frame.size.height) / 2;
     [cancel_ setFrame:frame];
-
-    CGSize prgsize = {75, 100};
-    CGRect prgrect = {{
-        [self frame].size.width - prgsize.width - 10,
-        ([self frame].size.height - prgsize.height) / 2
-    } , prgsize};
-    [progress_ setFrame:prgrect];
 
     CGSize indsize([UIProgressIndicator defaultSizeForStyle:[indicator_ activityIndicatorViewStyle]]);
     unsigned indoffset = ([self frame].size.height - indsize.height) / 2;
@@ -6806,11 +6815,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         [prompt_ setFont:[UIFont systemFontOfSize:15]];
         [self addSubview:prompt_];
 
-        progress_ = [[[UIProgressBar alloc] initWithFrame:CGRectZero] autorelease];
-        [progress_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin];
-        [(UIProgressBar *) progress_ setStyle:0];
-        [self addSubview:progress_];
-
         cancel_ = [[[UINavigationButton alloc] initWithTitle:UCLocalize("CANCEL") style:UINavigationButtonStyleHighlighted] autorelease];
         [cancel_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
         [cancel_ addTarget:delegate action:@selector(cancelPressed) forControlEvents:UIControlEventTouchUpInside];
@@ -6829,7 +6833,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) start {
     [prompt_ setText:UCLocalize("UPDATING_DATABASE")];
-    [progress_ setProgress:0];
 }
 
 - (void) stop {
@@ -6841,7 +6844,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) setProgress:(float)progress {
-    [progress_ setProgress:progress];
 }
 
 @end
@@ -7520,7 +7522,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     Section *section = nil;
     int index = [indexPath row];
     if (![self isEditing]) {
-        index -= 1; 
+        index -= 1;
         if (index >= 0)
             section = [filtered_ objectAtIndex:index];
     } else {
@@ -8568,7 +8570,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     _H<NSError> error_;
 
     //NSURLConnection *installer_;
-    NSURLConnection *trivial_;
     NSURLConnection *trivial_bz2_;
     NSURLConnection *trivial_gz_;
     //NSURLConnection *automatic_;
@@ -8593,7 +8594,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) dealloc {
     //[self _releaseConnection:installer_];
-    [self _releaseConnection:trivial_];
     [self _releaseConnection:trivial_gz_];
     [self _releaseConnection:trivial_bz2_];
     //[self _releaseConnection:automatic_];
@@ -8701,9 +8701,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     // XXX: the memory management in this method is horribly awkward
 
     NSURLConnection **field = NULL;
-    if (connection == trivial_)
-        field = &trivial_;
-    else if (connection == trivial_bz2_)
+    if (connection == trivial_bz2_)
         field = &trivial_bz2_;
     else if (connection == trivial_gz_)
         field = &trivial_gz_;
@@ -8712,7 +8710,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     *field = nil;
 
     if (
-        trivial_ == nil &&
         trivial_bz2_ == nil &&
         trivial_gz_ == nil
     ) {
@@ -8834,7 +8831,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
                 else
                     href_ = href;
 
-                trivial_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages"] method:@"HEAD"] retain];
                 trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
                 trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
                 //trivial_bz2_ = [[self _requestHRef:[href stringByAppendingString:@"dists/Release"] method:@"HEAD"] retain];
@@ -9035,7 +9031,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         UCLocalize("DEVELOPER"),
     nil];
     segment_ = [[[UISegmentedControl alloc] initWithItems:items] autorelease];
-    [segment_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin)];
     container_ = [[[UIView alloc] initWithFrame:CGRectMake(0, 0, [[self view] frame].size.width, 44.0f)] autorelease];
     [container_ addSubview:segment_];
 }
@@ -9080,7 +9075,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self resizeSegmentedControl];
+}
 
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [segment_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleLeftMargin)];
     [self resizeSegmentedControl];
 }
 
@@ -9340,6 +9340,24 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 @implementation Cydia
 
+- (void) lockSuspend {
+    if (locked_++ == 0) {
+        if ($SBSSetInterceptsMenuButtonForever != NULL)
+            (*$SBSSetInterceptsMenuButtonForever)(true);
+
+        [self setIdleTimerDisabled:YES];
+    }
+}
+
+- (void) unlockSuspend {
+    if (--locked_ == 0) {
+        [self setIdleTimerDisabled:NO];
+
+        if ($SBSSetInterceptsMenuButtonForever != NULL)
+            (*$SBSSetInterceptsMenuButtonForever)(false);
+    }
+}
+
 - (void) beginUpdate {
     [tabbar_ beginUpdate];
 }
@@ -9356,7 +9374,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
             initWithTitle:(count == 1 ? UCLocalize("HALFINSTALLED_PACKAGE") : [NSString stringWithFormat:UCLocalize("HALFINSTALLED_PACKAGES"), count])
             message:UCLocalize("HALFINSTALLED_PACKAGE_EX")
             delegate:self
-            cancelButtonTitle:UCLocalize("FORCIBLY_CLEAR")
+            cancelButtonTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("FORCIBLY_CLEAR"), UCLocalize("UNSAFE")]
             otherButtonTitles:
                 UCLocalize("TEMPORARY_IGNORE"),
             nil
@@ -9452,7 +9470,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     //  - We already refreshed recently.
     //  - We already auto-refreshed this launch.
     //  - Auto-refresh is disabled.
-    if (recently || loaded_ || ManualRefresh) {
+    //  - Cydia's server is not reachable
+    if (recently || loaded_ || ManualRefresh || !IsReachable("cydia.saurik.com")) {
         // If we are cancelling, we need to make sure it knows it's already loaded.
         loaded_ = true;
 
@@ -9461,9 +9480,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         // We are going to load, so remember that.
         loaded_ = true;
 
-        // If we can reach the server, auto-refresh!
-        if (IsReachable("cydia.saurik.com"))
-            [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
+        [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
     }
 
     [pool release];
@@ -9476,7 +9493,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {
 @synchronized (self) {
     UIProgressHUD *hud(loaded_ ? [self addProgressHUD] : nil);
-    [hud setText:UCLocalize("RELOADING_DATA")];
+    if (hud != nil)
+        [hud setText:UCLocalize("RELOADING_DATA")];
 
     [database_ yieldToSelector:@selector(reloadDataWithInvocation:) withObject:invocation];
 
@@ -9710,9 +9728,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
     Queuing_ = false;
-    ++locked_;
+    [self lockSuspend];
     [self detachNewProgressSelector:@selector(perform_) toTarget:self forController:navigation title:@"RUNNING"];
-    --locked_;
+    [self unlockSuspend];
 }
 
 - (void) showSettings {
@@ -9877,12 +9895,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     [hud showInView:[target view]];
 
-    ++locked_;
+    [self lockSuspend];
     return hud;
 }
 
 - (void) removeProgressHUD:(UIProgressHUD *)hud {
-    --locked_;
+    [self unlockSuspend];
     [hud hide];
     [hud removeFromSuperview];
     [window_ setUserInteractionEnabled:YES];
@@ -10068,7 +10086,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) addStashController {
-    ++locked_;
+    [self lockSuspend];
     stash_ = [[[StashController alloc] init] autorelease];
     [window_ addSubview:[stash_ view]];
 }
@@ -10076,12 +10094,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) removeStashController {
     [[stash_ view] removeFromSuperview];
     stash_ = nil;
-    --locked_;
+    [self unlockSuspend];
 }
 
 - (void) stash {
-    [self setIdleTimerDisabled:YES];
-
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     UpdateExternalStatus(1);
     [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
@@ -10161,7 +10177,7 @@ _trace();
     [NSURLCache setSharedURLCache:[[[CYURLCache alloc]
         initWithMemoryCapacity:524288
         diskCapacity:10485760
-        diskPath:[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia/SDURLCache", @"/var/root"]
+        diskPath:[NSString stringWithFormat:@"%@/SDURLCache", Cache_]
     ] autorelease]];
 
     [CydiaWebViewController _initialize];
@@ -10458,6 +10474,14 @@ static CGSize $WAKWindow$screenSize(WAKWindow *self, SEL _cmd) {
     return size;
 }
 
+Class $NSUserDefaults;
+
+MSHook(id, NSUserDefaults$objectForKey$, NSUserDefaults *self, SEL _cmd, NSString *key) {
+    if ([key respondsToSelector:@selector(isEqualToString:)] && [key isEqualToString:@"WebKitLocalStorageDatabasePathPreferenceKey"])
+        return [NSString stringWithFormat:@"%@/LocalStorage", Cache_];
+    return _NSUserDefaults$objectForKey$(self, _cmd, key);
+}
+
 int main(int argc, char *argv[]) {
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
@@ -10549,6 +10573,13 @@ int main(int argc, char *argv[]) {
         _NSURLConnection$init$ = reinterpret_cast<id (*)(NSURLConnection *, SEL, NSURLRequest *, id, BOOL, int64_t, BOOL, NSDictionary *)>(method_getImplementation(NSURLConnection$init$));
         method_setImplementation(NSURLConnection$init$, reinterpret_cast<IMP>(&$NSURLConnection$init$));
     }
+
+    $NSUserDefaults = objc_getClass("NSUserDefaults");
+    Method NSUserDefaults$objectForKey$(class_getInstanceMethod($NSUserDefaults, @selector(objectForKey:)));
+    if (NSUserDefaults$objectForKey$ != NULL) {
+        _NSUserDefaults$objectForKey$ = reinterpret_cast<id (*)(NSUserDefaults *, SEL, NSString *)>(method_getImplementation(NSUserDefaults$objectForKey$));
+        method_setImplementation(NSUserDefaults$objectForKey$, reinterpret_cast<IMP>(&$NSUserDefaults$objectForKey$));
+    }
     /* }}} */
     /* Set Locale {{{ */
     Locale_ = CFLocaleCopyCurrent();
@@ -10610,6 +10641,11 @@ int main(int argc, char *argv[]) {
 
     setuid(0);
     setgid(0);
+
+    if (access("/var/mobile/Library/Keyboard/UserDictionary.sqlite", F_OK) == 0)
+        system("mkdir -p /var/root/Library/Keyboard; cp -af /var/mobile/Library/Keyboard/UserDictionary.sqlite /var/root/Library/Keyboard/");
+
+    Cache_ = [[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia", @"/var/root"] retain];
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;
@@ -10765,7 +10801,7 @@ int main(int argc, char *argv[]) {
 
     int version([[NSString stringWithContentsOfFile:@"/var/lib/cydia/firmware.ver"] intValue]);
 
-    if (access("/User", F_OK) != 0 || version != 5) {
+    if (access("/User", F_OK) != 0 || version != 6) {
         _trace();
         system("/usr/libexec/cydia/firmware.sh");
         _trace();
@@ -10822,6 +10858,8 @@ int main(int argc, char *argv[]) {
     //UIKeyboardDisableAutomaticAppearance();
     /* }}} */
 
+    $SBSSetInterceptsMenuButtonForever = reinterpret_cast<void (*)(bool)>(dlsym(RTLD_DEFAULT, "SBSSetInterceptsMenuButtonForever"));
+
     BOOL (*GSSystemHasCapability)(CFStringRef) = reinterpret_cast<BOOL (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemHasCapability"));
     bool fast = GSSystemHasCapability != NULL && GSSystemHasCapability(CFSTR("armv7"));
 
@@ -10833,12 +10871,7 @@ int main(int argc, char *argv[]) {
     Error_ = UCLocalize("ERROR");
     Warning_ = UCLocalize("WARNING");
 
-#if !ForRelease
-    AprilFools_ = true;
-#else
-    CFGregorianDate date(CFAbsoluteTimeGetGregorianDate(CFAbsoluteTimeGetCurrent(), CFTimeZoneCopySystem()));
-    AprilFools_ = date.month == 4 && date.day == 1;
-#endif
+    AprilFools_ = false;
 
     _trace();
     int value(UIApplicationMain(argc, argv, @"Cydia", @"Cydia"));

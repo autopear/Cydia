@@ -19,9 +19,6 @@
     <key>com.apple.springboard.launchapplications</key>
     <true/>
 
-    <key>com.apple.springboard.opensensitiveurl</key>
-    <true/>
-
     <key>keychain-access-groups</key>
     <array>
         <string>com.apple.cfnetwork</string>

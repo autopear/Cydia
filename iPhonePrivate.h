@@ -6,6 +6,7 @@
 #include <UIKit/UIKit.h>
 // }}}
 // #import <*> {{{
+#import <WebKit/DOMHTMLIFrameElement.h>
 #import <WebKit/WebFrame.h>
 #import <WebKit/WebPreferences.h>
 // }}}
@@ -411,6 +412,10 @@ extern float const UIScrollViewDecelerationRateNormal;
 
 @interface UIScreen (iOS_4_0)
 @property(nonatomic,readonly) CGFloat scale;
+@end
+
+@interface DOMHTMLIFrameElement (IDL)
+- (WebFrame *) contentFrame;
 @end
 
 // extern *; {{{

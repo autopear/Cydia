@@ -1,4 +1,4 @@
-dev := /Developer/Platforms/iPhoneOS.platform/Developer
+dev := $(shell xcode-select --print-path)/Platforms/iPhoneOS.platform/Developer
 sdks := $(dev)/SDKs
 ioss := $(sort $(patsubst $(sdks)/iPhoneOS%.sdk,%,$(wildcard $(sdks)/iPhoneOS*.sdk)))
 ios := $(word $(words $(ioss)),$(ioss))
@@ -128,7 +128,7 @@ Objects/%.o: %.mm $(header)
 	@echo "[cycc] $<"
 	@$(cycc) -c $< $(flags) $(xflags)
 
-Objects/Version.o: version.h
+Objects/Version.o: Version.h
 
 Images/%.png: %.png
 	@mkdir -p $(dir $@)
@@ -161,7 +161,7 @@ postinst: postinst.mm Sources.mm Sources.h CyteKit/stringWithUTF8Bytes.mm CyteKi
 	$(cycc) $(filter %.mm,$^) $(flags) $(link) -framework CoreFoundation -framework Foundation -framework UIKit -lpcre
 	@ldid -T0 -S $@
 
-debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion $(images) $(shell find MobileCydia.app) cydia.control Library/firmware.sh
+debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion $(images) $(shell find MobileCydia.app) cydia.control Library/firmware.sh Library/startup
 	sudo rm -rf _
 	mkdir -p _/var/lib/cydia
 	

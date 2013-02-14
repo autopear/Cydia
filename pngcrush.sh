@@ -16,7 +16,7 @@ function step() {
     steps+=($(stat -f "%z" "${src}"))
 }
 
-pngcrush=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush
+pngcrush=$(xcode-select --print-path)/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush
 
 if grep CgBI "${png}" &>/dev/null; then
     if [[ ${png} != ${out} ]]; then

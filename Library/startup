@@ -10,7 +10,7 @@ fi
 
 debs=(/var/root/Media/Cydia/AutoInstall/*.deb)
 if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
-    dpkg -i "${debs[@]}"
+    dpkg -i "${debs[@]}" 2>/tmp/dpkg.log 1>&2
     rm -f "${debs[@]}"
     cache=
 
@@ -18,5 +18,6 @@ if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
 fi
 
 if [[ ${cache+@} ]]; then
+    sbdidlaunch
     su -c uicache mobile
 fi

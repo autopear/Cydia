@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2011  Jay Freeman (saurik)
+ * Copyright (C) 2008-2012  Jay Freeman (saurik)
 */
 
 /* Modified BSD License {{{ */
@@ -44,8 +44,11 @@
     _transient volatile id delegate_;
 }
 
+- (id) delegate;
 - (void) setDelegate:(id)delegate;
+
 - (id) initWithDelegate:(id)delegate;
+
 @end
 
 #endif//CyteKit_IndirectDelegate_H

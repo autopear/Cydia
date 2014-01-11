@@ -1,40 +1,22 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2012  Jay Freeman (saurik)
+ * Copyright (C) 2008-2013  Jay Freeman (saurik)
 */
 
-/* Modified BSD License {{{ */
+/* GNU General Public License, Version 3 {{{ */
 /*
- *        Redistribution and use in source and binary
- * forms, with or without modification, are permitted
- * provided that the following conditions are met:
+ * Cydia is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published
+ * by the Free Software Foundation, either version 3 of the License,
+ * or (at your option) any later version.
  *
- * 1. Redistributions of source code must retain the
- *    above copyright notice, this list of conditions
- *    and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the
- *    above copyright notice, this list of conditions
- *    and the following disclaimer in the documentation
- *    and/or other materials provided with the
- *    distribution.
- * 3. The name of the author may not be used to endorse
- *    or promote products derived from this software
- *    without specific prior written permission.
+ * Cydia is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS''
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
- * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * You should have received a copy of the GNU General Public License
+ * along with Cydia.  If not, see <http://www.gnu.org/licenses/>.
+**/
 /* }}} */
 
 // XXX: wtf/FastMalloc.h... wtf?
@@ -266,6 +248,15 @@ static NSString *Cache_;
 static bool AprilFools_;
 
 static void (*$SBSSetInterceptsMenuButtonForever)(bool);
+
+static CFStringRef (*$MGCopyAnswer)(CFStringRef);
+
+static NSString *UniqueIdentifier(UIDevice *device = nil) {
+    if (kCFCoreFoundationVersionNumber < 800) // iOS 7.x
+        return [device ?: [UIDevice currentDevice] uniqueIdentifier];
+    else
+        return [(id)$MGCopyAnswer(CFSTR("UniqueDeviceID")) autorelease];
+}
 
 static bool IsReachable(const char *name) {
     SCNetworkReachabilityFlags flags; {
@@ -698,6 +689,7 @@ static bool Queuing_;
 static CYColor Blue_;
 static CYColor Blueish_;
 static CYColor Black_;
+static CYColor Folder_;
 static CYColor Off_;
 static CYColor White_;
 static CYColor Gray_;
@@ -716,6 +708,7 @@ static BOOL Ignored_;
 static _H<UIFont> Font12_;
 static _H<UIFont> Font12Bold_;
 static _H<UIFont> Font14_;
+static _H<UIFont> Font18_;
 static _H<UIFont> Font18Bold_;
 static _H<UIFont> Font22Bold_;
 
@@ -725,7 +718,7 @@ static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
 static NSString *BBSNum_ = nil;
 static _H<NSString> Token_;
-static NSString *UniqueID_ = nil;
+static _H<NSString> UniqueID_;
 static _H<NSString> UserAgent_;
 static _H<NSString> Product_;
 static _H<NSString> Safari_;
@@ -1855,11 +1848,8 @@ struct ParsedPackage {
 
     CYString depiction_;
     CYString homepage_;
-
-    CYString sponsor_;
     CYString author_;
 
-    CYString bugs_;
     CYString support_;
 };
 
@@ -2129,6 +2119,8 @@ struct PackageNameOrdering :
         return @"clear";
     else if (selector == @selector(getField:))
         return @"getField";
+    else if (selector == @selector(getRecord))
+        return @"getRecord";
     else if (selector == @selector(hasTag:))
         return @"hasTag";
     else if (selector == @selector(install))
@@ -2170,7 +2162,6 @@ struct PackageNameOrdering :
         @"simpleSection",
         @"size",
         @"source",
-        @"sponsor",
         @"state",
         @"support",
         @"tags",
@@ -2214,6 +2205,19 @@ struct PackageNameOrdering :
     return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
 } }
 
+- (NSString *) getRecord {
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return nil;
+
+    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
+
+    const char *start, *end;
+    parser.GetRec(start, end);
+
+    return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
+} }
+
 - (void) parse {
     if (parsed_ != NULL)
         return;
@@ -2231,6 +2235,7 @@ struct PackageNameOrdering :
             parser = &[database_ records]->Lookup(file_);
         _end
 
+        CYString bugs;
         CYString website;
 
         _profile(Package$parse$Find)
@@ -2243,9 +2248,8 @@ struct PackageNameOrdering :
                 {"depiction", &parsed->depiction_},
                 {"homepage", &parsed->homepage_},
                 {"website", &website},
-                {"bugs", &parsed->bugs_},
+                {"bugs", &bugs},
                 {"support", &parsed->support_},
-                {"sponsor", &parsed->sponsor_},
                 {"author", &parsed->author_},
                 {"md5sum", &parsed->md5sum_},
             };
@@ -2279,6 +2283,8 @@ struct PackageNameOrdering :
                 parsed->homepage_ = website;
             if (parsed->homepage_ == parsed->depiction_)
                 parsed->homepage_.clear();
+            if (parsed->support_.empty())
+                parsed->support_ = bugs;
         _end
     _end
 } }
@@ -2741,16 +2747,12 @@ struct PackageNameOrdering :
     return parsed_ != NULL && !parsed_->depiction_.empty() ? parsed_->depiction_ : [[self source] depictionForPackage:id_];
 }
 
-- (MIMEAddress *) sponsor {
-    return parsed_ == NULL || parsed_->sponsor_.empty() ? nil : [MIMEAddress addressWithString:parsed_->sponsor_];
-}
-
 - (MIMEAddress *) author {
     return parsed_ == NULL || parsed_->author_.empty() ? nil : [MIMEAddress addressWithString:parsed_->author_];
 }
 
 - (NSString *) support {
-    return parsed_ != NULL && !parsed_->bugs_.empty() ? parsed_->bugs_ : [[self source] supportForPackage:id_];
+    return parsed_ != NULL && !parsed_->support_.empty() ? parsed_->support_ : [[self source] supportForPackage:id_];
 }
 
 - (NSArray *) files {
@@ -4059,7 +4061,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSString *) device {
-    return [[UIDevice currentDevice] uniqueIdentifier];
+    return UniqueIdentifier();
 }
 
 - (NSString *) firmware {
@@ -4140,6 +4142,8 @@ static _H<NSMutableSet> Diversions_;
         return @"format";
     else if (selector == @selector(getAllSources))
         return @"getAllSources";
+    else if (selector == @selector(getApplicationInfo:value:))
+        return @"getApplicationInfoValue";
     else if (selector == @selector(getKernelNumber:))
         return @"getKernelNumber";
     else if (selector == @selector(getKernelString:))
@@ -4246,6 +4250,16 @@ static _H<NSMutableSet> Diversions_;
 
 - (void) addInternalRedirect:(NSString *)from :(NSString *)to {
     [CydiaWebViewController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
+}
+
+- (NSDictionary *) getApplicationInfo:(NSString *)display value:(NSString *)key {
+    char path[1024];
+    if (SBBundlePathForDisplayIdentifier(SBSSpringBoardServerPort(), [display UTF8String], path) != 0)
+        return (id) [NSNull null];
+    NSDictionary *info([NSDictionary dictionaryWithContentsOfFile:[[NSString stringWithUTF8String:path] stringByAppendingString:@"/Info.plist"]]);
+    if (info == nil)
+        return (id) [NSNull null];
+    return [info objectForKey:key];
 }
 
 - (NSNumber *) getKernelNumber:(NSString *)name {
@@ -5296,6 +5310,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     pid_t pid(ExecFork());
     if (pid == 0) {
+        if (setsid() == -1)
+            perror("setsid");
+
         pid_t pid(ExecFork());
         if (pid == 0) {
             execl("/usr/bin/sbreload", "sbreload", NULL);
@@ -5575,14 +5592,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if (NSString *name = [package name])
             name_ = [NSString stringWithString:name];
 
-        NSString *description(nil);
-
-        if (description == nil && IsWildcat_)
-            description = [package longDescription];
-        if (description == nil)
-            description = [package shortDescription];
-
-        if (description != nil)
+        if (NSString *description = [package shortDescription])
             description_ = [NSString stringWithString:description];
 
         commercial_ = [package isCommercial];
@@ -5617,14 +5627,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         if (NSString *mode = [package mode]) {
             if ([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) {
                 color = RemovingColor_;
-                //placard = @"removing";
+                placard = @"removing";
             } else {
                 color = InstallingColor_;
-                //placard = @"installing";
+                placard = @"installing";
             }
-
-            // XXX: the removing/installing placards are not @2x
-            placard = nil;
         } else {
             color = [UIColor whiteColor];
 
@@ -5657,8 +5664,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             rect.size.height /= 2;
         }
 
-        rect.origin.x = 18 - rect.size.width / 2;
-        rect.origin.y = 18 - rect.size.height / 2;
+        rect.origin.x = 19 - rect.size.width / 2;
+        rect.origin.y = 19 - rect.size.height / 2;
 
         [icon_ drawInRect:rect];
     }
@@ -5670,13 +5677,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         rect.size.width /= 4;
         rect.size.height /= 4;
 
-        rect.origin.x = 23 - rect.size.width / 2;
-        rect.origin.y = 23 - rect.size.height / 2;
+        rect.origin.x = 25 - rect.size.width / 2;
+        rect.origin.y = 25 - rect.size.height / 2;
 
         [badge_ drawInRect:rect];
     }
 
-    if (highlighted)
+    if (highlighted && kCFCoreFoundationVersionNumber < 800)
         UISetColor(White_);
 
     if (!highlighted)
@@ -5684,7 +5691,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [name_ drawAtPoint:CGPointMake(36, 8) forWidth:(width - (placard_ == nil ? 68 : 94)) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (placard_ != nil)
-        [placard_ drawAtPoint:CGPointMake(width - 52, 9)];
+        [placard_ drawAtPoint:CGPointMake(width - 52, 11)];
 }
 
 - (void) drawNormalContentRect:(CGRect)rect {
@@ -5719,7 +5726,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [badge_ drawInRect:rect];
     }
 
-    if (highlighted)
+    if (highlighted && kCFCoreFoundationVersionNumber < 800)
         UISetColor(White_);
 
     if (!highlighted)
@@ -5766,6 +5773,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
         icon_ = [UIImage applicationImageNamed:@"folder.png"];
+        // XXX: this initial frame is wrong, but is fixed later
         switch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)] autorelease];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
 
@@ -5830,7 +5838,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super setFrame:frame];
 
     CGRect rect([switch_ frame]);
-    [switch_ setFrame:CGRectMake(frame.size.width - 102, 9, rect.size.width, rect.size.height)];
+    [switch_ setFrame:CGRectMake(frame.size.width - rect.size.width - 9, 9, rect.size.width, rect.size.height)];
 }
 
 - (NSString *) accessibilityLabel {
@@ -5840,24 +5848,24 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) drawContentRect:(CGRect)rect {
     bool highlighted(highlighted_ && !editing_);
 
-    [icon_ drawInRect:CGRectMake(8, 7, 32, 32)];
+    [icon_ drawInRect:CGRectMake(7, 7, 32, 32)];
 
-    if (highlighted)
+    if (highlighted && kCFCoreFoundationVersionNumber < 800)
         UISetColor(White_);
 
     float width(rect.size.width);
     if (editing_)
-        width -= 87;
+        width -= 9 + [switch_ frame].size.width;
 
     if (!highlighted)
         UISetColor(Black_);
-    [name_ drawAtPoint:CGPointMake(48, 9) forWidth:(width - 70) withFont:Font22Bold_ lineBreakMode:UILineBreakModeTailTruncation];
+    [name_ drawAtPoint:CGPointMake(48, 12) forWidth:(width - 58) withFont:Font18_ lineBreakMode:UILineBreakModeTailTruncation];
 
     CGSize size = [count_ sizeWithFont:Font14_];
 
-    UISetColor(White_);
+    UISetColor(Folder_);
     if (count_ != nil)
-        [count_ drawAtPoint:CGPointMake(13 + (29 - size.width) / 2, 16) withFont:Font12Bold_];
+        [count_ drawAtPoint:CGPointMake(10 + (30 - size.width) / 2, 18) withFont:Font12Bold_];
 }
 
 @end
@@ -6676,7 +6684,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [alert setCancelButtonIndex:0];
 
     [alert setMessage:
-        @"Copyright \u00a9 2008-2012\n"
+        @"Copyright \u00a9 2008-2013\n"
         "SaurikIT, LLC\n"
         "\n"
         "Jay Freeman (saurik)\n"
@@ -7090,10 +7098,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (UIView *) transitionView {
-    if ([self respondsToSelector:@selector(_transitionView)])
+    if (![self respondsToSelector:@selector(_transitionView)])
+        return MSHookIvar<id>(self, "_viewControllerTransitionView");
+    else if (kCFCoreFoundationVersionNumber < 800)
         return [self _transitionView];
     else
-        return MSHookIvar<id>(self, "_viewControllerTransitionView");
+        return [[[self _transitionView] superview] superview];
 }
 
 - (void) dropBar:(BOOL)animated {
@@ -7106,23 +7116,31 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     CGRect barframe([refreshbar_ frame]);
 
-    if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
+    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
+        barframe.origin.y = 0;
+    else if (kCFCoreFoundationVersionNumber < 800)
         barframe.origin.y = CYStatusBarHeight();
     else
-        barframe.origin.y = 0;
+        barframe.origin.y = 0; //-barframe.size.height + CYStatusBarHeight();
 
     [refreshbar_ setFrame:barframe];
 
+    CGRect viewframe = [transition frame];
+
+if (kCFCoreFoundationVersionNumber < 800) {
     if (animated)
         [UIView beginAnimations:nil context:NULL];
 
-    CGRect viewframe = [transition frame];
-    viewframe.origin.y += barframe.size.height;
-    viewframe.size.height -= barframe.size.height;
+    float adjust(barframe.size.height);
+    if (kCFCoreFoundationVersionNumber >= 800)
+        adjust -= CYStatusBarHeight();
+    viewframe.origin.y += adjust;
+    viewframe.size.height -= adjust;
     [transition setFrame:viewframe];
 
     if (animated)
         [UIView commitAnimations];
+}
 
     // Ensure bar has the proper width for our view, it might have changed
     barframe.size.width = viewframe.size.width;
@@ -7139,16 +7157,21 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     CGRect barframe([refreshbar_ frame]);
 
+if (kCFCoreFoundationVersionNumber < 800) {
     if (animated)
         [UIView beginAnimations:nil context:NULL];
 
     CGRect viewframe = [transition frame];
-    viewframe.origin.y -= barframe.size.height;
-    viewframe.size.height += barframe.size.height;
+    float adjust(barframe.size.height);
+    if (kCFCoreFoundationVersionNumber >= 800)
+        adjust -= CYStatusBarHeight();
+    viewframe.origin.y -= adjust;
+    viewframe.size.height += adjust;
     [transition setFrame:viewframe];
 
     if (animated)
         [UIView commitAnimations];
+}
 }
 
 - (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
@@ -7572,7 +7595,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) loadView {
     list_ = [[[UITableView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease];
     [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [list_ setRowHeight:45.0f];
+    [list_ setRowHeight:46];
     [(UITableView *) list_ setDataSource:self];
     [list_ setDelegate:self];
     [self setView:list_];
@@ -8494,22 +8517,22 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
             rect.size.height /= 2;
         }
 
-        rect.origin.x = 25 - rect.size.width / 2;
-        rect.origin.y = 25 - rect.size.height / 2;
+        rect.origin.x = 26 - rect.size.width / 2;
+        rect.origin.y = 26 - rect.size.height / 2;
 
         [icon_ drawInRect:rect];
     }
 
-    if (highlighted)
+    if (highlighted && kCFCoreFoundationVersionNumber < 800)
         UISetColor(White_);
 
     if (!highlighted)
         UISetColor(Black_);
-    [origin_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - 65) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
+    [origin_ drawAtPoint:CGPointMake(52, 8) forWidth:(width - 61) withFont:Font18Bold_ lineBreakMode:UILineBreakModeTailTruncation];
 
     if (!highlighted)
         UISetColor(Gray_);
-    [label_ drawAtPoint:CGPointMake(48, 29) forWidth:(width - 65) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
+    [label_ drawAtPoint:CGPointMake(52, 29) forWidth:(width - 61) withFont:Font12_ lineBreakMode:UILineBreakModeTailTruncation];
 }
 
 @end
@@ -8667,6 +8690,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         if (source == nil) return;
 
         [Sources_ removeObjectForKey:[source key]];
+        Changed_ = true;
+
         [delegate_ _saveConfig];
         [delegate_ reloadDataWithInvocation:nil];
     }
@@ -9554,6 +9579,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         return;
 
     [window_ addSubview:[tabbar_ view]];
+    if ([window_ respondsToSelector:@selector(setRootViewController:)])
+        [window_ setRootViewController:tabbar_];
     [[emulated_ view] removeFromSuperview];
     emulated_ = nil;
     [window_ setUserInteractionEnabled:YES];
@@ -10118,18 +10145,35 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) setupViewControllers {
     tabbar_ = [[[CYTabBarController alloc] initWithDatabase:database_] autorelease];
 
-    NSMutableArray *items([NSMutableArray arrayWithObjects:
-        [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:0] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:(AprilFools_ ? @"Timeline" : UCLocalize("CHANGES")) image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
-        [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:0] autorelease],
-    nil]);
+    NSMutableArray *items;
+    if (kCFCoreFoundationVersionNumber < 800) {
+        items = [NSMutableArray arrayWithObjects:
+            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:(AprilFools_ ? @"Timeline" : UCLocalize("CHANGES")) image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:0] autorelease],
+        nil];
 
-    if (IsWildcat_) {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:0] autorelease] atIndex:3];
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
+        if (IsWildcat_) {
+            [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source.png"] tag:0] autorelease] atIndex:3];
+            [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
+        } else {
+            [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
+        }
     } else {
-        [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease] atIndex:3];
+        items = [NSMutableArray arrayWithObjects:
+            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home7.png"] selectedImage:[UIImage applicationImageNamed:@"home7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SECTIONS") image:[UIImage applicationImageNamed:@"install7.png"] selectedImage:[UIImage applicationImageNamed:@"install7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:(AprilFools_ ? @"Timeline" : UCLocalize("CHANGES")) image:[UIImage applicationImageNamed:@"changes7.png"] selectedImage:[UIImage applicationImageNamed:@"changes7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search7.png"] selectedImage:[UIImage applicationImageNamed:@"search7s.png"]] autorelease],
+        nil];
+
+        if (IsWildcat_) {
+            [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"source7.png"] selectedImage:[UIImage applicationImageNamed:@"source7s.png"]] autorelease] atIndex:3];
+            [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage7.png"] selectedImage:[UIImage applicationImageNamed:@"manage7s.png"]] autorelease] atIndex:3];
+        } else {
+            [items insertObject:[[[UITabBarItem alloc] initWithTitle:UCLocalize("MANAGE") image:[UIImage applicationImageNamed:@"manage7.png"] selectedImage:[UIImage applicationImageNamed:@"manage7s.png"]] autorelease] atIndex:3];
+        }
     }
 
     NSMutableArray *controllers([NSMutableArray array]);
@@ -10190,6 +10234,7 @@ _trace();
     Font12_ = [UIFont systemFontOfSize:12];
     Font12Bold_ = [UIFont boldSystemFontOfSize:12];
     Font14_ = [UIFont systemFontOfSize:14];
+    Font18_ = [UIFont systemFontOfSize:18];
     Font18Bold_ = [UIFont boldSystemFontOfSize:18];
     Font22Bold_ = [UIFont boldSystemFontOfSize:22];
 
@@ -10235,7 +10280,6 @@ _trace();
     //Stash_("/usr/bin");
     Stash_("/usr/include");
     Stash_("/usr/lib/pam");
-    Stash_("/usr/libexec");
     Stash_("/usr/share");
     //Stash_("/var/lib");
 
@@ -10247,6 +10291,8 @@ _trace();
 
     emulated_ = [[[CydiaLoadingViewController alloc] init] autorelease];
     [window_ addSubview:[emulated_ view]];
+    if ([window_ respondsToSelector:@selector(setRootViewController:)])
+        [window_ setRootViewController:emulated_];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -10489,12 +10535,6 @@ int main(int argc, char *argv[]) {
 
     UpdateExternalStatus(0);
 
-    if (Class $UIDevice = objc_getClass("UIDevice")) {
-        UIDevice *device([$UIDevice currentDevice]);
-        IsWildcat_ = [device respondsToSelector:@selector(isWildcat)] && [device isWildcat];
-    } else
-        IsWildcat_ = false;
-
     UIScreen *screen([UIScreen mainScreen]);
     if ([screen respondsToSelector:@selector(scale)])
         ScreenScale_ = [screen scale];
@@ -10502,17 +10542,13 @@ int main(int argc, char *argv[]) {
         ScreenScale_ = 1;
 
     UIDevice *device([UIDevice currentDevice]);
-    if (![device respondsToSelector:@selector(userInterfaceIdiom)])
-        Idiom_ = @"iphone";
-    else {
+    if ([device respondsToSelector:@selector(userInterfaceIdiom)]) {
         UIUserInterfaceIdiom idiom([device userInterfaceIdiom]);
-        if (idiom == UIUserInterfaceIdiomPhone)
-            Idiom_ = @"iphone";
-        else if (idiom == UIUserInterfaceIdiomPad)
-            Idiom_ = @"ipad";
-        else
-            NSLog(@"unknown UIUserInterfaceIdiom!");
+        if (idiom == UIUserInterfaceIdiomPad)
+            IsWildcat_ = true;
     }
+
+    Idiom_ = IsWildcat_ ? @"ipad" : @"iphone";
 
     Pcre pattern("^([0-9]+\\.[0-9]+)");
 
@@ -10655,6 +10691,9 @@ int main(int argc, char *argv[]) {
     dealloc_ = dealloc->method_imp;
     dealloc->method_imp = (IMP) &Dealloc_;*/
 
+    void *gestalt(dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_GLOBAL | RTLD_LAZY));
+    $MGCopyAnswer = reinterpret_cast<CFStringRef (*)(CFStringRef)>(dlsym(gestalt, "MGCopyAnswer"));
+
     /* System Information {{{ */
     size_t size;
 
@@ -10686,7 +10725,7 @@ int main(int argc, char *argv[]) {
     ChipID_ = [CYHex((NSData *) CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true) uppercaseString];
     BBSNum_ = CYHex((NSData *) CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
 
-    UniqueID_ = [device uniqueIdentifier];
+    UniqueID_ = UniqueIdentifier(device);
 
     if (NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"]) {
         Product_ = [info objectForKey:@"SafariProductVersion"];
@@ -10839,6 +10878,7 @@ int main(int argc, char *argv[]) {
     Blue_.Set(space_, 0.2, 0.2, 1.0, 1.0);
     Blueish_.Set(space_, 0x19/255.f, 0x32/255.f, 0x50/255.f, 1.0);
     Black_.Set(space_, 0.0, 0.0, 0.0, 1.0);
+    Folder_.Set(space_, 0x8e/255.f, 0x8e/255.f, 0x93/255.f, 1.0);
     Off_.Set(space_, 0.9, 0.9, 0.9, 1.0);
     White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
     Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);
@@ -10850,17 +10890,14 @@ int main(int argc, char *argv[]) {
     RemovingColor_ = [UIColor colorWithRed:1.00f green:0.88f blue:0.88f alpha:1.00f];
     /* }}}*/
     /* UIKit Configuration {{{ */
-    void (*$GSFontSetUseLegacyFontMetrics)(BOOL)(reinterpret_cast<void (*)(BOOL)>(dlsym(RTLD_DEFAULT, "GSFontSetUseLegacyFontMetrics")));
-    if ($GSFontSetUseLegacyFontMetrics != NULL)
-        $GSFontSetUseLegacyFontMetrics(YES);
-
     // XXX: I have a feeling this was important
     //UIKeyboardDisableAutomaticAppearance();
     /* }}} */
 
     $SBSSetInterceptsMenuButtonForever = reinterpret_cast<void (*)(bool)>(dlsym(RTLD_DEFAULT, "SBSSetInterceptsMenuButtonForever"));
 
-    BOOL (*GSSystemHasCapability)(CFStringRef) = reinterpret_cast<BOOL (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "GSSystemHasCapability"));
+    const char *symbol(kCFCoreFoundationVersionNumber >= 800 ? "MGGetBoolAnswer" : "GSSystemHasCapability");
+    BOOL (*GSSystemHasCapability)(CFStringRef) = reinterpret_cast<BOOL (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, symbol));
     bool fast = GSSystemHasCapability != NULL && GSSystemHasCapability(CFSTR("armv7"));
 
     ShowPromoted_ = fast;

@@ -38,6 +38,8 @@ extern NSString * const kCAFilterNearest;
 
 #define lprintf(args...) fprintf(stderr, args)
 
+JSValueRef (*$JSObjectCallAsFunction)(JSContextRef, JSObjectRef, JSObjectRef, size_t, const JSValueRef[], JSValueRef *);
+
 // XXX: centralize these special class things to some file or mechanism?
 static Class $MFMailComposeViewController;
 
@@ -137,6 +139,14 @@ float CYScrollViewDecelerationRateNormal;
 
 + (void) _initialize {
     [WebPreferences _setInitialDefaultTextEncodingToSystemEncoding];
+
+    void *js(NULL);
+    if (js == NULL)
+        js = dlopen("/System/Library/Frameworks/JavaScriptCore.framework/JavaScriptCore", RTLD_GLOBAL | RTLD_LAZY);
+    if (js == NULL)
+        js = dlopen("/System/Library/PrivateFrameworks/JavaScriptCore.framework/JavaScriptCore", RTLD_GLOBAL | RTLD_LAZY);
+    if (js != NULL)
+        $JSObjectCallAsFunction = reinterpret_cast<JSValueRef (*)(JSContextRef, JSObjectRef, JSObjectRef, size_t, const JSValueRef[], JSValueRef *)>(dlsym(js, "JSObjectCallAsFunction"));
 
     dlopen("/System/Library/Frameworks/MessageUI.framework/MessageUI", RTLD_GLOBAL | RTLD_LAZY);
     $MFMailComposeViewController = objc_getClass("MFMailComposeViewController");
@@ -413,6 +423,7 @@ float CYScrollViewDecelerationRateNormal;
     }
 
     [page setDelegate:delegate_];
+    [page setPageColor:color_];
 
     if (!pop) {
         [[self navigationItem] setTitle:title_];
@@ -568,9 +579,7 @@ float CYScrollViewDecelerationRateNormal;
                             float blue([[rgb blue] getFloatValue:DOM_CSS_NUMBER]);
                             float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
 
-                            if (red == 0xc7 && green == 0xce && blue == 0xd5)
-                                uic = [UIColor pinStripeColor];
-                            else if (alpha != 0)
+                            if (alpha == 1)
                                 uic = [UIColor
                                     colorWithRed:(red / 255)
                                     green:(green / 255)
@@ -580,7 +589,8 @@ float CYScrollViewDecelerationRateNormal;
                         }
                     }
 
-                    [scroller_ setBackgroundColor:(uic ?: [UIColor clearColor])];
+                    [self setPageColor:uic];
+                    [scroller_ setBackgroundColor:color_];
                     break;
                 }
     }
@@ -826,6 +836,8 @@ float CYScrollViewDecelerationRateNormal;
         width_ = width;
         class_ = _class;
 
+        [self setPageColor:nil];
+
         allowsNavigationAction_ = true;
 
         loading_ = [NSMutableSet setWithCapacity:5];
@@ -840,14 +852,24 @@ float CYScrollViewDecelerationRateNormal;
         ] autorelease];
 
         loadingitem_ = [[[UIBarButtonItem alloc]
-            initWithTitle:@" "
+            initWithTitle:(kCFCoreFoundationVersionNumber >= 800 ? @"       " : @" ")
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(reloadButtonClicked)
         ] autorelease];
 
-        indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite] autorelease];
-        [indicator_ setFrame:CGRectMake(15, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
+        UIActivityIndicatorViewStyle style;
+        float left;
+        if (kCFCoreFoundationVersionNumber >= 800) {
+            style = UIActivityIndicatorViewStyleGray;
+            left = 7;
+        } else {
+            style = UIActivityIndicatorViewStyleWhite;
+            left = 15;
+        }
+
+        indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:style] autorelease];
+        [indicator_ setFrame:CGRectMake(left, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
 
         [self applyLeftButton];
@@ -877,11 +899,6 @@ float CYScrollViewDecelerationRateNormal;
 
     // XXX: I think this improves scrolling; the hardcoded-ness sucks
     [document setTileSize:CGSizeMake(320, 500)];
-
-    [document setBackgroundColor:[UIColor clearColor]];
-
-    // XXX: this is terribly (too?) expensive
-    [document setDrawsBackground:NO];
 
     WebView *webview([document webView]);
     WebPreferences *preferences([webview preferences]);
@@ -937,8 +954,11 @@ float CYScrollViewDecelerationRateNormal;
         //[scroller setAllowsRubberBanding:YES];
     }
 
+    [webview_ setOpaque:NO];
+    [webview_ setBackgroundColor:color_];
+
     [scroller_ setFixedBackgroundPattern:YES];
-    [scroller_ setBackgroundColor:[UIColor clearColor]];
+    [scroller_ setBackgroundColor:color_];
     [scroller_ setClipsSubviews:YES];
 
     [scroller_ setBounces:YES];
@@ -947,11 +967,6 @@ float CYScrollViewDecelerationRateNormal;
 
     [self setViewportWidth:width_];
 
-    UITableView *table([[[UITableView alloc] initWithFrame:[webview_ bounds] style:UITableViewStyleGrouped] autorelease]);
-    [table setScrollsToTop:NO];
-    [webview_ insertSubview:table atIndex:0];
-
-    [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     ready_ = false;
@@ -994,7 +1009,8 @@ float CYScrollViewDecelerationRateNormal;
 
     JSGlobalContextRef context([frame globalContext]);
     JSObjectRef object([function JSObject]);
-    JSObjectCallAsFunction(context, object, NULL, 0, NULL, NULL);
+    if ($JSObjectCallAsFunction != NULL)
+        ($JSObjectCallAsFunction)(context, object, NULL, 0, NULL, NULL);
 }
 
 - (void) reloadButtonClicked {

@@ -246,10 +246,6 @@ typedef enum {
 - (void) addTarget:(id)target action:(SEL)action forEvents:(NSInteger)events;
 @end
 
-@interface UIDevice (Apple)
-- (BOOL) isWildcat;
-@end
-
 @interface UIImage (Apple)
 + (UIImage *) applicationImageNamed:(NSString *)name;
 + (UIImage *) imageAtPath:(NSString *)path;
@@ -410,6 +406,10 @@ extern float const UIScrollViewDecelerationRateNormal;
 #define kCFCoreFoundationVersionNumber_iPhoneOS_4_0 550.32
 #endif
 
+@interface UITabBarItem (iOS_7_0)
+- (id) initWithTitle:(NSString *)title image:(UIImage *)image selectedImage:(UIImage *)selectedImage;
+@end
+
 @interface UIScreen (iOS_4_0)
 @property(nonatomic,readonly) CGFloat scale;
 @end
@@ -417,6 +417,17 @@ extern float const UIScrollViewDecelerationRateNormal;
 @interface DOMHTMLIFrameElement (IDL)
 - (WebFrame *) contentFrame;
 @end
+
+typedef enum {
+    UIInterfaceOrientationMaskPortrait = (1 << UIInterfaceOrientationPortrait),
+    UIInterfaceOrientationMaskLandscapeLeft = (1 << UIInterfaceOrientationLandscapeLeft),
+    UIInterfaceOrientationMaskLandscapeRight = (1 << UIInterfaceOrientationLandscapeRight),
+    UIInterfaceOrientationMaskPortraitUpsideDown = (1 << UIInterfaceOrientationPortraitUpsideDown),
+    UIInterfaceOrientationMaskLandscape = (UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
+    UIInterfaceOrientationMaskAll = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft |
+    UIInterfaceOrientationMaskLandscapeRight | UIInterfaceOrientationMaskPortraitUpsideDown),
+    UIInterfaceOrientationMaskAllButUpsideDown = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
+} UIInterfaceOrientationMask;
 
 // extern *; {{{
 extern CFStringRef const kGSDisplayIdentifiersCapability;
@@ -426,6 +437,7 @@ extern float const UIWebViewScalesToFitScale;
 // extern "C" *(); {{{
 extern "C" void *reboot2(uint64_t flags);
 extern "C" mach_port_t SBSSpringBoardServerPort();
+extern "C" int SBBundlePathForDisplayIdentifier(mach_port_t port, const char *identifier, char *path);
 extern "C" UIImage *_UIImageWithName(NSString *name);
 extern "C" void UISetColor(CGColorRef color);
 // }}}

@@ -8,7 +8,7 @@ shopt -s nullglob
 version=$(sw_vers -productVersion)
 cpu=$(uname -p)
 
-if [[ ${cpu} == arm ]]; then
+if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
     data=/var/lib/dpkg
     model=hw.machine
     arch=iphoneos-arm
@@ -87,7 +87,7 @@ EOF
     fi
 # }}}
 
-    if [[ ${cpu} == arm ]]; then
+    if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
         pseudo "firmware" "${version}" "almost impressive Apple frameworks" "iOS Firmware"
 
         while [[ 1 ]]; do
@@ -115,7 +115,7 @@ EOF
         esac; done
     fi
 
-    if [[ ${cpu} == arm ]]; then
+    if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
         os=ios
     else
         os=macosx
@@ -138,7 +138,7 @@ EOF
 
 mv -f "${status}"{_,}
 
-if [[ ${cpu} == arm ]]; then
+if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
     if [[ ! -h /User && -d /User ]]; then
         cp -afT /User /var/mobile
     fi && rm -rf /User && ln -s "/var/mobile" /User

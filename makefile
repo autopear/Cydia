@@ -3,6 +3,9 @@ sdks := $(dev)/SDKs
 ioss := $(sort $(patsubst $(sdks)/iPhoneOS%.sdk,%,$(wildcard $(sdks)/iPhoneOS*.sdk)))
 ios := $(word $(words $(ioss)),$(ioss))
 
+# XXX: as of iOS 6.x armv6 is not supported :(
+ios := 5.1
+
 # if you can tolerate clang, set this to blank
 gcc := 4.2
 
@@ -59,7 +62,6 @@ libs += -framework CoreGraphics
 libs += -framework Foundation
 libs += -framework GraphicsServices
 libs += -framework IOKit
-libs += -framework JavaScriptCore
 libs += -framework QuartzCore
 libs += -framework SpringBoardServices
 libs += -framework SystemConfiguration
@@ -142,11 +144,13 @@ sysroot: sysroot.sh
 
 MobileCydia: sysroot $(object) entitlements.xml
 	@echo "[link] $(object:Objects/%=%)"
-	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(libs) $(uikit)
+	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(libs) $(uikit) -Wl,-sdk_version,7.0
 	@mkdir -p bins
 	@cp -a $@ bins/$@-$(version)
 	@echo "[strp] $@"
 	@strip -no_uuid $@
+	@echo "[uikt] $@"
+	@./uikit.sh $@
 	@echo "[sign] $@"
 	@ldid -T0 -Sentitlements.xml $@ || { rm -f $@ && false; }
 

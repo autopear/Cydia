@@ -102,6 +102,54 @@
 
     <key>UIApplicationExitsOnSuspend</key>
     <true/>
+
+    <key>UILaunchImages</key>
+    <array>
+        <dict>
+            <key>UILaunchImageName</key>
+            <string>iOS7-Default</string>
+            <key>UILaunchImageMinimumOSVersion</key>
+            <string>7.0</string>
+            <key>UILaunchImageOrientation</key>
+            <string>Portrait</string>
+            <key>UILaunchImageSize</key>
+            <string>{320, 480}</string>
+        </dict>
+        <dict>
+            <key>UILaunchImageName</key>
+            <string>iOS7-Default</string>
+            <key>UILaunchImageMinimumOSVersion</key>
+            <string>7.0</string>
+            <key>UILaunchImageOrientation</key>
+            <string>Portrait</string>
+            <key>UILaunchImageSize</key>
+            <string>{320, 568}</string>
+        </dict>
+    </array>
+
+    <key>UILaunchImages~ipad</key>
+    <array>
+        <dict>
+            <key>UILaunchImageName</key>
+            <string>iOS7-Default-Portrait</string>
+            <key>UILaunchImageMinimumOSVersion</key>
+            <string>7.0</string>
+            <key>UILaunchImageOrientation</key>
+            <string>Portrait</string>
+            <key>UILaunchImageSize</key>
+            <string>{768, 1024}</string>
+        </dict>
+        <dict>
+            <key>UILaunchImageName</key>
+            <string>iOS7-Default-Landscape</string>
+            <key>UILaunchImageMinimumOSVersion</key>
+            <string>7.0</string>
+            <key>UILaunchImageOrientation</key>
+            <string>Landscape</string>
+            <key>UILaunchImageSize</key>
+            <string>{768, 1024}</string>
+        </dict>
+    </array>
 </dict>
 
 </plist>

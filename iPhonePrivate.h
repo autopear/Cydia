@@ -29,14 +29,9 @@ typedef enum {
     UINavigationButtonStyleDestructive
 } UINavigationButtonStyle;
 
-typedef enum {
-    UIProgressIndicatorStyleLargeWhite,
-    UIProgressIndicatorStyleMediumWhite,
-    UIProgressIndicatorStyleMediumBrown,
-    UIProgressIndicatorStyleSmallWhite,
-    UIProgressIndicatorStyleSmallBlack,
-    UIProgressIndicatorStyleTinyWhite,
-} UIProgressIndicatorStyle;
+static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteSmall(static_cast<UIActivityIndicatorViewStyle>(3));
+static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleGraySmall(static_cast<UIActivityIndicatorViewStyle>(4));
+static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(static_cast<UIActivityIndicatorViewStyle>(5));
 // }}}
 // #define * * {{{
 #define UIDataDetectorTypeAutomatic 0x80000000
@@ -70,13 +65,6 @@ typedef enum {
 - (void) hide;
 - (void) setText:(NSString *)text;
 - (void) showInView:(UIView *)view;
-@end
-
-@interface UIProgressIndicator : UIView
-+ (CGSize) defaultSizeForStyle:(NSUInteger)style;
-- (NSUInteger) activityIndicatorViewStyle;
-- (void) setStyle:(UIProgressIndicatorStyle)style;
-- (void) startAnimation;
 @end
 
 @interface UIScroller : UIView
@@ -246,9 +234,18 @@ typedef enum {
 - (void) addTarget:(id)target action:(SEL)action forEvents:(NSInteger)events;
 @end
 
+@interface UIDevice (Apple)
+- (NSString *) uniqueIdentifier;
+@end
+
 @interface UIImage (Apple)
 + (UIImage *) applicationImageNamed:(NSString *)name;
 + (UIImage *) imageAtPath:(NSString *)path;
+@end
+
+@interface UILocalizedIndexedCollation (Apple)
+- (id) initWithDictionary:(NSDictionary *)dictionary;
+- (NSString *) transformedCollationStringForString:(NSString *)string;
 @end
 
 @interface UINavigationBar (Apple)
@@ -273,6 +270,7 @@ typedef enum {
 
 @interface UITabBarItem (Apple)
 - (void) setAnimatedBadge:(BOOL)animated;
+- (UIView *) view;
 @end
 
 @interface UITableViewCell (Apple)
@@ -302,6 +300,7 @@ typedef enum {
 - (void) setValue:(NSValue *)value forGestureAttribute:(NSInteger)attribute;
 - (void) setZoomScale:(float)scale duration:(double)duration;
 - (void) _setZoomScale:(float)scale duration:(double)duration;
+- (void) setOrigin:(CGPoint)origin;
 @end
 
 @interface UIViewController (Apple)
@@ -331,6 +330,8 @@ typedef enum {
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame;
 - (void) webView:(WebView *)view didReceiveTitle:(id)title forFrame:(id)frame;
 - (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame;
+- (void) webView:(WebView *)view resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source;
+- (void) webView:(WebView *)view resource:(id)identifier didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source;
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
 - (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
 - (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
@@ -417,17 +418,6 @@ extern float const UIScrollViewDecelerationRateNormal;
 @interface DOMHTMLIFrameElement (IDL)
 - (WebFrame *) contentFrame;
 @end
-
-typedef enum {
-    UIInterfaceOrientationMaskPortrait = (1 << UIInterfaceOrientationPortrait),
-    UIInterfaceOrientationMaskLandscapeLeft = (1 << UIInterfaceOrientationLandscapeLeft),
-    UIInterfaceOrientationMaskLandscapeRight = (1 << UIInterfaceOrientationLandscapeRight),
-    UIInterfaceOrientationMaskPortraitUpsideDown = (1 << UIInterfaceOrientationPortraitUpsideDown),
-    UIInterfaceOrientationMaskLandscape = (UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
-    UIInterfaceOrientationMaskAll = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft |
-    UIInterfaceOrientationMaskLandscapeRight | UIInterfaceOrientationMaskPortraitUpsideDown),
-    UIInterfaceOrientationMaskAllButUpsideDown = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
-} UIInterfaceOrientationMask;
 
 // extern *; {{{
 extern CFStringRef const kGSDisplayIdentifiersCapability;

@@ -21,14 +21,23 @@ function mv_() {
     src=$1
 
     mkdir -p /var/stash
-    dst=$(mktemp -d /var/stash/"${src##*/}".XXXXXX)
+    tmp=$(mktemp -d /var/stash/_.XXXXXX)
+    dst=${tmp}/${src##*/}
+
+    chmod 755 "${tmp}"
+    chown root.admin "${tmp}"
+
+    mkdir -- "${dst}" || {
+        rmdir -- "${tmp}"
+        exit 1
+    }
 
     if [[ -e ${src} ]]; then
         chmod --reference="${src}" "${dst}"
         chown --reference="${src}" "${dst}"
 
         cp -aT $v "${src}" "${dst}" || {
-            rm -rf "${dst}"
+            rm -rf "${tmp}"
             exit 1
         }
 
@@ -39,6 +48,7 @@ function mv_() {
     fi
 
     ln -s "${dst}" "${src}"
+    echo -n "${src}" >"${tmp}.lnk"
 }
 
 function shift_() {

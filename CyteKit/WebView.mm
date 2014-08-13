@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2013  Jay Freeman (saurik)
+ * Copyright (C) 2008-2014  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -258,6 +258,24 @@ static void $UIWebViewWebViewDelegate$webView$didReceiveTitle$forFrame$(UIWebVie
         [delegate webView:view didStartProvisionalLoadForFrame:frame];
     if ([UIWebView instancesRespondToSelector:@selector(webView:didStartProvisionalLoadForFrame:)])
         [super webView:view didStartProvisionalLoadForFrame:frame];
+}
+// }}}
+// webView:resource:didCancelAuthenticationChallenge:fromDataSource: {{{
+- (void) webView:(WebView *)view resource:(id)identifier didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
+    id<CyteWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView respondsToSelector:@selector(webView:resource:didCancelAuthenticationChallenge:fromDataSource:)])
+        [super webView:view resource:identifier didCancelAuthenticationChallenge:challenge fromDataSource:source];
+    if ([delegate respondsToSelector:@selector(webView:resource:didCancelAuthenticationChallenge:fromDataSource:)])
+        [delegate webView:view resource:identifier didCancelAuthenticationChallenge:challenge fromDataSource:source];
+}
+// }}}
+// webView:resource:didReceiveAuthenticationChallenge:fromDataSource: {{{
+- (void) webView:(WebView *)view resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
+    id<CyteWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView respondsToSelector:@selector(webView:resource:didReceiveAuthenticationChallenge:fromDataSource:)])
+        [super webView:view resource:identifier didReceiveAuthenticationChallenge:challenge fromDataSource:source];
+    if ([delegate respondsToSelector:@selector(webView:resource:didReceiveAuthenticationChallenge:fromDataSource:)])
+        [delegate webView:view resource:identifier didReceiveAuthenticationChallenge:challenge fromDataSource:source];
 }
 // }}}
 // webView:resource:willSendRequest:redirectResponse:fromDataSource: (3.2+) {{{

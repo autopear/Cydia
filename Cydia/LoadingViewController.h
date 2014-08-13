@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2013  Jay Freeman (saurik)
+ * Copyright (C) 2008-2014  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -22,13 +22,9 @@
 #ifndef Cydia_LoadingViewController_H
 #define Cydia_LoadingViewController_H
 
-#include "Cydia/LoadingView.h"
 #include "CyteKit/ViewController.h"
 
 @interface CydiaLoadingViewController : CyteViewController {
-    _H<CydiaLoadingView> indicator_;
-    _H<UITabBar> tabbar_;
-    _H<UINavigationBar> navbar_;
 }
 
 @end

@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2013  Jay Freeman (saurik)
+ * Copyright (C) 2008-2014  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -121,12 +121,9 @@ extern bool IsWildcat_;
 }
 
 - (void) setPageColor:(UIColor *)color {
-    if (color == nil) {
+    if (color == nil)
         color = [UIColor groupTableViewBackgroundColor];
-        if ([color isEqual:[UIColor clearColor]])
-            color = [UIColor pinStripeColor];
-            //color = [UIColor colorWithRed:(215.0/255.0) green:(217.0/255.0) blue:(223.0/255.0) alpha:1.0];
-    } color_ = color;
+    color_ = color;
 }
 
 @end

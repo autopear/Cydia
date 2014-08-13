@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2013  Jay Freeman (saurik)
+ * Copyright (C) 2008-2014  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -61,7 +61,7 @@
 - (id) initWithString:(NSString *)string {
     if ((self = [super init]) != nil) {
         const char *data = [string UTF8String];
-        size_t size = [string length];
+        size_t size = [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
 
         static Pcre address_r("^\"?(.*)\"? <([^>]*)>$");
 

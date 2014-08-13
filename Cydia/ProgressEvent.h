@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2013  Jay Freeman (saurik)
+ * Copyright (C) 2008-2014  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -40,7 +40,7 @@
 
 + (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type;
 + (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forPackage:(NSString *)package;
-+ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItem:(pkgAcquire::ItemDesc &)item;
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItemDesc:(pkgAcquire::ItemDesc &)desc;
 
 - (id) initWithMessage:(NSString *)message ofType:(NSString *)type;
 

@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2013  Jay Freeman (saurik)
+ * Copyright (C) 2008-2014  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -22,6 +22,7 @@
 #ifndef Menes_Menes_H
 #define Menes_Menes_H
 
+#include "Menes/Function.h"
 #include "Menes/ObjectHandle.h"
 
 #include "Menes/invocationWithSelector.h"

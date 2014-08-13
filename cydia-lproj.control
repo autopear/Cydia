@@ -4,7 +4,9 @@ Section: Packaging
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
 Version: 
-Replaces: cydia
+Conflicts: org.thebigboss.russiancydia
+Provides: org.thebigboss.russiancydia
+Replaces: cydia, org.thebigboss.russiancydia
 Depends: cydia
 Description: languages and translations for Cydia
 Name: Cydia Translations

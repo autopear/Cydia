@@ -1,36 +1,11 @@
-dev := $(shell xcode-select --print-path)/Platforms/iPhoneOS.platform/Developer
-sdks := $(dev)/SDKs
-ioss := $(sort $(patsubst $(sdks)/iPhoneOS%.sdk,%,$(wildcard $(sdks)/iPhoneOS*.sdk)))
-ios := $(word $(words $(ioss)),$(ioss))
-
-# XXX: as of iOS 6.x armv6 is not supported :(
-ios := 5.1
-
-# if you can tolerate clang, set this to blank
-gcc := 4.2
-
-ifeq ($(gcc),)
-gxx := $(dev)/usr/bin/clang++
-else
-gxx := $(dev)/usr/bin/g++
-endif
+gxx := $(shell xcrun --sdk iphoneos -f g++)
+sdk := $(shell xcodebuild -sdk iphoneos -version Path)
 
 flags := 
 link := 
 libs := 
 
-ifeq (o,O) # gzip is actually better
-dpkg := /Library/Cydia/bin/dpkg-deb
-ifeq ($(wildcard $(dpkg)),$(dpkg))
-dpkg := $(dpkg) -zlzma
-else
-dpkg := dpkg-deb -zbzip2
-endif
-else
-dpkg := dpkg-deb
-endif
-
-sdk := $(sdks)/iPhoneOS$(ios).sdk
+dpkg := dpkg-deb -Zlzma
 
 flags += -F$(sdk)/System/Library/PrivateFrameworks
 flags += -I. -isystem sysroot/usr/include
@@ -38,16 +13,15 @@ flags += -fmessage-length=0
 flags += -g0 -O2
 flags += -fvisibility=hidden
 
+flags += -idirafter icu/icuSources/common
+flags += -idirafter icu/icuSources/i18n
+
 flags += -Wall
 
-ifeq ($(gcc),)
 flags += -Wno-unknown-warning-option
 flags += -Wno-logical-op-parentheses
-else
-flags += -fobjc-exceptions
-flags += -fno-guess-branch-probability
-endif
-
+flags += -Wno-dangling-else
+flags += -Wno-shift-op-parentheses
 flags += -Wno-deprecated-declarations
 
 xflags :=
@@ -70,6 +44,7 @@ libs += -framework WebKit
 
 libs += -lapr-1
 libs += -lapt-pkg
+libs += -licucore
 libs += -lpcre
 
 uikit := 
@@ -80,12 +55,12 @@ backrow += -FAppleTV -framework BackRow -framework AppleTV
 
 version := $(shell ./version.sh)
 
-cycc = $(gxx) -mthumb -arch armv6 -o $@ -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F{sysroot,}/Library/Frameworks
-#cycc = cycc -r4.2 -i$(ios) -o$@
+cycc = $(gxx) -arch armv6 -o $@ -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F{sysroot,}/Library/Frameworks
 
-ifneq ($(gcc),)
-cycc += -Xarch_armv6 -mcpu=arm1176jzf-s
-endif
+cycc += -marm # @synchronized
+cycc += -mcpu=arm1176jzf-s
+cycc += -mllvm -arm-reserve-r9
+link += -lgcc_s.1
 
 dirs := Menes CyteKit Cydia SDURLCache
 
@@ -128,7 +103,7 @@ Objects/%.o: %.m $(header)
 Objects/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c $< $(flags) $(xflags)
+	@$(cycc) -std=c++11 -c $< $(flags) $(xflags)
 
 Objects/Version.o: Version.h
 
@@ -158,7 +133,7 @@ CydiaAppliance: CydiaAppliance.mm
 	$(cycc) $(filter %.mm,$^) $(flags) $(link) -bundle $(libs) $(backrow)
 
 cfversion: cfversion.mm
-	$(cycc) $(filter %.mm,$^) $(flags) -framework CoreFoundation
+	$(cycc) $(filter %.mm,$^) $(flags) $(link) -framework CoreFoundation
 	@ldid -T0 -S $@
 
 postinst: postinst.mm Sources.mm Sources.h CyteKit/stringWithUTF8Bytes.mm CyteKit/stringWithUTF8Bytes.h CyteKit/UCPlatform.h

@@ -9,6 +9,15 @@
     <key>Utility</key>
     <string>Utilities</string>
 
+    <key>Utilites</key>
+    <string>Utilities</string>
+
+    <key>Developer</key>
+    <string>Development</string>
+
+    <key>Site-Specific</key>
+    <string>Site-Specific Apps</string>
+
     <key>Themes (Springboard)</key>
     <string>Themes (SpringBoard)</string>
 
@@ -18,17 +27,11 @@
     <key>Themes (Systen)</key>
     <string>Themes (System)</string>
 
-    <key>Intelliborn</key>
-    <string>Utilities</string>
+    <key>Themes (Lockcreen)</key>
+    <string>Themes (LockScreen)</string>
 
-    <key>SMS</key>
-    <string>Messaging</string>
-
-    <key>CarrierBundle</key>
-    <string>Carrier Bundles</string>
-
-    <key>Messages</key>
-    <string>Messaging</string>
+    <key>Themes (Lockscreens)</key>
+    <string>Themes (LockScreen)</string>
 
     <key>Themes (Locksceen)</key>
     <string>Themes (LockScreen)</string>
@@ -42,45 +45,21 @@
     <key>Themes (Video)</key>
     <string>Themes (Apps)</string>
 
-    <key>Utilites</key>
-    <string>Utilities</string>
-
     <key>Themes (Lockscreen)</key>
     <string>Themes (LockScreen)</string>
 
-    <key>Themes (Complet)</key>
-    <string>Themes (Complete)</string>
-    
     <key>Themes (Widgets)</key>
     <string>Themes (Addons)</string>
 
     <key>Wallpapers</key>
     <string>Wallpaper</string>
 
-    <key>Messageing</key>
-    <string>Messaging</string>
-
-    <key>Network</key>
-    <string>Networking</string>
-    
     <key>Ringtone</key>
     <string>Ringtones</string>
 
     <key>Tweak</key>
     <string>Tweaks</string>
 
-    <key>Tweaks 2.0</key>
-    <string>Tweaks</string>
-
-    <key>Tweaks 2.1</key>
-    <string>Tweaks</string>
-
-    <key>Tweaks 2.2</key>
-    <string>Tweaks</string>
-
-    <key>Tweaks 3.0</key>
-    <string>Tweaks</string>
-    
     <key>SBSettings Addons</key>
     <string>Addons (SBSettings)</string>
     
@@ -111,14 +90,14 @@
     <key>Addons (BootLogos)</key>
     <string>Addons (BootLogo)</string>
 
-    <key>Addons (BootLogo</key>
-    <string>Addons (BootLogo)</string>
-
     <key>eBooks</key>
     <string>Books</string>
 
-    <key>Themes (WinterBoard)</key>
-    <string>Themes</string>
+    <key>Themes (Localization)</key>
+    <string>Localization</string>
+
+    <key>Themes (APPS)</key>
+    <string>Themes (Apps)</string>
 
     <key>Themes (Weather)</key>
     <string>Themes (Apps)</string>
@@ -135,20 +114,11 @@
     <key>Themes (Dock)</key>
     <string>Themes (SpringBoard)</string>
 
-    <key>Themes (Icy)</key>
-    <string>Themes (Apps)</string>
-
     <key>Themes (Dialer)</key>
     <string>Themes (Apps)</string>
 
     <key>Themes (Battery)</key>
     <string>Themes (LockScreen)</string>
-
-    <key>Themes (SYSTEM)</key>
-    <string>Themes (System)</string>
-
-    <key>WebApps</key>
-    <string>Site-Specific Apps</string>
 
     <key>FontSwap</key>
     <string>Addons (FontSwap)</string>

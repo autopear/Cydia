@@ -239,12 +239,43 @@ union SplitHash {
 };
 // }}}
 
+static void setreugid(uid_t uid, gid_t gid) {
+    _assert(setreuid(uid, uid) != -1);
+    _assert(setregid(gid, gid) != -1);
+}
+
+static void setreguid(gid_t gid, uid_t uid) {
+    _assert(setregid(gid, gid) != -1);
+    _assert(setreuid(uid, uid) != -1);
+}
+
+struct Root {
+    Root() {
+        _trace();
+        setreugid(0, 0);
+        _assert(pthread_setugid_np(0, 0) != -1);
+        setreguid(501, 501);
+    }
+
+    ~Root() {
+        _trace();
+        setreugid(0, 0);
+        _assert(pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE) != -1);
+        setreguid(501, 501);
+    }
+};
+
+#define _root(code) \
+    ({ Root _root; code; })
+
 static NSString *Colon_;
 NSString *Elision_;
 static NSString *Error_;
 static NSString *Warning_;
 
 static NSString *Cache_;
+#define Cache(file) \
+    [NSString stringWithFormat:@"%@/%s", Cache_, file]
 
 static void (*$SBSSetInterceptsMenuButtonForever)(bool);
 
@@ -678,6 +709,7 @@ static const NSString *UI_;
 
 static int Finish_;
 static bool RestartSubstrate_;
+static bool UpgradeCydia_;
 static NSArray *Finishes_;
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
@@ -788,7 +820,7 @@ bool Changed_;
 static time_t now_;
 
 bool IsWildcat_;
-static CGFloat ScreenScale_;
+CGFloat ScreenScale_;
 static NSString *Idiom_;
 static _H<NSString> Firmware_;
 static NSString *Major_;
@@ -3016,7 +3048,7 @@ struct PackageNameOrdering :
         if ([dicon hasPrefix:@"file:///"])
             icon = [UIImage imageAtPath:[[dicon substringFromIndex:7] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     if (icon == nil)
-        icon = [UIImage applicationImageNamed:@"unknown.png"];
+        icon = [UIImage imageNamed:@"unknown.png"];
     return icon;
 }
 
@@ -3101,6 +3133,10 @@ struct PackageNameOrdering :
 } }
 
 - (NSArray *) warnings {
+@synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return nil;
+
     NSMutableArray *warnings([NSMutableArray arrayWithCapacity:4]);
     const char *name(iterator_.Name());
 
@@ -3121,6 +3157,7 @@ struct PackageNameOrdering :
         bool user = false;
         bool _private = false;
         bool stash = false;
+        bool dbstash = false;
         bool dsstore = false;
 
         bool repository = [[self section] isEqualToString:@"Repositories"];
@@ -3135,6 +3172,8 @@ struct PackageNameOrdering :
                     _private = true;
                 else if (!stash && [file isEqualToString:@"/var/stash"])
                     stash = true;
+                else if (!dbstash && [file isEqualToString:@"/var/db/stash"])
+                    dbstash = true;
                 else if (!dsstore && [file hasSuffix:@"/.DS_Store"])
                     dsstore = true;
 
@@ -3147,12 +3186,14 @@ struct PackageNameOrdering :
             [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/private"]];
         if (stash)
             [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/var/stash"]];
+        if (dbstash)
+            [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @"/var/db/stash"]];
         if (dsstore)
             [warnings addObject:[NSString stringWithFormat:UCLocalize("FILES_INSTALLED_TO"), @".DS_Store"]];
     }
 
     return [warnings count] == 0 ? nil : warnings;
-}
+} }
 
 - (NSArray *) applications {
     NSString *me([[NSBundle mainBundle] bundleIdentifier]);
@@ -3787,12 +3828,14 @@ class CydiaLogCleaner :
     }
     _end
 
+    _root(_system->Lock());
+
     _trace();
     OpProgress progress;
     bool opened;
   open:
     _profile(reloadDataWithInvocation$pkgCacheFile)
-        opened = cache_.Open(progress, true);
+        opened = cache_.Open(progress, false);
     _end
     if (!opened) {
         // XXX: what if there are errors, but Open() == true? this should be merged with popError:
@@ -3822,6 +3865,7 @@ class CydiaLogCleaner :
             }
         }
 
+        _system->UnLock();
         return;
     }
     _trace();
@@ -3949,7 +3993,7 @@ class CydiaLogCleaner :
 - (void) configure {
     NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
     _trace();
-    system([dpkg UTF8String]);
+    _root(system([dpkg UTF8String]));
     _trace();
 }
 
@@ -4051,7 +4095,7 @@ class CydiaLogCleaner :
         RestartSubstrate_ = true;
 
     _system->UnLock();
-    pkgPackageManager::OrderResult result = manager_->DoInstall(statusfd_);
+    pkgPackageManager::OrderResult result(_root(manager_->DoInstall(statusfd_)));
     if ([self popErrorWithTitle:title])
         return;
 
@@ -4699,7 +4743,7 @@ static _H<NSMutableSet> Diversions_;
         _assert(close(fds[0]) != -1);
         _assert(close(fds[1]) != -1);
         /* XXX: this should probably not use du */
-        execl("/usr/libexec/cydia/du", "du", "-s", [path UTF8String], NULL);
+        _root(execl("/usr/libexec/cydia/du", "du", "-s", [path UTF8String], NULL));
         exit(1);
     } else {
         _assert(close(fds[1]) != -1);
@@ -5080,7 +5124,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([context isEqualToString:@"remove"]) {
         if (button == [alert cancelButtonIndex])
-            [self dismissModalViewControllerAnimated:YES];
+            [self _doContinue];
         else if (button == [alert firstOtherButtonIndex]) {
             [self performSelector:@selector(complete) withObject:nil afterDelay:0];
         }
@@ -5132,6 +5176,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         pkgDepCache::Policy *policy([database_ policy]);
 
         issues_ = [NSMutableArray arrayWithCapacity:4];
+
+        UpgradeCydia_ = false;
 
         for (Package *package in packages) {
             pkgCache::PkgIterator iterator([package iterator]);
@@ -5243,6 +5289,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     remove = true;
                 [removes addObject:name];
             }
+
+            if ([name isEqualToString:@"cydia"])
+                UpgradeCydia_ = true;
 
             substrate_ |= DepSubstrate(policy->GetCandidateVer(iterator));
             substrate_ |= DepSubstrate(iterator.CurrentVer());
@@ -5548,7 +5597,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         pid_t pid(ExecFork());
         if (pid == 0) {
-            execl("/usr/bin/sbreload", "sbreload", NULL);
+            _root(execl("/usr/bin/sbreload", "sbreload", NULL));
             perror("sbreload");
 
             exit(0);
@@ -6004,7 +6053,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
-        icon_ = [UIImage applicationImageNamed:@"folder.png"];
+        icon_ = [UIImage imageNamed:@"folder.png"];
         // XXX: this initial frame is wrong, but is fixed later
         switch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)] autorelease];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
@@ -6265,10 +6314,13 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
     if ([context isEqualToString:@"modify"]) {
         if (button != [sheet cancelButtonIndex]) {
-            [self _clickButtonWithName:buttons_[button].first];
+            if (IsWildcat_)
+                [self performSelector:@selector(_clickButtonWithName:) withObject:buttons_[button].first afterDelay:0];
+            else
+                [self _clickButtonWithName:buttons_[button].first];
         }
 
-        [sheet dismissWithClickedButtonIndex:-1 animated:YES];
+        [sheet dismissWithClickedButtonIndex:button animated:YES];
     }
 }
 
@@ -7072,9 +7124,11 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     // on the iPad, this view controller is ALSO visible. :(
     if (IsWildcat_)
-        if (UIViewController *top = [self topViewController])
-            if (top != visible)
-                [top reloadData];
+        if (UIViewController *modal = [self modalViewController])
+            if ([modal modalPresentationStyle] == UIModalPresentationFormSheet)
+                if (UIViewController *top = [self topViewController])
+                    if (top != visible)
+                        [top reloadData];
 }
 
 - (void) unloadData {
@@ -7178,7 +7232,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
         UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, [path stringByReplacingOccurrencesOfString:@" " withString:@"_"]]]);
         if (icon == nil)
-            icon = [UIImage applicationImageNamed:@"unknown.png"];
+            icon = [UIImage imageNamed:@"unknown.png"];
         [self _returnPNGWithImage:icon forRequest:request];
     } else fail: {
         [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]];
@@ -7891,7 +7945,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     pid_t pid(ExecFork());
     if (pid == 0) {
-        FILE *dpkg(popen("dpkg --set-selections", "w"));
+        FILE *dpkg(_root(popen("dpkg --set-selections", "w")));
         fwrite(package, strlen(package), 1, dpkg);
 
         if (on)
@@ -8180,7 +8234,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     [self setFetch:[NSNumber numberWithBool:[source_ fetch]]];
 
-    icon_ = [UIImage applicationImageNamed:@"unknown.png"];
+    icon_ = [UIImage imageNamed:@"unknown.png"];
 
     origin_ = [source name];
     label_ = [source rooturi];
@@ -8195,7 +8249,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     source_ = nil;
     [indicator_ stopAnimating];
 
-    icon_ = [UIImage applicationImageNamed:@"folder.png"];
+    icon_ = [UIImage imageNamed:@"folder.png"];
     origin_ = UCLocalize("ALL_SOURCES");
     label_ = UCLocalize("ALL_SOURCES_EX");
     [content_ setNeedsDisplay];
@@ -8881,6 +8935,11 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [super storeCachedResponse:cached forRequest:request];
 }
 
+- (void) createDiskCachePath {
+    [super createDiskCachePath];
+    _root(chown([[self diskCachePath] UTF8String], 501, 501));
+}
+
 @end
 
 @interface Cydia : UIApplication <
@@ -8891,6 +8950,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     _H<UIWindow> window_;
     _H<CydiaTabBarController> tabbar_;
     _H<CyteTabBarController> emulated_;
+    _H<AppCacheController> appcache_;
 
     _H<NSMutableArray> essential_;
     _H<NSMutableArray> broken_;
@@ -9016,7 +9076,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         if (NSData *data = [NSPropertyListSerialization dataFromPropertyList:Metadata_ format:NSPropertyListBinaryFormat_v1_0 errorDescription:&error]) {
             _trace();
             NSError *error(nil);
-            if (![data writeToFile:@"/var/lib/cydia/metadata.plist" options:NSAtomicWrite error:&error])
+            if (!_root([data writeToFile:@"/var/lib/cydia/metadata.plist" options:NSAtomicWrite error:&error]))
                 NSLog(@"failure to save metadata data: %@", error);
             _trace();
 
@@ -9026,7 +9086,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         }
     }
 
-    CydiaWriteSources();
+    _root(CydiaWriteSources());
 }
 
 // Navigation controller for the queuing badge.
@@ -9059,7 +9119,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     bool recently = false;
     if (update != nil) {
         NSTimeInterval interval([update timeIntervalSinceNow]);
-        if (interval <= 0 && interval > -(15*60))
+        if (interval > -(15*60))
             recently = true;
     }
 
@@ -9128,6 +9188,7 @@ _profile(reloadDataWithInvocation)
         [self setApplicationIconBadgeNumber:0];
     }
 
+    Queuing_ = false;
     [self _updateData];
 
     if (hud != nil)
@@ -9170,8 +9231,6 @@ _end
 
 - (void) presentModalViewController:(UIViewController *)controller force:(BOOL)force {
     UINavigationController *navigation([[[UINavigationController alloc] initWithRootViewController:controller] autorelease]);
-    if (IsWildcat_)
-        [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
 
     UIViewController *parent;
     if (emulated_ == nil)
@@ -9183,6 +9242,8 @@ _end
         parent = tabbar_;
     }
 
+    if (IsWildcat_)
+        [navigation setModalPresentationStyle:UIModalPresentationFormSheet];
     [parent presentModalViewController:navigation animated:YES];
 }
 
@@ -9318,7 +9379,14 @@ _end
 
 - (void) _uicache {
     _trace();
-    system("su -c /usr/bin/uicache mobile");
+
+    if (UpgradeCydia_ && Finish_ > 0) {
+        setreugid(0, 0);
+        system("su -c /usr/bin/uicache mobile");
+    } else {
+        system("/usr/bin/uicache");
+    }
+
     _trace();
 }
 
@@ -9391,12 +9459,14 @@ _end
             @synchronized (self) {
                 for (Package *broken in (id) broken_) {
                     [broken remove];
-
                     NSString *id = [broken id];
-                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
-                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
-                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
-                    unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
+
+                    _root({
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
+                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
+                    });
                 }
 
                 [self resolve];
@@ -9431,7 +9501,7 @@ _end
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
     _trace();
-    system([command UTF8String]);
+    _root(system([command UTF8String]));
     _trace();
 
     [pool release];
@@ -9474,6 +9544,21 @@ _end
     NSLog(@"isSafeToSuspend: -> true");
 #endif
     return true;
+}
+
+- (void) suspendReturningToLastApp:(BOOL)returning {
+    if ([self isSafeToSuspend])
+        [super suspendReturningToLastApp:returning];
+}
+
+- (void) suspend {
+    if ([self isSafeToSuspend])
+        [super suspend];
+}
+
+- (void) applicationSuspend {
+    if ([self isSafeToSuspend])
+        [super applicationSuspend];
 }
 
 - (void) applicationSuspend:(__GSEvent *)event {
@@ -9664,6 +9749,32 @@ _end
     [self saveState];
 }
 
+- (void) applicationDidEnterBackground:(UIApplication *)application {
+    if (kCFCoreFoundationVersionNumber < 1000 && [self isSafeToSuspend])
+        return [self terminateWithSuccess];
+    [self saveState];
+}
+
+- (void) applicationWillEnterForeground:(UIApplication *)application {
+    NSDate *closed = [Metadata_ objectForKey:@"LastClosed"];
+    if (closed == nil)
+        return;
+
+    NSTimeInterval interval([closed timeIntervalSinceNow]);
+
+    if (interval <= -(30*60)) {
+        [tabbar_ setSelectedIndex:0];
+        [[[tabbar_ viewControllers] objectAtIndex:0] popToRootViewControllerAnimated:NO];
+    }
+
+    if (interval <= -(15*60)) {
+        if (IsReachable("cydia.saurik.com")) {
+            [tabbar_ beginUpdate];
+            [appcache_ reloadURLWithCache:YES];
+        }
+    }
+}
+
 - (void) setConfigurationData:(NSString *)data {
     static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
 
@@ -9726,19 +9837,19 @@ _end
     NSMutableArray *items;
     if (kCFCoreFoundationVersionNumber < 800) {
         items = [NSMutableArray arrayWithObjects:
-            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"install.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage imageNamed:@"home.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage imageNamed:@"install.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage imageNamed:@"changes.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage imageNamed:@"manage.png"] tag:0] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage imageNamed:@"search.png"] tag:0] autorelease],
         nil];
     } else {
         items = [NSMutableArray arrayWithObjects:
-            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage applicationImageNamed:@"home7.png"] selectedImage:[UIImage applicationImageNamed:@"home7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage applicationImageNamed:@"install7.png"] selectedImage:[UIImage applicationImageNamed:@"install7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage applicationImageNamed:@"changes7.png"] selectedImage:[UIImage applicationImageNamed:@"changes7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage applicationImageNamed:@"manage7.png"] selectedImage:[UIImage applicationImageNamed:@"manage7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage applicationImageNamed:@"search7.png"] selectedImage:[UIImage applicationImageNamed:@"search7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage imageNamed:@"home7.png"] selectedImage:[UIImage imageNamed:@"home7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage imageNamed:@"install7.png"] selectedImage:[UIImage imageNamed:@"install7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage imageNamed:@"changes7.png"] selectedImage:[UIImage imageNamed:@"changes7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage imageNamed:@"manage7.png"] selectedImage:[UIImage imageNamed:@"manage7s.png"]] autorelease],
+            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage imageNamed:@"search7.png"] selectedImage:[UIImage imageNamed:@"search7s.png"]] autorelease],
         nil];
     }
 
@@ -9787,7 +9898,7 @@ _trace();
     [NSURLCache setSharedURLCache:[[[CYURLCache alloc]
         initWithMemoryCapacity:524288
         diskCapacity:10485760
-        diskPath:[NSString stringWithFormat:@"%@/SDURLCache", Cache_]
+        diskPath:Cache("SDURLCache")
     ] autorelease]];
 
     [CydiaWebViewController _initialize];
@@ -9808,7 +9919,8 @@ _trace();
     broken_ = [NSMutableArray arrayWithCapacity:4];
 
     // XXX: I really need this thing... like, seriously... I'm sorry
-    [[[AppCacheController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] reloadData];
+    appcache_ = [[[AppCacheController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] autorelease];
+    [appcache_ reloadData];
 
     window_ = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
     [window_ orderFront:self];
@@ -9908,7 +10020,6 @@ _trace();
     NSDate *closed = [Metadata_ objectForKey:@"LastClosed"];
     if (valid && closed != nil) {
         NSTimeInterval interval([closed timeIntervalSinceNow]);
-        // XXX: Is 30 minutes the optimal time here?
         if (interval <= -(30*60))
             valid = NO;
     }
@@ -10000,54 +10111,6 @@ id Dealloc_(id self, SEL selector) {
     return object;
 }*/
 
-static NSSet *MobilizedFiles_;
-
-static NSURL *MobilizeURL(NSURL *url) {
-    NSString *path([url path]);
-    if ([path hasPrefix:@"/var/root/"]) {
-        NSString *file([path substringFromIndex:10]);
-        if ([MobilizedFiles_ containsObject:file])
-            url = [NSURL fileURLWithPath:[@"/var/mobile/" stringByAppendingString:file] isDirectory:NO];
-    }
-
-    return url;
-}
-
-Class $CFXPreferencesPropertyListSource;
-@class CFXPreferencesPropertyListSource;
-
-MSHook(BOOL, CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync, CFXPreferencesPropertyListSource *self, SEL _cmd) {
-    NSURL *&url(MSHookIvar<NSURL *>(self, "_url")), *old(url);
-    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
-
-    url = MobilizeURL(url);
-    BOOL value; @try {
-        value = _CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync(self, _cmd);
-        //NSLog(@"CFX %@ %s", [url absoluteString], value ? "YES" : "NO");
-    } @finally {
-        url = old;
-    }
-
-    [pool release];
-    return value;
-}
-
-MSHook(void *, CFXPreferencesPropertyListSource$createPlistFromDisk, CFXPreferencesPropertyListSource *self, SEL _cmd) {
-    NSURL *&url(MSHookIvar<NSURL *>(self, "_url")), *old(url);
-    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
-
-    url = MobilizeURL(url);
-    void *value; @try {
-        value = _CFXPreferencesPropertyListSource$createPlistFromDisk(self, _cmd);
-        //NSLog(@"CFX %@ %@", [url absoluteString], value);
-    } @finally {
-        url = old;
-    }
-
-    [pool release];
-    return value;
-}
-
 Class $NSURLConnection;
 
 MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest *request, id delegate, BOOL usesCache, int64_t maxContentLength, BOOL startImmediately, NSDictionary *connectionProperties) {
@@ -10098,11 +10161,13 @@ Class $NSUserDefaults;
 
 MSHook(id, NSUserDefaults$objectForKey$, NSUserDefaults *self, SEL _cmd, NSString *key) {
     if ([key respondsToSelector:@selector(isEqualToString:)] && [key isEqualToString:@"WebKitLocalStorageDatabasePathPreferenceKey"])
-        return [NSString stringWithFormat:@"%@/LocalStorage", Cache_];
+        return Cache("LocalStorage");
     return _NSUserDefaults$objectForKey$(self, _cmd, key);
 }
 
 int main(int argc, char *argv[]) {
+    setreugid(501, 501);
+
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
     _trace();
@@ -10150,12 +10215,6 @@ int main(int argc, char *argv[]) {
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
-    MobilizedFiles_ = [NSMutableSet setWithObjects:
-        @"Library/Preferences/.GlobalPreferences.plist",
-        @"Library/Preferences/com.apple.Accessibility.plist",
-        @"Library/Preferences/com.apple.preferences.sounds.plist",
-    nil];
-
     /* Library Hacks {{{ */
     class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
 
@@ -10163,22 +10222,6 @@ int main(int argc, char *argv[]) {
     if ($WAKWindow != NULL)
         if (Method method = class_getInstanceMethod($WAKWindow, @selector(screenSize)))
             method_setImplementation(method, (IMP) &$WAKWindow$screenSize);
-
-    $CFXPreferencesPropertyListSource = objc_getClass("CFXPreferencesPropertyListSourceSynchronizer");
-    if ($CFXPreferencesPropertyListSource == Nil)
-        $CFXPreferencesPropertyListSource = objc_getClass("CFXPreferencesPropertyListSource");
-
-    Method CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync(class_getInstanceMethod($CFXPreferencesPropertyListSource, @selector(_backingPlistChangedSinceLastSync)));
-    if (CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync != NULL) {
-        _CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync = reinterpret_cast<BOOL (*)(CFXPreferencesPropertyListSource *, SEL)>(method_getImplementation(CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync));
-        method_setImplementation(CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync, reinterpret_cast<IMP>(&$CFXPreferencesPropertyListSource$_backingPlistChangedSinceLastSync));
-    }
-
-    Method CFXPreferencesPropertyListSource$createPlistFromDisk(class_getInstanceMethod($CFXPreferencesPropertyListSource, @selector(createPlistFromDisk)));
-    if (CFXPreferencesPropertyListSource$createPlistFromDisk != NULL) {
-        _CFXPreferencesPropertyListSource$createPlistFromDisk = reinterpret_cast<void *(*)(CFXPreferencesPropertyListSource *, SEL)>(method_getImplementation(CFXPreferencesPropertyListSource$createPlistFromDisk));
-        method_setImplementation(CFXPreferencesPropertyListSource$createPlistFromDisk, reinterpret_cast<IMP>(&$CFXPreferencesPropertyListSource$createPlistFromDisk));
-    }
 
     $NSURLConnection = objc_getClass("NSURLConnection");
     Method NSURLConnection$init$(class_getInstanceMethod($NSURLConnection, @selector(_initWithRequest:delegate:usesCache:maxContentLength:startImmediately:connectionProperties:)));
@@ -10303,13 +10346,7 @@ int main(int argc, char *argv[]) {
     App_ = [[NSBundle mainBundle] bundlePath];
     Advanced_ = YES;
 
-    setuid(0);
-    setgid(0);
-
-    if (access("/var/mobile/Library/Keyboard/UserDictionary.sqlite", F_OK) == 0)
-        system("mkdir -p /var/root/Library/Keyboard; cp -af /var/mobile/Library/Keyboard/UserDictionary.sqlite /var/root/Library/Keyboard/");
-
-    Cache_ = [[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia", @"/var/root"] retain];
+    Cache_ = [[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia", @"/var/mobile"] retain];
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;
@@ -10443,10 +10480,11 @@ int main(int argc, char *argv[]) {
     } broken = nil;
     /* }}} */
 
-    CydiaWriteSources();
+    _root(CydiaWriteSources());
 
     _trace();
-    MetaFile_.Open("/var/lib/cydia/metadata.cb0");
+    mkdir("/var/mobile/Library/Cydia", 0755);
+    MetaFile_.Open("/var/mobile/Library/Cydia/metadata.cb0");
     _trace();
 
     if (Packages_ != nil) {
@@ -10478,25 +10516,21 @@ int main(int argc, char *argv[]) {
     /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
         dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
 
+    if (kCFCoreFoundationVersionNumber > 1000)
+        _root(system([[NSString stringWithFormat:@"/usr/libexec/cydia/setnsfpn /var/lib"] UTF8String]));
+
     int version([[NSString stringWithContentsOfFile:@"/var/lib/cydia/firmware.ver"] intValue]);
 
     if (access("/User", F_OK) != 0 || version != 6) {
         _trace();
-        system("/usr/libexec/cydia/firmware.sh");
+        _root(system("/usr/libexec/cydia/firmware.sh"));
         _trace();
     }
 
-    _assert([[NSFileManager defaultManager]
-        createDirectoryAtPath:@"/var/cache/apt/archives/partial"
-        withIntermediateDirectories:YES
-        attributes:nil
-        error:NULL
-    ]);
-
     if (access("/tmp/cydia.chk", F_OK) == 0) {
-        if (unlink("/var/cache/apt/pkgcache.bin") == -1)
+        if (unlink([Cache("pkgcache.bin") UTF8String]) == -1)
             _assert(errno == ENOENT);
-        if (unlink("/var/cache/apt/srcpkgcache.bin") == -1)
+        if (unlink([Cache("srcpkgcache.bin") UTF8String]) == -1)
             _assert(errno == ENOENT);
     }
 
@@ -10511,6 +10545,16 @@ int main(int argc, char *argv[]) {
     //_config->Set("Acquire::http::Timeout", 15);
 
     _config->Set("Acquire::http::MaxParallel", usermem >= 384 * 1024 * 1024 ? 16 : 3);
+
+    mkdir([Cache_ UTF8String], 0755);
+    mkdir([Cache("archives") UTF8String], 0755);
+    mkdir([Cache("archives/partial") UTF8String], 0755);
+    _config->Set("Dir::Cache", [Cache_ UTF8String]);
+
+    mkdir([Cache("lists") UTF8String], 0755);
+    mkdir([Cache("lists/partial") UTF8String], 0755);
+    mkdir([Cache("periodic") UTF8String], 0755);
+    _config->Set("Dir::State::Lists", [Cache("lists") UTF8String]);
     /* }}} */
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();
@@ -10533,6 +10577,13 @@ int main(int argc, char *argv[]) {
     // XXX: I have a feeling this was important
     //UIKeyboardDisableAutomaticAppearance();
     /* }}} */
+
+    _root({
+        chown([Cache("ApplicationCache.db") UTF8String], 501, 501);
+        chown([Cache("Cache.db") UTF8String], 501, 501);
+        chown([Cache("Cache.db-shm") UTF8String], 501, 501);
+        chown([Cache("Cache.db-wal") UTF8String], 501, 501);
+    });
 
     $SBSSetInterceptsMenuButtonForever = reinterpret_cast<void (*)(bool)>(dlsym(RTLD_DEFAULT, "SBSSetInterceptsMenuButtonForever"));
 

@@ -20,7 +20,14 @@ function df_() {
 function mv_() {
     src=$1
 
-    mkdir -p /var/stash
+    if [[ ! -e /var/stash ]]; then
+        mkdir -p /var/db/stash
+        /usr/libexec/cydia/setnsfpn /var/db/stash
+        ln -s -t /var /var/db/stash
+    elif [[ -d /var/stash ]]; then
+        /usr/libexec/cydia/setnsfpn /var/stash
+    fi
+
     tmp=$(mktemp -d /var/stash/_.XXXXXX)
     dst=${tmp}/${src##*/}
 

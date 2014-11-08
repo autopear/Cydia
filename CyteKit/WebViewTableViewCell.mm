@@ -22,11 +22,6 @@
 #include "CyteKit/WebViewTableViewCell.h"
 #include "iPhonePrivate.h"
 
-@interface WebView (Apple)
-- (void) _setLayoutInterval:(float)interval;
-- (void) _setAllowsMessaging:(BOOL)allows;
-@end
-
 @implementation CyteWebViewTableViewCell
 
 + (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request {

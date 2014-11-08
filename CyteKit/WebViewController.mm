@@ -45,11 +45,6 @@ static Class $MFMailComposeViewController;
 
 float CYScrollViewDecelerationRateNormal;
 
-@interface WebView (Apple)
-- (void) _setLayoutInterval:(float)interval;
-- (void) _setAllowsMessaging:(BOOL)allows;
-@end
-
 @interface WebFrame (Cydia)
 - (void) cydia$updateHeight;
 @end
@@ -466,10 +461,39 @@ float CYScrollViewDecelerationRateNormal;
     NSLog(@"decidePolicyForNavigationAction:%@ request:%@ %@ frame:%@", action, request, [request allHTTPHeaderFields], frame);
 #endif
 
+    NSURL *url(request == nil ? nil : [request URL]);
+    NSString *scheme([[url scheme] lowercaseString]);
+    NSString *absolute([[url absoluteString] lowercaseString]);
+
+    if (
+        [scheme isEqualToString:@"itms"] ||
+        [scheme isEqualToString:@"itmss"] ||
+        [scheme isEqualToString:@"itms-apps"] ||
+        [scheme isEqualToString:@"itms-appss"] ||
+        [absolute hasPrefix:@"http://itunes.apple.com/"] ||
+        [absolute hasPrefix:@"https://itunes.apple.com/"] ||
+    false) {
+        appstore_ = url;
+
+        UIAlertView *alert = [[[UIAlertView alloc]
+            initWithTitle:UCLocalize("APP_STORE_REDIRECT")
+            message:nil
+            delegate:self
+            cancelButtonTitle:UCLocalize("CANCEL")
+            otherButtonTitles:
+                UCLocalize("ALLOW"),
+            nil
+        ] autorelease];
+
+        [alert setContext:@"itmsappss"];
+        [alert show];
+
+        [listener ignore];
+        return;
+    }
+
     if ([frame parentFrame] == nil) {
         if (!error_) {
-            NSURL *url(request == nil ? nil : [request URL]);
-
             if (request_ != nil && ![[request_ URL] isEqual:url] && ![self allowsNavigationAction]) {
                 if (url != nil)
                     [self pushRequest:request forAction:action asPop:NO];
@@ -740,6 +764,13 @@ float CYScrollViewDecelerationRateNormal;
         challenge_ = nil;
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    } else if ([context isEqualToString:@"itmsappss"]) {
+        if (button == [alert cancelButtonIndex]) {
+        } else if (button == [alert firstOtherButtonIndex]) {
+            [delegate_ openURL:appstore_];
+        }
+
+        [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"submit"]) {
         if (button == [alert cancelButtonIndex]) {
         } else if (button == [alert firstOtherButtonIndex]) {
@@ -947,7 +978,7 @@ float CYScrollViewDecelerationRateNormal;
         [preferences _setLayoutInterval:0];
 
     [preferences setCacheModel:WebCacheModelDocumentBrowser];
-    [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
+    [preferences setJavaScriptCanOpenWindowsAutomatically:NO];
 
     if ([preferences respondsToSelector:@selector(setOfflineWebApplicationCacheEnabled:)])
         [preferences setOfflineWebApplicationCacheEnabled:YES];
@@ -1045,16 +1076,34 @@ float CYScrollViewDecelerationRateNormal;
     } return self;
 }
 
++ (void) _lockJavaScript:(WebPreferences *)preferences {
+    WebThreadLocked lock;
+    [preferences setJavaScriptCanOpenWindowsAutomatically:NO];
+}
+
 - (void) callFunction:(WebScriptObject *)function {
     WebThreadLocked lock;
 
     WebView *webview([[[self webView] _documentView] webView]);
-    WebFrame *frame([webview mainFrame]);
+    WebPreferences *preferences([webview preferences]);
 
+    [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
+    if ([webview respondsToSelector:@selector(_preferencesChanged:)])
+        [webview _preferencesChanged:preferences];
+    else
+        [webview _preferencesChangedNotification:[NSNotification notificationWithName:@"" object:preferences]];
+
+    WebFrame *frame([webview mainFrame]);
     JSGlobalContextRef context([frame globalContext]);
+
     JSObjectRef object([function JSObject]);
     if ($JSObjectCallAsFunction != NULL)
         ($JSObjectCallAsFunction)(context, object, NULL, 0, NULL, NULL);
+
+    // XXX: the JavaScript code submits a form, which seems to happen asynchronously
+    NSObject *target([CyteWebViewController class]);
+    [NSObject cancelPreviousPerformRequestsWithTarget:target selector:@selector(_lockJavaScript:) object:preferences];
+    [target performSelector:@selector(_lockJavaScript:) withObject:preferences afterDelay:1];
 }
 
 - (void) reloadButtonClicked {

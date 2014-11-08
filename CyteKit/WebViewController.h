@@ -56,6 +56,7 @@
     bool ready_;
 
     _transient NSNumber *sensitive_;
+    _H<NSURL> appstore_;
 
     _H<NSString> title_;
     _H<NSMutableSet> loading_;
@@ -103,6 +104,7 @@
 - (id) initWithWidth:(float)width ofClass:(Class)_class;
 
 - (void) callFunction:(WebScriptObject *)function;
+- (void) reloadURLWithCache:(BOOL)cache;
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;

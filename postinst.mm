@@ -24,6 +24,63 @@ void Finish(const char *finish) {
     fclose(fout);
 }
 
+static bool setnsfpn(const char *path) {
+    return system([[NSString stringWithFormat:@"/usr/libexec/cydia/setnsfpn %s", path] UTF8String]) == 0;
+}
+
+static bool MoveStash() {
+    struct stat stat;
+
+    if (lstat("/var/stash", &stat) == -1)
+        return errno == ENOENT;
+    else if (S_ISLNK(stat.st_mode))
+        return true;
+    else if (!S_ISDIR(stat.st_mode))
+        return false;
+
+    if (lstat("/var/db/stash", &stat) == -1) {
+        if (errno == ENOENT)
+            goto move;
+        else return false;
+    } else if (S_ISLNK(stat.st_mode))
+        // XXX: this is fixable
+        return false;
+    else if (!S_ISDIR(stat.st_mode))
+        return false;
+    else {
+        if (!setnsfpn("/var/db/stash"))
+            return false;
+        if (system("mv -t /var/stash /var/db/stash/*") != 0)
+            return false;
+        if (rmdir("/var/db/stash") == -1)
+            return false;
+    } move:
+
+    if (!setnsfpn("/var/stash"))
+        return false;
+
+    if (rename("/var/stash", "/var/db/stash") == -1)
+        return false;
+    if (symlink("/var/db/stash", "/var/stash") != -1)
+        return true;
+    if (rename("/var/db/stash", "/var/stash") != -1)
+        return false;
+
+    fprintf(stderr, "/var/stash misplaced -- DO NOT REBOOT\n");
+    return false;
+}
+
+static bool FixProtections() {
+    const char *path("/var/lib");
+    mkdir(path, 0755);
+    if (!setnsfpn(path)) {
+        fprintf(stderr, "failed to setnsfpn %s\n", path);
+        return false;
+    }
+
+    return true;
+}
+
 static void FixPermissions() {
     DIR *stash(opendir("/var/stash"));
     if (stash == NULL)
@@ -125,6 +182,19 @@ int main(int argc, const char *argv[]) {
 
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
+    bool restart(false);
+
+    if (kCFCoreFoundationVersionNumber >= 1000) {
+        if (!FixProtections())
+            return 1;
+        if (MoveStash())
+            restart = true;
+        else {
+            fprintf(stderr, "failed to move stash\n");
+            return 1;
+        }
+    }
+
     size_t size;
     sysctlbyname("kern.osversion", NULL, &size, NULL, 0);
     char *osversion = new char[size];
@@ -153,9 +223,38 @@ int main(int argc, const char *argv[]) {
 
     CydiaWriteSources();
 
+    #define OldCache_ "/var/root/Library/Caches/com.saurik.Cydia"
+    if (access(OldCache_, F_OK) == 0)
+        system("rm -rf " OldCache_);
+
+    #define NewCache_ "/var/mobile/Library/Caches/com.saurik.Cydia"
+    system("cd /; su -c 'mkdir -p " NewCache_ "' mobile");
+
+    if (access(NewCache_ "/lists", F_OK) != 0 && errno == ENOENT) {
+        system("cp -at " NewCache_ " /var/lib/apt/lists");
+        system("chown -R 501.501 " NewCache_ "/lists");
+    }
+
+    #define OldLibrary_ "/var/lib/cydia"
+
+    #define NewLibrary_ "/var/mobile/Library/Cydia"
+    system("cd /; su -c 'mkdir -p " NewLibrary_ "' mobile");
+
+    #define Cytore_ "/metadata.cb0"
+
+    if (access(NewLibrary_ Cytore_, F_OK) != 0 && errno == ENOENT) {
+        if (access(NewCache_ Cytore_, F_OK) == 0)
+            system("mv -f " NewCache_ Cytore_ " " NewLibrary_);
+        else if (access(OldLibrary_ Cytore_, F_OK) == 0)
+            system("mv -f " OldLibrary_ Cytore_ " " NewLibrary_);
+        chown(NewLibrary_ Cytore_, 501, 501);
+    }
+
     FixPermissions();
 
-    if (FixApplications())
+    restart |= FixApplications();
+
+    if (restart)
         Finish("restart");
 
     [pool release];

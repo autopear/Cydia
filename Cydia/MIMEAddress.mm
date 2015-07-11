@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2014  Jay Freeman (saurik)
+ * Copyright (C) 2008-2015  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -23,7 +23,7 @@
 
 #include <WebKit/WebScriptObject.h>
 
-#include "CyteKit/PerlCompatibleRegEx.hpp"
+#include "CyteKit/RegEx.hpp"
 
 @implementation MIMEAddress
 
@@ -63,7 +63,7 @@
         const char *data = [string UTF8String];
         size_t size = [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
 
-        static Pcre address_r("^\"?(.*)\"? <([^>]*)>$");
+        static RegEx address_r("\"?(.*)\"? <([^>]*)>");
 
         if (address_r(data, size)) {
             name_ = address_r[1];

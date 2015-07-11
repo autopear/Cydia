@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2014  Jay Freeman (saurik)
+ * Copyright (C) 2008-2015  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -107,7 +107,9 @@
 - (void) reloadURLWithCache:(BOOL)cache;
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
+
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
+- (NSURLRequest *) webThreadWebView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
 
 + (float) defaultWidth;
 

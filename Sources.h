@@ -28,4 +28,6 @@ void CydiaWriteSources();
 void CydiaAddSource(NSDictionary *source);
 void CydiaAddSource(NSString *href, NSString *distribution, NSArray *sections = nil);
 
+#define SOURCES_LIST "/var/mobile/Library/Caches/com.saurik.Cydia/sources.list"
+
 #endif//Sources_H

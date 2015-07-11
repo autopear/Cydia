@@ -20,16 +20,18 @@
 /* }}} */
 
 #include <Foundation/Foundation.h>
-#include <CydiaSubstrate/CydiaSubstrate.h>
+#include <Menes/ObjectHandle.h>
 #include <CyteKit/UCPlatform.h>
 
 #include <cstdio>
 
+#include "Sources.h"
+
 extern _H<NSMutableDictionary> Sources_;
-extern bool Changed_;
 
 void CydiaWriteSources() {
-    FILE *file(fopen("/etc/apt/sources.list.d/cydia.list", "w"));
+    unlink(SOURCES_LIST);
+    FILE *file(fopen(SOURCES_LIST, "w"));
     _assert(file != NULL);
 
     fprintf(file, "deb http://apt.saurik.com/ ios/%.2f main\n", kCFCoreFoundationVersionNumber);
@@ -53,7 +55,6 @@ void CydiaWriteSources() {
 
 void CydiaAddSource(NSDictionary *source) {
     [Sources_ setObject:source forKey:[NSString stringWithFormat:@"%@:%@:%@", [source objectForKey:@"Type"], [source objectForKey:@"URI"], [source objectForKey:@"Distribution"]]];
-    Changed_ = true;
 }
 
 void CydiaAddSource(NSString *href, NSString *distribution, NSArray *sections) {

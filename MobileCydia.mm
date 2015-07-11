@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2014  Jay Freeman (saurik)
+ * Copyright (C) 2008-2015  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -83,8 +83,6 @@
 #include <apt-pkg/strutl.h>
 #include <apt-pkg/tagfile.h>
 
-#include <apr-1/apr_pools.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
@@ -92,6 +90,7 @@
 #include <sys/mount.h>
 #include <sys/reboot.h>
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <notify.h>
 #include <dlfcn.h>
@@ -109,11 +108,11 @@ extern "C" {
 #include <Cytore.hpp>
 #include "Sources.h"
 
-#include <CydiaSubstrate/CydiaSubstrate.h>
+#include "Substrate.hpp"
 #include "Menes/Menes.h"
 
 #include "CyteKit/IndirectDelegate.h"
-#include "CyteKit/PerlCompatibleRegEx.hpp"
+#include "CyteKit/RegEx.hpp"
 #include "CyteKit/TableViewCell.h"
 #include "CyteKit/TabBarController.h"
 #include "CyteKit/WebScriptObject-Cyte.h"
@@ -239,35 +238,6 @@ union SplitHash {
 };
 // }}}
 
-static void setreugid(uid_t uid, gid_t gid) {
-    _assert(setreuid(uid, uid) != -1);
-    _assert(setregid(gid, gid) != -1);
-}
-
-static void setreguid(gid_t gid, uid_t uid) {
-    _assert(setregid(gid, gid) != -1);
-    _assert(setreuid(uid, uid) != -1);
-}
-
-struct Root {
-    Root() {
-        _trace();
-        setreugid(0, 0);
-        _assert(pthread_setugid_np(0, 0) != -1);
-        setreguid(501, 501);
-    }
-
-    ~Root() {
-        _trace();
-        setreugid(0, 0);
-        _assert(pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE) != -1);
-        setreguid(501, 501);
-    }
-};
-
-#define _root(code) \
-    ({ Root _root; code; })
-
 static NSString *Colon_;
 NSString *Elision_;
 static NSString *Error_;
@@ -321,13 +291,8 @@ static _finline NSString *CydiaURL(NSString *path) {
     return [[NSString stringWithUTF8String:page] stringByAppendingString:path];
 }
 
-static void ReapZombie(pid_t pid) {
-    int status;
-  wait:
-    if (waitpid(pid, &status, 0) == -1)
-        if (errno == EINTR)
-            goto wait;
-        else _assert(false);
+static NSString *ShellEscape(NSString *value) {
+    return [NSString stringWithFormat:@"'%@'", [value stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"]];
 }
 
 static _finline void UpdateExternalStatus(uint64_t newStatus) {
@@ -580,14 +545,14 @@ class CYString {
             cache_ = reinterpret_cast<CFStringRef>(CFRetain(rhs.cache_));
     }
 
-    void copy(apr_pool_t *pool) {
-        char *temp(reinterpret_cast<char *>(apr_palloc(pool, size_ + 1)));
+    void copy(CYPool *pool) {
+        char *temp(pool->malloc<char>(size_ + 1));
         memcpy(temp, data_, size_);
         temp[size_] = '\0';
         data_ = temp;
     }
 
-    void set(apr_pool_t *pool, const char *data, size_t size) {
+    void set(CYPool *pool, const char *data, size_t size) {
         if (size == 0)
             clear();
         else {
@@ -601,11 +566,11 @@ class CYString {
         }
     }
 
-    _finline void set(apr_pool_t *pool, const char *data) {
+    _finline void set(CYPool *pool, const char *data) {
         set(pool, data, data == NULL ? 0 : strlen(data));
     }
 
-    _finline void set(apr_pool_t *pool, const std::string &rhs) {
+    _finline void set(CYPool *pool, const std::string &rhs) {
         set(pool, rhs.data(), rhs.size());
     }
 
@@ -709,7 +674,6 @@ static const NSString *UI_;
 
 static int Finish_;
 static bool RestartSubstrate_;
-static bool UpgradeCydia_;
 static NSArray *Finishes_;
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
@@ -748,7 +712,6 @@ static _H<NSString> System_;
 static NSString *SerialNumber_ = nil;
 static NSString *ChipID_ = nil;
 static NSString *BBSNum_ = nil;
-static _H<NSString> Token_;
 static _H<NSString> UniqueID_;
 static _H<NSString> UserAgent_;
 static _H<NSString> Product_;
@@ -808,15 +771,15 @@ static CFLocaleRef Locale_;
 static NSArray *Languages_;
 static CGColorSpaceRef space_;
 
+#define CacheState_ "/var/mobile/Library/Caches/com.saurik.Cydia/CacheState.plist"
+#define SavedState_ "/var/mobile/Library/Caches/com.saurik.Cydia/SavedState.plist"
+
 static NSDictionary *SectionMap_;
-static NSMutableDictionary *Metadata_;
-static _transient NSMutableDictionary *Settings_;
-static _transient NSMutableDictionary *Packages_;
+static _H<NSDate> Backgrounded_;
 static _transient NSMutableDictionary *Values_;
 static _transient NSMutableDictionary *Sections_;
 _H<NSMutableDictionary> Sources_;
 static _transient NSNumber *Version_;
-bool Changed_;
 static time_t now_;
 
 bool IsWildcat_;
@@ -828,7 +791,6 @@ static NSString *Major_;
 static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
 static _H<NSMutableSet> BridgedHosts_;
-static _H<NSMutableSet> TokenHosts_;
 static _H<NSMutableSet> InsecureHosts_;
 static _H<NSMutableSet> PipelinedHosts_;
 static _H<NSMutableSet> CachedURLs_;
@@ -870,7 +832,7 @@ static _finline const char *StripVersion_(const char *version) {
 }
 
 NSString *LocalizeSection(NSString *section) {
-    static Pcre title_r("^(.*?) \\((.*)\\)$");
+    static RegEx title_r("(.*?) \\((.*)\\)");
     if (title_r(section)) {
         NSString *parent(title_r[1]);
         NSString *child(title_r[2]);
@@ -888,35 +850,21 @@ NSString *Simplify(NSString *title) {
     const char *data = [title UTF8String];
     size_t size = [title lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
 
-    static Pcre square_r("^\\[(.*)\\]$");
+    static RegEx square_r("\\[(.*)\\]");
     if (square_r(data, size))
         return Simplify(square_r[1]);
 
-    static Pcre paren_r("^\\((.*)\\)$");
+    static RegEx paren_r("\\((.*)\\)");
     if (paren_r(data, size))
         return Simplify(paren_r[1]);
 
-    static Pcre title_r("^(.*?) \\((.*)\\)$");
+    static RegEx title_r("(.*?) \\((.*)\\)");
     if (title_r(data, size))
         return Simplify(title_r[1]);
 
     return title;
 }
 /* }}} */
-
-NSString *GetLastUpdate() {
-    NSDate *update = [Metadata_ objectForKey:@"LastUpdate"];
-
-    if (update == nil)
-        return UCLocalize("NEVER_OR_UNKNOWN");
-
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, Locale_, kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-    CFStringRef formatted = CFDateFormatterCreateStringWithDate(NULL, formatter, (CFDateRef) update);
-
-    CFRelease(formatter);
-
-    return [(NSString *) formatted autorelease];
-}
 
 bool isSectionVisible(NSString *section) {
     NSDictionary *metadata([Sections_ objectForKey:(section ?: @"")]);
@@ -950,6 +898,25 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
         sprintf(string + i * 2, "%.2x", bytes[reverse ? length - i - 1 : i]);
 
     return [NSString stringWithUTF8String:string];
+}
+
+static NSString *VerifySource(NSString *href) {
+    static RegEx href_r("(http(s?)://|file:///)[^# ]*");
+    if (!href_r(href)) {
+        [[[[UIAlertView alloc]
+            initWithTitle:[NSString stringWithFormat:Colon_, Error_, UCLocalize("INVALID_URL")]
+            message:UCLocalize("INVALID_URL_EX")
+            delegate:nil
+            cancelButtonTitle:UCLocalize("OK")
+            otherButtonTitles:nil
+        ] autorelease] show];
+
+        return nil;
+    }
+
+    if (![href hasSuffix:@"/"])
+        href = [href stringByAppendingString:@"/"];
+    return href;
 }
 
 @class Cydia;
@@ -995,7 +962,7 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 - (void) _saveConfig;
 - (void) syncData;
 - (void) addSource:(NSDictionary *)source;
-- (void) addTrivialSource:(NSString *)href;
+- (BOOL) addTrivialSource:(NSString *)href;
 - (UIProgressHUD *) addProgressHUD;
 - (void) removeProgressHUD:(UIProgressHUD *)hud;
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item;
@@ -1118,9 +1085,10 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 @interface Database : NSObject {
     NSZone *zone_;
-    apr_pool_t *pool_;
+    CYPool pool_;
 
     unsigned era_;
+    _H<NSDate> delock_;
 
     pkgCacheFile cache_;
     pkgDepCache::Policy *policy_;
@@ -1525,6 +1493,30 @@ static void PackageImport(const void *key, const void *value, void *context) {
 }
 // }}}
 
+static NSDate *GetStatusDate() {
+    return [[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/lib/dpkg/status" error:NULL] fileModificationDate];
+}
+
+static void SaveConfig(NSObject *lock) {
+    @synchronized (lock) {
+        _trace();
+        MetaFile_.Sync();
+        _trace();
+    }
+
+    CFPreferencesSetMultiple((CFDictionaryRef) [NSDictionary dictionaryWithObjectsAndKeys:
+        Values_, @"CydiaValues",
+        Sections_, @"CydiaSections",
+        (id) Sources_, @"CydiaSources",
+        Version_, @"CydiaVersion",
+    nil], NULL, CFSTR("com.saurik.Cydia"), kCFPreferencesCurrentUser, kCFPreferencesCurrentHost);
+
+    if (!CFPreferencesAppSynchronize(CFSTR("com.saurik.Cydia")))
+        NSLog(@"CFPreferencesAppSynchronize(com.saurik.Cydia) == false");
+
+    CydiaWriteSources();
+}
+
 /* Source Class {{{ */
 @interface Source : NSObject {
     unsigned era_;
@@ -1556,7 +1548,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     _transient NSObject<SourceDelegate> *delegate_;
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(apr_pool_t *)pool;
+- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(CYPool *)pool;
 
 - (NSComparisonResult) compareByName:(Source *)source;
 
@@ -1639,7 +1631,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
     return index_;
 }
 
-- (void) setMetaIndex:(metaIndex *)index inPool:(apr_pool_t *)pool {
+- (void) setMetaIndex:(metaIndex *)index inPool:(CYPool *)pool {
     trusted_ = index->IsTrusted();
 
     uri_.set(pool, index->GetURI());
@@ -1715,7 +1707,7 @@ static void PackageImport(const void *key, const void *value, void *context) {
         authority_ = [url path];
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(apr_pool_t *)pool {
+- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(CYPool *)pool {
     if ((self = [super init]) != nil) {
         era_ = [database era];
         database_ = database;
@@ -1787,14 +1779,10 @@ static void PackageImport(const void *key, const void *value, void *context) {
     if (record_ == nil)
         return;
     else if (NSMutableArray *sections = [record_ objectForKey:@"Sections"]) {
-        if (![sections containsObject:section]) {
+        if (![sections containsObject:section])
             [sections addObject:section];
-            Changed_ = true;
-        }
-    } else {
+    } else
         [record_ setObject:[NSMutableArray arrayWithObject:section] forKey:@"Sections"];
-        Changed_ = true;
-    }
 }
 
 - (bool) addSection:(NSString *)section {
@@ -1810,10 +1798,8 @@ static void PackageImport(const void *key, const void *value, void *context) {
         return;
 
     if (NSMutableArray *sections = [record_ objectForKey:@"Sections"])
-        if ([sections containsObject:section]) {
+        if ([sections containsObject:section])
             [sections removeObject:section];
-            Changed_ = true;
-        }
 }
 
 - (bool) removeSection:(NSString *)section {
@@ -1826,7 +1812,6 @@ static void PackageImport(const void *key, const void *value, void *context) {
 
 - (void) _remove {
     [Sources_ removeObjectForKey:[self key]];
-    Changed_ = true;
 }
 
 - (bool) remove {
@@ -2110,7 +2095,7 @@ struct ParsedPackage {
     uint32_t ignored_ : 1;
     uint32_t pooled_ : 1;
 
-    apr_pool_t *pool_;
+    CYPool *pool_;
 
     uint32_t rank_;
 
@@ -2139,8 +2124,8 @@ struct ParsedPackage {
     _H<NSMutableArray> tags_;
 }
 
-- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
-+ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database;
+- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
++ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
 
 - (pkgCache::PkgIterator) iterator;
 - (void) parse;
@@ -2357,7 +2342,7 @@ struct PackageNameOrdering :
 
 - (void) dealloc {
     if (!pooled_)
-        apr_pool_destroy(pool_);
+        delete pool_;
     if (parsed_ != NULL)
         delete parsed_;
     [super dealloc];
@@ -2540,11 +2525,11 @@ struct PackageNameOrdering :
     _end
 } }
 
-- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
+- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
         if (pool == NULL)
-            apr_pool_create(&pool_, NULL);
+            pool_ = new CYPool();
         else {
             pool_ = pool;
             pooled_ = true;
@@ -2620,7 +2605,7 @@ struct PackageNameOrdering :
 
             char *transform;
             _profile(Package$initWithVersion$Transliterate$apr_palloc)
-            transform = static_cast<char *>(apr_palloc(pool_, length));
+            transform = pool_->malloc<char>(length);
             _end
             _profile(Package$initWithVersion$Transliterate$u_strToUTF8WithSub$transform)
             u_strToUTF8WithSub(transform, length, NULL, CollationString_.data(), CollationString_.size(), 0xfffd, NULL, &code);
@@ -2719,7 +2704,7 @@ struct PackageNameOrdering :
     _end } return self;
 }
 
-+ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(apr_pool_t *)pool database:(Database *)database {
++ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     pkgCache::VerIterator version;
 
     _profile(Package$packageWithIterator$GetCandidateVer)
@@ -3200,13 +3185,15 @@ struct PackageNameOrdering :
 
     NSMutableArray *applications([NSMutableArray arrayWithCapacity:2]);
 
-    static Pcre application_r("^/Applications/(.*)\\.app/Info.plist$");
+    static RegEx application_r("/Applications/(.*)\\.app/Info.plist");
     if (NSArray *files = [self files])
         for (NSString *file in files)
             if (application_r(file)) {
                 NSDictionary *info([NSDictionary dictionaryWithContentsOfFile:file]);
+                if (info == nil)
+                    continue;
                 NSString *id([info objectForKey:@"CFBundleIdentifier"]);
-                if ([id isEqualToString:me])
+                if (id == nil || [id isEqualToString:me])
                     continue;
 
                 NSString *display([info objectForKey:@"CFBundleDisplayName"]);
@@ -3520,7 +3507,6 @@ class CydiaLogCleaner :
     // XXX: actually implement this thing
     _assert(false);
     [self releasePackages];
-    apr_pool_destroy(pool_);
     NSRecycleZone(zone_);
     [super dealloc];
 }
@@ -3530,7 +3516,7 @@ class CydiaLogCleaner :
     std::istream is(&ib);
     std::string line;
 
-    static Pcre finish_r("^finish:([^:]*)$");
+    static RegEx finish_r("finish:([^:]*)");
 
     while (std::getline(is, line)) {
         NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
@@ -3557,8 +3543,8 @@ class CydiaLogCleaner :
     std::istream is(&ib);
     std::string line;
 
-    static Pcre conffile_r("^status: [^ ]* : conffile-prompt : (.*?) *$");
-    static Pcre pmstatus_r("^([^:]*):([^:]*):([^:]*):(.*)$");
+    static RegEx conffile_r("status: [^ ]* : conffile-prompt : (.*?) *");
+    static RegEx pmstatus_r("([^:]*):([^:]*):([^:]*):(.*)");
 
     while (std::getline(is, line)) {
         NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
@@ -3651,7 +3637,6 @@ class CydiaLogCleaner :
         lock_ = NULL;
 
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
-        apr_pool_create(&pool_, NULL);
 
         size_t capacity(MetaFile_->active_);
         if (capacity == 0)
@@ -3760,7 +3745,7 @@ class CydiaLogCleaner :
 
         lprintf("%c:[%s]\n", warning ? 'W' : 'E', error.c_str());
 
-        static Pcre no_pubkey("^GPG error:.* NO_PUBKEY .*$");
+        static RegEx no_pubkey("GPG error:.* NO_PUBKEY .*");
         if (warning && no_pubkey(error.c_str()))
             continue;
 
@@ -3772,6 +3757,27 @@ class CydiaLogCleaner :
 
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success {
     return [self popErrorWithTitle:title] || !success;
+}
+
+- (bool) popErrorWithTitle:(NSString *)title forReadList:(pkgSourceList &)list {
+    list.Reset();
+
+    bool error(false);
+
+    if (access("/etc/apt/sources.list", F_OK) == 0)
+        error |= [self popErrorWithTitle:title forOperation:list.ReadAppend("/etc/apt/sources.list")];
+
+    std::string base("/etc/apt/sources.list.d");
+    if (DIR *sources = opendir(base.c_str())) {
+        while (dirent *source = readdir(sources))
+            if (source->d_name[0] != '.' && source->d_namlen > 5 && strcmp(source->d_name + source->d_namlen - 5, ".list") == 0 && strcmp(source->d_name, "cydia.list") != 0)
+                error |= [self popErrorWithTitle:title forOperation:list.ReadAppend((base + "/" + source->d_name).c_str())];
+        closedir(sources);
+    }
+
+    error |= [self popErrorWithTitle:title forOperation:list.ReadAppend(SOURCES_LIST)];
+
+    return error;
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {
@@ -3801,7 +3807,8 @@ class CydiaLogCleaner :
 
     cache_.Close();
 
-    apr_pool_clear(pool_);
+    pool_.~CYPool();
+    new (&pool_) CYPool();
 
     NSRecycleZone(zone_);
     zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
@@ -3817,23 +3824,22 @@ class CydiaLogCleaner :
 
     list_ = new pkgSourceList();
     _profile(reloadDataWithInvocation$ReadMainList)
-    if ([self popErrorWithTitle:title forOperation:list_->ReadMainList()])
+    if ([self popErrorWithTitle:title forReadList:*list_])
         return;
     _end
 
     _profile(reloadDataWithInvocation$Source$initWithMetaIndex)
     for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-        Source *object([[[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:pool_] autorelease]);
+        Source *object([[[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:&pool_] autorelease]);
         [sourceList_ addObject:object];
     }
     _end
-
-    _root(_system->Lock());
 
     _trace();
     OpProgress progress;
     bool opened;
   open:
+    delock_ = GetStatusDate();
     _profile(reloadDataWithInvocation$pkgCacheFile)
         opened = cache_.Open(progress, false);
     _end
@@ -3865,7 +3871,6 @@ class CydiaLogCleaner :
             }
         }
 
-        _system->UnLock();
         return;
     }
     _trace();
@@ -3926,7 +3931,7 @@ class CydiaLogCleaner :
 
         _profile(reloadDataWithInvocation$packageWithIterator)
         for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-            if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:pool_ database:self])
+            if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:&pool_ database:self])
                 //packages.push_back(package);
                 CFArrayAppendValue(packages_, CFRetain(package));
         _end
@@ -3991,9 +3996,9 @@ class CydiaLogCleaner :
 } }
 
 - (void) configure {
-    NSString *dpkg = [NSString stringWithFormat:@"dpkg --configure -a --status-fd %u", statusfd_];
+    NSString *dpkg = [NSString stringWithFormat:@"/usr/libexec/cydo --configure -a --status-fd %u", statusfd_];
     _trace();
-    _root(system([dpkg UTF8String]));
+    system([dpkg UTF8String]);
     _trace();
 }
 
@@ -4035,7 +4040,7 @@ class CydiaLogCleaner :
         return false;
 
     pkgSourceList list;
-    if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+    if ([self popErrorWithTitle:title forReadList:list])
         return false;
 
     manager_ = (_system->CreatePM(cache_));
@@ -4053,7 +4058,7 @@ class CydiaLogCleaner :
 
     NSMutableArray *before = [NSMutableArray arrayWithCapacity:16]; {
         pkgSourceList list;
-        if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+        if ([self popErrorWithTitle:title forReadList:list])
             return;
         for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
             [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
@@ -4094,8 +4099,27 @@ class CydiaLogCleaner :
     if (substrate)
         RestartSubstrate_ = true;
 
-    _system->UnLock();
-    pkgPackageManager::OrderResult result(_root(manager_->DoInstall(statusfd_)));
+    if (![delock_ isEqual:GetStatusDate()]) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("DPKG_LOCKED") ofType:kCydiaProgressEventTypeError] forTask:title];
+        return;
+    }
+
+    delock_ = nil;
+
+    pkgPackageManager::OrderResult result(manager_->DoInstall(statusfd_));
+
+    NSString *oextended(@"/var/lib/apt/extended_states");
+    NSString *nextended(Cache("extended_states"));
+
+    struct stat info;
+    if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG) {
+        system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/mv -f %@ %@", ShellEscape(nextended), ShellEscape(oextended)] UTF8String]);
+        system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/chown 0:0 %@", ShellEscape(oextended)] UTF8String]);
+    }
+
+    unlink([nextended UTF8String]);
+    symlink([oextended UTF8String], [nextended UTF8String]);
+
     if ([self popErrorWithTitle:title])
         return;
 
@@ -4111,7 +4135,7 @@ class CydiaLogCleaner :
 
     NSMutableArray *after = [NSMutableArray arrayWithCapacity:16]; {
         pkgSourceList list;
-        if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+        if ([self popErrorWithTitle:title forReadList:list])
             return;
         for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
             [after addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
@@ -4119,6 +4143,10 @@ class CydiaLogCleaner :
 
     if (![before isEqualToArray:after])
         [self update];
+}
+
+- (bool) delocked {
+    return ![delock_ isEqual:GetStatusDate()];
 }
 
 - (bool) upgrade {
@@ -4136,7 +4164,7 @@ class CydiaLogCleaner :
     NSString *title(UCLocalize("REFRESHING_DATA"));
 
     pkgSourceList list;
-    if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+    if ([self popErrorWithTitle:title forReadList:list])
         return;
 
     FileFd lock;
@@ -4151,8 +4179,10 @@ class CydiaLogCleaner :
         _error->Discard();
     else {
         [self popErrorWithTitle:title forOperation:success];
-        [Metadata_ setObject:[NSDate date] forKey:@"LastUpdate"];
-        Changed_ = true;
+
+        [[NSDictionary dictionaryWithObjectsAndKeys:
+            [NSDate date], @"LastUpdate",
+        nil] writeToFile:@ CacheState_ atomically:YES];
     }
 
     [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
@@ -4223,7 +4253,7 @@ class CydiaLogCleaner :
 static _H<NSMutableSet> Diversions_;
 
 @interface Diversion : NSObject {
-    Pcre pattern_;
+    RegEx pattern_;
     _H<NSString> key_;
     _H<NSString> format_;
 }
@@ -4325,7 +4355,6 @@ static _H<NSMutableSet> Diversions_;
         @"operator",
         @"role",
         @"serial",
-        @"token",
         @"version",
     nil];
 }
@@ -4404,10 +4433,6 @@ static _H<NSMutableSet> Diversions_;
     return [NSString stringWithUTF8String:Machine_];
 }
 
-- (NSString *) token {
-    return (id) Token_ ?: [NSNull null];
-}
-
 + (NSString *) webScriptNameForSelector:(SEL)selector {
     if (false);
     else if (selector == @selector(addBridgedHost:))
@@ -4420,8 +4445,6 @@ static _H<NSMutableSet> Diversions_;
         return @"addPipelinedHost";
     else if (selector == @selector(addSource:::))
         return @"addSource";
-    else if (selector == @selector(addTokenHost:))
-        return @"addTokenHost";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
     else if (selector == @selector(close))
@@ -4615,8 +4638,6 @@ static _H<NSMutableSet> Diversions_;
         [Values_ removeObjectForKey:key];
     else
         [Values_ setObject:value forKey:key];
-
-    [delegate_ performSelectorOnMainThread:@selector(updateValues) withObject:nil waitUntilDone:YES];
 } }
 
 - (id) getSessionValue:(NSString *)key {
@@ -4640,11 +4661,6 @@ static _H<NSMutableSet> Diversions_;
 - (void) addInsecureHost:(NSString *)host {
 @synchronized (HostConfig_) {
     [InsecureHosts_ addObject:host];
-} }
-
-- (void) addTokenHost:(NSString *)host {
-@synchronized (HostConfig_) {
-    [TokenHosts_ addObject:host];
 } }
 
 - (void) addPipelinedHost:(NSString *)host scheme:(NSString *)scheme {
@@ -4675,8 +4691,12 @@ static _H<NSMutableSet> Diversions_;
     nil] waitUntilDone:NO];
 }
 
-- (void) addTrivialSource:(NSString *)href {
+- (BOOL) addTrivialSource:(NSString *)href {
+    href = VerifySource(href);
+    if (href == nil)
+        return NO;
     [delegate_ performSelectorOnMainThread:@selector(addTrivialSource:) withObject:href waitUntilDone:NO];
+    return YES;
 }
 
 - (void) refreshSources {
@@ -4734,36 +4754,20 @@ static _H<NSMutableSet> Diversions_;
 - (NSNumber *) du:(NSString *)path {
     NSNumber *value(nil);
 
-    int fds[2];
-    _assert(pipe(fds) != -1);
-
-    pid_t pid(ExecFork());
-    if (pid == 0) {
-        _assert(dup2(fds[1], 1) != -1);
-        _assert(close(fds[0]) != -1);
-        _assert(close(fds[1]) != -1);
-        /* XXX: this should probably not use du */
-        _root(execl("/usr/libexec/cydia/du", "du", "-s", [path UTF8String], NULL));
-        exit(1);
-    } else {
-        _assert(close(fds[1]) != -1);
-
-        if (FILE *du = fdopen(fds[0], "r")) {
-            char line[1024];
-            while (fgets(line, sizeof(line), du) != NULL) {
-                size_t length(strlen(line));
-                while (length != 0 && line[length - 1] == '\n')
-                    line[--length] = '\0';
-                if (char *tab = strchr(line, '\t')) {
-                    *tab = '\0';
-                    value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
-                }
+    FILE *du(popen([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /usr/libexec/cydia/du -ks %@", ShellEscape(path)] UTF8String], "r"));
+    if (du != NULL) {
+        char line[1024];
+        while (fgets(line, sizeof(line), du) != NULL) {
+            size_t length(strlen(line));
+            while (length != 0 && line[length - 1] == '\n')
+                line[--length] = '\0';
+            if (char *tab = strchr(line, '\t')) {
+                *tab = '\0';
+                value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
             }
-
-            fclose(du);
-        } else
-            _assert(close(fds[0]) != -1);
-    } ReapZombie(pid);
+        }
+        pclose(du);
+    }
 
     return value;
 }
@@ -4837,19 +4841,8 @@ static _H<NSMutableSet> Diversions_;
     [[objc_getClass("UIPasteboard") generalPasteboard] setURL:[NSURL URLWithString:value]];
 }
 
-- (void) _setToken:(NSString *)token {
-    Token_ = token;
-
-    if (token == nil)
-        [Metadata_ removeObjectForKey:@"Token"];
-    else
-        [Metadata_ setObject:Token_ forKey:@"Token"];
-
-    Changed_ = true;
-}
-
 - (void) setToken:(NSString *)token {
-    [self performSelectorOnMainThread:@selector(_setToken:) withObject:token waitUntilDone:NO];
+    // XXX: the website expects this :/
 }
 
 - (void) scrollToBottom:(NSNumber *)animated {
@@ -4956,6 +4949,10 @@ static _H<NSMutableSet> Diversions_;
     return [CydiaWebViewController requestWithHeaders:[super webView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source]];
 }
 
+- (NSURLRequest *) webThreadWebView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    return [CydiaWebViewController requestWithHeaders:[super webThreadWebView:view resource:resource willSendRequest:request redirectResponse:response fromDataSource:source]];
+}
+
 + (NSURLRequest *) requestWithHeaders:(NSURLRequest *)request {
     NSMutableURLRequest *copy([[request mutableCopy] autorelease]);
 
@@ -4981,23 +4978,12 @@ static _H<NSMutableSet> Diversions_;
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 
-    bool bridged;
-    bool token;
-
-    @synchronized (HostConfig_) {
+    bool bridged; @synchronized (HostConfig_) {
         bridged = [BridgedHosts_ containsObject:host];
-        token = [TokenHosts_ containsObject:host];
     }
 
-    if ([url isCydiaSecure]) {
-        if (bridged) {
-            if (UniqueID_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Id"] == nil)
-                [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
-        } else if (token) {
-            if (Token_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Token"] == nil)
-                [copy setValue:Token_ forHTTPHeaderField:@"X-Cydia-Token"];
-        }
-    }
+    if ([url isCydiaSecure] && bridged && UniqueID_ != nil && [copy valueForHTTPHeaderField:@"X-Cydia-Id"] == nil)
+        [copy setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
 
     return copy;
 }
@@ -5177,8 +5163,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         issues_ = [NSMutableArray arrayWithCapacity:4];
 
-        UpgradeCydia_ = false;
-
         for (Package *package in packages) {
             pkgCache::PkgIterator iterator([package iterator]);
             NSString *name([package id]);
@@ -5253,7 +5237,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
             pkgDepCache::StateCache &state(cache[iterator]);
 
-            static Pcre special_r("^(firmware$|gsc\\.|cy\\+)");
+            static RegEx special_r("(firmware|gsc\\..*|cy\\+.*)");
 
             if (state.NewInstall())
                 [installs addObject:name];
@@ -5289,9 +5273,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                     remove = true;
                 [removes addObject:name];
             }
-
-            if ([name isEqualToString:@"cydia"])
-                UpgradeCydia_ = true;
 
             substrate_ |= DepSubstrate(policy->GetCandidateVer(iterator));
             substrate_ |= DepSubstrate(iterator.CurrentVer());
@@ -5582,34 +5563,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super viewWillAppear:animated];
 }
 
-- (void) reloadSpringBoard {
-    if (kCFCoreFoundationVersionNumber > 700) { // XXX: iOS 6.x
-        system("/bin/launchctl stop com.apple.backboardd");
-        sleep(15);
-        system("/usr/bin/killall backboardd SpringBoard sbreload");
-        return;
-    }
-
-    pid_t pid(ExecFork());
-    if (pid == 0) {
-        if (setsid() == -1)
-            perror("setsid");
-
-        pid_t pid(ExecFork());
-        if (pid == 0) {
-            _root(execl("/usr/bin/sbreload", "sbreload", NULL));
-            perror("sbreload");
-
-            exit(0);
-        } ReapZombie(pid);
-
-        exit(0);
-    } ReapZombie(pid);
-
-    sleep(15);
-    system("/usr/bin/killall backboardd SpringBoard sbreload");
-}
-
 - (void) close {
     UpdateExternalStatus(0);
 
@@ -5640,7 +5593,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         reload: {
             UIProgressHUD *hud([delegate_ addProgressHUD]);
             [hud setText:UCLocalize("LOADING")];
-            [self performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0.5];
+            [delegate_ performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0.5];
             return;
         }
 
@@ -6078,7 +6031,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     [metadata setObject:[NSNumber numberWithBool:([switch_ isOn] == NO)] forKey:@"Hidden"];
-    Changed_ = true;
 }
 
 - (void) setSection:(Section *)section editing:(BOOL)editing {
@@ -6931,7 +6883,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [alert setCancelButtonIndex:0];
 
     [alert setMessage:
-        @"Copyright \u00a9 2008-2014\n"
+        @"Copyright \u00a9 2008-2015\n"
         "SaurikIT, LLC\n"
         "\n"
         "Jay Freeman (saurik)\n"
@@ -7008,10 +6960,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
         [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
     } return self;
-}
-
-- (void) setUpdate:(NSDate *)date {
-    [self beginUpdate];
 }
 
 - (void) beginUpdate {
@@ -7943,20 +7891,15 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     const char *package([name_ UTF8String]);
     bool on([ignoredSwitch_ isOn]);
 
-    pid_t pid(ExecFork());
-    if (pid == 0) {
-        FILE *dpkg(_root(popen("dpkg --set-selections", "w")));
-        fwrite(package, strlen(package), 1, dpkg);
+    FILE *dpkg(popen("/usr/libexec/cydia/cydo --set-selections", "w"));
+    fwrite(package, strlen(package), 1, dpkg);
 
-        if (on)
-            fwrite(" hold\n", 6, 1, dpkg);
-        else
-            fwrite(" install\n", 9, 1, dpkg);
+    if (on)
+        fwrite(" hold\n", 6, 1, dpkg);
+    else
+        fwrite(" install\n", 9, 1, dpkg);
 
-        pclose(dpkg);
-
-        exit(0);
-    } ReapZombie(pid);
+    pclose(dpkg);
 }
 
 - (void) onIgnored:(id)control {
@@ -8458,7 +8401,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         if (source == nil) return;
 
         [Sources_ removeObjectForKey:[source key]];
-        Changed_ = true;
 
         [delegate_ _saveConfig];
         [delegate_ reloadDataWithInvocation:nil];
@@ -8620,27 +8562,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         switch (button) {
             case 1: {
                 NSString *href = [[alert textField] text];
-
-                static Pcre href_r("^http(s?)://[^# ]*$");
-                if (!href_r(href)) {
-                    UIAlertView *alert = [[[UIAlertView alloc]
-                        initWithTitle:[NSString stringWithFormat:Colon_, Error_, UCLocalize("INVALID_URL")]
-                        message:UCLocalize("INVALID_URL_EX")
-                        delegate:self
-                        cancelButtonTitle:UCLocalize("OK")
-                        otherButtonTitles:nil
-                    ] autorelease];
-
-                    [alert setContext:@"badurl"];
-                    [alert show];
-
+                href = VerifySource(href);
+                if (href == nil)
                     break;
-                }
-
-                if (![href hasSuffix:@"/"])
-                    href_ = [href stringByAppendingString:@"/"];
-                else
-                    href_ = href;
+                href_ = href;
 
                 trivial_bz2_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"] retain];
                 trivial_gz_ = [[self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"] retain];
@@ -8937,7 +8862,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) createDiskCachePath {
     [super createDiskCachePath];
-    _root(chown([[self diskCachePath] UTF8String], 501, 501));
 }
 
 @end
@@ -9063,30 +8987,17 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [self _loaded];
 }
 
+- (void) reloadSpringBoard {
+    if (kCFCoreFoundationVersionNumber >= 700) // XXX: iOS 6.x
+        system("/bin/launchctl stop com.apple.backboardd");
+    else
+        system("/bin/launchctl stop com.apple.SpringBoard");
+    sleep(15);
+    system("/usr/bin/killall backboardd SpringBoard");
+}
+
 - (void) _saveConfig {
-    @synchronized (database_) {
-        _trace();
-        MetaFile_.Sync();
-        _trace();
-    }
-
-    if (Changed_) {
-        NSString *error(nil);
-
-        if (NSData *data = [NSPropertyListSerialization dataFromPropertyList:Metadata_ format:NSPropertyListBinaryFormat_v1_0 errorDescription:&error]) {
-            _trace();
-            NSError *error(nil);
-            if (!_root([data writeToFile:@"/var/lib/cydia/metadata.plist" options:NSAtomicWrite error:&error]))
-                NSLog(@"failure to save metadata data: %@", error);
-            _trace();
-
-            Changed_ = false;
-        } else {
-            NSLog(@"failure to serialize metadata: %@", error);
-        }
-    }
-
-    _root(CydiaWriteSources());
+    SaveConfig(database_);
 }
 
 // Navigation controller for the queuing badge.
@@ -9113,8 +9024,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [[navigation tabBarItem] setBadgeValue:(Queuing_ ? UCLocalize("Q_D") : nil)];
 }
 
-- (void) _refreshIfPossible:(NSDate *)update {
+- (void) _refreshIfPossible {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    NSDate *update([[NSDictionary dictionaryWithContentsOfFile:@ CacheState_] objectForKey:@"LastUpdate"]);
 
     bool recently = false;
     if (update != nil) {
@@ -9137,14 +9050,14 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         // We are going to load, so remember that.
         loaded_ = true;
 
-        [tabbar_ performSelectorOnMainThread:@selector(setUpdate:) withObject:update waitUntilDone:NO];
+        [tabbar_ performSelectorOnMainThread:@selector(beginUpdate) withObject:nil waitUntilDone:NO];
     }
 
     [pool release];
 }
 
 - (void) refreshIfPossible {
-    [NSThread detachNewThreadSelector:@selector(_refreshIfPossible:) toTarget:self withObject:[Metadata_ objectForKey:@"LastUpdate"]];
+    [NSThread detachNewThreadSelector:@selector(_refreshIfPossible) toTarget:self withObject:nil];
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {
@@ -9292,12 +9205,10 @@ _end
     CydiaAddSource(href, distribution, sections);
 }
 
-- (void) addTrivialSource:(NSString *)href {
+// XXX: this method should not return anything
+- (BOOL) addTrivialSource:(NSString *)href {
     CydiaAddSource(href, @"./");
-}
-
-- (void) updateValues {
-    Changed_ = true;
+    return YES;
 }
 
 - (void) resolve {
@@ -9379,14 +9290,7 @@ _end
 
 - (void) _uicache {
     _trace();
-
-    if (UpgradeCydia_ && Finish_ > 0) {
-        setreugid(0, 0);
-        system("su -c /usr/bin/uicache mobile");
-    } else {
-        system("/usr/bin/uicache");
-    }
-
+    system("/usr/bin/uicache");
     _trace();
 }
 
@@ -9459,14 +9363,14 @@ _end
             @synchronized (self) {
                 for (Package *broken in (id) broken_) {
                     [broken remove];
-                    NSString *id = [broken id];
-
-                    _root({
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.prerm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postrm", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.preinst", id] UTF8String]);
-                        unlink([[NSString stringWithFormat:@"/var/lib/dpkg/info/%@.postinst", id] UTF8String]);
-                    });
+                    NSString *id(ShellEscape([broken id]));
+                    system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/rm -f"
+                        " /var/lib/dpkg/info/%@.prerm"
+                        " /var/lib/dpkg/info/%@.postrm"
+                        " /var/lib/dpkg/info/%@.preinst"
+                        " /var/lib/dpkg/info/%@.postinst"
+                        " /var/lib/dpkg/info/%@.extrainst_"
+                    "", id, id, id, id, id] UTF8String]);
                 }
 
                 [self resolve];
@@ -9501,7 +9405,7 @@ _end
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
     _trace();
-    _root(system([command UTF8String]));
+    system([command UTF8String]);
     _trace();
 
     [pool release];
@@ -9669,7 +9573,7 @@ _end
             controller = [[[SectionController alloc] initWithDatabase:database_ source:nil section:argument] autorelease];
         }
 
-        if (!external && [base isEqualToString:@"sources"]) {
+        if ([base isEqualToString:@"sources"]) {
             if ([argument isEqualToString:@"add"]) {
                 controller = [[[SourcesController alloc] initWithDatabase:database_] autorelease];
                 [(SourcesController *)controller showAddSourcePrompt];
@@ -9737,10 +9641,11 @@ _end
 }
 
 - (void) saveState {
-    [Metadata_ setObject:[tabbar_ navigationURLCollection] forKey:@"InterfaceState"];
-    [Metadata_ setObject:[NSDate date] forKey:@"LastClosed"];
-    [Metadata_ setObject:[NSNumber numberWithInt:[tabbar_ selectedIndex]] forKey:@"InterfaceIndex"];
-    Changed_ = true;
+    [[NSDictionary dictionaryWithObjectsAndKeys:
+        @"InterfaceState", [tabbar_ navigationURLCollection],
+        @"LastClosed", [NSDate date],
+        @"InterfaceIndex", [NSNumber numberWithInt:[tabbar_ selectedIndex]],
+    nil] writeToFile:@ SavedState_ atomically:YES];
 
     [self _saveConfig];
 }
@@ -9752,15 +9657,15 @@ _end
 - (void) applicationDidEnterBackground:(UIApplication *)application {
     if (kCFCoreFoundationVersionNumber < 1000 && [self isSafeToSuspend])
         return [self terminateWithSuccess];
+    Backgrounded_ = [NSDate date];
     [self saveState];
 }
 
 - (void) applicationWillEnterForeground:(UIApplication *)application {
-    NSDate *closed = [Metadata_ objectForKey:@"LastClosed"];
-    if (closed == nil)
+    if (Backgrounded_ == nil)
         return;
 
-    NSTimeInterval interval([closed timeIntervalSinceNow]);
+    NSTimeInterval interval([Backgrounded_ timeIntervalSinceNow]);
 
     if (interval <= -(30*60)) {
         [tabbar_ setSelectedIndex:0];
@@ -9773,10 +9678,13 @@ _end
             [appcache_ reloadURLWithCache:YES];
         }
     }
+
+    if ([database_ delocked])
+        [self reloadData];
 }
 
 - (void) setConfigurationData:(NSString *)data {
-    static Pcre conffile_r("^'(.*)' '(.*)' ([01]) ([01])$");
+    static RegEx conffile_r("'(.*)' '(.*)' ([01]) ([01])");
 
     if (!conffile_r(data)) {
         lprintf("E:invalid conffile\n");
@@ -9817,18 +9725,11 @@ _end
 - (void) stash {
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     UpdateExternalStatus(1);
-    [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/free.sh"];
+    [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/cydo /usr/libexec/cydia/free.sh"];
     UpdateExternalStatus(0);
 
     [self removeStashController];
-
-    pid_t pid(ExecFork());
-    if (pid == 0) {
-        execlp("launchctl", "launchctl", "stop", "com.apple.SpringBoard", NULL);
-        perror("launchctl stop");
-
-        exit(0);
-    } ReapZombie(pid);
+    [self reloadSpringBoard];
 }
 
 - (void) setupViewControllers {
@@ -9957,7 +9858,6 @@ _trace();
     Stash_("/Library/Wallpaper");
     //Stash_("/usr/bin");
     Stash_("/usr/include");
-    Stash_("/usr/lib/pam");
     Stash_("/usr/share");
     //Stash_("/var/lib");
 
@@ -10007,8 +9907,10 @@ _trace();
     [self refreshIfPossible];
     [self disemulate];
 
-    int savedIndex = [[Metadata_ objectForKey:@"InterfaceIndex"] intValue];
-    NSArray *saved = [[[Metadata_ objectForKey:@"InterfaceState"] mutableCopy] autorelease];
+    NSDictionary *state([NSDictionary dictionaryWithContentsOfFile:@ SavedState_]);
+
+    int savedIndex = [[state objectForKey:@"InterfaceIndex"] intValue];
+    NSArray *saved = [[[state objectForKey:@"InterfaceState"] mutableCopy] autorelease];
     int standardIndex = 0;
     NSArray *standard = [self defaultStartPages];
 
@@ -10017,7 +9919,7 @@ _trace();
     if (saved == nil)
         valid = NO;
 
-    NSDate *closed = [Metadata_ objectForKey:@"LastClosed"];
+    NSDate *closed = [state objectForKey:@"LastClosed"];
     if (valid && closed != nil) {
         NSTimeInterval interval([closed timeIntervalSinceNow]);
         if (interval <= -(30*60))
@@ -10165,8 +10067,20 @@ MSHook(id, NSUserDefaults$objectForKey$, NSUserDefaults *self, SEL _cmd, NSStrin
     return _NSUserDefaults$objectForKey$(self, _cmd, key);
 }
 
+static NSMutableDictionary *AutoreleaseDeepMutableCopyOfDictionary(CFTypeRef type) {
+    if (type == NULL)
+        return nil;
+    if (CFGetTypeID(type) != CFDictionaryGetTypeID())
+        return nil;
+    CFTypeRef copy(CFPropertyListCreateDeepCopy(kCFAllocatorDefault, type, kCFPropertyListMutableContainers));
+    CFRelease(type);
+    return [(NSMutableDictionary *) copy autorelease];
+}
+
 int main(int argc, char *argv[]) {
-    setreugid(501, 501);
+    int fd(open("/tmp/cydia.log", O_WRONLY | O_APPEND | O_CREAT, 0644));
+    dup2(fd, 2);
+    close(fd);
 
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
@@ -10189,7 +10103,7 @@ int main(int argc, char *argv[]) {
 
     Idiom_ = IsWildcat_ ? @"ipad" : @"iphone";
 
-    Pcre pattern("^([0-9]+\\.[0-9]+)");
+    RegEx pattern("([0-9]+\\.[0-9]+).*");
 
     if (pattern([device systemVersion]))
         Firmware_ = pattern[1];
@@ -10201,7 +10115,6 @@ int main(int argc, char *argv[]) {
     HostConfig_ = [[[NSObject alloc] init] autorelease];
     @synchronized (HostConfig_) {
         BridgedHosts_ = [NSMutableSet setWithCapacity:4];
-        TokenHosts_ = [NSMutableSet setWithCapacity:4];
         InsecureHosts_ = [NSMutableSet setWithCapacity:4];
         PipelinedHosts_ = [NSMutableSet setWithCapacity:4];
         CachedURLs_ = [NSMutableSet setWithCapacity:32];
@@ -10254,7 +10167,7 @@ int main(int argc, char *argv[]) {
         lang = NULL;
 
     if (lang != NULL) {
-        Pcre pattern("^([a-z][a-z])(?:-[A-Za-z]*)?(_[A-Z][A-Z])?$");
+        RegEx pattern("([a-z][a-z])(?:-[A-Za-z]*)?(_[A-Z][A-Z])?");
         lang = !pattern(lang) ? NULL : [pattern->*@"%1$@%2$@" UTF8String];
     }
 
@@ -10316,9 +10229,6 @@ int main(int argc, char *argv[]) {
         CollationStarts_ = [NSArray arrayWithObjects:@"a",@"b",@"c",@"d",@"e",@"f",@"g",@"h",@"i",@"j",@"k",@"l",@"m",@"n",@"o",@"p",@"q",@"r",@"s",@"t",@"u",@"v",@"w",@"x",@"y",@"z",@"ʒ",nil];
     }
     /* }}} */
-
-    apr_app_initialize(&argc, const_cast<const char * const **>(&argv), NULL);
-
     /* Parse Arguments {{{ */
     bool substrate(false);
 
@@ -10404,55 +10314,58 @@ int main(int argc, char *argv[]) {
 
     NSString *agent([NSString stringWithFormat:@"Cydia/%@ CyF/%.2f", Cydia_, kCFCoreFoundationVersionNumber]);
 
-    if (Pcre match = Pcre("^[0-9]+(\\.[0-9]+)+", Safari_))
-        agent = [NSString stringWithFormat:@"Safari/%@ %@", match[0], agent];
-    if (Pcre match = Pcre("^[0-9]+[A-Z][0-9]+[a-z]?", System_))
-        agent = [NSString stringWithFormat:@"Mobile/%@ %@", match[0], agent];
-    if (Pcre match = Pcre("^[0-9]+(\\.[0-9]+)+", Product_))
-        agent = [NSString stringWithFormat:@"Version/%@ %@", match[0], agent];
+    if (RegEx match = RegEx("([0-9]+(\\.[0-9]+)+).*", Safari_))
+        agent = [NSString stringWithFormat:@"Safari/%@ %@", match[1], agent];
+    if (RegEx match = RegEx("([0-9]+[A-Z][0-9]+[a-z]?).*", System_))
+        agent = [NSString stringWithFormat:@"Mobile/%@ %@", match[1], agent];
+    if (RegEx match = RegEx("([0-9]+(\\.[0-9]+)+).*", Product_))
+        agent = [NSString stringWithFormat:@"Version/%@ %@", match[1], agent];
 
     UserAgent_ = agent;
     /* }}} */
     /* Load Database {{{ */
-    _trace();
-    Metadata_ = [[[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"] autorelease];
-    _trace();
     SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
 
-    if (Metadata_ == NULL)
-        Metadata_ = [NSMutableDictionary dictionaryWithCapacity:2];
-    else {
-        Settings_ = [Metadata_ objectForKey:@"Settings"];
+    _trace();
+    mkdir("/var/mobile/Library/Cydia", 0755);
+    MetaFile_.Open("/var/mobile/Library/Cydia/metadata.cb0");
+    _trace();
 
-        Packages_ = [Metadata_ objectForKey:@"Packages"];
+    Values_ = AutoreleaseDeepMutableCopyOfDictionary(CFPreferencesCopyAppValue(CFSTR("CydiaValues"), CFSTR("com.saurik.Cydia")));
+    Sections_ = AutoreleaseDeepMutableCopyOfDictionary(CFPreferencesCopyAppValue(CFSTR("CydiaSections"), CFSTR("com.saurik.Cydia")));
+    Sources_ = AutoreleaseDeepMutableCopyOfDictionary(CFPreferencesCopyAppValue(CFSTR("CydiaSources"), CFSTR("com.saurik.Cydia")));
+    Version_ = [(NSNumber *) CFPreferencesCopyAppValue(CFSTR("CydiaVersion"), CFSTR("com.saurik.Cydia")) autorelease];
 
-        Values_ = [Metadata_ objectForKey:@"Values"];
-        Sections_ = [Metadata_ objectForKey:@"Sections"];
-        Sources_ = [Metadata_ objectForKey:@"Sources"];
+    _trace();
+    NSDictionary *metadata([[[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"] autorelease]);
 
-        Token_ = [Metadata_ objectForKey:@"Token"];
-
-        Version_ = [Metadata_ objectForKey:@"Version"];
-    }
-
-    if (Values_ == nil) {
+    if (Values_ == nil)
+        Values_ = [metadata objectForKey:@"Values"];
+    if (Values_ == nil)
         Values_ = [[[NSMutableDictionary alloc] initWithCapacity:4] autorelease];
-        [Metadata_ setObject:Values_ forKey:@"Values"];
-    }
 
-    if (Sections_ == nil) {
+    if (Sections_ == nil)
+        Sections_ = [metadata objectForKey:@"Sections"];
+    if (Sections_ == nil)
         Sections_ = [[[NSMutableDictionary alloc] initWithCapacity:32] autorelease];
-        [Metadata_ setObject:Sections_ forKey:@"Sections"];
-    }
 
-    if (Sources_ == nil) {
+    if (Sources_ == nil)
+        Sources_ = [metadata objectForKey:@"Sources"];
+    if (Sources_ == nil)
         Sources_ = [[[NSMutableDictionary alloc] initWithCapacity:0] autorelease];
-        [Metadata_ setObject:Sources_ forKey:@"Sources"];
-    }
 
-    if (Version_ == nil) {
+    // XXX: this wrong, but in a way that doesn't matter :/
+    if (Version_ == nil)
+        Version_ = [metadata objectForKey:@"Version"];
+    if (Version_ == nil)
         Version_ = [NSNumber numberWithUnsignedInt:0];
-        [Metadata_ setObject:Version_ forKey:@"Version"];
+
+    if (NSDictionary *packages = [metadata objectForKey:@"Packages"]) {
+        bool fail(false);
+        CFDictionaryApplyFunction((CFDictionaryRef) packages, &PackageImport, &fail);
+        _trace();
+        if (fail)
+            NSLog(@"unable to import package preferences... from 2010? oh well :/");
     }
 
     if ([Version_ unsignedIntValue] == 0) {
@@ -10462,68 +10375,36 @@ int main(int argc, char *argv[]) {
         CydiaAddSource(@"http://repo666.ultrasn0w.com/", @"./");
 
         Version_ = [NSNumber numberWithUnsignedInt:1];
-        [Metadata_ setObject:Version_ forKey:@"Version"];
 
-        [Metadata_ removeObjectForKey:@"LastUpdate"];
-
-        Changed_ = true;
+        if (NSMutableDictionary *cache = [NSMutableDictionary dictionaryWithContentsOfFile:@ CacheState_]) {
+            [cache removeObjectForKey:@"LastUpdate"];
+            [cache writeToFile:@ CacheState_ atomically:YES];
+        }
     }
 
     _H<NSMutableArray> broken([NSMutableArray array]);
     for (NSString *key in (id) Sources_)
-        if ([key rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"# "]].location != NSNotFound)
+        if ([key rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"# "]].location != NSNotFound || ![([[Sources_ objectForKey:key] objectForKey:@"URI"] ?: @"/") hasSuffix:@"/"])
             [broken addObject:key];
-    if ([broken count] != 0) {
+    if ([broken count] != 0)
         for (NSString *key in (id) broken)
             [Sources_ removeObjectForKey:key];
-        Changed_ = true;
-    } broken = nil;
+    broken = nil;
+
+    SaveConfig(nil);
+    system("/usr/libexec/cydia/cydo /bin/rm -f /var/lib/cydia/metadata.plist");
     /* }}} */
-
-    _root(CydiaWriteSources());
-
-    _trace();
-    mkdir("/var/mobile/Library/Cydia", 0755);
-    MetaFile_.Open("/var/mobile/Library/Cydia/metadata.cb0");
-    _trace();
-
-    if (Packages_ != nil) {
-        bool fail(false);
-        CFDictionaryApplyFunction((CFDictionaryRef) Packages_, &PackageImport, &fail);
-        _trace();
-
-        if (!fail) {
-            [Metadata_ removeObjectForKey:@"Packages"];
-            Packages_ = nil;
-            Changed_ = true;
-        }
-    }
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
-#define MobileSubstrate_(name) \
-    if (substrate && access("/Library/MobileSubstrate/DynamicLibraries/" #name ".dylib", F_OK) == 0) { \
-        void *handle(dlopen("/Library/MobileSubstrate/DynamicLibraries/" #name ".dylib", RTLD_LAZY | RTLD_GLOBAL)); \
-        if (handle == NULL) \
-            NSLog(@"%s", dlerror()); \
-    }
-
-    MobileSubstrate_(Activator)
-    MobileSubstrate_(libstatusbar)
-    MobileSubstrate_(SimulatedKeyEvents)
-    MobileSubstrate_(WinterBoard)
-
-    /*if (substrate && access("/Library/MobileSubstrate/MobileSubstrate.dylib", F_OK) == 0)
-        dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_LAZY | RTLD_GLOBAL);*/
-
     if (kCFCoreFoundationVersionNumber > 1000)
-        _root(system([[NSString stringWithFormat:@"/usr/libexec/cydia/setnsfpn /var/lib"] UTF8String]));
+        system("/usr/libexec/cydia/cydo /usr/libexec/cydia/setnsfpn /var/lib");
 
     int version([[NSString stringWithContentsOfFile:@"/var/lib/cydia/firmware.ver"] intValue]);
 
     if (access("/User", F_OK) != 0 || version != 6) {
         _trace();
-        _root(system("/usr/libexec/cydia/firmware.sh"));
+        system("/usr/libexec/cydia/cydo /usr/libexec/cydia/firmware.sh");
         _trace();
     }
 
@@ -10551,10 +10432,19 @@ int main(int argc, char *argv[]) {
     mkdir([Cache("archives/partial") UTF8String], 0755);
     _config->Set("Dir::Cache", [Cache_ UTF8String]);
 
+    symlink("/var/lib/apt/extended_states", [Cache("extended_states") UTF8String]);
+    _config->Set("Dir::State", [Cache_ UTF8String]);
+
     mkdir([Cache("lists") UTF8String], 0755);
     mkdir([Cache("lists/partial") UTF8String], 0755);
     mkdir([Cache("periodic") UTF8String], 0755);
     _config->Set("Dir::State::Lists", [Cache("lists") UTF8String]);
+
+    std::string logs("/var/mobile/Library/Logs/Cydia");
+    mkdir(logs.c_str(), 0755);
+    _config->Set("Dir::Log::Terminal", logs + "/apt.log");
+
+    _config->Set("Dir::Bin::dpkg", "/usr/libexec/cydia/cydo");
     /* }}} */
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();
@@ -10577,13 +10467,6 @@ int main(int argc, char *argv[]) {
     // XXX: I have a feeling this was important
     //UIKeyboardDisableAutomaticAppearance();
     /* }}} */
-
-    _root({
-        chown([Cache("ApplicationCache.db") UTF8String], 501, 501);
-        chown([Cache("Cache.db") UTF8String], 501, 501);
-        chown([Cache("Cache.db-shm") UTF8String], 501, 501);
-        chown([Cache("Cache.db-wal") UTF8String], 501, 501);
-    });
 
     $SBSSetInterceptsMenuButtonForever = reinterpret_cast<void (*)(bool)>(dlsym(RTLD_DEFAULT, "SBSSetInterceptsMenuButtonForever"));
 

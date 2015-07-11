@@ -62,13 +62,9 @@ function extract() {
 
 declare -A urls
 
-urls[apr]=http://apt.saurik.com/debs/apr_1.3.3-4_iphoneos-arm.deb
-urls[apr-lib]=http://apt.saurik.com/debs/apr-lib_1.3.3-2_iphoneos-arm.deb
 urls[apt7]=http://apt.saurik.com/debs/apt7_0.7.25.3-7_iphoneos-arm.deb
 urls[apt7-lib]=http://apt.saurik.com/debs/apt7-lib_0.7.25.3-12_iphoneos-arm.deb
 urls[coreutils]=http://apt.saurik.com/debs/coreutils_7.4-11_iphoneos-arm.deb
-urls[mobilesubstrate]=http://apt.saurik.com/debs/mobilesubstrate_0.9.3367-1_iphoneos-arm.deb
-urls[pcre]=http://apt.saurik.com/debs/pcre_7.9-3_iphoneos-arm.deb
 
 if [[ 0 ]]; then
     wget -qO- "${repository}dists/${distribution}/${component}/binary-${architecture}/Packages.bz2" | bzcat | {
@@ -99,12 +95,6 @@ for package in "${!urls[@]}"; do
 done
 
 rm -f *.deb
-
-if substrate=$(readlink usr/include/substrate.h); then
-    if [[ ${substrate} == /* ]]; then
-        ln -sf "../..${substrate}" usr/include/substrate.h
-    fi
-fi
 
 mkdir -p usr/include
 cd usr/include

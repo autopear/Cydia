@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Copyright (C) 2008-2013  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -19,17 +19,20 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_Localize_H
-#define CyteKit_Localize_H
+#ifndef Substrate_HPP
+#define Substrate_HPP
 
-#include <Foundation/Foundation.h>
+#include <objc/runtime.h>
 
-static inline NSString *UCLocalizeEx(NSString *key, NSString *value = nil) {
-    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:nil];
+template <typename Type_>
+static inline Type_ &MSHookIvar(id self, const char *name) {
+    Ivar ivar(class_getInstanceVariable(object_getClass(self), name));
+    void *pointer(ivar == NULL ? NULL : reinterpret_cast<char *>(self) + ivar_getOffset(ivar));
+    return *reinterpret_cast<Type_ *>(pointer);
 }
 
-#define UCLocalize(key) UCLocalizeEx(@ key)
+#define MSHook(type, name, args...) \
+    static type (*_ ## name)(args); \
+    static type $ ## name(args)
 
-extern NSString *Elision_;
-
-#endif//CyteKit_Localize_H
+#endif//Substrate_HPP

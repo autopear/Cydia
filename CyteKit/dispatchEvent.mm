@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2014  Jay Freeman (saurik)
+ * Copyright (C) 2008-2015  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -28,9 +28,7 @@
 #include <WebKit/WebScriptObject.h>
 #include <WebKit/WebView.h>
 
-#include <objc/runtime.h>
-
-#include <CydiaSubstrate/CydiaSubstrate.h>
+#include "Substrate.hpp"
 
 @implementation UIWebDocumentView (CyteDispatchEvent)
 

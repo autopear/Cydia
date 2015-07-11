@@ -8,7 +8,7 @@
 #include "CyteKit/IndirectDelegate.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/WebViewController.h"
-#include "CyteKit/PerlCompatibleRegEx.hpp"
+#include "CyteKit/RegEx.hpp"
 #include "CyteKit/WebThreadLocked.hpp"
 
 //#include <QuartzCore/CALayer.h>
@@ -443,10 +443,10 @@ float CYScrollViewDecelerationRateNormal;
 // CyteWebViewDelegate {{{
 - (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message {
 #if LogMessages
-    static Pcre irritating("^(?"
+    static RegEx irritating("(?"
         ":" "The page at .* displayed insecure content from .*\\."
         "|" "Unsafe JavaScript attempt to access frame with URL .* from frame with URL .*\\. Domains, protocols and ports must match\\."
-    ")\\n$");
+    ")\\n");
 
     if (NSString *data = [message objectForKey:@"message"])
         if (irritating(data))
@@ -704,6 +704,14 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+#if LogBrowser
+    NSLog(@"resource:%@ willSendRequest:%@ redirectResponse:%@ fromDataSource:%@", identifier, request, response, source);
+#endif
+
+    return request;
+}
+
+- (NSURLRequest *) webThreadWebView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
 #if LogBrowser
     NSLog(@"resource:%@ willSendRequest:%@ redirectResponse:%@ fromDataSource:%@", identifier, request, response, source);
 #endif

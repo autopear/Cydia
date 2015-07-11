@@ -1,5 +1,5 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2014  Jay Freeman (saurik)
+ * Copyright (C) 2008-2015  Jay Freeman (saurik)
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -22,7 +22,7 @@
 #include "CyteKit/dispatchEvent.h"
 #include "CyteKit/WebView.h"
 
-#include <CydiaSubstrate/CydiaSubstrate.h>
+#include "Substrate.hpp"
 
 #include "iPhonePrivate.h"
 
@@ -292,6 +292,16 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
         request = [super webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
     if ([delegate respondsToSelector:@selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:)])
         request = [delegate webView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    return request;
+}
+// }}}
+// webThreadWebView:resource:willSendRequest:redirectResponse:fromDataSource: {{{
+- (NSURLRequest *) webThreadWebView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
+    id<CyteWebViewDelegate> delegate([self delegate]);
+    if ([UIWebView instancesRespondToSelector:@selector(webThreadWebView:resource:willSendRequest:redirectResponse:fromDataSource:)])
+        request = [super webThreadWebView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
+    if ([delegate respondsToSelector:@selector(webThreadWebView:resource:willSendRequest:redirectResponse:fromDataSource:)])
+        request = [delegate webThreadWebView:view resource:identifier willSendRequest:request redirectResponse:response fromDataSource:source];
     return request;
 }
 // }}}

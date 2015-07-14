@@ -248,6 +248,7 @@ static NSString *Cache_;
     [NSString stringWithFormat:@"%@/%s", Cache_, file]
 
 static void (*$SBSSetInterceptsMenuButtonForever)(bool);
+static NSData *(*$SBSCopyIconImagePNGDataForDisplayIdentifier)(NSString *);
 
 static CFStringRef (*$MGCopyAnswer)(CFStringRef);
 
@@ -2156,7 +2157,6 @@ struct ParsedPackage {
 - (NSString *) installed;
 - (BOOL) uninstalled;
 
-- (BOOL) valid;
 - (BOOL) upgradableAndEssential:(BOOL)essential;
 - (BOOL) essential;
 - (BOOL) broken;
@@ -2544,12 +2544,7 @@ struct PackageNameOrdering :
         iterator_ = iterator;
 
         _profile(Package$initWithVersion$Version)
-            if (!version_.end())
-                file_ = version_.FileList();
-            else {
-                pkgCache &cache([database_ cache]);
-                file_ = pkgCache::VerFileIterator(cache, cache.VerFileP);
-            }
+            file_ = version_.FileList();
         _end
 
         _profile(Package$initWithVersion$Cache)
@@ -2740,6 +2735,21 @@ struct PackageNameOrdering :
     return iterator_;
 }
 
+- (NSArray *) downgrades {
+    NSMutableArray *versions([NSMutableArray arrayWithCapacity:4]);
+
+    for (auto version(iterator_.VersionList()); !version.end(); ++version) {
+        if (version == version_)
+            continue;
+        Package *package([[[Package allocWithZone:NULL] initWithVersion:version withZone:NULL inPool:NULL database:database_] autorelease]);
+        if ([package source] == nil)
+            continue;
+        [versions addObject:package];
+    }
+
+    return versions;
+}
+
 - (NSString *) section {
     if (section$_ == nil) {
         if (section_ == NULL)
@@ -2897,17 +2907,13 @@ struct PackageNameOrdering :
     return installed_.empty();
 }
 
-- (BOOL) valid {
-    return !version_.end();
-}
-
 - (BOOL) upgradableAndEssential:(BOOL)essential {
     _profile(Package$upgradableAndEssential)
         pkgCache::VerIterator current(iterator_.CurrentVer());
         if (current.end())
             return essential && essential_;
         else
-            return !version_.end() && version_ != current;
+            return version_ != current;
     _end
 }
 
@@ -3337,6 +3343,9 @@ struct PackageNameOrdering :
 
 - (void) clear {
 @synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return;
+
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
 
@@ -3347,11 +3356,15 @@ struct PackageNameOrdering :
 
 - (void) install {
 @synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return;
+
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
     resolver->Protect(iterator_);
 
     pkgCacheFile &cache([database_ cache]);
+    cache->SetCandidateVersion(version_);
     cache->SetReInstall(iterator_, false);
     cache->MarkInstall(iterator_, false);
 
@@ -3362,6 +3375,9 @@ struct PackageNameOrdering :
 
 - (void) remove {
 @synchronized (database_) {
+    if ([database_ era] != era_ || file_.end())
+        return;
+
     pkgProblemResolver *resolver = [database_ resolver];
     resolver->Clear(iterator_);
     resolver->Remove(iterator_);
@@ -3760,6 +3776,10 @@ class CydiaLogCleaner :
 }
 
 - (bool) popErrorWithTitle:(NSString *)title forReadList:(pkgSourceList &)list {
+    if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
+        return true;
+    return false;
+
     list.Reset();
 
     bool error(false);
@@ -4457,6 +4477,10 @@ static _H<NSMutableSet> Diversions_;
         return @"getAllSources";
     else if (selector == @selector(getApplicationInfo:value:))
         return @"getApplicationInfoValue";
+    else if (selector == @selector(getDisplayIdentifiers))
+        return @"getDisplayIdentifiers";
+    else if (selector == @selector(getLocalizedNameForDisplayIdentifier:))
+        return @"getLocalizedNameForDisplayIdentifier";
     else if (selector == @selector(getKernelNumber:))
         return @"getKernelNumber";
     else if (selector == @selector(getKernelString:))
@@ -4571,6 +4595,17 @@ static _H<NSMutableSet> Diversions_;
     if (info == nil)
         return (id) [NSNull null];
     return [info objectForKey:key];
+}
+
+- (NSArray *) getDisplayIdentifiers {
+    NSSet *set([SBSCopyDisplayIdentifiers() autorelease]);
+    if (set == nil || ![set isKindOfClass:[NSSet class]])
+        return [NSArray array];
+    return [set allObjects];
+}
+
+- (NSString *) getLocalizedNameForDisplayIdentifier:(NSString *)identifier {
+    return [SBSCopyLocalizedApplicationNameForDisplayIdentifier(identifier) autorelease] ?: (id) [NSNull null];
 }
 
 - (NSNumber *) getKernelNumber:(NSString *)name {
@@ -6234,7 +6269,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _H<NSString> name_;
     bool commercial_;
     std::vector<std::pair<_H<NSString>, _H<NSString>>> buttons_;
+    _H<UIActionSheet> sheet_;
     _H<UIBarButtonItem> button_;
+    _H<NSArray> versions_;
 }
 
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer;
@@ -6247,22 +6284,44 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", (id) name_]];
 }
 
+- (void) _clickButtonWithPackage:(Package *)package {
+    [delegate_ installPackage:package];
+}
+
 - (void) _clickButtonWithName:(NSString *)name {
     if ([name isEqualToString:@"CLEAR"])
-        [delegate_ clearPackage:package_];
-    else if ([name isEqualToString:@"INSTALL"])
-        [delegate_ installPackage:package_];
-    else if ([name isEqualToString:@"REINSTALL"])
-        [delegate_ installPackage:package_];
+        return [delegate_ clearPackage:package_];
     else if ([name isEqualToString:@"REMOVE"])
-        [delegate_ removePackage:package_];
-    else if ([name isEqualToString:@"UPGRADE"])
-        [delegate_ installPackage:package_];
+        return [delegate_ removePackage:package_];
+    else if ([name isEqualToString:@"DOWNGRADE"]) {
+        sheet_ = [[[UIActionSheet alloc]
+            initWithTitle:nil
+            delegate:self
+            cancelButtonTitle:nil
+            destructiveButtonTitle:nil
+            otherButtonTitles:nil
+        ] autorelease];
+
+        for (Package *version in (id) versions_)
+            [sheet_ addButtonWithTitle:[version latest]];
+        [sheet_ setContext:@"version"];
+
+        [delegate_ showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
+        return;
+    }
+
+    else if ([name isEqualToString:@"INSTALL"]);
+    else if ([name isEqualToString:@"REINSTALL"]);
+    else if ([name isEqualToString:@"UPGRADE"]);
     else _assert(false);
+
+    [delegate_ installPackage:package_];
 }
 
 - (void) actionSheet:(UIActionSheet *)sheet clickedButtonAtIndex:(NSInteger)button {
     NSString *context([sheet context]);
+    if (sheet_ == sheet)
+        sheet_ = nil;
 
     if ([context isEqualToString:@"modify"]) {
         if (button != [sheet cancelButtonIndex]) {
@@ -6270,6 +6329,16 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 [self performSelector:@selector(_clickButtonWithName:) withObject:buttons_[button].first afterDelay:0];
             else
                 [self _clickButtonWithName:buttons_[button].first];
+        }
+
+        [sheet dismissWithClickedButtonIndex:button animated:YES];
+    } else if ([context isEqualToString:@"version"]) {
+        if (button != [sheet cancelButtonIndex]) {
+            Package *version([versions_ objectAtIndex:button]);
+            if (IsWildcat_)
+                [self performSelector:@selector(_clickButtonWithPackage:) withObject:version afterDelay:0];
+            else
+                [self _clickButtonWithPackage:version];
         }
 
         [sheet dismissWithClickedButtonIndex:button animated:YES];
@@ -6293,7 +6362,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         for (const auto &button : buttons_)
             [buttons addObject:button.second];
 
-        UIActionSheet *sheet = [[[UIActionSheet alloc]
+        sheet_ = [[[UIActionSheet alloc]
             initWithTitle:nil
             delegate:self
             cancelButtonTitle:nil
@@ -6301,14 +6370,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             otherButtonTitles:nil
         ] autorelease];
 
-        for (NSString *button in buttons) [sheet addButtonWithTitle:button];
-        if (!IsWildcat_) {
-           [sheet addButtonWithTitle:UCLocalize("CANCEL")];
-           [sheet setCancelButtonIndex:[sheet numberOfButtons] - 1];
-        }
-        [sheet setContext:@"modify"];
+        for (NSString *button in buttons)
+            [sheet_ addButtonWithTitle:button];
+        [sheet_ setContext:@"modify"];
 
-        [delegate_ showActionSheet:sheet fromItem:[[self navigationItem] rightBarButtonItem]];
+        [delegate_ showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
     }
 }
 
@@ -6342,7 +6408,11 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) reloadData {
     [super reloadData];
 
+    [sheet_ dismissWithClickedButtonIndex:[sheet_ cancelButtonIndex] animated:YES];
+    sheet_ = nil;
+
     package_ = [database_ packageWithName:name_];
+    versions_ = [package_ downgrades];
 
     buttons_.clear();
 
@@ -6362,6 +6432,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             buttons_.push_back(std::make_pair(@"REINSTALL", UCLocalize("REINSTALL")));
         if (![package_ uninstalled])
             buttons_.push_back(std::make_pair(@"REMOVE", UCLocalize("REMOVE")));
+        if ([versions_ count] != 0)
+            buttons_.push_back(std::make_pair(@"DOWNGRADE", UCLocalize("DOWNGRADE")));
     }
 
     NSString *title;
@@ -6816,7 +6888,7 @@ typedef Function<void, NSMutableArray *> PackageSorter;
 
     _profile(PackageTable$reloadData$Filter)
         for (Package *package in packages)
-            if ([package valid] && filter(package))
+            if (filter(package))
                 [filtered addObject:package];
     _end
 
@@ -7158,7 +7230,28 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
     Database *database([Database sharedInstance]);
 
-    if ([command isEqualToString:@"package-icon"]) {
+    if (false);
+    else if ([command isEqualToString:@"application-icon"]) {
+        if (path == nil)
+            goto fail;
+        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+
+        UIImage *icon(nil);
+
+        if (icon == nil && $SBSCopyIconImagePNGDataForDisplayIdentifier != NULL) {
+            NSData *data([$SBSCopyIconImagePNGDataForDisplayIdentifier(path) autorelease]);
+            icon = [UIImage imageWithData:data];
+        }
+
+        if (icon == nil)
+            if (NSString *file = SBSCopyIconImagePathForDisplayIdentifier(path))
+                icon = [UIImage imageAtPath:file];
+
+        if (icon == nil)
+            icon = [UIImage imageNamed:@"unknown.png"];
+
+        [self _returnPNGWithImage:icon forRequest:request];
+    } else if ([command isEqualToString:@"package-icon"]) {
         if (path == nil)
             goto fail;
         path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
@@ -7439,7 +7532,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         [section addToCount];
 
         _profile(SectionsView$reloadData$Filter)
-            if (![package valid] || ![package visible])
+            if (![package visible])
                 continue;
         _end
 
@@ -9828,6 +9921,9 @@ _trace();
     [window_ makeKey:self];
     [window_ setHidden:NO];
 
+    if (access("/.cydia_no_stash", F_OK) == 0);
+    else {
+
     if (false) stash: {
         [self addStashController];
         // XXX: this would be much cleaner as a yieldToSelector:
@@ -9860,6 +9956,8 @@ _trace();
     Stash_("/usr/include");
     Stash_("/usr/share");
     //Stash_("/var/lib");
+
+    }
 
     database_ = [Database sharedInstance];
     [database_ setDelegate:self];
@@ -9974,6 +10072,11 @@ _trace();
 }
 
 - (void) showActionSheet:(UIActionSheet *)sheet fromItem:(UIBarButtonItem *)item {
+    if (!IsWildcat_) {
+       [sheet addButtonWithTitle:UCLocalize("CANCEL")];
+       [sheet setCancelButtonIndex:[sheet numberOfButtons] - 1];
+    }
+
     if (item != nil && IsWildcat_) {
         [sheet showFromBarButtonItem:item animated:YES];
     } else {
@@ -10257,6 +10360,7 @@ int main(int argc, char *argv[]) {
     Advanced_ = YES;
 
     Cache_ = [[NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia", @"/var/mobile"] retain];
+    mkdir([Cache_ UTF8String], 0755);
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
     alloc_ = alloc->method_imp;
@@ -10415,6 +10519,8 @@ int main(int argc, char *argv[]) {
             _assert(errno == ENOENT);
     }
 
+    system("/usr/libexec/cydia/cydo /bin/ln -sf /var/mobile/Library/Caches/com.saurik.Cydia/sources.list /etc/apt/sources.list.d/cydia.list");
+
     /* APT Initialization {{{ */
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
@@ -10427,7 +10533,6 @@ int main(int argc, char *argv[]) {
 
     _config->Set("Acquire::http::MaxParallel", usermem >= 384 * 1024 * 1024 ? 16 : 3);
 
-    mkdir([Cache_ UTF8String], 0755);
     mkdir([Cache("archives") UTF8String], 0755);
     mkdir([Cache("archives/partial") UTF8String], 0755);
     _config->Set("Dir::Cache", [Cache_ UTF8String]);
@@ -10469,6 +10574,7 @@ int main(int argc, char *argv[]) {
     /* }}} */
 
     $SBSSetInterceptsMenuButtonForever = reinterpret_cast<void (*)(bool)>(dlsym(RTLD_DEFAULT, "SBSSetInterceptsMenuButtonForever"));
+    $SBSCopyIconImagePNGDataForDisplayIdentifier = reinterpret_cast<NSData *(*)(NSString *)>(dlsym(RTLD_DEFAULT, "SBSCopyIconImagePNGDataForDisplayIdentifier"));
 
     const char *symbol(kCFCoreFoundationVersionNumber >= 800 ? "MGGetBoolAnswer" : "GSSystemHasCapability");
     BOOL (*GSSystemHasCapability)(CFStringRef) = reinterpret_cast<BOOL (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, symbol));

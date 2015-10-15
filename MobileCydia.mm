@@ -4132,10 +4132,8 @@ class CydiaLogCleaner :
     NSString *nextended(Cache("extended_states"));
 
     struct stat info;
-    if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG) {
-        system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/mv -f %@ %@", ShellEscape(nextended), ShellEscape(oextended)] UTF8String]);
-        system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/chown 0:0 %@", ShellEscape(oextended)] UTF8String]);
-    }
+    if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG)
+        system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/cp --remove-destination %@ %@", ShellEscape(nextended), ShellEscape(oextended)] UTF8String]);
 
     unlink([nextended UTF8String]);
     symlink([oextended UTF8String], [nextended UTF8String]);
@@ -4598,7 +4596,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSArray *) getDisplayIdentifiers {
-    NSSet *set([SBSCopyDisplayIdentifiers() autorelease]);
+    NSSet *set([SBSCopyApplicationDisplayIdentifiers() autorelease]);
     if (set == nil || ![set isKindOfClass:[NSSet class]])
         return [NSArray array];
     return [set allObjects];
@@ -9949,7 +9947,6 @@ _trace();
         )) goto stash; \
     } while (false)
 
-    Stash_("/Applications");
     Stash_("/Library/Ringtones");
     Stash_("/Library/Wallpaper");
     //Stash_("/usr/bin");

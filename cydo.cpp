@@ -39,12 +39,6 @@ void launch_data_dict_iterate(launch_data_t data, LaunchDataIterator code) {
 }
 
 int main(int argc, char *argv[]) {
-    auto log(fopen("/tmp/cydia.log", "a+"));
-    fprintf(log, "cydo:");
-    for (int arg(1); arg < argc; ++arg)
-        fprintf(log, " %s", argv[arg]);
-    fprintf(log, "\n");
-
     auto request(launch_data_new_string(LAUNCH_KEY_GETJOBS));
     auto response(launch_msg(request));
     launch_data_free(request);
@@ -106,9 +100,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "thou shalt not pass\n");
         return EX_NOPERM;
     }
-
-    fflush(log);
-    fclose(log);
 
     setuid(0);
     setgid(0);

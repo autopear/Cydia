@@ -9947,6 +9947,7 @@ _trace();
         )) goto stash; \
     } while (false)
 
+    Stash_("/Applications");
     Stash_("/Library/Ringtones");
     Stash_("/Library/Wallpaper");
     //Stash_("/usr/bin");

@@ -39,6 +39,8 @@ function mv_() {
         exit 1
     }
 
+    echo -n "${src}" >"${tmp}.lnk"
+
     if [[ -e ${src} ]]; then
         chmod --reference="${src}" "${dst}"
         chown --reference="${src}" "${dst}"
@@ -48,14 +50,14 @@ function mv_() {
             exit 1
         }
 
-        rm -rf $v "${src}"
+        mv $v "${src}" "${src}.moved"
+        ln -s "${dst}" "${src}"
+        rm -rf $v "${src}.moved"
     else
         chmod 775 "${dst}"
         chown root.admin "${dst}"
+        ln -s "${dst}" "${src}"
     fi
-
-    ln -s "${dst}" "${src}"
-    echo -n "${src}" >"${tmp}.lnk"
 }
 
 function shift_() {

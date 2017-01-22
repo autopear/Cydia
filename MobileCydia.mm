@@ -56,15 +56,17 @@
 #include <WebKit/DOMHTMLIFrameElement.h>
 
 #include <algorithm>
+#include <fstream>
 #include <iomanip>
 #include <set>
 #include <sstream>
 #include <string>
 
-#include <ext/stdio_filebuf.h>
+#include "fdstream.hpp"
 
 #undef ABS
 
+#include "apt.h"
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/algorithms.h>
@@ -237,6 +239,16 @@ union SplitHash {
     uint16_t u16[2];
 };
 // }}}
+
+@implementation NSDictionary (Cydia)
+- (id) invokeUndefinedMethodFromWebScript:(NSString *)name withArguments:(NSArray *)arguments {
+    if (false);
+    else if ([name isEqualToString:@"get"])
+        return [self objectForKey:[arguments objectAtIndex:0]];
+    else if ([name isEqualToString:@"keys"])
+        return [self allKeys];
+    return nil;
+} @end
 
 static NSString *Colon_;
 NSString *Elision_;
@@ -488,6 +500,10 @@ static _finline CFStringRef CYStringCreate(const char *data, size_t size) {
     return size == 0 ? NULL :
         CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(data), size, kCFStringEncodingUTF8, NO, kCFAllocatorNull) ?:
         CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const uint8_t *>(data), size, kCFStringEncodingISOLatin1, NO, kCFAllocatorNull);
+}
+
+static _finline CFStringRef CYStringCreate(const std::string &data) {
+    return CYStringCreate(data.data(), data.size());
 }
 
 static _finline CFStringRef CYStringCreate(const char *data) {
@@ -2503,15 +2519,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$parse$Tagline)
-            const char *start, *end;
-            if (parser->ShortDesc(start, end)) {
-                const char *stop(reinterpret_cast<const char *>(memchr(start, '\n', end - start)));
-                if (stop == NULL)
-                    stop = end;
-                while (stop != start && stop[-1] == '\r')
-                    --stop;
-                parsed->tagline_.set(pool_, start, stop - start);
-            }
+            parsed->tagline_.set(pool_, parser->ShortDesc());
         _end
 
         _profile(Package$parse$Retain)
@@ -2540,7 +2548,7 @@ struct PackageNameOrdering :
 
         version_ = version;
 
-        pkgCache::PkgIterator iterator(version.ParentPkg());
+        pkgCache::PkgIterator iterator(version_.ParentPkg());
         iterator_ = iterator;
 
         _profile(Package$initWithVersion$Version)
@@ -2548,7 +2556,7 @@ struct PackageNameOrdering :
         _end
 
         _profile(Package$initWithVersion$Cache)
-            name_.set(NULL, iterator.Display());
+            name_.set(NULL, version_.Display());
 
             latest_.set(NULL, StripVersion_(version_.VerStr()));
 
@@ -2612,7 +2620,11 @@ struct PackageNameOrdering :
         } while (false); _end
 
         _profile(Package$initWithVersion$Tags)
+#ifdef __arm64__
+            pkgCache::TagIterator tag(version_.TagList());
+#else
             pkgCache::TagIterator tag(iterator.TagList());
+#endif
             if (!tag.end()) {
                 tags_ = [NSMutableArray arrayWithCapacity:8];
 
@@ -2769,7 +2781,10 @@ struct PackageNameOrdering :
 }
 
 - (NSString *) longSection {
-    return LocalizeSection([self section]);
+    if (NSString *section = [self section])
+        return LocalizeSection(section);
+    else
+        return nil;
 }
 
 - (NSString *) shortSection {
@@ -2839,23 +2854,12 @@ struct PackageNameOrdering :
 
 @synchronized (database_) {
     pkgRecords::Parser &parser([database_ records]->Lookup(file_));
-
-    const char *start, *end;
-    if (!parser.ShortDesc(start, end))
+    std::string value(parser.ShortDesc());
+    if (value.empty())
         return nil;
-
-    if (end - start > 200)
-        end = start + 200;
-
-    /*
-    if (const char *stop = reinterpret_cast<const char *>(memchr(start, '\n', end - start)))
-        end = stop;
-
-    while (end != start && end[-1] == '\r')
-        --end;
-    */
-
-    return [(id) CYStringCreate(start, end - start) autorelease];
+    if (value.size() > 200)
+        value.resize(200);
+    return [(id) CYStringCreate(value) autorelease];
 } }
 
 - (unichar) index {
@@ -3528,8 +3532,7 @@ class CydiaLogCleaner :
 }
 
 - (void) _readCydia:(NSNumber *)fd {
-    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
-    std::istream is(&ib);
+    boost::fdistream is([fd intValue]);
     std::string line;
 
     static RegEx finish_r("finish:([^:]*)");
@@ -3555,8 +3558,7 @@ class CydiaLogCleaner :
 }
 
 - (void) _readStatus:(NSNumber *)fd {
-    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
-    std::istream is(&ib);
+    boost::fdistream is([fd intValue]);
     std::string line;
 
     static RegEx conffile_r("status: [^ ]* : conffile-prompt : (.*?) *");
@@ -3612,8 +3614,7 @@ class CydiaLogCleaner :
 }
 
 - (void) _readOutput:(NSNumber *)fd {
-    __gnu_cxx::stdio_filebuf<char> ib([fd intValue], std::ios::in);
-    std::istream is(&ib);
+    boost::fdistream is([fd intValue]);
     std::string line;
 
     while (std::getline(is, line)) {
@@ -3640,7 +3641,11 @@ class CydiaLogCleaner :
 @synchronized (self) {
     if (static_cast<pkgDepCache *>(cache_) == NULL)
         return nil;
-    pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]));
+    pkgCache::PkgIterator iterator(cache_->FindPkg([name UTF8String]
+#ifdef __arm64__
+        , "any"
+#endif
+    ));
     return iterator.end() ? nil : [Package packageWithIterator:iterator withZone:NULL inPool:NULL database:self];
 } }
 
@@ -3864,7 +3869,7 @@ class CydiaLogCleaner :
         opened = cache_.Open(progress, false);
     _end
     if (!opened) {
-        // XXX: what if there are errors, but Open() == true? this should be merged with popError:
+        // XXX: this block should probably be merged with popError: in some way
         while (!_error->empty()) {
             std::string error;
             bool warning(!_error->PopMessage(error));
@@ -3892,7 +3897,8 @@ class CydiaLogCleaner :
         }
 
         return;
-    }
+    } else if ([self popErrorWithTitle:title forOperation:true])
+        return;
     _trace();
 
     unlink("/tmp/cydia.chk");
@@ -4359,8 +4365,10 @@ static _H<NSMutableSet> Diversions_;
 
 + (NSArray *) _attributeKeys {
     return [NSArray arrayWithObjects:
+        @"bittage",
         @"bbsnum",
         @"build",
+        @"cells",
         @"coreFoundationVersionNumber",
         @"device",
         @"ecid",
@@ -4389,6 +4397,17 @@ static _H<NSMutableSet> Diversions_;
     return Cydia_;
 }
 
+- (unsigned) bittage {
+#if 0
+#elif defined(__arm64__)
+    return 64;
+#elif defined(__arm__)
+    return 32;
+#else
+    return 0;
+#endif
+}
+
 - (NSString *) build {
     return System_;
 }
@@ -4411,6 +4430,29 @@ static _H<NSMutableSet> Diversions_;
 
 - (NSString *) idiom {
     return (id) Idiom_ ?: [NSNull null];
+}
+
+- (NSArray *) cells {
+    auto *$_CTServerConnectionCreate(reinterpret_cast<id (*)(void *, void *, void *)>(dlsym(RTLD_DEFAULT, "_CTServerConnectionCreate")));
+    if ($_CTServerConnectionCreate == NULL)
+        return nil;
+
+    struct CTResult { int flag; int error; };
+    auto *$_CTServerConnectionCellMonitorCopyCellInfo(reinterpret_cast<CTResult (*)(CFTypeRef, void *, CFArrayRef *)>(dlsym(RTLD_DEFAULT, "_CTServerConnectionCellMonitorCopyCellInfo")));
+    if ($_CTServerConnectionCellMonitorCopyCellInfo == NULL)
+        return nil;
+
+    _H<const void> connection($_CTServerConnectionCreate(NULL, NULL, NULL), true);
+    if (connection == nil)
+        return nil;
+
+    int count(0);
+    CFArrayRef cells(NULL);
+    auto result($_CTServerConnectionCellMonitorCopyCellInfo(connection, &count, &cells));
+    if (result.flag != 0)
+        return nil;
+
+    return [(NSArray *) cells autorelease];
 }
 
 - (NSString *) mcc {
@@ -4596,10 +4638,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSArray *) getDisplayIdentifiers {
-    NSSet *set([SBSCopyApplicationDisplayIdentifiers() autorelease]);
-    if (set == nil || ![set isKindOfClass:[NSSet class]])
-        return [NSArray array];
-    return [set allObjects];
+    return SBSCopyApplicationDisplayIdentifiers(false, false);
 }
 
 - (NSString *) getLocalizedNameForDisplayIdentifier:(NSString *)identifier {
@@ -6240,7 +6279,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 NSString *directory = [stack lastObject];
                 [stack addObject:[file stringByAppendingString:@"/"]];
                 [files_ replaceObjectAtIndex:i withObject:[NSString stringWithFormat:@"%*s%@",
-                    ([stack count] - 2) * 3, "",
+                    int(([stack count] - 2) * 3), "",
                     [file substringFromIndex:[directory length]]
                 ]];
             }
@@ -10178,7 +10217,18 @@ static NSMutableDictionary *AutoreleaseDeepMutableCopyOfDictionary(CFTypeRef typ
     return [(NSMutableDictionary *) copy autorelease];
 }
 
+int main_store(int, char *argv[]);
+
 int main(int argc, char *argv[]) {
+#ifdef __arm64__
+    const char *argv0(argv[0]);
+    if (const char *slash = strrchr(argv0, '/'))
+        argv0 = slash + 1;
+    if (false);
+    else if (!strcmp(argv0, "store"))
+        return main_store(argc, argv);
+#endif
+
     int fd(open("/tmp/cydia.log", O_WRONLY | O_APPEND | O_CREAT, 0644));
     dup2(fd, 2);
     close(fd);
@@ -10255,29 +10305,28 @@ int main(int argc, char *argv[]) {
     Locale_ = CFLocaleCopyCurrent();
     Languages_ = [NSLocale preferredLanguages];
 
-    //CFStringRef locale(CFLocaleGetIdentifier(Locale_));
-    //NSLog(@"%@", [Languages_ description]);
+    std::string languages;
+    const char *translation(NULL);
 
-    const char *lang;
+    // XXX: this isn't really a language, but this is compatible with older Cydia builds
     if (Locale_ != NULL)
-        lang = [(NSString *) CFLocaleGetIdentifier(Locale_) UTF8String];
-    else if (Languages_ != nil && [Languages_ count] != 0)
-        lang = [[Languages_ objectAtIndex:0] UTF8String];
-    else
-        // XXX: consider just setting to C and then falling through?
-        lang = NULL;
+        if (const char *language = [(NSString *) CFLocaleGetIdentifier(Locale_) UTF8String]) {
+            RegEx pattern("([a-z][a-z])(?:-[A-Za-z]*)?(_[A-Z][A-Z])?");
+            if (pattern(language)) {
+                translation = strdup([pattern->*@"%1$@%2$@" UTF8String]);
+                languages += translation;
+                languages += ",";
+            }
+        }
 
-    if (lang != NULL) {
-        RegEx pattern("([a-z][a-z])(?:-[A-Za-z]*)?(_[A-Z][A-Z])?");
-        lang = !pattern(lang) ? NULL : [pattern->*@"%1$@%2$@" UTF8String];
-    }
+    if (Languages_ != nil)
+        for (NSString *language : Languages_) {
+            languages += [language UTF8String];
+            languages += ",";
+        }
 
-    NSLog(@"Setting Language: %s", lang);
-
-    if (lang != NULL) {
-        setenv("LANG", lang, true);
-        std::setlocale(LC_ALL, lang);
-    }
+    languages += "en";
+    NSLog(@"Setting Language: [%s] %s", translation, languages.c_str());
     /* }}} */
     /* Index Collation {{{ */
     if (Class $UILocalizedIndexedCollation = objc_getClass("UILocalizedIndexedCollation")) { @try {
@@ -10523,8 +10572,15 @@ int main(int argc, char *argv[]) {
     _assert(pkgInitConfig(*_config));
     _assert(pkgInitSystem(*_config, _system));
 
-    if (lang != NULL)
-        _config->Set("APT::Acquire::Translation", lang);
+    _config->Set("Acquire::AllowInsecureRepositories", true);
+    _config->Set("Acquire::Check-Valid-Until", false);
+    _config->Set("Dir::Bin::Methods::store", "/Applications/Cydia.app/store");
+
+    _config->Set("pkgCacheGen::ForceEssential", "");
+
+    if (translation != NULL)
+        _config->Set("APT::Acquire::Translation", translation);
+    _config->Set("Acquire::Languages", languages);
 
     // XXX: this timeout might be important :(
     //_config->Set("Acquire::http::Timeout", 15);
@@ -10545,7 +10601,7 @@ int main(int argc, char *argv[]) {
 
     std::string logs("/var/mobile/Library/Logs/Cydia");
     mkdir(logs.c_str(), 0755);
-    _config->Set("Dir::Log::Terminal", logs + "/apt.log");
+    _config->Set("Dir::Log", logs);
 
     _config->Set("Dir::Bin::dpkg", "/usr/libexec/cydia/cydo");
     /* }}} */

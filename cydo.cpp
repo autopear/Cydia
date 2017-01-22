@@ -28,6 +28,8 @@
 
 #include <launch.h>
 
+#include <sys/stat.h>
+
 #include <Menes/Function.h>
 
 typedef Function<void, const char *, launch_data_t> LaunchDataIterator;
@@ -50,8 +52,14 @@ int main(int argc, char *argv[]) {
 
     auto cydia(false);
 
+    struct stat correct;
+    if (lstat("/Applications/Cydia.app/Cydia", &correct) == -1) {
+        fprintf(stderr, "you have no arms left");
+        return EX_NOPERM;
+    }
+
     launch_data_dict_iterate(response, [=, &cydia](const char *name, launch_data_t value) {
-        if (launch_data_get_type(response) != LAUNCH_DATA_DICTIONARY)
+        if (launch_data_get_type(value) != LAUNCH_DATA_DICTIONARY)
             return;
 
         auto integer(launch_data_dict_lookup(value, LAUNCH_JOBKEY_PID));
@@ -92,12 +100,16 @@ int main(int argc, char *argv[]) {
         if (program == NULL)
             return;
 
-        if (strcmp(program, "/Applications/Cydia.app/Cydia") == 0)
+        struct stat check;
+        if (lstat(program, &check) == -1)
+            return;
+
+        if (correct.st_dev == check.st_dev && correct.st_ino == check.st_ino)
             cydia = true;
     });
 
     if (!cydia) {
-        fprintf(stderr, "thou shalt not pass\n");
+        fprintf(stderr, "none shall pass\n");
         return EX_NOPERM;
     }
 

@@ -23,6 +23,8 @@ if tar --help | grep bsdtar &>/dev/null; then
     exit 1
 fi
 
+xcode=$(xcodebuild -sdk macosx -version Path)
+
 rm -rf sysroot
 mkdir sysroot
 cd sysroot
@@ -132,14 +134,14 @@ else
 fi
 
 for framework in ApplicationServices CoreServices IOKit IOSurface JavaScriptCore WebKit; do
-    ln -s /System/Library/Frameworks/"${framework}".framework/Headers "${framework}"
+    ln -s "${xcode}"/System/Library/Frameworks/"${framework}".framework/Headers "${framework}"
 done
 
 for framework in /System/Library/Frameworks/CoreServices.framework/Frameworks/*.framework; do
     name=${framework}
     name=${name%.framework}
     name=${name##*/}
-    ln -s "${framework}/Headers" "${name}"
+    ln -s "${xcode}/${framework}/Headers" "${name}"
 done
 
 mkdir -p Cocoa

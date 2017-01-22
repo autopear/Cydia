@@ -1,32 +1,56 @@
-gxx := $(shell xcrun --sdk iphoneos -f g++)
-sdk := $(shell xcodebuild -sdk iphoneos -version Path)
+.DELETE_ON_ERROR:
+.SECONDARY:
 
-flags := 
+dpkg := dpkg-deb -Zlzma
+version := $(shell ./version.sh)
+
+flag := 
+plus :=
 link := 
 libs := 
 
-dpkg := dpkg-deb -Zlzma
+gxx := $(shell xcrun --sdk iphoneos -f g++)
+cycc := $(gxx)
 
-flags += -F$(sdk)/System/Library/PrivateFrameworks
-flags += -I. -isystem sysroot/usr/include
-flags += -fmessage-length=0
-flags += -g0 -O2
-flags += -fvisibility=hidden
+sdk := $(shell xcodebuild -sdk iphoneos -version Path)
+cycc += -isysroot $(sdk)
+cycc += -idirafter /usr/include
+cycc += -F$(sdk)/System/Library/PrivateFrameworks
 
-flags += -idirafter icu/icuSources/common
-flags += -idirafter icu/icuSources/i18n
+cycc += -arch arm64
+cycc += -Xarch_arm64 -miphoneos-version-min=7.0
 
-flags += -Wall
+cycc += -fmessage-length=0
+cycc += -gfull -O2
+cycc += -fvisibility=hidden
 
-flags += -Wno-unknown-warning-option
-flags += -Wno-logical-op-parentheses
-flags += -Wno-dangling-else
-flags += -Wno-shift-op-parentheses
-flags += -Wno-deprecated-declarations
+link += -Wl,-dead_strip
+link += -Wl,-no_dead_strip_inits_and_terms
+link += -Wl,-s
 
-xflags :=
-xflags += -fobjc-call-cxx-cdtors
-xflags += -fvisibility-inlines-hidden
+flag += -Xarch_arm64 -Iapt
+flag += -Xarch_arm64 -Iapt-contrib
+flag += -Xarch_arm64 -Iapt-deb
+flag += -Xarch_arm64 -Iapt-extra
+flag += -Xarch_arm64 -Iapt-tag
+
+flag += -I.
+flag += -isystem sysroot/usr/include
+
+flag += -idirafter icu/icuSources/common
+flag += -idirafter icu/icuSources/i18n
+
+flag += -Wall
+flag += -Wno-dangling-else
+flag += -Wno-deprecated-declarations
+flag += -Wno-objc-protocol-method-implementation
+flag += -Wno-logical-op-parentheses
+flag += -Wno-shift-op-parentheses
+flag += -Wno-unknown-pragmas
+flag += -Wno-unknown-warning-option
+
+plus += -fobjc-call-cxx-cdtors
+plus += -fvisibility-inlines-hidden
 
 link += -Lsysroot/usr/lib
 link += -multiply_defined suppress
@@ -42,20 +66,14 @@ libs += -framework SystemConfiguration
 libs += -framework WebCore
 libs += -framework WebKit
 
-libs += -lapt-pkg
+libs += -Xarch_armv6 -Wl,-lapt-pkg
+libs += -Xarch_arm64 -Wl,Objects/libapt64.a
 libs += -licucore
 
 uikit := 
 uikit += -framework UIKit
 
-version := $(shell ./version.sh)
-
-cycc = $(gxx) -arch armv6 -o $@ -miphoneos-version-min=2.0 -isysroot $(sdk) -idirafter /usr/include -F{sysroot,}/Library/Frameworks
-
-cycc += -marm # @synchronized
-cycc += -mcpu=arm1176jzf-s
-cycc += -mllvm -arm-reserve-r9
-link += -lgcc_s.1
+link += -Wl,-segalign,4000
 
 dirs := Menes CyteKit Cydia SDURLCache
 
@@ -74,6 +92,37 @@ object := $(object:.m=.o)
 object := $(object:.mm=.o)
 object := $(object:%=Objects/%)
 
+libapt := 
+libapt += $(wildcard apt/apt-pkg/*.cc)
+libapt += $(wildcard apt/apt-pkg/deb/*.cc)
+libapt += $(wildcard apt/apt-pkg/contrib/*.cc)
+libapt += apt-tag/apt-pkg/tagfile-keys.cc
+libapt += apt/methods/store.cc
+libapt := $(filter-out %/srvrec.cc,$(libapt))
+libapt := $(patsubst %.cc,Objects/%.o,$(libapt))
+
+link += -Xarch_arm64 -Wl,-lz,-liconv
+
+flag += -DAPT_PKG_EXPOSE_STRING_VIEW
+flag += -Dsighandler_t=sig_t
+
+aptc := $(cycc) $(flag)
+aptc += -include apt.h
+aptc += -Wno-deprecated-register
+aptc += -Wno-unused-private-field
+aptc += -Wno-unused-variable
+
+cycc += -arch armv6
+cycc += -Xarch_armv6 -miphoneos-version-min=2.0
+flag += -Xarch_armv6 -marm # @synchronized
+flag += -Xarch_armv6 -mcpu=arm1176jzf-s
+flag += -mllvm -arm-reserve-r9
+link += -Xarch_armv6 -Wl,-lgcc_s.1
+
+plus += -std=c++11
+#plus += -Wp,-stdlib=libc++
+#link += libcxx/lib/libc++.a
+
 images := $(shell find MobileCydia.app/ -type f -name '*.png')
 images := $(images:%=Images/%)
 
@@ -85,25 +134,30 @@ clean:
 	rm -f MobileCydia postinst
 	rm -rf Objects/ Images/
 
+Objects/%.o: %.cc $(header) apt.h apt-extra/*.h
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(aptc) $(plus) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
+
 Objects/%.o: %.c $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c -x c $<
+	@$(cycc) -c -o $@ -x c $< $(flag)
 
 Objects/%.o: %.m $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c $< $(flags)
+	@$(cycc) -c -o $@ $< $(flag)
 
 Objects/%.o: %.cpp $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -std=c++11 -c $< $(flags) $(xflags)
+	@$(cycc) $(plus) -c -o $@ $< $(flag)
 
 Objects/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -std=c++11 -c $< $(flags) $(xflags)
+	@$(cycc) $(plus) -c -o $@ $< $(flag)
 
 Objects/Version.o: Version.h
 
@@ -117,9 +171,13 @@ sysroot: sysroot.sh
 	@echo 1>&2
 	@exit 1
 
-MobileCydia: sysroot $(object) entitlements.xml
-	@echo "[link] $(object:Objects/%=%)"
-	@$(cycc) $(filter %.o,$^) $(flags) $(link) $(libs) $(uikit) -Wl,-sdk_version,8.0
+Objects/libapt64.a: $(libapt)
+	@echo "[arch] $@"
+	@ar -rc $@ $^
+
+MobileCydia: sysroot $(object) entitlements.xml Objects/libapt64.a
+	@echo "[link] $@"
+	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit) -Wl,-sdk_version,8.0
 	@mkdir -p bins
 	@cp -a $@ bins/$@-$(version)
 	@echo "[strp] $@"
@@ -130,19 +188,19 @@ MobileCydia: sysroot $(object) entitlements.xml
 	@ldid -T0 -Sentitlements.xml $@ || { rm -f $@ && false; }
 
 cfversion: cfversion.mm
-	$(cycc) $(filter %.mm,$^) $(flags) $(link) -framework CoreFoundation
+	$(cycc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
 	@ldid -T0 -S $@
 
 setnsfpn: setnsfpn.cpp
-	$(cycc) $(filter %.cpp,$^) $(flags) $(link)
+	$(cycc) -o $@ $(filter %.cpp,$^) $(flag) $(link)
 	@ldid -T0 -S $@
 
 cydo: cydo.cpp
-	$(cycc) -std=c++11 $(filter %.cpp,$^) $(flags) $(link) -Wno-deprecated-writable-strings
+	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(flag) $(link) -Wno-deprecated-writable-strings
 	@ldid -T0 -S $@
 
 postinst: postinst.mm CyteKit/stringWithUTF8Bytes.mm CyteKit/stringWithUTF8Bytes.h CyteKit/UCPlatform.h
-	$(cycc) -std=c++11 $(filter %.mm,$^) $(flags) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
+	$(cycc) $(plus) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
 	@ldid -T0 -S $@
 
 debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion setnsfpn cydo $(images) $(shell find MobileCydia.app) cydia.control Library/firmware.sh Library/move.sh Library/startup
@@ -160,7 +218,6 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion s
 	cp -a setnsfpn _/usr/libexec/cydia
 	
 	cp -a cydo _/usr/libexec/cydia
-	sudo chmod 6755 _/usr/libexec/cydia/cydo
 	
 	mkdir -p _/Library
 	cp -a LaunchDaemons _/Library/LaunchDaemons
@@ -169,6 +226,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion s
 	cp -a MobileCydia.app _/Applications/Cydia.app
 	rm -rf _/Applications/Cydia.app/*.lproj
 	cp -a MobileCydia _/Applications/Cydia.app/Cydia
+	ln -s Cydia _/Applications/Cydia.app/store
 	
 	cd MobileCydia.app && find . -name '*.png' -exec cp -af ../Images/MobileCydia.app/{} ../_/Applications/Cydia.app/{} ';'
 	
@@ -184,6 +242,7 @@ debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion s
 	
 	sudo chown -R 0 _
 	sudo chgrp -R 0 _
+	sudo chmod 6755 _/usr/libexec/cydia/cydo
 	
 	mkdir -p debs
 	ln -sf debs/cydia_$(version)_iphoneos-arm.deb Cydia.deb

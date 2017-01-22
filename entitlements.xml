@@ -28,5 +28,10 @@
 
     <key>platform-application</key>
     <true/>
+
+    <key>com.apple.CommCenter.fine-grained</key>
+    <array>
+        <string>spi</string>
+    </array>
 </dict>
 </plist>

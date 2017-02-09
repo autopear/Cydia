@@ -72,8 +72,8 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(
 - (void) setDirectionalScrolling:(BOOL)directional;
 - (void) setEventMode:(NSInteger)mode;
 - (void) setOffset:(CGPoint)offset;
-- (void) setScrollDecelerationFactor:(float)factor;
-- (void) setScrollHysteresis:(float)hysteresis;
+- (void) setScrollDecelerationFactor:(CGFloat)factor;
+- (void) setScrollHysteresis:(CGFloat)hysteresis;
 - (void) setScrollerIndicatorStyle:(UIScrollViewIndicatorStyle)style;
 - (void) setThumbDetectionEnabled:(BOOL)enabled;
 @end
@@ -393,14 +393,14 @@ typedef enum {
 @end
 
 @interface UIScrollView (iOS_3_0)
-@property(assign,nonatomic) float decelerationRate;
+@property(assign,nonatomic) CGFloat decelerationRate;
 @end
 
 @interface UIWebView (iOS_3_0)
 @property(assign,nonatomic) NSUInteger dataDetectorTypes;
 @end
 
-extern float const UIScrollViewDecelerationRateNormal;
+extern CGFloat const UIScrollViewDecelerationRateNormal;
 
 #endif//AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
 // }}}

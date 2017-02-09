@@ -50,7 +50,7 @@ struct Header {
     uint32_t version_;
     uint32_t size_;
     uint32_t reserved_;
-};
+} _packed;
 
 template <typename Target_>
 class Offset {
@@ -80,11 +80,11 @@ class Offset {
     bool IsNull() const {
         return offset_ == 0;
     }
-};
+} _packed;
 
 struct Block {
     Cytore::Offset<void> reserved_;
-};
+} _packed;
 
 template <typename Type_>
 static _finline Type_ Round(Type_ value, Type_ size) {
@@ -178,7 +178,7 @@ class File {
         return blocks_.size() * Block_;
     }
 
-    void Open(const char *path) {
+    void Open(const char *path) { open:
         _assert(file_ == -1);
         file_ = open(path, O_RDWR | O_CREAT | O_EXLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         _assert(file_ != -1);
@@ -190,11 +190,19 @@ class File {
 
         size_t size(stat.st_size);
         if (size == 0) {
-            _assert(Truncate_(core));
+            if (!Truncate_(core)) {
+                unlink(path);
+                _assert(false);
+            }
+
             Header_().magic_ = Magic;
             Size_() = core;
+        } else if (size < core) {
+            close(file_);
+            file_ = -1;
+            unlink(path);
+            goto open;
         } else {
-            _assert(size >= core);
             // XXX: this involves an unneccessary call to ftruncate()
             _assert(Truncate_(size));
             _assert(Header_().magic_ == Magic);

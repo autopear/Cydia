@@ -28,46 +28,52 @@ static bool setnsfpn(const char *path) {
     return system([[NSString stringWithFormat:@"/usr/libexec/cydia/setnsfpn %s", path] UTF8String]) == 0;
 }
 
-static bool MoveStash() {
+enum StashStatus {
+    StashDone,
+    StashFail,
+    StashGood,
+};
+
+static StashStatus MoveStash() {
     struct stat stat;
 
     if (lstat("/var/stash", &stat) == -1)
-        return errno == ENOENT;
+        return errno == ENOENT ? StashGood : StashFail;
     else if (S_ISLNK(stat.st_mode))
-        return true;
+        return StashGood;
     else if (!S_ISDIR(stat.st_mode))
-        return false;
+        return StashFail;
 
     if (lstat("/var/db/stash", &stat) == -1) {
         if (errno == ENOENT)
             goto move;
-        else return false;
+        else return StashFail;
     } else if (S_ISLNK(stat.st_mode))
         // XXX: this is fixable
-        return false;
+        return StashFail;
     else if (!S_ISDIR(stat.st_mode))
-        return false;
+        return StashFail;
     else {
         if (!setnsfpn("/var/db/stash"))
-            return false;
+            return StashFail;
         if (system("mv -t /var/stash /var/db/stash/*") != 0)
-            return false;
+            return StashFail;
         if (rmdir("/var/db/stash") == -1)
-            return false;
+            return StashFail;
     } move:
 
     if (!setnsfpn("/var/stash"))
-        return false;
+        return StashFail;
 
     if (rename("/var/stash", "/var/db/stash") == -1)
-        return false;
+        return StashFail;
     if (symlink("/var/db/stash", "/var/stash") != -1)
-        return true;
+        return StashDone;
     if (rename("/var/db/stash", "/var/stash") != -1)
-        return false;
+        return StashFail;
 
     fprintf(stderr, "/var/stash misplaced -- DO NOT REBOOT\n");
-    return false;
+    return StashFail;
 }
 
 static bool FixProtections() {
@@ -182,11 +188,15 @@ int main(int argc, const char *argv[]) {
     if (kCFCoreFoundationVersionNumber >= 1000) {
         if (!FixProtections())
             return 1;
-        if (MoveStash())
-            restart = true;
-        else {
-            fprintf(stderr, "failed to move stash\n");
-            return 1;
+        switch (MoveStash()) {
+            case StashDone:
+                restart = true;
+                break;
+            case StashFail:
+                fprintf(stderr, "failed to move stash\n");
+                return 1;
+            case StashGood:
+                break;
         }
     }
 

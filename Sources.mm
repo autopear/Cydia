@@ -37,6 +37,9 @@ void CydiaWriteSources() {
     fprintf(file, "deb http://apt.saurik.com/ ios/%.2f main\n", kCFCoreFoundationVersionNumber);
 
     for (NSString *key in [Sources_ allKeys]) {
+        if ([key hasPrefix:@"deb:http:"] && [Sources_ objectForKey:[NSString stringWithFormat:@"deb:https:%s", [key UTF8String] + 9]])
+            continue;
+
         NSDictionary *source([Sources_ objectForKey:key]);
 
         NSArray *sections([source objectForKey:@"Sections"] ?: [NSArray array]);

@@ -41,6 +41,7 @@ Installed-Size: 0
 Architecture: ${arch}
 Version: ${version}
 Description: ${description}
+Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Tag: role::cydia
 EOF
 
@@ -48,6 +49,11 @@ EOF
     echo
 }
 # }}}
+
+output=$(mktemp "${data}"/status-tmp.XXXXXX)
+chmod 644 "${output}"
+xxxxxx=${output##*/status-tmp.}
+rm -f "${data}"/status-tmp.!("${xxxxxx}")
 
 {
 
@@ -135,9 +141,9 @@ EOF
 
     pseudo "cy+lib.corefoundation" "$(/usr/libexec/cydia/cfversion)" "virtual corefoundation dependency"
 
-} >"${status}"_
+} >"${output}"
 
-mv -f "${status}"{_,}
+mv -f "${output}" "${status}"
 
 if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
     if [[ ! -h /User && -d /User ]]; then

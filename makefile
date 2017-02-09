@@ -26,7 +26,6 @@ cycc += -fvisibility=hidden
 
 link += -Wl,-dead_strip
 link += -Wl,-no_dead_strip_inits_and_terms
-link += -Wl,-s
 
 flag += -Xarch_arm64 -Iapt
 flag += -Xarch_arm64 -Iapt-contrib
@@ -73,7 +72,7 @@ libs += -licucore
 uikit := 
 uikit += -framework UIKit
 
-link += -Wl,-segalign,4000
+link += -Xarch_armv6 -Wl,-segalign,4000
 
 dirs := Menes CyteKit Cydia SDURLCache
 
@@ -181,7 +180,7 @@ MobileCydia: sysroot $(object) entitlements.xml Objects/libapt64.a
 	@mkdir -p bins
 	@cp -a $@ bins/$@-$(version)
 	@echo "[strp] $@"
-	@strip $@
+	@grep '~' <<<"$(version)" >/dev/null && echo "skipping..." || strip $@
 	@echo "[uikt] $@"
 	@./uikit.sh $@
 	@echo "[sign] $@"

@@ -1135,6 +1135,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
 
 + (Database *) sharedInstance;
 - (unsigned) era;
+- (bool) hasPackages;
 
 - (void) _readCydia:(NSNumber *)fd;
 - (void) _readStatus:(NSNumber *)fd;
@@ -1420,14 +1421,14 @@ struct PackageValue :
 
     char version_[8];
     char name_[];
-};
+} _packed;
 
 struct MetaValue :
     Cytore::Block
 {
     uint32_t active_;
     Cytore::Offset<PackageValue> packages_[1 << 16];
-};
+} _packed;
 
 static Cytore::File<MetaValue> MetaFile_;
 // }}}
@@ -3523,6 +3524,10 @@ class CydiaLogCleaner :
     CFArrayRemoveAllValues(packages_);
 }
 
+- (bool) hasPackages {
+    return CFArrayGetCount(packages_) != 0;
+}
+
 - (void) dealloc {
     // XXX: actually implement this thing
     _assert(false);
@@ -4857,10 +4862,16 @@ static _H<NSMutableSet> Diversions_;
 }
 
 - (NSString *) substitutePackageNames:(NSString *)message {
+    auto database([Database sharedInstance]);
+
+    // XXX: this check is less racy than you'd expect, but this entire concept is a little awkward
+    if (![database hasPackages])
+        return message;
+
     NSMutableArray *words([[[message componentsSeparatedByString:@" "] mutableCopy] autorelease]);
     for (size_t i(0), e([words count]); i != e; ++i) {
         NSString *word([words objectAtIndex:i]);
-        if (Package *package = [[Database sharedInstance] packageWithName:word])
+        if (Package *package = [database packageWithName:word])
             [words replaceObjectAtIndex:i withObject:[package name]];
     }
 
@@ -8532,8 +8543,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
         [Sources_ removeObjectForKey:[source key]];
 
-        [delegate_ _saveConfig];
-        [delegate_ reloadDataWithInvocation:nil];
+        [delegate_ syncData];
     }
 }
 
@@ -9119,9 +9129,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) reloadSpringBoard {
     if (kCFCoreFoundationVersionNumber >= 700) // XXX: iOS 6.x
-        system("/bin/launchctl stop com.apple.backboardd");
+        system("/usr/libexec/cydia/cydo /bin/launchctl stop com.apple.backboardd");
     else
-        system("/bin/launchctl stop com.apple.SpringBoard");
+        system("/usr/libexec/cydia/cydo /bin/launchctl stop com.apple.SpringBoard");
     sleep(15);
     system("/usr/bin/killall backboardd SpringBoard");
 }

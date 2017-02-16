@@ -19,8 +19,10 @@
 **/
 /* }}} */
 
-#include "Cydia/LoadingView.h"
+#include "CyteKit/UCPlatform.h"
 #include "CyteKit/Localize.h"
+
+#include "Cydia/LoadingView.h"
 
 @implementation CydiaLoadingView
 

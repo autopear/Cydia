@@ -19,23 +19,15 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_WebViewTableViewCell_H
-#define CyteKit_WebViewTableViewCell_H
+#ifndef CyteKit_Application_H
+#define CyteKit_Application_H
 
 #include <UIKit/UIKit.h>
 
-#include "CyteKit/WebView.h"
+@interface CyteApplication : UIApplication
 
-@interface CyteWebViewTableViewCell : UITableViewCell <
-    CyteWebViewDelegate
->
-
-+ (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request;
-- (id) initWithRequest:(NSURLRequest *)request;
-
-- (id) delegate;
-- (void) setDelegate:(id)delegate;
+- (void) applicationDidFinishLaunching:(id)unused;
 
 @end
 
-#endif//CyteKit_WebViewTableViewCell_H
+#endif//CyteKit_Application_H

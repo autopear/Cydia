@@ -22,8 +22,6 @@
 #ifndef Menes_ObjectHandle_H
 #define Menes_ObjectHandle_H
 
-#include "CyteKit/UCPlatform.h"
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <Foundation/Foundation.h>
 
@@ -129,5 +127,9 @@ rproperty_(Class, field) \
 rproperty_(Class, field) \
 wproperty_(Class, field, Field) \
 @end
+
+// XXX: I hate clang. Apple: please get over your petty hatred of GPL and fix your gcc fork
+#define synchronized(lock) \
+    synchronized(static_cast<NSObject *>(lock))
 
 #endif//Menes_ObjectHandle_H

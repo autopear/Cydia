@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "Cydia/LoadingView.h"
 #include "Cydia/LoadingViewController.h"
 

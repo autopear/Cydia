@@ -102,64 +102,9 @@ mkdir -p usr/include
 cd usr/include
 
 mkdir CoreFoundation
-wget -O CoreFoundation/CFBundlePriv.h "http://www.opensource.apple.com/source/CF/CF-550/CFBundlePriv.h?txt"
 wget -O CoreFoundation/CFUniChar.h "http://www.opensource.apple.com/source/CF/CF-550/CFUniChar.h?txt"
 
-if true; then
-    mkdir -p WebCore
-    wget -O WebCore/WebCoreThread.h 'http://www.opensource.apple.com/source/WebCore/WebCore-658.28/wak/WebCoreThread.h?txt'
-    wget -O WebCore/WebEvent.h 'http://www.opensource.apple.com/source/WebCore/WebCore-658.28/platform/iphone/WebEvent.h?txt'
-else
-    wget -O WebCore.tgz http://www.opensource.apple.com/tarballs/WebCore/WebCore-658.28.tar.gz
-    tar -zx --transform 's@^[^/]*/@WebCore.d/@' -f WebCore.tgz
+mkdir -p WebCore
+wget -O WebCore/WebCoreThread.h 'http://www.opensource.apple.com/source/WebCore/WebCore-658.28/wak/WebCoreThread.h?txt'
 
-    mkdir WebCore
-    cp -a WebCore.d/{*,rendering/style,platform/graphics/transforms}/*.h WebCore
-    cp -a WebCore.d/platform/{animation,graphics,network,text}/*.h WebCore
-    cp -a WebCore.d/{accessibility,platform{,/{graphics,network,text}}}/{cf,mac,iphone}/*.h WebCore
-    cp -a WebCore.d/bridge/objc/*.h WebCore
-
-    wget -O JavaScriptCore.tgz http://www.opensource.apple.com/tarballs/JavaScriptCore/JavaScriptCore-554.1.tar.gz
-    #tar -zx --transform 's@^[^/]*/API/@JavaScriptCore/@' -f JavaScriptCore.tgz $(tar -ztf JavaScriptCore.tgz | grep '/API/[^/]*.h$')
-    tar -zx \
-        --transform 's@^[^/]*/@@' \
-        --transform 's@^icu/@@' \
-    -f JavaScriptCore.tgz $(tar -ztf JavaScriptCore.tgz | sed -e '
-        /\/icu\/unicode\/.*\.h$/ p;
-        /\/profiler\/.*\.h$/ p;
-        /\/runtime\/.*\.h$/ p;
-        /\/wtf\/.*\.h$/ p;
-        d;
-    ')
-fi
-
-for framework in ApplicationServices CoreServices IOKit IOSurface JavaScriptCore WebKit; do
-    ln -s "${xcode}"/System/Library/Frameworks/"${framework}".framework/Headers "${framework}"
-done
-
-for framework in /System/Library/Frameworks/CoreServices.framework/Frameworks/*.framework; do
-    name=${framework}
-    name=${name%.framework}
-    name=${name##*/}
-    ln -s "${xcode}/${framework}/Headers" "${name}"
-done
-
-mkdir -p Cocoa
-cat >Cocoa/Cocoa.h <<EOF
-#define NSImage UIImage
-#define NSView UIView
-#define NSWindow UIWindow
-
-#define NSPoint CGPoint
-#define NSRect CGRect
-
-#define NSPasteboard UIPasteboard
-#define NSSelectionAffinity int
-@protocol NSUserInterfaceValidations;
-EOF
-
-mkdir -p GraphicsServices
-cat >GraphicsServices/GraphicsServices.h <<EOF
-typedef struct __GSEvent *GSEventRef;
-typedef struct __GSFont *GSFontRef;
-EOF
+ln -s /System/Library/Frameworks/IOKit.framework/Headers IOKit

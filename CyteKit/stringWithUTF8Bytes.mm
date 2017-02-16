@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "CyteKit/stringWithUTF8Bytes.h"
 
 @implementation NSString (Cyte)

@@ -31,8 +31,21 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
     return *reinterpret_cast<Type_ *>(pointer);
 }
 
+#define MSClassHook(name) \
+    @class name; \
+    static Class $ ## name = objc_getClass(#name);
+
 #define MSHook(type, name, args...) \
     static type (*_ ## name)(args); \
     static type $ ## name(args)
+
+#define CYHook(Type, Code, Name) \
+static struct Type ## $ ## Code { Type ## $ ## Code() { \
+    Method Type ## $ ## Code(class_getInstanceMethod($ ## Type, @selector(Name))); \
+    if (Type ## $ ## Code != NULL) { \
+        _ ## Type ## $ ## Code = reinterpret_cast<decltype(_ ## Type ## $ ## Code)>(method_getImplementation(Type ## $ ## Code)); \
+        method_setImplementation(Type ## $ ## Code, reinterpret_cast<IMP>(&$ ## Type ## $ ## Code)); \
+    } \
+} } Type ## $ ## Code;
 
 #endif//Substrate_HPP

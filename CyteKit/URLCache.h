@@ -19,23 +19,13 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_WebViewTableViewCell_H
-#define CyteKit_WebViewTableViewCell_H
+#ifndef CyteKit_URLCache_H
+#define CyteKit_URLCache_H
 
-#include <UIKit/UIKit.h>
+#include "SDURLCache/SDURLCache.h"
 
-#include "CyteKit/WebView.h"
-
-@interface CyteWebViewTableViewCell : UITableViewCell <
-    CyteWebViewDelegate
->
-
-+ (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request;
-- (id) initWithRequest:(NSURLRequest *)request;
-
-- (id) delegate;
-- (void) setDelegate:(id)delegate;
+@interface CyteURLCache : SDURLCache
 
 @end
 
-#endif//CyteKit_WebViewTableViewCell_H
+#endif//CyteKit_URLCache_H

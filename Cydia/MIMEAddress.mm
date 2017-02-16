@@ -19,11 +19,12 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "Cydia/MIMEAddress.h"
-
-#include <WebKit/WebScriptObject.h>
-
 #include "CyteKit/RegEx.hpp"
+
+#include "iPhonePrivate.h"
 
 @implementation MIMEAddress
 

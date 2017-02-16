@@ -19,15 +19,34 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "CyteKit/TabBarController.h"
 
 #include "iPhonePrivate.h"
+#include <Menes/ObjectHandle.h>
 
 @implementation UITabBarController (Cydia)
 
 @end
 
-@implementation CyteTabBarController
+@implementation CyteTabBarController {
+    _transient UIViewController *transient_;
+    _H<UIViewController> remembered_;
+}
+
+- (NSArray *) navigationURLCollection {
+    NSMutableArray *items([NSMutableArray array]);
+
+    // XXX: Should this deal with transient view controllers?
+    for (id navigation in [self viewControllers]) {
+        NSArray *stack = [navigation performSelector:@selector(navigationURLCollection)];
+        if (stack != nil)
+            [items addObject:stack];
+    }
+
+    return items;
+}
 
 - (void) didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];

@@ -1,15 +1,14 @@
 #include "CyteKit/UCPlatform.h"
-#include "CyteKit/WebViewController.h"
-
-#include "CyteKit/MFMailComposeViewController-MailToURL.h"
-
-#include "iPhonePrivate.h"
 
 #include "CyteKit/IndirectDelegate.h"
 #include "CyteKit/Localize.h"
-#include "CyteKit/WebViewController.h"
+#include "CyteKit/MFMailComposeViewController-MailToURL.h"
 #include "CyteKit/RegEx.hpp"
 #include "CyteKit/WebThreadLocked.hpp"
+#include "CyteKit/WebViewController.h"
+
+#include "iPhonePrivate.h"
+#include <Menes/ObjectHandle.h>
 
 //#include <QuartzCore/CALayer.h>
 // XXX: fix the minimum requirement
@@ -17,17 +16,10 @@ extern NSString * const kCAFilterNearest;
 
 #include <WebCore/WebCoreThread.h>
 
-#import <WebKit/WebKitErrors.h>
-#import <WebKit/WebPreferences.h>
-
-#include <WebKit/DOMCSSPrimitiveValue.h>
-#include <WebKit/DOMCSSStyleDeclaration.h>
-#include <WebKit/DOMDocument.h>
-#include <WebKit/DOMHTMLBodyElement.h>
-#include <WebKit/DOMRGBColor.h>
-
 #include <dlfcn.h>
 #include <objc/runtime.h>
+
+#include "Substrate.hpp"
 
 #define ForSaurik 0
 #define DefaultTimeout_ 120.0
@@ -126,7 +118,43 @@ float CYScrollViewDecelerationRateNormal;
 @end
 /* }}} */
 
-@implementation CyteWebViewController
+@implementation CyteWebViewController {
+    _H<CyteWebView, 1> webview_;
+    _transient UIScrollView *scroller_;
+
+    _H<UIActivityIndicatorView> indicator_;
+    _H<IndirectDelegate, 1> indirect_;
+    _H<NSURLAuthenticationChallenge> challenge_;
+
+    bool error_;
+    _H<NSURLRequest> request_;
+    bool ready_;
+
+    _transient NSNumber *sensitive_;
+    _H<NSURL> appstore_;
+
+    _H<NSString> title_;
+    _H<NSMutableSet> loading_;
+
+    _H<NSMutableSet> registered_;
+    _H<NSTimer> timer_;
+
+    // XXX: NSString * or UIImage *
+    _H<NSObject> custom_;
+    _H<NSString> style_;
+
+    _H<WebScriptObject> function_;
+
+    float width_;
+    Class class_;
+
+    _H<UIBarButtonItem> reloaditem_;
+    _H<UIBarButtonItem> loadingitem_;
+
+    bool visible_;
+    bool hidesNavigationBar_;
+    bool allowsNavigationAction_;
+}
 
 #if ShowInternals
 #include "CyteKit/UCInternal.h"
@@ -161,7 +189,7 @@ float CYScrollViewDecelerationRateNormal;
         [loading_ removeAllObjects];
 
         if ([self retainsNetworkActivityIndicator])
-            [delegate_ releaseNetworkActivityIndicator];
+            [self.delegate releaseNetworkActivityIndicator];
     }
 }
 
@@ -183,6 +211,10 @@ float CYScrollViewDecelerationRateNormal;
     return (CyteWebView *) [self view];
 }
 
+- (CyteWebViewController *) indirect {
+    return (CyteWebViewController *) (IndirectDelegate *) indirect_;
+}
+
 - (NSURL *) URLWithURL:(NSURL *)url {
     return url;
 }
@@ -202,6 +234,10 @@ float CYScrollViewDecelerationRateNormal;
 - (void) setRequest:(NSURLRequest *)request {
     _assert(request_ == nil);
     request_ = request;
+}
+
+- (NSURLRequest *) request {
+    return request_;
 }
 
 - (void) setURL:(NSURL *)url {
@@ -409,7 +445,7 @@ float CYScrollViewDecelerationRateNormal;
     NSURL *url([request URL]);
 
     // XXX: filter to internal usage?
-    CyteViewController *page([delegate_ pageForURL:url forExternal:NO withReferrer:referrer]);
+    CyteViewController *page([self.delegate pageForURL:url forExternal:NO withReferrer:referrer]);
 
     if (page == nil) {
         CyteWebViewController *browser([[[class_ alloc] init] autorelease]);
@@ -417,8 +453,8 @@ float CYScrollViewDecelerationRateNormal;
         page = browser;
     }
 
-    [page setDelegate:delegate_];
-    [page setPageColor:color_];
+    [page setDelegate:self.delegate];
+    [page setPageColor:self.pageColor];
 
     if (!pop) {
         [[self navigationItem] setTitle:title_];
@@ -427,7 +463,7 @@ float CYScrollViewDecelerationRateNormal;
     } else {
         UINavigationController *navigation([[[UINavigationController alloc] initWithRootViewController:page] autorelease]);
 
-        [navigation setDelegate:delegate_];
+        [navigation setDelegate:self.delegate];
 
         [[page navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CLOSE")
@@ -536,7 +572,7 @@ float CYScrollViewDecelerationRateNormal;
         return;
 
     if ([name isEqualToString:@"_open"])
-        [delegate_ openURL:url];
+        [self.delegate openURL:url];
     else {
         NSString *scheme([[url scheme] lowercaseString]);
         if ([scheme isEqualToString:@"mailto"])
@@ -560,7 +596,6 @@ float CYScrollViewDecelerationRateNormal;
 #endif
 
     if ([frame parentFrame] == nil) {
-        loaded_ = true;
     }
 }
 
@@ -614,7 +649,7 @@ float CYScrollViewDecelerationRateNormal;
                     }
 
                     [super setPageColor:uic];
-                    [scroller_ setBackgroundColor:color_];
+                    [scroller_ setBackgroundColor:self.pageColor];
                     break;
                 }
     }
@@ -683,7 +718,7 @@ float CYScrollViewDecelerationRateNormal;
     [alert addTextFieldWithValue:@"" label:UCLocalize("PASSWORD")];
 
     UITextField *username([alert textFieldAtIndex:0]); {
-        UITextInputTraits *traits([username textInputTraits]);
+        NSObject<UITextInputTraits> *traits([username textInputTraits]);
         [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
         [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
         [traits setKeyboardType:UIKeyboardTypeASCIICapable];
@@ -691,7 +726,7 @@ float CYScrollViewDecelerationRateNormal;
     }
 
     UITextField *password([alert textFieldAtIndex:1]); {
-        UITextInputTraits *traits([password textInputTraits]);
+        NSObject<UITextInputTraits> *traits([password textInputTraits]);
         [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
         [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
         [traits setKeyboardType:UIKeyboardTypeASCIICapable];
@@ -775,7 +810,7 @@ float CYScrollViewDecelerationRateNormal;
     } else if ([context isEqualToString:@"itmsappss"]) {
         if (button == [alert cancelButtonIndex]) {
         } else if (button == [alert firstOtherButtonIndex]) {
-            [delegate_ openURL:appstore_];
+            [self.delegate openURL:appstore_];
         }
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
@@ -804,9 +839,9 @@ float CYScrollViewDecelerationRateNormal;
 
 - (UIBarButtonItem *) customButton {
     if (custom_ == nil)
-        return nil;
+        return [self rightButton];
     else if ((/*clang:*/id) custom_ == [NSNull null])
-        return (UIBarButtonItem *) [NSNull null];
+        return nil;
 
     return [[[UIBarButtonItem alloc]
         initWithTitle:static_cast<NSString *>(custom_.operator NSObject *())
@@ -859,14 +894,7 @@ float CYScrollViewDecelerationRateNormal;
         [self applyLoadingTitle];
     } else {
         [indicator_ stopAnimating];
-
-        UIBarButtonItem *button([self customButton]);
-        if (button == nil)
-            button = [self rightButton];
-        else if (button == (UIBarButtonItem *) [NSNull null])
-            button = nil;
-
-        [[self navigationItem] setRightBarButtonItem:button animated:YES];
+        [[self navigationItem] setRightBarButtonItem:[self customButton] animated:YES];
     }
 }
 
@@ -881,7 +909,7 @@ float CYScrollViewDecelerationRateNormal;
         return;
 
     if ([self retainsNetworkActivityIndicator])
-        [delegate_ retainNetworkActivityIndicator];
+        [self.delegate retainNetworkActivityIndicator];
 
     [self didStartLoading];
 }
@@ -898,7 +926,7 @@ float CYScrollViewDecelerationRateNormal;
     [[self navigationItem] setTitle:title_];
 
     if ([self retainsNetworkActivityIndicator])
-        [delegate_ releaseNetworkActivityIndicator];
+        [self.delegate releaseNetworkActivityIndicator];
 
     [self didFinishLoading];
 }
@@ -931,7 +959,7 @@ float CYScrollViewDecelerationRateNormal;
             initWithTitle:(kCFCoreFoundationVersionNumber >= 800 ? @"       " : @" ")
             style:UIBarButtonItemStylePlain
             target:self
-            action:@selector(reloadButtonClicked)
+            action:@selector(customButtonClicked)
         ] autorelease];
 
         UIActivityIndicatorViewStyle style;
@@ -1034,7 +1062,7 @@ float CYScrollViewDecelerationRateNormal;
     [webview_ setBackgroundColor:nil];
 
     [scroller_ setFixedBackgroundPattern:YES];
-    [scroller_ setBackgroundColor:color_];
+    [scroller_ setBackgroundColor:self.pageColor];
     [scroller_ setClipsSubviews:YES];
 
     [scroller_ setBounces:YES];
@@ -1271,3 +1299,29 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 @end
+
+MSClassHook(WAKWindow)
+
+static CGSize $WAKWindow$screenSize(WAKWindow *self, SEL _cmd) {
+    CGSize size([[UIScreen mainScreen] bounds].size);
+    /*if ([$WAKWindow respondsToSelector:@selector(hasLandscapeOrientation)])
+        if ([$WAKWindow hasLandscapeOrientation])
+            std::swap(size.width, size.height);*/
+    return size;
+}
+
+static struct WAKWindow$screenSize { WAKWindow$screenSize() {
+    if ($WAKWindow != NULL)
+        if (Method method = class_getInstanceMethod($WAKWindow, @selector(screenSize)))
+            method_setImplementation(method, (IMP) &$WAKWindow$screenSize);
+} } WAKWindow$screenSize;;
+
+MSClassHook(NSUserDefaults)
+
+MSHook(id, NSUserDefaults$objectForKey$, NSUserDefaults *self, SEL _cmd, NSString *key) {
+    if ([key respondsToSelector:@selector(isEqualToString:)] && [key isEqualToString:@"WebKitLocalStorageDatabasePathPreferenceKey"])
+        return [NSString stringWithFormat:@"%@/%@/%@", NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject, NSBundle.mainBundle.bundleIdentifier, @"LocalStorage"];
+    return _NSUserDefaults$objectForKey$(self, _cmd, key);
+}
+
+CYHook(NSUserDefaults, objectForKey$, objectForKey:)

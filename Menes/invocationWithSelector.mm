@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "Menes/invocationWithSelector.h"
 
 @implementation NSInvocation (MenesInvocationWithSelector)

@@ -19,9 +19,10 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include <Foundation/Foundation.h>
 #include <Menes/ObjectHandle.h>
-#include <CyteKit/UCPlatform.h>
 
 #include <cstdio>
 

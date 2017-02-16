@@ -19,11 +19,16 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "CyteKit/TableViewCell.h"
 
 #include "iPhonePrivate.h"
+#include <Menes/ObjectHandle.h>
 
-@implementation CyteTableViewCellContentView
+@implementation CyteTableViewCellContentView {
+    _transient id<CyteTableViewCellDelegate> delegate_;
+}
 
 - (id) initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame]) != nil) {
@@ -46,7 +51,10 @@
 
 @end
 
-@implementation CyteTableViewCell
+@implementation CyteTableViewCell {
+    _H<CyteTableViewCellContentView, 1> content_;
+    bool highlighted_;
+}
 
 - (void) _updateHighlightColorsForView:(UIView *)view highlighted:(BOOL)highlighted {
     if (view == (UIView *) content_)
@@ -60,6 +68,18 @@
 
     [super setSelected:selected animated:animated];
     [content_ setNeedsDisplay];
+}
+
+- (void) setContent:(CyteTableViewCellContentView *)content {
+    content_ = content;
+}
+
+- (CyteTableViewCellContentView *) content {
+    return content_;
+}
+
+- (bool) highlighted {
+    return highlighted_;
 }
 
 @end

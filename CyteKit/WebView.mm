@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "CyteKit/dispatchEvent.h"
 #include "CyteKit/WebView.h"
 
@@ -88,7 +90,8 @@
 @end
 // }}}
 
-@implementation CyteWebView : UIWebView
+@implementation CyteWebView : UIWebView {
+}
 
 #if ShowInternals
 #include "CyteKit/UCInternal.h"
@@ -414,3 +417,29 @@ __attribute__((__constructor__)) static void $() {
         class_addMethod($UIWebViewWebViewDelegate, @selector(_clearUIWebView), (IMP) &$UIWebViewWebViewDelegate$_clearUIWebView, "v8@0:4");
     }
 }
+
+@implementation UIWebDocumentView (Cydia)
+
+- (void) _setScrollerOffset:(CGPoint)offset {
+    UIScroller *scroller([self _scroller]);
+
+    CGSize size([scroller contentSize]);
+    CGSize bounds([scroller bounds].size);
+
+    CGPoint max;
+    max.x = size.width - bounds.width;
+    max.y = size.height - bounds.height;
+
+    // wtf Apple?!
+    if (max.x < 0)
+        max.x = 0;
+    if (max.y < 0)
+        max.y = 0;
+
+    offset.x = offset.x < 0 ? 0 : offset.x > max.x ? max.x : offset.x;
+    offset.y = offset.y < 0 ? 0 : offset.y > max.y ? max.y : offset.y;
+
+    [scroller setOffset:offset];
+}
+
+@end

@@ -2,16 +2,14 @@
 #define CYDIA_UIKITPRIVATE_H
 
 // #include <*> {{{
-#include <GraphicsServices/GraphicsServices.h>
+#include <JavaScriptCore/JavaScriptCore.h>
 #include <UIKit/UIKit.h>
 // }}}
-// #import <*> {{{
-#import <WebKit/DOMHTMLIFrameElement.h>
-#import <WebKit/WebFrame.h>
-#import <WebKit/WebPreferences.h>
-#import <WebKit/WebView.h>
+// typedef GS* {{{
+typedef struct __GSEvent *GSEventRef;
 // }}}
-// typedef enum {*} *; {{{
+
+// enum UI* {{{
 typedef enum {
     UIGestureAttributeMinDegrees,                 /*float*/
     UIGestureAttributeMaxDegrees,                 /*float*/
@@ -37,12 +35,82 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(
 // #define * * {{{
 #define UIDataDetectorTypeAutomatic 0x80000000
 // }}}
+
+// @class DOM*; {{{
+@class DOMRGBColor;
+// }}}
 // @class Web*; {{{
 @class WebDataSource;
 @class WebScriptObject;
+@class WebView;
 // }}}
-// @protocol *; {{{
-@protocol WebPolicyDecisionListener;
+
+// enum DOM_* {{{
+enum {
+    DOM_CSS_UNKNOWN = 0,
+    DOM_CSS_NUMBER = 1,
+    DOM_CSS_PERCENTAGE = 2,
+    DOM_CSS_EMS = 3,
+    DOM_CSS_EXS = 4,
+    DOM_CSS_PX = 5,
+    DOM_CSS_CM = 6,
+    DOM_CSS_MM = 7,
+    DOM_CSS_IN = 8,
+    DOM_CSS_PT = 9,
+    DOM_CSS_PC = 10,
+    DOM_CSS_DEG = 11,
+    DOM_CSS_RAD = 12,
+    DOM_CSS_GRAD = 13,
+    DOM_CSS_MS = 14,
+    DOM_CSS_S = 15,
+    DOM_CSS_HZ = 16,
+    DOM_CSS_KHZ = 17,
+    DOM_CSS_DIMENSION = 18,
+    DOM_CSS_STRING = 19,
+    DOM_CSS_URI = 20,
+    DOM_CSS_IDENT = 21,
+    DOM_CSS_ATTR = 22,
+    DOM_CSS_COUNTER = 23,
+    DOM_CSS_RECT = 24,
+    DOM_CSS_RGBCOLOR = 25,
+    DOM_CSS_VW = 26,
+    DOM_CSS_VH = 27,
+    DOM_CSS_VMIN = 28,
+    DOM_CSS_VMAX = 29
+};
+// }}}
+// enum Web* {{{
+typedef NS_ENUM(NSUInteger, WebCacheModel) {
+    WebCacheModelDocumentViewer = 0,
+    WebCacheModelDocumentBrowser = 1,
+    WebCacheModelPrimaryWebBrowser = 2
+};
+
+typedef enum {
+    WebEventMouseDown,
+    WebEventMouseUp,
+    WebEventMouseMoved,
+    WebEventScrollWheel,
+    WebEventKeyDown,
+    WebEventKeyUp,
+    WebEventTouchBegin,
+    WebEventTouchChange,
+    WebEventTouchEnd,
+    WebEventTouchCancel
+} WebEventType;
+
+enum {
+    WebKitErrorCannotShowMIMEType = 100,
+    WebKitErrorCannotShowURL = 101,
+    WebKitErrorFrameLoadInterruptedByPolicyChange = 102,
+};
+// }}}
+// @protocol Web*; {{{
+@protocol WebPolicyDecisionListener <NSObject>
+- (void) use;
+- (void) download;
+- (void) ignore;
+@end
 // }}}
 
 // @interface * : UIView {{{
@@ -147,6 +215,108 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(
 + (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
 @end
 // }}}
+// @interface DOM* {{{
+@interface DOMObject
+@end
+
+@interface DOMCSSValue : DOMObject
+@end
+
+@interface DOMCSSPrimitiveValue : DOMCSSValue
+@property (readonly) unsigned short primitiveType;
+- (DOMRGBColor *) getRGBColorValue;
+- (float) getFloatValue:(unsigned short)unit;
+@end
+
+@interface DOMRGBColor : DOMObject
+@property (readonly, strong) DOMCSSPrimitiveValue *red;
+@property (readonly, strong) DOMCSSPrimitiveValue *green;
+@property (readonly, strong) DOMCSSPrimitiveValue *blue;
+@property (readonly, strong) DOMCSSPrimitiveValue *alpha;
+@end
+
+@interface DOMCSSStyleDeclaration : DOMObject
+- (DOMCSSValue *) getPropertyCSSValue:(NSString *)name;
+- (void) setProperty:(NSString *)name value:(NSString *)value priority:(NSString *)priority;
+@end
+
+@interface DOMNode : DOMObject
+@end
+
+@interface DOMNodeList : DOMObject
+@property (readonly) unsigned length;
+- (DOMNode *) item:(unsigned)index;
+@end
+
+@interface DOMElement : DOMNode
+@property (readonly) int scrollHeight;
+@end
+
+@interface DOMHTMLElement : DOMElement
+@property (readonly, strong) DOMCSSStyleDeclaration *style;
+@end
+
+@interface DOMHTMLBodyElement : DOMHTMLElement
+@end
+
+@interface DOMHTMLIFrameElement : DOMHTMLElement
+@end
+
+@interface DOMDocument : DOMNode
+@property (strong) DOMHTMLElement *body;
+- (DOMCSSStyleDeclaration *) getComputedStyle:(DOMElement *)element pseudoElement:(NSString *)pseudo;
+- (DOMNodeList *) getElementsByTagName:(NSString *)name;
+@end
+// }}}
+// @interface WAK* : * {{{
+@interface WAKResponder : NSObject
+@end
+
+@interface WAKView : NSObject
++ (BOOL) hasLandscapeOrientation;
+@end
+
+@interface WAKWindow : NSObject
++ (BOOL) hasLandscapeOrientation;
+@end
+// }}}
+// @interface Web* {{{
+@interface WebPreferences : NSObject
+- (void) setCacheModel:(WebCacheModel)value;
+- (void) setJavaScriptCanOpenWindowsAutomatically:(BOOL)value;
+@end
+
+@interface WebFrame : NSObject
+@property (nonatomic, readonly, copy) NSArray *childFrames;
+@property (nonatomic, readonly, strong) WebDataSource *dataSource;
+@property (nonatomic, readonly, strong) DOMDocument *DOMDocument;
+@property (nonatomic, readonly, strong) DOMHTMLElement *frameElement;
+@property (nonatomic, readonly) JSGlobalContextRef globalContext;
+@property (nonatomic, readonly, strong) WebFrame *parentFrame;
+@property (nonatomic, readonly, strong) WebDataSource *provisionalDataSource;
+@property (nonatomic, readonly, strong) WebScriptObject *windowObject;
+@end
+
+@interface WebView : WAKView
+@property (nonatomic, readonly, strong) WebFrame *mainFrame;
+@property (nonatomic, strong) WebPreferences *preferences;
+- (IBAction) reloadFromOrigin:(id)sender;
+- (void) setApplicationNameForUserAgent:(NSString *)value;
+- (void) setShouldUpdateWhileOffscreen:(BOOL)value;
+@end
+
+@interface WebScriptObject : NSObject
+- (id) evaluateWebScript:(NSString *)script;
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name;
+- (JSObjectRef) JSObject;
+- (void) setWebScriptValueAtIndex:(unsigned)index value:(id)value;
+- (id) webScriptValueAtIndex:(unsigned)index;
+@end
+
+@interface WebUndefined : NSObject
++ (WebUndefined *) undefined;
+@end
+// }}}
 // @interface UIWeb* : * {{{
 @interface UIWebBrowserView : UIWebDocumentView
 @end
@@ -156,15 +326,14 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(
 - (NSString *) _typeDescription;
 @end
 // }}}
-// @interface WAK* : * {{{
-@interface WAKWindow : NSObject
-+ (BOOL) hasLandscapeOrientation;
-@end
-// }}}
 
 // @interface NS* (*) {{{
 @interface NSMutableURLRequest (Apple)
 - (void) setHTTPShouldUsePipelining:(BOOL)pipelining;
+@end
+
+@interface NSObject (Apple)
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name;
 @end
 
 @interface NSString (Apple)
@@ -281,7 +450,7 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(
 @end
 
 @interface UITextField (Apple)
-- (UITextInputTraits *) textInputTraits;
+- (NSObject<UITextInputTraits> *) textInputTraits;
 @end
 
 @interface UITextView (Apple)
@@ -433,6 +602,7 @@ extern CGFloat const UIScrollViewDecelerationRateNormal;
 extern CFStringRef const kGSDisplayIdentifiersCapability;
 extern float const UIWebViewGrowsAndShrinksToFitHeight;
 extern float const UIWebViewScalesToFitScale;
+extern NSString *WebKitErrorDomain;
 // }}}
 // extern "C" *(); {{{
 extern "C" void *reboot2(uint64_t flags);

@@ -22,6 +22,8 @@
 #ifndef CyteKit_IndirectDelegate_H
 #define CyteKit_IndirectDelegate_H
 
+#include <Foundation/Foundation.h>
+
 @interface IndirectDelegate : NSObject {
     _transient volatile id delegate_;
 }

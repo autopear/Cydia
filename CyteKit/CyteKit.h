@@ -19,23 +19,20 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_WebViewTableViewCell_H
-#define CyteKit_WebViewTableViewCell_H
+#ifndef CyteKit_CyteKit_H
+#define CyteKit_CyteKit_H
 
-#include <UIKit/UIKit.h>
+#include "CyteKit/Application.h"
+#include "CyteKit/NavigationController.h"
+#include "CyteKit/RegEx.hpp"
+#include "CyteKit/TableViewCell.h"
+#include "CyteKit/TabBarController.h"
+#include "CyteKit/URLCache.h"
+#include "CyteKit/WebViewController.h"
+#include "CyteKit/WebViewTableViewCell.h"
 
-#include "CyteKit/WebView.h"
+#include "CyteKit/countByEnumeratingWithState.h"
+#include "CyteKit/stringWithUTF8Bytes.h"
+#include "CyteKit/webScriptObjectInContext.h"
 
-@interface CyteWebViewTableViewCell : UITableViewCell <
-    CyteWebViewDelegate
->
-
-+ (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request;
-- (id) initWithRequest:(NSURLRequest *)request;
-
-- (id) delegate;
-- (void) setDelegate:(id)delegate;
-
-@end
-
-#endif//CyteKit_WebViewTableViewCell_H
+#endif//CyteKit_CyteKit_H

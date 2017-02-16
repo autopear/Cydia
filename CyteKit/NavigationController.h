@@ -19,23 +19,16 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_WebViewTableViewCell_H
-#define CyteKit_WebViewTableViewCell_H
+#ifndef CyteKit_NavigationController_H
+#define CyteKit_NavigationController_H
 
 #include <UIKit/UIKit.h>
 
-#include "CyteKit/WebView.h"
+@interface UINavigationController (Cydia)
 
-@interface CyteWebViewTableViewCell : UITableViewCell <
-    CyteWebViewDelegate
->
-
-+ (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request;
-- (id) initWithRequest:(NSURLRequest *)request;
-
-- (id) delegate;
-- (void) setDelegate:(id)delegate;
+- (NSArray *) navigationURLCollection;
+- (void) unloadData;
 
 @end
 
-#endif//CyteKit_WebViewTableViewCell_H
+#endif//CyteKit_NavigationController_H

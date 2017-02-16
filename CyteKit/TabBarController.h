@@ -22,21 +22,16 @@
 #ifndef CyteKit_TabBarController_H
 #define CyteKit_TabBarController_H
 
-#include <CyteKit/UCPlatform.h>
 #include <CyteKit/ViewController.h>
 
 #include <UIKit/UIKit.h>
 
-#include <Menes/ObjectHandle.h>
-
 @interface UITabBarController (Cydia)
 @end
 
-@interface CyteTabBarController : UITabBarController {
-    _transient UIViewController *transient_;
-    _H<UIViewController> remembered_;
-}
+@interface CyteTabBarController : UITabBarController
 
+- (NSArray *) navigationURLCollection;
 - (UIViewController *) unselectedViewController;
 - (void) setUnselectedViewController:(UIViewController *)transient;
 

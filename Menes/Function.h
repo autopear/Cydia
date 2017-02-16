@@ -22,8 +22,6 @@
 #ifndef Menes_Function_H
 #define Menes_Function_H
 
-#include "CyteKit/UCPlatform.h"
-
 template <typename Result_, typename... Args_>
 class Function {
   private:

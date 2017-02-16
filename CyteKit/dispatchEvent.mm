@@ -19,14 +19,10 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "CyteKit/dispatchEvent.h"
 #include "CyteKit/WebThreadLocked.hpp"
-
-#include <WebCore/WebEvent.h>
-
-#include <WebKit/WebFrame.h>
-#include <WebKit/WebScriptObject.h>
-#include <WebKit/WebView.h>
 
 #include "Substrate.hpp"
 

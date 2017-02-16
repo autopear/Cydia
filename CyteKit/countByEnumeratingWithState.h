@@ -19,10 +19,16 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_WebScriptObject_Cyte_H
-#define CyteKit_WebScriptObject_Cyte_H
+#ifndef CyteKit_countByEnumeratingWithState_H
+#define CyteKit_countByEnumeratingWithState_H
 
-#include <WebKit/WebScriptObject.h>
+#include "iPhonePrivate.h"
+
+@interface DOMNodeList (Cyte)
+// XXX? - (NSUInteger) count;
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count;
+// XXX? - (id) objectAtIndex:(unsigned)index;
+@end
 
 @interface WebScriptObject (Cyte)
 - (NSUInteger) count;
@@ -30,4 +36,4 @@
 - (id) objectAtIndex:(unsigned)index;
 @end
 
-#endif//CyteKit_WebScriptObject_Cyte_H
+#endif//CyteKit_countByEnumeratingWithState_H

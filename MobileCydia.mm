@@ -53,7 +53,6 @@
 #include <QuartzCore/CALayer.h>
 
 #include <WebCore/WebCoreThread.h>
-#include <WebKit/DOMHTMLIFrameElement.h>
 
 #include <algorithm>
 #include <fstream>
@@ -113,20 +112,11 @@ extern "C" {
 #include "Substrate.hpp"
 #include "Menes/Menes.h"
 
-#include "CyteKit/IndirectDelegate.h"
-#include "CyteKit/RegEx.hpp"
-#include "CyteKit/TableViewCell.h"
-#include "CyteKit/TabBarController.h"
-#include "CyteKit/WebScriptObject-Cyte.h"
-#include "CyteKit/WebViewController.h"
-#include "CyteKit/WebViewTableViewCell.h"
-#include "CyteKit/stringWithUTF8Bytes.h"
+#include "CyteKit/CyteKit.h"
 
 #include "Cydia/MIMEAddress.h"
 #include "Cydia/LoadingViewController.h"
 #include "Cydia/ProgressEvent.h"
-
-#include "SDURLCache/SDURLCache.h"
 /* }}} */
 
 /* Profiler {{{ */
@@ -198,10 +188,6 @@ void PrintTimes() {
 
 #define _end }
 /* }}} */
-
-// XXX: I hate clang. Apple: please get over your petty hatred of GPL and fix your gcc fork
-#define synchronized(lock) \
-    synchronized(static_cast<NSObject *>(lock))
 
 extern NSString *Cydia_;
 
@@ -329,53 +315,47 @@ static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareNumerically | kCF
 
 /* Insertion Sort {{{ */
 
-CFIndex SKBSearch_(const void *element, CFIndex elementSize, const void *list, CFIndex count, CFComparatorFunction comparator, void *context) {
+template <typename Type_>
+size_t CFBSearch_(const Type_ &element, const void *list, size_t count, CFComparisonResult (*comparator)(Type_, Type_, void *), void *context) {
     const char *ptr = (const char *)list;
     while (0 < count) {
-        CFIndex half = count / 2;
-        const char *probe = ptr + elementSize * half;
-        CFComparisonResult cr = comparator(element, probe, context);
-    if (0 == cr) return (probe - (const char *)list) / elementSize;
-        ptr = (cr < 0) ? ptr : probe + elementSize;
+        size_t half = count / 2;
+        const char *probe = ptr + sizeof(Type_) * half;
+        CFComparisonResult cr = comparator(element, * (const Type_ *) probe, context);
+        if (0 == cr) return (probe - (const char *)list) / sizeof(Type_);
+        ptr = (cr < 0) ? ptr : probe + sizeof(Type_);
         count = (cr < 0) ? half : (half + (count & 1) - 1);
     }
-    return (ptr - (const char *)list) / elementSize;
+    return (ptr - (const char *)list) / sizeof(Type_);
 }
 
-CFIndex CFBSearch_(const void *element, CFIndex elementSize, const void *list, CFIndex count, CFComparatorFunction comparator, void *context) {
-    const char *ptr = (const char *)list;
-    while (0 < count) {
-        CFIndex half = count / 2;
-        const char *probe = ptr + elementSize * half;
-        CFComparisonResult cr = comparator(element, probe, context);
-    if (0 == cr) return (probe - (const char *)list) / elementSize;
-        ptr = (cr < 0) ? ptr : probe + elementSize;
-        count = (cr < 0) ? half : (half + (count & 1) - 1);
-    }
-    return (ptr - (const char *)list) / elementSize;
-}
-
-void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFComparatorFunction comparator, void *context) {
-    if (range.length == 0)
+template <typename Type_>
+void CYArrayInsertionSortValues(Type_ *values, size_t length, CFComparisonResult (*comparator)(Type_, Type_, void *), void *context) {
+    if (length == 0)
         return;
-    const void **values(new const void *[range.length]);
-    CFArrayGetValues(array, range, values);
 
 #if HistogramInsertionSort > 0
-    uint32_t total(0), *offsets(new uint32_t[range.length]);
+    uint32_t total(0), *offsets(new uint32_t[length]);
 #endif
 
-    for (CFIndex index(1); index != range.length; ++index) {
-        const void *value(values[index]);
-        //CFIndex correct(SKBSearch_(&value, sizeof(const void *), values, index, comparator, context));
-        CFIndex correct(index);
+    for (size_t index(1); index != length; ++index) {
+        Type_ value(values[index]);
+#if 0
+        size_t correct(CFBSearch_(value, values, index, comparator, context));
+#else
+        size_t correct(index);
         while (comparator(value, values[correct - 1], context) == kCFCompareLessThan) {
 #if HistogramInsertionSort > 1
             NSLog(@"%@ < %@", value, values[correct - 1]);
 #endif
             if (--correct == 0)
                 break;
+            if (index - correct >= 8) {
+                correct = CFBSearch_(value, values, correct, comparator, context);
+                break;
+            }
         }
+#endif
         if (correct != index) {
             size_t offset(index - correct);
 #if HistogramInsertionSort
@@ -389,11 +369,8 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
         }
     }
 
-    CFArrayReplaceValues(array, range, values, range.length);
-    delete [] values;
-
 #if HistogramInsertionSort > 0
-    for (CFIndex index(0); index != range.length; ++index)
+    for (size_t index(0); index != range.length; ++index)
         if (offsets[index] != 0)
             NSLog(@"Insertion Displacement [%u]: %u", index, offsets[index]);
     NSLog(@"Average Insertion Displacement: %f", double(total) / range.length);
@@ -402,47 +379,6 @@ void CFArrayInsertionSortValues(CFMutableArrayRef array, CFRange range, CFCompar
 }
 
 /* }}} */
-
-/* Apple Bug Fixes {{{ */
-@implementation UIWebDocumentView (Cydia)
-
-- (void) _setScrollerOffset:(CGPoint)offset {
-    UIScroller *scroller([self _scroller]);
-
-    CGSize size([scroller contentSize]);
-    CGSize bounds([scroller bounds].size);
-
-    CGPoint max;
-    max.x = size.width - bounds.width;
-    max.y = size.height - bounds.height;
-
-    // wtf Apple?!
-    if (max.x < 0)
-        max.x = 0;
-    if (max.y < 0)
-        max.y = 0;
-
-    offset.x = offset.x < 0 ? 0 : offset.x > max.x ? max.x : offset.x;
-    offset.y = offset.y < 0 ? 0 : offset.y > max.y ? max.y : offset.y;
-
-    [scroller setOffset:offset];
-}
-
-@end
-/* }}} */
-
-NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
-    size_t length([self length] - state->state);
-    if (length <= 0)
-        return 0;
-    else if (length > count)
-        length = count;
-    for (size_t i(0); i != length; ++i)
-        objects[i] = [self item:state->state++];
-    state->itemsPtr = objects;
-    state->mutationsPtr = (unsigned long *) self;
-    return length;
-}
 
 /* Cydia NSString Additions {{{ */
 @interface NSString (Cydia)
@@ -809,8 +745,6 @@ static _H<NSMutableDictionary> SessionData_;
 static _H<NSObject> HostConfig_;
 static _H<NSMutableSet> BridgedHosts_;
 static _H<NSMutableSet> InsecureHosts_;
-static _H<NSMutableSet> PipelinedHosts_;
-static _H<NSMutableSet> CachedURLs_;
 
 static NSString *kCydiaProgressEventTypeError = @"Error";
 static NSString *kCydiaProgressEventTypeInformation = @"Information";
@@ -1119,7 +1053,7 @@ typedef std::map< unsigned long, _H<Source> > SourceMap;
     SourceMap sourceMap_;
     _H<NSMutableArray> sourceList_;
 
-    CFMutableArrayRef packages_;
+    _H<NSArray> packages_;
 
     _transient NSObject<DatabaseDelegate> *delegate_;
     _transient NSObject<ProgressDelegate> *progress_;
@@ -1203,7 +1137,10 @@ class SourceStatus :
         }
 
         //printf("Set(%s, %s)\n", fetch ? "true" : "false", uri.c_str());
-        [database_ setFetch:fetch forURI:uri.c_str()];
+
+        auto slash(uri.rfind('/'));
+        if (slash != std::string::npos)
+            [database_ setFetch:fetch forURI:uri.substr(0, slash).c_str()];
     }
 
     _finline void Set(bool fetch, pkgAcquire::Item *item) {
@@ -1668,13 +1605,10 @@ static void SaveConfig(NSObject *lock) {
         _profile(Source$setMetaIndex$DescURI)
         for (pkgAcquire::ItemIterator item(acquire.ItemsBegin()); item != acquire.ItemsEnd(); item++) {
             std::string file((*item)->DescURI());
-            files_.insert(file);
-            if (file.length() < sizeof("Packages.bz2") || file.substr(file.length() - sizeof("Packages.bz2")) != "/Packages.bz2")
+            auto slash(file.rfind('/'));
+            if (slash == std::string::npos)
                 continue;
-            file = file.substr(0, file.length() - 4);
-            files_.insert(file);
-            files_.insert(file + ".gz");
-            files_.insert(file + "Index");
+            files_.insert(file.substr(0, slash));
         }
         _end
 
@@ -2143,6 +2077,8 @@ struct ParsedPackage {
 }
 
 - (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
++ (Package *) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
+
 + (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
 
 - (pkgCache::PkgIterator) iterator;
@@ -2712,7 +2648,7 @@ struct PackageNameOrdering :
     _end } return self;
 }
 
-+ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
++ (Package *) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     pkgCache::VerIterator version;
 
     _profile(Package$packageWithIterator$GetCandidateVer)
@@ -2737,11 +2673,12 @@ struct PackageNameOrdering :
         ];
     _end
 
-    _profile(Package$packageWithIterator$Autorelease)
-        package = [package autorelease];
-    _end
-
     return package;
+}
+
+// XXX: just in case a Cydia extension is using this (I bet this is unlikely, though, due to CYPool?)
++ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
+    return [[self newPackageWithIterator:iterator withZone:zone inPool:pool database:database] autorelease];
 }
 
 - (pkgCache::PkgIterator) iterator {
@@ -3328,8 +3265,8 @@ struct PackageNameOrdering :
 }
 
 - (void) setIndex:(size_t)index {
-    if (metadata_->index_ != index)
-        metadata_->index_ = index;
+    if (metadata_->index_ != index + 1)
+        metadata_->index_ = index + 1;
 }
 
 - (CYString &) cyname {
@@ -3520,12 +3457,11 @@ class CydiaLogCleaner :
 }
 
 - (void) releasePackages {
-    CFArrayApplyFunction(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFArrayApplierFunction>(&CFRelease), NULL);
-    CFArrayRemoveAllValues(packages_);
+    packages_ = nil;
 }
 
 - (bool) hasPackages {
-    return CFArrayGetCount(packages_) != 0;
+    return [packages_ count] != 0;
 }
 
 - (void) dealloc {
@@ -3651,7 +3587,7 @@ class CydiaLogCleaner :
         , "any"
 #endif
     ));
-    return iterator.end() ? nil : [Package packageWithIterator:iterator withZone:NULL inPool:NULL database:self];
+    return iterator.end() ? nil : [[Package newPackageWithIterator:iterator withZone:NULL inPool:NULL database:self] autorelease];
 } }
 
 - (id) init {
@@ -3664,13 +3600,6 @@ class CydiaLogCleaner :
 
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
 
-        size_t capacity(MetaFile_->active_);
-        if (capacity == 0)
-            capacity = 16384;
-        else
-            capacity += 1024;
-
-        packages_ = CFArrayCreateMutable(kCFAllocatorDefault, capacity, NULL);
         sourceList_ = [NSMutableArray arrayWithCapacity:16];
 
         int fds[2];
@@ -3739,7 +3668,7 @@ class CydiaLogCleaner :
 }
 
 - (NSArray *) packages {
-    return (NSArray *) packages_;
+    return packages_;
 }
 
 - (NSArray *) sources {
@@ -3956,39 +3885,87 @@ class CydiaLogCleaner :
     }
 
     {
-        /*std::vector<Package *> packages;
-        packages.reserve(std::max(10000U, [packages_ count] + 1000));
-        packages_ = nil;*/
+        size_t capacity(MetaFile_->active_);
+        if (capacity == 0)
+            capacity = 128*1024;
+        else
+            capacity += 1024;
 
+        std::vector<Package *> packages;
+        packages.reserve(capacity);
+        size_t lost(0);
+
+        size_t last(0);
         _profile(reloadDataWithInvocation$packageWithIterator)
         for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
-            if (Package *package = [Package packageWithIterator:iterator withZone:zone_ inPool:&pool_ database:self])
-                //packages.push_back(package);
-                CFArrayAppendValue(packages_, CFRetain(package));
+            if (Package *package = [Package newPackageWithIterator:iterator withZone:zone_ inPool:&pool_ database:self]) {
+                if (unsigned index = package.metadata->index_) {
+                    --index;
+                    if (packages.size() == index) {
+                        packages.push_back(package);
+                    } else if (packages.size() <= index) {
+                        packages.resize(index + 1, nil);
+                        packages[index] = package;
+                        continue;
+                    } else {
+                        std::swap(package, packages[index]);
+                        if (package != nil)
+                            goto lost;
+                        if (last != index)
+                            continue;
+                    }
+                } else lost: {
+                    ++lost;
+                    if (last == packages.size()) {
+                        packages.push_back(package);
+                        ++last;
+                    } else {
+                        packages[last] = package;
+                        ++last;
+                    }
+                }
+
+                for (; last != packages.size(); ++last)
+                    if (packages[last] == nil)
+                        break;
+            }
         _end
 
+        for (size_t next(last + 1); last != packages.size(); ++last, ++next) {
+            while (true) {
+                if (next == packages.size())
+                    goto done;
+                if (packages[next] != nil)
+                    break;
+                ++next;
+            }
 
-        /*if (packages.empty())
-            packages_ = [[NSArray alloc] init];
-        else
-            packages_ = [[NSArray alloc] initWithObjects:&packages.front() count:packages.size()];
-        _trace();*/
+            std::swap(packages[last], packages[next]);
+        } done:;
 
-        _profile(reloadDataWithInvocation$radix$8)
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(8)];
-        _end
+        packages.resize(last);
 
-        _profile(reloadDataWithInvocation$radix$4)
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(4)];
-        _end
+        if (lost > 128) {
+            NSLog(@"lost = %zu", lost);
 
-        _profile(reloadDataWithInvocation$radix$0)
-        [(NSMutableArray *) packages_ radixSortUsingFunction:reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix) withContext:reinterpret_cast<void *>(0)];
-        _end
+            _profile(reloadDataWithInvocation$radix$8)
+            CYRadixSortUsingFunction(packages.data(), packages.size(), reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix), reinterpret_cast<void *>(8));
+            _end
+
+            _profile(reloadDataWithInvocation$radix$4)
+            CYRadixSortUsingFunction(packages.data(), packages.size(), reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix), reinterpret_cast<void *>(4));
+            _end
+
+            _profile(reloadDataWithInvocation$radix$0)
+            CYRadixSortUsingFunction(packages.data(), packages.size(), reinterpret_cast<MenesRadixSortFunction>(&PackagePrefixRadix), reinterpret_cast<void *>(0));
+            _end
+        }
 
         _profile(reloadDataWithInvocation$insertion)
-        CFArrayInsertionSortValues(packages_, CFRangeMake(0, CFArrayGetCount(packages_)), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare), NULL);
+        CYArrayInsertionSortValues(packages.data(), packages.size(), &PackageNameCompare, NULL);
         _end
+
+        packages_ = [[[NSArray alloc] initWithObjects:packages.data() count:packages.size()] autorelease];
 
         /*_profile(reloadDataWithInvocation$CFQSortArray)
         CFQSortArray(&packages.front(), packages.size(), sizeof(packages.front()), reinterpret_cast<CFComparatorFunction>(&PackageNameCompare_), NULL);
@@ -4006,11 +3983,12 @@ class CydiaLogCleaner :
         [packages_ sortUsingFunction:reinterpret_cast<NSComparisonResult (*)(id, id, void *)>(&PackageNameCompare) context:NULL];
         _end*/
 
-
-        size_t count(CFArrayGetCount(packages_));
-        MetaFile_->active_ = count;
-        for (size_t index(0); index != count; ++index)
-            [(Package *) CFArrayGetValueAtIndex(packages_, index) setIndex:index];
+        MetaFile_->active_ = packages.size();
+        for (size_t index(0), count(packages.size()); index != count; ++index) {
+            auto package(packages[index]);
+            [package setIndex:index];
+            [package release];
+        }
     }
 } }
 
@@ -4338,7 +4316,7 @@ static _H<NSMutableSet> Diversions_;
     _transient id delegate_;
 }
 
-- (id) initWithDelegate:(IndirectDelegate *)indirect;
+- (id) initWithDelegate:(CyteWebViewController *)indirect;
 
 @end
 
@@ -4358,9 +4336,9 @@ static _H<NSMutableSet> Diversions_;
 /* Web Scripting {{{ */
 @implementation CydiaObject
 
-- (id) initWithDelegate:(IndirectDelegate *)indirect {
+- (id) initWithDelegate:(CyteWebViewController *)indirect {
     if ((self = [super init]) != nil) {
-        indirect_ = (CyteWebViewController *) indirect;
+        indirect_ = indirect;
     } return self;
 }
 
@@ -4506,8 +4484,6 @@ static _H<NSMutableSet> Diversions_;
         return @"addInsecureHost";
     else if (selector == @selector(addInternalRedirect::))
         return @"addInternalRedirect";
-    else if (selector == @selector(addPipelinedHost:scheme:))
-        return @"addPipelinedHost";
     else if (selector == @selector(addSource:::))
         return @"addSource";
     else if (selector == @selector(addTrivialSource:))
@@ -4738,14 +4714,6 @@ static _H<NSMutableSet> Diversions_;
 - (void) addInsecureHost:(NSString *)host {
 @synchronized (HostConfig_) {
     [InsecureHosts_ addObject:host];
-} }
-
-- (void) addPipelinedHost:(NSString *)host scheme:(NSString *)scheme {
-@synchronized (HostConfig_) {
-    if (scheme != (id) [WebUndefined undefined])
-        host = [NSString stringWithFormat:@"%@:%@", [scheme lowercaseString], host];
-
-    [PipelinedHosts_ addObject:host];
 } }
 
 - (void) popViewController:(NSNumber *)value {
@@ -4979,7 +4947,10 @@ static _H<NSMutableSet> Diversions_;
 @implementation CydiaWebViewController
 
 - (NSURL *) navigationURL {
-    return request_ == nil ? nil : [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request_ URL] absoluteString]]];
+    if (NSURLRequest *request = self.request)
+        return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://url/%@", [[request URL] absoluteString]]];
+    else
+        return nil;
 }
 
 + (void) _initialize {
@@ -5082,7 +5053,7 @@ static _H<NSMutableSet> Diversions_;
 
 - (id) init {
     if ((self = [super initWithWidth:0 ofClass:[CydiaWebViewController class]]) != nil) {
-        cydia_ = [[[CydiaObject alloc] initWithDelegate:indirect_] autorelease];
+        cydia_ = [[[CydiaObject alloc] initWithDelegate:self.indirect] autorelease];
     } return self;
 }
 
@@ -5105,42 +5076,6 @@ static _H<NSMutableSet> Diversions_;
 
 @end
 /* }}} */
-
-// CydiaScript {{{
-@interface NSObject (CydiaScript)
-- (id) Cydia$webScriptObjectInContext:(WebScriptObject *)context;
-@end
-
-@implementation NSObject (CydiaScript)
-
-- (id) Cydia$webScriptObjectInContext:(WebScriptObject *)context {
-    return self;
-}
-
-@end
-
-@implementation NSArray (CydiaScript)
-
-- (id) Cydia$webScriptObjectInContext:(WebScriptObject *)context {
-    WebScriptObject *object([context evaluateWebScript:@"[]"]);
-    for (size_t i(0), e([self count]); i != e; ++i)
-        [object setWebScriptValueAtIndex:i value:[[self objectAtIndex:i] Cydia$webScriptObjectInContext:context]];
-    return object;
-}
-
-@end
-
-@implementation NSDictionary (CydiaScript)
-
-- (id) Cydia$webScriptObjectInContext:(WebScriptObject *)context {
-    WebScriptObject *object([context evaluateWebScript:@"({})"]);
-    for (id i in self)
-        [object setValue:[[self objectForKey:i] Cydia$webScriptObjectInContext:context] forKey:i];
-    return object;
-}
-
-@end
-// }}}
 
 /* Confirmation Controller {{{ */
 bool DepSubstrate(const pkgCache::VerIterator &iterator) {
@@ -5185,7 +5120,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (void) complete {
     if (substrate_)
         RestartSubstrate_ = true;
-    [delegate_ confirmWithNavigationController:[self navigationController]];
+    [self.delegate confirmWithNavigationController:[self navigationController]];
 }
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
@@ -5208,7 +5143,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _doContinue {
-    [delegate_ cancelAndClear:NO];
+    [self.delegate cancelAndClear:NO];
     [self dismissModalViewControllerAnimated:YES];
 }
 
@@ -5431,7 +5366,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 #endif
 
 - (void) cancelButtonClicked {
-    [delegate_ cancelAndClear:YES];
+    [self.delegate cancelAndClear:YES];
     [self dismissModalViewControllerAnimated:YES];
 }
 
@@ -5615,7 +5550,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
     if ((self = [super init]) != nil) {
         database_ = database;
-        delegate_ = delegate;
+        self.delegate = delegate;
 
         [database_ setProgressDelegate:self];
 
@@ -5624,7 +5559,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
 
-        [scroller_ setBackgroundColor:[UIColor blackColor]];
+        [self setPageColor:[UIColor blackColor]];
 
         [[self navigationItem] setHidesBackButton:YES];
 
@@ -5650,19 +5585,19 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     UpdateExternalStatus(0);
 
     if (Finish_ > 1)
-        [delegate_ saveState];
+        [self.delegate saveState];
 
     switch (Finish_) {
         case 0:
-            [delegate_ returnToCydia];
+            [self.delegate returnToCydia];
         break;
 
         case 1:
-            [delegate_ terminateWithSuccess];
-            /*if ([delegate_ respondsToSelector:@selector(suspendWithAnimation:)])
-                [delegate_ suspendWithAnimation:YES];
+            [self.delegate terminateWithSuccess];
+            /*if ([self.delegate respondsToSelector:@selector(suspendWithAnimation:)])
+                [self.delegate suspendWithAnimation:YES];
             else
-                [delegate_ suspend];*/
+                [self.delegate suspend];*/
         break;
 
         case 2:
@@ -5674,9 +5609,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             goto reload;
 
         reload: {
-            UIProgressHUD *hud([delegate_ addProgressHUD]);
+            UIProgressHUD *hud([self.delegate addProgressHUD]);
             [hud setText:UCLocalize("LOADING")];
-            [delegate_ performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0.5];
+            [self.delegate performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0.5];
             return;
         }
 
@@ -5874,12 +5809,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
-        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [content addSubview:content_];
+        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
+        [self.content setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [content addSubview:self.content];
 
-        [content_ setDelegate:self];
-        [content_ setOpaque:YES];
+        [self.content setDelegate:self];
+        [self.content setOpaque:YES];
     } return self;
 }
 
@@ -5898,7 +5833,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     placard_ = nil;
 
     if (package == nil)
-        [content_ setBackgroundColor:[UIColor whiteColor]];
+        [self.content setBackgroundColor:[UIColor whiteColor]];
     else {
         [package parse];
 
@@ -5958,18 +5893,18 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 placard = nil;
         }
 
-        [content_ setBackgroundColor:color];
+        [self.content setBackgroundColor:color];
 
         if (placard != nil)
             placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]];
     }
 
     [self setNeedsDisplay];
-    [content_ setNeedsDisplay];
+    [self.content setNeedsDisplay];
 }
 
 - (void) drawSummaryContentRect:(CGRect)rect {
-    bool highlighted(highlighted_);
+    bool highlighted(self.highlighted);
     float width([self bounds].size.width);
 
     if (icon_ != nil) {
@@ -6012,7 +5947,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawNormalContentRect:(CGRect)rect {
-    bool highlighted(highlighted_);
+    bool highlighted(self.highlighted);
     float width([self bounds].size.width);
 
     if (icon_ != nil) {
@@ -6097,12 +6032,12 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
-        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [content addSubview:content_];
-        [content_ setBackgroundColor:[UIColor whiteColor]];
+        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
+        [self.content setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [content addSubview:self.content];
+        [self.content setBackgroundColor:[UIColor whiteColor]];
 
-        [content_ setDelegate:self];
+        [self.content setDelegate:self];
     } return self;
 }
 
@@ -6147,7 +6082,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [self setAccessoryType:editing ? UITableViewCellAccessoryNone : UITableViewCellAccessoryDisclosureIndicator];
     [self setSelectionStyle:editing ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleBlue];
 
-    [content_ setNeedsDisplay];
+    [self.content setNeedsDisplay];
 }
 
 - (void) setFrame:(CGRect)frame {
@@ -6162,7 +6097,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool highlighted(highlighted_ && !editing_);
+    bool highlighted(self.highlighted && !editing_);
 
     [icon_ drawInRect:CGRectMake(7, 7, 32, 32)];
 
@@ -6333,14 +6268,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (void) _clickButtonWithPackage:(Package *)package {
-    [delegate_ installPackage:package];
+    [self.delegate installPackage:package];
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
     if ([name isEqualToString:@"CLEAR"])
-        return [delegate_ clearPackage:package_];
+        return [self.delegate clearPackage:package_];
     else if ([name isEqualToString:@"REMOVE"])
-        return [delegate_ removePackage:package_];
+        return [self.delegate removePackage:package_];
     else if ([name isEqualToString:@"DOWNGRADE"]) {
         sheet_ = [[[UIActionSheet alloc]
             initWithTitle:nil
@@ -6354,7 +6289,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [sheet_ addButtonWithTitle:[version latest]];
         [sheet_ setContext:@"version"];
 
-        [delegate_ showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
+        [self.delegate showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
         return;
     }
 
@@ -6363,7 +6298,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     else if ([name isEqualToString:@"UPGRADE"]);
     else _assert(false);
 
-    [delegate_ installPackage:package_];
+    [self.delegate installPackage:package_];
 }
 
 - (void) actionSheet:(UIActionSheet *)sheet clickedButtonAtIndex:(NSInteger)button {
@@ -6399,6 +6334,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 #if !AlwaysReload
 - (void) _customButtonClicked {
+    if (commercial_ && self.isLoading && [package_ uninstalled])
+        return [self reloadURLWithCache:NO];
+
     size_t count(buttons_.size());
     if (count == 0)
         return;
@@ -6422,14 +6360,8 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             [sheet_ addButtonWithTitle:button];
         [sheet_ setContext:@"modify"];
 
-        [delegate_ showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
+        [self.delegate showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
     }
-}
-
-- (void) reloadButtonClicked {
-    if (commercial_ && function_ == nil && [package_ uninstalled])
-        return;
-    [self customButtonClicked];
 }
 
 - (void) applyLoadingTitle {
@@ -6525,7 +6457,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title;
-- (void) setDelegate:(id)delegate;
 - (void) resetCursor;
 - (void) clearData;
 
@@ -6638,7 +6569,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (void) didSelectPackage:(Package *)package {
     CYPackageController *view([[[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id] withReferrer:[[self referrerURL] absoluteString]] autorelease]);
-    [view setDelegate:delegate_];
+    [view setDelegate:self.delegate];
     [[self navigationController] pushViewController:view animated:YES];
 }
 
@@ -6736,10 +6667,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     [super releaseSubviews];
 }
 
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
 - (bool) shouldYield {
     return false;
 }
@@ -6772,7 +6699,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             if (![self shouldBlock])
                 hud = nil;
             else {
-                hud = [delegate_ addProgressHUD];
+                hud = [self.delegate addProgressHUD];
                 [hud setText:UCLocalize("LOADING")];
             }
 
@@ -6780,7 +6707,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
             packages = [self yieldToSelector:@selector(_reloadPackages)];
 
             if (hud != nil)
-                [delegate_ removeProgressHUD:hud];
+                [self.delegate removeProgressHUD:hud];
         } while (reloading_ == 2);
     } else {
         packages = [self _reloadPackages];
@@ -7026,15 +6953,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 @end
 /* }}} */
 
-/* Cydia Navigation Controller Interface {{{ */
-@interface UINavigationController (Cydia)
-
-- (NSArray *) navigationURLCollection;
-- (void) unloadData;
-
-@end
-/* }}} */
-
 /* Cydia Tab Bar Controller {{{ */
 @interface CydiaTabBarController : CyteTabBarController <
     UITabBarControllerDelegate,
@@ -7049,26 +6967,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     _transient NSObject<CydiaDelegate> *updatedelegate_;
 }
 
-- (NSArray *) navigationURLCollection;
 - (void) beginUpdate;
 - (BOOL) updating;
 
 @end
 
 @implementation CydiaTabBarController
-
-- (NSArray *) navigationURLCollection {
-    NSMutableArray *items([NSMutableArray array]);
-
-    // XXX: Should this deal with transient view controllers?
-    for (id navigation in [self viewControllers]) {
-        NSArray *stack = [navigation performSelector:@selector(navigationURLCollection)];
-        if (stack != nil)
-            [items addObject:stack];
-    }
-
-    return items;
-}
 
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
@@ -7163,47 +7067,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) setUpdateDelegate:(id)delegate {
     updatedelegate_ = delegate;
-}
-
-@end
-/* }}} */
-
-/* Cydia Navigation Controller Implementation {{{ */
-@implementation UINavigationController (Cydia)
-
-- (NSArray *) navigationURLCollection {
-    NSMutableArray *stack([NSMutableArray array]);
-
-    for (CyteViewController *controller in [self viewControllers]) {
-        NSString *url = [[controller navigationURL] absoluteString];
-        if (url != nil)
-            [stack addObject:url];
-    }
-
-    return stack;
-}
-
-- (void) reloadData {
-    [super reloadData];
-
-    UIViewController *visible([self visibleViewController]);
-    if (visible != nil)
-        [visible reloadData];
-
-    // on the iPad, this view controller is ALSO visible. :(
-    if (IsWildcat_)
-        if (UIViewController *modal = [self modalViewController])
-            if ([modal modalPresentationStyle] == UIModalPresentationFormSheet)
-                if (UIViewController *top = [self topViewController])
-                    if (top != visible)
-                        [top reloadData];
-}
-
-- (void) unloadData {
-    for (CyteViewController *page in [self viewControllers])
-        [page unloadData];
-
-    [super unloadData];
 }
 
 @end
@@ -7447,7 +7310,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if (editing)
         [list_ reloadData];
     else
-        [delegate_ updateData];
+        [self.delegate updateData];
 
     [self updateNavigationItem];
 }
@@ -7509,7 +7372,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         source:[self source]
         section:[section name]
     ] autorelease];
-    [controller setDelegate:delegate_];
+    [controller setDelegate:self.delegate];
 
     [[self navigationController] pushViewController:controller animated:YES];
 }
@@ -7654,7 +7517,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) setLeftBarButtonItem {
-    if ([delegate_ updating])
+    if ([self.delegate updating])
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
             style:UIBarButtonItemStyleDone
@@ -7671,16 +7534,16 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) refreshButtonClicked {
-    if ([delegate_ requestUpdate])
+    if ([self.delegate requestUpdate])
         [self setLeftBarButtonItem];
 }
 
 - (void) cancelButtonClicked {
-    [delegate_ cancelUpdate];
+    [self.delegate cancelUpdate];
 }
 
 - (void) upgradeButtonClicked {
-    [delegate_ distUpgrade];
+    [self.delegate distUpgrade];
     [[self navigationItem] setRightBarButtonItem:nil animated:YES];
 }
 
@@ -8025,7 +7888,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     if (package_ == nil)
         return;
     if ([package_ setSubscribed:value])
-        [delegate_ updateData];
+        [self.delegate updateData];
 }
 
 - (void) _updateIgnored {
@@ -8048,7 +7911,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [invocation setTarget:self];
     [invocation setSelector:@selector(_updateIgnored)];
 
-    [delegate_ reloadDataWithInvocation:invocation];
+    [self.delegate reloadDataWithInvocation:invocation];
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -8239,7 +8102,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 #if !AlwaysReload
 - (void) queueButtonClicked {
-    [delegate_ queue];
+    [self.delegate queue];
 }
 #endif
 
@@ -8289,7 +8152,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 - (void) _setImage:(NSArray *)data {
     if ([url_ isEqual:[data objectAtIndex:0]]) {
         icon_ = [data objectAtIndex:1];
-        [content_ setNeedsDisplay];
+        [self.content setNeedsDisplay];
     }
 }
 
@@ -8323,7 +8186,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     origin_ = [source name];
     label_ = [source rooturi];
 
-    [content_ setNeedsDisplay];
+    [self.content setNeedsDisplay];
 
     url_ = [source iconURL];
     [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:url_];
@@ -8336,7 +8199,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     icon_ = [UIImage imageNamed:@"folder.png"];
     origin_ = UCLocalize("ALL_SOURCES");
     label_ = UCLocalize("ALL_SOURCES_EX");
-    [content_ setNeedsDisplay];
+    [self.content setNeedsDisplay];
 }
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
@@ -8344,19 +8207,19 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        content_ = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
-        [content_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [content_ setBackgroundColor:[UIColor whiteColor]];
-        [content addSubview:content_];
+        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
+        [self.content setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
+        [self.content setBackgroundColor:[UIColor whiteColor]];
+        [content addSubview:self.content];
 
-        [content_ setDelegate:self];
-        [content_ setOpaque:YES];
+        [self.content setDelegate:self];
+        [self.content setOpaque:YES];
 
         indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGraySmall] autorelease];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin];// | UIViewAutoresizingFlexibleBottomMargin];
         [content addSubview:indicator_];
 
-        [[content_ layer] setContentsGravity:kCAGravityTopLeft];
+        [[self.content layer] setContentsGravity:kCAGravityTopLeft];
     } return self;
 }
 
@@ -8380,7 +8243,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool highlighted(highlighted_);
+    bool highlighted(self.highlighted);
     float width(rect.size.width);
 
     if (icon_ != nil) {
@@ -8524,7 +8387,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         source:[self sourceAtIndexPath:indexPath]
     ] autorelease]);
 
-    [controller setDelegate:delegate_];
+    [controller setDelegate:self.delegate];
     [[self navigationController] pushViewController:controller animated:YES];
 }
 
@@ -8543,7 +8406,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
         [Sources_ removeObjectForKey:[source key]];
 
-        [delegate_ syncData];
+        [self.delegate syncData];
     }
 }
 
@@ -8552,10 +8415,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) complete {
-    [delegate_ addTrivialSource:href_];
+    [self.delegate addTrivialSource:href_];
     href_ = nil;
 
-    [delegate_ syncData];
+    [self.delegate syncData];
 }
 
 - (NSString *) getWarning {
@@ -8594,9 +8457,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     ) {
         NSString *warning(cydia_ ? [self yieldToSelector:@selector(getWarning)] : nil);
 
-        [delegate_ releaseNetworkActivityIndicator];
+        [self.delegate releaseNetworkActivityIndicator];
 
-        [delegate_ removeProgressHUD:hud_];
+        [self.delegate removeProgressHUD:hud_];
         hud_ = nil;
 
         if (cydia_) {
@@ -8713,9 +8576,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
                 cydia_ = false;
 
                 // XXX: this is stupid
-                hud_ = [delegate_ addProgressHUD];
+                hud_ = [self.delegate addProgressHUD];
                 [hud_ setText:UCLocalize("VERIFYING_URL")];
-                [delegate_ retainNetworkActivityIndicator];
+                [self.delegate retainNetworkActivityIndicator];
             } break;
 
             case 0:
@@ -8755,7 +8618,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
             target:self
             action:@selector(addButtonClicked)
         ] autorelease] animated:animated];
-    else if ([delegate_ updating])
+    else if ([self.delegate updating])
         [[self navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CANCEL")
             style:UIBarButtonItemStyleDone
@@ -8855,7 +8718,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [alert setNumberOfRows:1];
     [alert addTextFieldWithValue:@"http://" label:@""];
 
-    UITextInputTraits *traits = [[alert textField] textInputTraits];
+    NSObject<UITextInputTraits> *traits = [[alert textField] textInputTraits];
     [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
     [traits setKeyboardType:UIKeyboardTypeURL];
@@ -8870,12 +8733,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) refreshButtonClicked {
-    if ([delegate_ requestUpdate])
+    if ([self.delegate requestUpdate])
         [self updateButtonsForEditingStatusAnimated:YES];
 }
 
 - (void) cancelButtonClicked {
-    [delegate_ cancelUpdate];
+    [self.delegate cancelUpdate];
 }
 
 - (void) editButtonClicked {
@@ -8955,58 +8818,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 @end
 /* }}} */
 
-@interface CYURLCache : SDURLCache {
-}
-
-@end
-
-@implementation CYURLCache
-
-- (void) logEvent:(NSString *)event forRequest:(NSURLRequest *)request {
-#if !ForRelease
-    if (false);
-    else if ([event isEqualToString:@"no-cache"])
-        event = @"!!!";
-    else if ([event isEqualToString:@"store"])
-        event = @">>>";
-    else if ([event isEqualToString:@"invalid"])
-        event = @"???";
-    else if ([event isEqualToString:@"memory"])
-        event = @"mem";
-    else if ([event isEqualToString:@"disk"])
-        event = @"ssd";
-    else if ([event isEqualToString:@"miss"])
-        event = @"---";
-
-    NSLog(@"%@: %@", event, [[request URL] absoluteString]);
-#endif
-}
-
-- (void) storeCachedResponse:(NSCachedURLResponse *)cached forRequest:(NSURLRequest *)request {
-    if (NSURLResponse *response = [cached response])
-        if (NSString *mime = [response MIMEType])
-            if ([mime isEqualToString:@"text/cache-manifest"]) {
-                NSURL *url([response URL]);
-
-#if !ForRelease
-                NSLog(@"###: %@", [url absoluteString]);
-#endif
-
-                @synchronized (HostConfig_) {
-                    [CachedURLs_ addObject:url];
-                }
-            }
-
-    [super storeCachedResponse:cached forRequest:request];
-}
-
-- (void) createDiskCachePath {
-    [super createDiskCachePath];
-}
-
-@end
-
-@interface Cydia : UIApplication <
+@interface Cydia : CyteApplication <
     ConfirmationControllerDelegate,
     DatabaseDelegate,
     CydiaDelegate
@@ -9605,7 +9417,7 @@ _end
         [super applicationSuspend];
 }
 
-- (void) applicationSuspend:(__GSEvent *)event {
+- (void) applicationSuspend:(GSEventRef)event {
     if ([self isSafeToSuspend])
         [super applicationSuspend:event];
 }
@@ -9905,42 +9717,13 @@ _end
     [tabbar_ setUpdateDelegate:self];
 }
 
-- (void) _sendMemoryWarningNotification {
-    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: maybe 4_0?
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"UIApplicationMemoryWarningNotification" object:[UIApplication sharedApplication]];
-    else
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"UIApplicationDidReceiveMemoryWarningNotification" object:[UIApplication sharedApplication]];
-}
-
-- (void) _sendMemoryWarningNotifications {
-    while (true) {
-        [self performSelectorOnMainThread:@selector(_sendMemoryWarningNotification) withObject:nil waitUntilDone:NO];
-        sleep(2);
-        //usleep(2000000);
-    }
-}
-
-- (void) applicationDidReceiveMemoryWarning:(UIApplication *)application {
-    NSLog(@"--");
-    [[NSURLCache sharedURLCache] removeAllCachedResponses];
-}
-
 - (void) applicationDidFinishLaunching:(id)unused {
-    //[NSThread detachNewThreadSelector:@selector(_sendMemoryWarningNotifications) toTarget:self withObject:nil];
-
+    [super applicationDidFinishLaunching:unused];
 _trace();
-    if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
-        [self setApplicationSupportsShakeToEdit:NO];
 
     @synchronized (HostConfig_) {
         [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
     }
-
-    [NSURLCache setSharedURLCache:[[[CYURLCache alloc]
-        initWithMemoryCapacity:524288
-        diskCapacity:10485760
-        diskPath:Cache("SDURLCache")
-    ] autorelease]];
 
     [CydiaWebViewController _initialize];
 
@@ -10163,60 +9946,6 @@ id Dealloc_(id self, SEL selector) {
     return object;
 }*/
 
-Class $NSURLConnection;
-
-MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest *request, id delegate, BOOL usesCache, int64_t maxContentLength, BOOL startImmediately, NSDictionary *connectionProperties) {
-    NSMutableURLRequest *copy([[request mutableCopy] autorelease]);
-
-    NSURL *url([copy URL]);
-
-    NSString *host([url host]);
-    NSString *scheme([[url scheme] lowercaseString]);
-
-    NSString *compound([NSString stringWithFormat:@"%@:%@", scheme, host]);
-
-    @synchronized (HostConfig_) {
-        if ([copy respondsToSelector:@selector(setHTTPShouldUsePipelining:)])
-            if ([PipelinedHosts_ containsObject:host] || [PipelinedHosts_ containsObject:compound])
-                [copy setHTTPShouldUsePipelining:YES];
-
-        if (NSString *control = [copy valueForHTTPHeaderField:@"Cache-Control"])
-            if ([control isEqualToString:@"max-age=0"])
-                if ([CachedURLs_ containsObject:url]) {
-#if !ForRelease
-                    NSLog(@"~~~: %@", url);
-#endif
-
-                    [copy setCachePolicy:NSURLRequestReturnCacheDataDontLoad];
-
-                    [copy setValue:nil forHTTPHeaderField:@"Cache-Control"];
-                    [copy setValue:nil forHTTPHeaderField:@"If-Modified-Since"];
-                    [copy setValue:nil forHTTPHeaderField:@"If-None-Match"];
-                }
-    }
-
-    if ((self = _NSURLConnection$init$(self, _cmd, copy, delegate, usesCache, maxContentLength, startImmediately, connectionProperties)) != nil) {
-    } return self;
-}
-
-Class $WAKWindow;
-
-static CGSize $WAKWindow$screenSize(WAKWindow *self, SEL _cmd) {
-    CGSize size([[UIScreen mainScreen] bounds].size);
-    /*if ([$WAKWindow respondsToSelector:@selector(hasLandscapeOrientation)])
-        if ([$WAKWindow hasLandscapeOrientation])
-            std::swap(size.width, size.height);*/
-    return size;
-}
-
-Class $NSUserDefaults;
-
-MSHook(id, NSUserDefaults$objectForKey$, NSUserDefaults *self, SEL _cmd, NSString *key) {
-    if ([key respondsToSelector:@selector(isEqualToString:)] && [key isEqualToString:@"WebKitLocalStorageDatabasePathPreferenceKey"])
-        return Cache("LocalStorage");
-    return _NSUserDefaults$objectForKey$(self, _cmd, key);
-}
-
 static NSMutableDictionary *AutoreleaseDeepMutableCopyOfDictionary(CFTypeRef type) {
     if (type == NULL)
         return nil;
@@ -10277,8 +10006,6 @@ int main(int argc, char *argv[]) {
     @synchronized (HostConfig_) {
         BridgedHosts_ = [NSMutableSet setWithCapacity:4];
         InsecureHosts_ = [NSMutableSet setWithCapacity:4];
-        PipelinedHosts_ = [NSMutableSet setWithCapacity:4];
-        CachedURLs_ = [NSMutableSet setWithCapacity:32];
     }
 
     NSString *ui(@"ui/ios");
@@ -10289,28 +10016,6 @@ int main(int argc, char *argv[]) {
 
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
-    /* Library Hacks {{{ */
-    class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
-
-    $WAKWindow = objc_getClass("WAKWindow");
-    if ($WAKWindow != NULL)
-        if (Method method = class_getInstanceMethod($WAKWindow, @selector(screenSize)))
-            method_setImplementation(method, (IMP) &$WAKWindow$screenSize);
-
-    $NSURLConnection = objc_getClass("NSURLConnection");
-    Method NSURLConnection$init$(class_getInstanceMethod($NSURLConnection, @selector(_initWithRequest:delegate:usesCache:maxContentLength:startImmediately:connectionProperties:)));
-    if (NSURLConnection$init$ != NULL) {
-        _NSURLConnection$init$ = reinterpret_cast<id (*)(NSURLConnection *, SEL, NSURLRequest *, id, BOOL, int64_t, BOOL, NSDictionary *)>(method_getImplementation(NSURLConnection$init$));
-        method_setImplementation(NSURLConnection$init$, reinterpret_cast<IMP>(&$NSURLConnection$init$));
-    }
-
-    $NSUserDefaults = objc_getClass("NSUserDefaults");
-    Method NSUserDefaults$objectForKey$(class_getInstanceMethod($NSUserDefaults, @selector(objectForKey:)));
-    if (NSUserDefaults$objectForKey$ != NULL) {
-        _NSUserDefaults$objectForKey$ = reinterpret_cast<id (*)(NSUserDefaults *, SEL, NSString *)>(method_getImplementation(NSUserDefaults$objectForKey$));
-        method_setImplementation(NSUserDefaults$objectForKey$, reinterpret_cast<IMP>(&$NSUserDefaults$objectForKey$));
-    }
-    /* }}} */
     /* Set Locale {{{ */
     Locale_ = CFLocaleCopyCurrent();
     Languages_ = [NSLocale preferredLanguages];
@@ -10330,7 +10035,11 @@ int main(int argc, char *argv[]) {
         }
 
     if (Languages_ != nil)
-        for (NSString *language : Languages_) {
+        for (NSString *locale : Languages_) {
+            auto components([NSLocale componentsFromLocaleIdentifier:locale]);
+            NSString *language([components objectForKey:(id)kCFLocaleLanguageCode]);
+            if (NSString *script = [components objectForKey:(id)kCFLocaleScriptCode])
+                language = [NSString stringWithFormat:@"%@-%@", language, script];
             languages += [language UTF8String];
             languages += ",";
         }
@@ -10387,29 +10096,6 @@ int main(int argc, char *argv[]) {
 
         CollationTitles_ = [NSArray arrayWithObjects:@"A",@"B",@"C",@"D",@"E",@"F",@"G",@"H",@"I",@"J",@"K",@"L",@"M",@"N",@"O",@"P",@"Q",@"R",@"S",@"T",@"U",@"V",@"W",@"X",@"Y",@"Z",@"#",nil];
         CollationStarts_ = [NSArray arrayWithObjects:@"a",@"b",@"c",@"d",@"e",@"f",@"g",@"h",@"i",@"j",@"k",@"l",@"m",@"n",@"o",@"p",@"q",@"r",@"s",@"t",@"u",@"v",@"w",@"x",@"y",@"z",@"ʒ",nil];
-    }
-    /* }}} */
-    /* Parse Arguments {{{ */
-    bool substrate(false);
-
-    if (argc != 0) {
-        char **args(argv);
-        int arge(1);
-
-        for (int argi(1); argi != argc; ++argi)
-            if (strcmp(argv[argi], "--") == 0) {
-                arge = argi;
-                argv[argi] = argv[0];
-                argv += argi;
-                argc -= argi;
-                break;
-            }
-
-        for (int argi(1); argi != arge; ++argi)
-            if (strcmp(args[argi], "--substrate") == 0)
-                substrate = true;
-            else
-                fprintf(stderr, "unknown argument: %s\n", args[argi]);
     }
     /* }}} */
 

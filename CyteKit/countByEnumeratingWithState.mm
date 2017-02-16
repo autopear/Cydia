@@ -19,7 +19,30 @@
 **/
 /* }}} */
 
-#include "CyteKit/WebScriptObject-Cyte.h"
+#include "CyteKit/UCPlatform.h"
+
+#include "CyteKit/countByEnumeratingWithState.h"
+
+#include <objc/runtime.h>
+
+#include "iPhonePrivate.h"
+
+static NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
+    size_t length([self length] - state->state);
+    if (length <= 0)
+        return 0;
+    else if (length > count)
+        length = count;
+    for (size_t i(0); i != length; ++i)
+        objects[i] = [self item:state->state++];
+    state->itemsPtr = objects;
+    state->mutationsPtr = (unsigned long *) self;
+    return length;
+}
+
+static struct DOMNodeList$countByEnumeratingWithState { DOMNodeList$countByEnumeratingWithState() {
+    class_addMethod(objc_getClass("DOMNodeList"), @selector(countByEnumeratingWithState:objects:count:), (IMP) &DOMNodeList$countByEnumeratingWithState$objects$count$, "I20@0:4^{NSFastEnumerationState}8^@12I16");
+} } DOMNodeList$countByEnumeratingWithState;
 
 @implementation WebScriptObject (Cyte)
 

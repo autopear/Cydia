@@ -30,20 +30,7 @@ struct RadixItem_ {
     uint32_t key;
 };
 
-@implementation NSMutableArray (MenesRadixSortWithSelector)
-
-- (void) radixSortUsingFunction:(MenesRadixSortFunction)function withContext:(void *)argument {
-    size_t count([self count]);
-    struct RadixItem_ *swap(new RadixItem_[count * 2]);
-
-    for (size_t i(0); i != count; ++i) {
-        RadixItem_ &item(swap[i]);
-        item.index = i;
-
-        id object([self objectAtIndex:i]);
-        item.key = function(object, argument);
-    }
-
+static RadixItem_ *CYRadixSort(struct RadixItem_ *swap, size_t count) {
     struct RadixItem_ *lhs(swap), *rhs(swap + count);
 
     static const size_t width = 32;
@@ -83,6 +70,42 @@ struct RadixItem_ {
     }
 
     delete [] hist;
+    return lhs;
+}
+
+void CYRadixSortUsingFunction(id *self, size_t count, MenesRadixSortFunction function, void *argument) {
+    struct RadixItem_ *swap(new RadixItem_[count * 2]);
+
+    for (size_t i(0); i != count; ++i) {
+        RadixItem_ &item(swap[i]);
+        item.index = i;
+        item.key = function(self[i], argument);
+    }
+
+    auto lhs(CYRadixSort(swap, count));
+
+    const void **values(new const void *[count]);
+    for (size_t i(0); i != count; ++i)
+        values[i] = self[lhs[i].index];
+    memcpy(self, values, count * sizeof(id));
+    delete [] values;
+
+    delete [] swap;
+}
+
+@implementation NSMutableArray (MenesRadixSortWithSelector)
+
+- (void) radixSortUsingFunction:(MenesRadixSortFunction)function withContext:(void *)argument {
+    size_t count([self count]);
+    struct RadixItem_ *swap(new RadixItem_[count * 2]);
+
+    for (size_t i(0); i != count; ++i) {
+        RadixItem_ &item(swap[i]);
+        item.index = i;
+        item.key = function([self objectAtIndex:i], argument);
+    }
+
+    auto lhs(CYRadixSort(swap, count));
 
     const void **values(new const void *[count]);
     for (size_t i(0); i != count; ++i)

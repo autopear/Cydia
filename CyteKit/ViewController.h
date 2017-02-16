@@ -22,24 +22,12 @@
 #ifndef CyteKit_ViewController_H
 #define CyteKit_ViewController_H
 
-#include <CyteKit/UCPlatform.h>
-
 #include <UIKit/UIKit.h>
 
-#include <Menes/ObjectHandle.h>
-
 @interface UIViewController (Cydia)
-- (BOOL) hasLoaded;
-- (void) reloadData;
-- (void) unloadData;
-- (UIViewController *) parentOrPresentingViewController;
-@end
 
-@interface CyteViewController : UIViewController {
-    _transient id delegate_;
-    BOOL loaded_;
-    _H<UIColor> color_;
-}
+// Override this in subclasses if you manage the "has seen first load" state yourself.
+- (BOOL) hasLoaded;
 
 // The default implementation of this method is essentially a no-op,
 // but calling the superclass implementation is *required*.
@@ -47,17 +35,20 @@
 
 - (void) unloadData;
 
+- (UIViewController *) parentOrPresentingViewController;
+
 // This URL is used to save the state of the view controller. Return
 // nil if you cannot or should not save the URL for this page.
 - (NSURL *) navigationURL;
+
+@end
+
+@interface CyteViewController : UIViewController
 
 // By default, this delegate is unused. However, it's provided here in case
 // you need some kind of delegate in a subclass.
 - (void) setDelegate:(id)delegate;
 - (id) delegate;
-
-// Override this in subclasses if you manage the "has seen first load" state yourself.
-- (BOOL) hasLoaded;
 
 // This is called when the view managed by the view controller is released.
 // That is not always when the controller itself is released: it also can
@@ -66,6 +57,7 @@
 - (void) releaseSubviews;
 
 - (void) setPageColor:(UIColor *)color;
+- (UIColor *) pageColor;
 
 @end
 

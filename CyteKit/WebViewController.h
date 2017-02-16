@@ -28,8 +28,6 @@
 #include <UIKit/UIKit.h>
 #include <MessageUI/MessageUI.h>
 
-#include <Menes/ObjectHandle.h>
-
 @class IndirectDelegate;
 
 @protocol CyteWebViewControllerDelegate
@@ -43,49 +41,16 @@
     CyteWebViewDelegate,
     MFMailComposeViewControllerDelegate,
     UIWebViewDelegate
-> {
-    _H<CyteWebView, 1> webview_;
-    _transient UIScrollView *scroller_;
-
-    _H<UIActivityIndicatorView> indicator_;
-    _H<IndirectDelegate, 1> indirect_;
-    _H<NSURLAuthenticationChallenge> challenge_;
-
-    bool error_;
-    _H<NSURLRequest> request_;
-    bool ready_;
-
-    _transient NSNumber *sensitive_;
-    _H<NSURL> appstore_;
-
-    _H<NSString> title_;
-    _H<NSMutableSet> loading_;
-
-    _H<NSMutableSet> registered_;
-    _H<NSTimer> timer_;
-
-    // XXX: NSString * or UIImage *
-    _H<NSObject> custom_;
-    _H<NSString> style_;
-
-    _H<WebScriptObject> function_;
-
-    float width_;
-    Class class_;
-
-    _H<UIBarButtonItem> reloaditem_;
-    _H<UIBarButtonItem> loadingitem_;
-
-    bool visible_;
-    bool hidesNavigationBar_;
-    bool allowsNavigationAction_;
-}
+>
 
 + (void) _initialize;
 
 - (CyteWebView *) webView;
+- (CyteWebViewController *) indirect;
 
 - (void) setRequest:(NSURLRequest *)request;
+- (NSURLRequest *) request;
+
 - (void) setURL:(NSURL *)url;
 - (void) setURL:(NSURL *)url withReferrer:(NSString *)referrer;
 
@@ -121,7 +86,6 @@
 - (void) customButtonClicked;
 
 - (void) applyRightButton;
-- (UIBarButtonItem *) customButton;
 - (UIBarButtonItem *) rightButton;
 
 - (void) applyLeftButton;

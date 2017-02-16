@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#include "CyteKit/UCPlatform.h"
+
 #include "Menes/yieldToSelector.h"
 
 @implementation NSObject (MenesYieldToSelector)

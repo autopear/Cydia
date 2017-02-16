@@ -19,23 +19,13 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_WebViewTableViewCell_H
-#define CyteKit_WebViewTableViewCell_H
+#ifndef CyteKit_webScriptObjectInContext_H
+#define CyteKit_webScriptObjectInContext_H
 
-#include <UIKit/UIKit.h>
+#include "iPhonePrivate.h"
 
-#include "CyteKit/WebView.h"
-
-@interface CyteWebViewTableViewCell : UITableViewCell <
-    CyteWebViewDelegate
->
-
-+ (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request;
-- (id) initWithRequest:(NSURLRequest *)request;
-
-- (id) delegate;
-- (void) setDelegate:(id)delegate;
-
+@interface NSObject (CydiaScript)
+- (id) Cydia$webScriptObjectInContext:(WebScriptObject *)context;
 @end
 
-#endif//CyteKit_WebViewTableViewCell_H
+#endif//CyteKit_webScriptObjectInContext_H

@@ -19,12 +19,15 @@
 **/
 /* }}} */
 
-#include "CyteKit/ViewController.h"
+#include "CyteKit/UCPlatform.h"
 
 #include <Foundation/Foundation.h>
 #include <UIKit/UIKit.h>
 
+#include "CyteKit/ViewController.h"
+
 #include "iPhonePrivate.h"
+#include <Menes/ObjectHandle.h>
 
 @implementation UIViewController (Cydia)
 
@@ -49,9 +52,17 @@
     return nil;
 }
 
+- (NSURL *) navigationURL {
+    return nil;
+}
+
 @end
 
-@implementation CyteViewController
+@implementation CyteViewController {
+    _transient id delegate_;
+    BOOL loaded_;
+    _H<UIColor> color_;
+}
 
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
@@ -102,14 +113,14 @@
     [super unloadData];
 }
 
-- (NSURL *) navigationURL {
-    return nil;
-}
-
 - (void) setPageColor:(UIColor *)color {
     if (color == nil)
         color = [UIColor groupTableViewBackgroundColor];
     color_ = color;
+}
+
+- (UIColor *) pageColor {
+    return color_;
 }
 
 #include "InterfaceOrientation.h"

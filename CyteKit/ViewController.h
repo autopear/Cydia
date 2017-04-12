@@ -36,6 +36,7 @@
 - (void) unloadData;
 
 - (UIViewController *) parentOrPresentingViewController;
+- (UIViewController *) rootViewController;
 
 // This URL is used to save the state of the view controller. Return
 // nil if you cannot or should not save the URL for this page.

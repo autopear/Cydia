@@ -28,6 +28,9 @@
 
 - (void) applicationDidFinishLaunching:(id)unused;
 
+- (void) retainNetworkActivityIndicator;
+- (void) releaseNetworkActivityIndicator;
+
 @end
 
 #endif//CyteKit_Application_H

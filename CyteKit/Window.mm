@@ -19,24 +19,31 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_CyteKit_H
-#define CyteKit_CyteKit_H
+#include "CyteKit/UCPlatform.h"
 
-#include "CyteKit/Application.h"
-#include "CyteKit/CyteObject.h"
-#include "CyteKit/ListController.h"
-#include "CyteKit/NavigationController.h"
-#include "CyteKit/TableViewCell.h"
-#include "CyteKit/TabBarController.h"
-#include "CyteKit/URLCache.h"
-#include "CyteKit/URLProtocol.h"
-#include "CyteKit/WebViewController.h"
-#include "CyteKit/WebViewTableViewCell.h"
+#include "CyteKit/ViewController.h"
 #include "CyteKit/Window.h"
 
-#include "CyteKit/countByEnumeratingWithState.h"
-#include "CyteKit/extern.h"
-#include "CyteKit/stringWithUTF8Bytes.h"
-#include "CyteKit/webScriptObjectInContext.h"
+#include "iPhonePrivate.h"
+#include <Menes/ObjectHandle.h>
 
-#endif//CyteKit_CyteKit_H
+@implementation CyteWindow {
+    _transient UIViewController *root_;
+}
+
+- (void) setRootViewController:(UIViewController *)controller {
+    if ([super respondsToSelector:@selector(setRootViewController:)])
+        [super setRootViewController:controller];
+    else {
+        [self addSubview:[controller view]];
+        [[root_ view] removeFromSuperview];
+    }
+
+    root_ = controller;
+}
+
+- (void) unloadData {
+    [root_ unloadData];
+}
+
+@end

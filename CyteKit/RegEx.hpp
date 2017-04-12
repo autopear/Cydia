@@ -58,14 +58,18 @@ class RegEx {
     {
     }
 
-    RegEx(const char *regex, NSString *data = nil) :
+    RegEx(const char *regex) :
         regex_(NULL),
         size_(_not(size_t))
     {
         this->operator =(regex);
+    }
 
-        if (data != nil)
-            this->operator ()(data);
+    template <typename Type_>
+    RegEx(const char *regex, const Type_ &data) :
+        RegEx(regex)
+    {
+        this->operator ()(data);
     }
 
     void operator =(const char *regex) {

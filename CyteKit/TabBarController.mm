@@ -26,10 +26,6 @@
 #include "iPhonePrivate.h"
 #include <Menes/ObjectHandle.h>
 
-@implementation UITabBarController (Cydia)
-
-@end
-
 @implementation CyteTabBarController {
     _transient UIViewController *transient_;
     _H<UIViewController> remembered_;
@@ -46,6 +42,35 @@
     }
 
     return items;
+}
+
+- (void) addViewControllers:(id)no, ... {
+    va_list args;
+    va_start(args, no);
+
+    NSMutableArray *controllers([NSMutableArray array]);
+
+    for (;;) {
+        auto title(va_arg(args, NSString *));
+        if (title == nil)
+            break;
+
+        UINavigationController *controller([[[UINavigationController alloc] init] autorelease]);
+        [controllers addObject:controller];
+
+        auto legacy(va_arg(args, NSString *));
+        auto normal(va_arg(args, NSString *));
+        auto select(va_arg(args, NSString *));
+
+        if (kCFCoreFoundationVersionNumber < 800)
+            [controller setTabBarItem:[[[UITabBarItem alloc] initWithTitle:title image:[UIImage imageNamed:legacy] tag:0] autorelease]];
+        else
+            [controller setTabBarItem:[[[UITabBarItem alloc] initWithTitle:title image:[UIImage imageNamed:normal] selectedImage:[UIImage imageNamed:select]] autorelease]];
+    }
+
+    va_end(args);
+
+    [self setViewControllers:controllers];
 }
 
 - (void) didReceiveMemoryWarning {

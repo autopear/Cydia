@@ -48,8 +48,6 @@
 #include <UIKit/UIKit.h>
 #include "iPhonePrivate.h"
 
-#include <IOKit/IOKitLib.h>
-
 #include <QuartzCore/CALayer.h>
 
 #include <WebCore/WebCoreThread.h>
@@ -113,6 +111,7 @@ extern "C" {
 #include "Menes/Menes.h"
 
 #include "CyteKit/CyteKit.h"
+#include "CyteKit/RegEx.hpp"
 
 #include "Cydia/MIMEAddress.h"
 #include "Cydia/LoadingViewController.h"
@@ -226,16 +225,6 @@ union SplitHash {
 };
 // }}}
 
-@implementation NSDictionary (Cydia)
-- (id) invokeUndefinedMethodFromWebScript:(NSString *)name withArguments:(NSArray *)arguments {
-    if (false);
-    else if ([name isEqualToString:@"get"])
-        return [self objectForKey:[arguments objectAtIndex:0]];
-    else if ([name isEqualToString:@"keys"])
-        return [self allKeys];
-    return nil;
-} @end
-
 static NSString *Colon_;
 NSString *Elision_;
 static NSString *Error_;
@@ -255,26 +244,6 @@ static NSString *UniqueIdentifier(UIDevice *device = nil) {
         return [device ?: [UIDevice currentDevice] uniqueIdentifier];
     else
         return [(id)$MGCopyAnswer(CFSTR("UniqueDeviceID")) autorelease];
-}
-
-static bool IsReachable(const char *name) {
-    SCNetworkReachabilityFlags flags; {
-        SCNetworkReachabilityRef reachability(SCNetworkReachabilityCreateWithName(kCFAllocatorDefault, name));
-        SCNetworkReachabilityGetFlags(reachability, &flags);
-        CFRelease(reachability);
-    }
-
-    // XXX: this elaborate mess is what Apple is using to determine this? :(
-    // XXX: do we care if the user has to intervene? maybe that's ok?
-    return
-        (flags & kSCNetworkReachabilityFlagsReachable) != 0 && (
-            (flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0 || (
-                (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) != 0 ||
-                (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0
-            ) && (flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0 ||
-            (flags & kSCNetworkReachabilityFlagsIsWWAN) != 0
-        )
-    ;
 }
 
 static const NSUInteger UIViewAutoresizingFlexibleBoth(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
@@ -301,11 +270,6 @@ static _finline void UpdateExternalStatus(uint64_t newStatus) {
         notify_cancel(notify_token);
     }
     notify_post("com.saurik.Cydia.status");
-}
-
-static CGFloat CYStatusBarHeight() {
-    CGSize size([[UIApplication sharedApplication] statusBarFrame].size);
-    return UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]) ? size.height : size.width;
 }
 
 /* NSForcedOrderingSearch doesn't work on the iPhone */
@@ -660,15 +624,7 @@ static _H<UIFont> Font18_;
 static _H<UIFont> Font18Bold_;
 static _H<UIFont> Font22Bold_;
 
-static const char *Machine_ = NULL;
-static _H<NSString> System_;
-static NSString *SerialNumber_ = nil;
-static NSString *ChipID_ = nil;
-static NSString *BBSNum_ = nil;
 static _H<NSString> UniqueID_;
-static _H<NSString> UserAgent_;
-static _H<NSString> Product_;
-static _H<NSString> Safari_;
 
 static _H<NSLocale> CollationLocale_;
 static _H<NSArray> CollationThumbs_;
@@ -735,14 +691,7 @@ _H<NSMutableDictionary> Sources_;
 static _transient NSNumber *Version_;
 static time_t now_;
 
-bool IsWildcat_;
-CGFloat ScreenScale_;
-static NSString *Idiom_;
-static _H<NSString> Firmware_;
-static NSString *Major_;
-
 static _H<NSMutableDictionary> SessionData_;
-static _H<NSObject> HostConfig_;
 static _H<NSMutableSet> BridgedHosts_;
 static _H<NSMutableSet> InsecureHosts_;
 
@@ -753,30 +702,6 @@ static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 /* }}} */
 
 /* Display Helpers {{{ */
-inline float Interpolate(float begin, float end, float fraction) {
-    return (end - begin) * fraction + begin;
-}
-
-static inline double Retina(double value) {
-    value *= ScreenScale_;
-    value = round(value);
-    value /= ScreenScale_;
-    return value;
-}
-
-static inline CGRect Retina(CGRect value) {
-    value.origin.x *= ScreenScale_;
-    value.origin.y *= ScreenScale_;
-    value.size.width *= ScreenScale_;
-    value.size.height *= ScreenScale_;
-    value = CGRectIntegral(value);
-    value.origin.x /= ScreenScale_;
-    value.origin.y /= ScreenScale_;
-    value.size.width /= ScreenScale_;
-    value.size.height /= ScreenScale_;
-    return value;
-}
-
 static _finline const char *StripVersion_(const char *version) {
     const char *colon(strchr(version, ':'));
     return colon == NULL ? version : colon + 1;
@@ -821,34 +746,6 @@ bool isSectionVisible(NSString *section) {
     NSDictionary *metadata([Sections_ objectForKey:(section ?: @"")]);
     NSNumber *hidden(metadata == nil ? nil : [metadata objectForKey:@"Hidden"]);
     return hidden == nil || ![hidden boolValue];
-}
-
-static NSObject *CYIOGetValue(const char *path, NSString *property) {
-    io_registry_entry_t entry(IORegistryEntryFromPath(kIOMasterPortDefault, path));
-    if (entry == MACH_PORT_NULL)
-        return nil;
-
-    CFTypeRef value(IORegistryEntryCreateCFProperty(entry, (CFStringRef) property, kCFAllocatorDefault, 0));
-    IOObjectRelease(entry);
-
-    if (value == NULL)
-        return nil;
-    return [(id) value autorelease];
-}
-
-static NSString *CYHex(NSData *data, bool reverse = false) {
-    if (data == nil)
-        return nil;
-
-    size_t length([data length]);
-    uint8_t bytes[length];
-    [data getBytes:bytes];
-
-    char string[length * 2 + 1];
-    for (size_t i(0); i != length; ++i)
-        sprintf(string + i * 2, "%.2x", bytes[reverse ? length - i - 1 : i]);
-
-    return [NSString stringWithUTF8String:string];
 }
 
 static NSString *VerifySource(NSString *href) {
@@ -3909,20 +3806,21 @@ class CydiaLogCleaner :
                         continue;
                     } else {
                         std::swap(package, packages[index]);
-                        if (package != nil)
+                        if (package != nil) {
+                            if (package.metadata->index_ == index + 1)
+                                ++lost;
                             goto lost;
+                        }
                         if (last != index)
                             continue;
                     }
-                } else lost: {
+                } else {
                     ++lost;
-                    if (last == packages.size()) {
+                    lost: if (last == packages.size())
                         packages.push_back(package);
-                        ++last;
-                    } else {
+                    else
                         packages[last] = package;
-                        ++last;
-                    }
+                    ++last;
                 }
 
                 for (; last != packages.size(); ++last)
@@ -4257,76 +4155,16 @@ class CydiaLogCleaner :
 @end
 /* }}} */
 
-static _H<NSMutableSet> Diversions_;
-
-@interface Diversion : NSObject {
-    RegEx pattern_;
-    _H<NSString> key_;
-    _H<NSString> format_;
-}
-
-@end
-
-@implementation Diversion
-
-- (id) initWithFrom:(NSString *)from to:(NSString *)to {
-    if ((self = [super init]) != nil) {
-        pattern_ = [from UTF8String];
-        key_ = from;
-        format_ = to;
-    } return self;
-}
-
-- (NSString *) divert:(NSString *)url {
-    return !pattern_(url) ? nil : pattern_->*format_;
-}
-
-+ (NSURL *) divertURL:(NSURL *)url {
-  divert:
-    NSString *href([url absoluteString]);
-
-    for (Diversion *diversion in (id) Diversions_)
-        if (NSString *diverted = [diversion divert:href]) {
-#if !ForRelease
-            NSLog(@"div: %@", diverted);
-#endif
-            url = [NSURL URLWithString:diverted];
-            goto divert;
-        }
-
-    return url;
-}
-
-- (NSString *) key {
-    return key_;
-}
-
-- (NSUInteger) hash {
-    return [key_ hash];
-}
-
-- (BOOL) isEqual:(Diversion *)object {
-    return self == object || [self class] == [object class] && [key_ isEqual:[object key]];
-}
-
-@end
-
-@interface CydiaObject : NSObject {
-    _H<CyteWebViewController> indirect_;
+@interface CydiaObject : CyteObject {
     _transient id delegate_;
 }
 
-- (id) initWithDelegate:(CyteWebViewController *)indirect;
-
 @end
-
-@class CydiaObject;
 
 @interface CydiaWebViewController : CyteWebViewController {
     _H<CydiaObject> cydia_;
 }
 
-+ (void) addDiversion:(Diversion *)diversion;
 + (NSURLRequest *) requestWithHeaders:(NSURLRequest *)request;
 + (void) didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame withCydia:(CydiaObject *)cydia;
 - (void) setDelegate:(id)delegate;
@@ -4336,83 +4174,28 @@ static _H<NSMutableSet> Diversions_;
 /* Web Scripting {{{ */
 @implementation CydiaObject
 
-- (id) initWithDelegate:(CyteWebViewController *)indirect {
-    if ((self = [super init]) != nil) {
-        indirect_ = indirect;
-    } return self;
-}
-
 - (void) setDelegate:(id)delegate {
     delegate_ = delegate;
 }
 
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"bittage",
-        @"bbsnum",
-        @"build",
+- (NSArray *) attributeKeys {
+    return [[NSArray arrayWithObjects:
         @"cells",
-        @"coreFoundationVersionNumber",
         @"device",
-        @"ecid",
-        @"firmware",
-        @"hostname",
-        @"idiom",
         @"mcc",
         @"mnc",
-        @"model",
         @"operator",
         @"role",
-        @"serial",
         @"version",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
+    nil] arrayByAddingObjectsFromArray:[super attributeKeys]];
 }
 
 - (NSString *) version {
     return Cydia_;
 }
 
-- (unsigned) bittage {
-#if 0
-#elif defined(__arm64__)
-    return 64;
-#elif defined(__arm__)
-    return 32;
-#else
-    return 0;
-#endif
-}
-
-- (NSString *) build {
-    return System_;
-}
-
-- (NSString *) coreFoundationVersionNumber {
-    return [NSString stringWithFormat:@"%.2f", kCFCoreFoundationVersionNumber];
-}
-
 - (NSString *) device {
     return UniqueIdentifier();
-}
-
-- (NSString *) firmware {
-    return [[UIDevice currentDevice] systemVersion];
-}
-
-- (NSString *) hostname {
-    return [[UIDevice currentDevice] name];
-}
-
-- (NSString *) idiom {
-    return (id) Idiom_ ?: [NSNull null];
 }
 
 - (NSArray *) cells {
@@ -4456,24 +4239,8 @@ static _H<NSMutableSet> Diversions_;
     return nil;
 }
 
-- (NSString *) bbsnum {
-    return (id) BBSNum_ ?: [NSNull null];
-}
-
-- (NSString *) ecid {
-    return (id) ChipID_ ?: [NSNull null];
-}
-
-- (NSString *) serial {
-    return SerialNumber_;
-}
-
 - (NSString *) role {
     return (id) [NSNull null];
-}
-
-- (NSString *) model {
-    return [NSString stringWithUTF8String:Machine_];
 }
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
@@ -4482,18 +4249,12 @@ static _H<NSMutableSet> Diversions_;
         return @"addBridgedHost";
     else if (selector == @selector(addInsecureHost:))
         return @"addInsecureHost";
-    else if (selector == @selector(addInternalRedirect::))
-        return @"addInternalRedirect";
     else if (selector == @selector(addSource:::))
         return @"addSource";
     else if (selector == @selector(addTrivialSource:))
         return @"addTrivialSource";
-    else if (selector == @selector(close))
-        return @"close";
     else if (selector == @selector(du:))
         return @"du";
-    else if (selector == @selector(stringWithFormat:arguments:))
-        return @"format";
     else if (selector == @selector(getAllSources))
         return @"getAllSources";
     else if (selector == @selector(getApplicationInfo:value:))
@@ -4502,18 +4263,8 @@ static _H<NSMutableSet> Diversions_;
         return @"getDisplayIdentifiers";
     else if (selector == @selector(getLocalizedNameForDisplayIdentifier:))
         return @"getLocalizedNameForDisplayIdentifier";
-    else if (selector == @selector(getKernelNumber:))
-        return @"getKernelNumber";
-    else if (selector == @selector(getKernelString:))
-        return @"getKernelString";
     else if (selector == @selector(getInstalledPackages))
         return @"getInstalledPackages";
-    else if (selector == @selector(getIORegistryEntry::))
-        return @"getIORegistryEntry";
-    else if (selector == @selector(getLocaleIdentifier))
-        return @"getLocaleIdentifier";
-    else if (selector == @selector(getPreferredLanguages))
-        return @"getPreferredLanguages";
     else if (selector == @selector(getPackageById:))
         return @"getPackageById";
     else if (selector == @selector(getMetadataKeys))
@@ -4524,18 +4275,8 @@ static _H<NSMutableSet> Diversions_;
         return @"getSessionValue";
     else if (selector == @selector(installPackages:))
         return @"installPackages";
-    else if (selector == @selector(isReachable:))
-        return @"isReachable";
-    else if (selector == @selector(localizedStringForKey:value:table:))
-        return @"localize";
-    else if (selector == @selector(popViewController:))
-        return @"popViewController";
     else if (selector == @selector(refreshSources))
         return @"refreshSources";
-    else if (selector == @selector(registerFrame:))
-        return @"registerFrame";
-    else if (selector == @selector(removeButton))
-        return @"removeButton";
     else if (selector == @selector(saveConfig))
         return @"saveConfig";
     else if (selector == @selector(setMetadataValue::))
@@ -4544,68 +4285,14 @@ static _H<NSMutableSet> Diversions_;
         return @"setSessionValue";
     else if (selector == @selector(substitutePackageNames:))
         return @"substitutePackageNames";
-    else if (selector == @selector(scrollToBottom:))
-        return @"scrollToBottom";
-    else if (selector == @selector(setAllowsNavigationAction:))
-        return @"setAllowsNavigationAction";
-    else if (selector == @selector(setBadgeValue:))
-        return @"setBadgeValue";
-    else if (selector == @selector(setButtonImage:withStyle:toFunction:))
-        return @"setButtonImage";
-    else if (selector == @selector(setButtonTitle:withStyle:toFunction:))
-        return @"setButtonTitle";
-    else if (selector == @selector(setHidesBackButton:))
-        return @"setHidesBackButton";
-    else if (selector == @selector(setHidesNavigationBar:))
-        return @"setHidesNavigationBar";
-    else if (selector == @selector(setNavigationBarStyle:))
-        return @"setNavigationBarStyle";
-    else if (selector == @selector(setNavigationBarTintRed:green:blue:alpha:))
-        return @"setNavigationBarTintColor";
-    else if (selector == @selector(setPasteboardString:))
-        return @"setPasteboardString";
-    else if (selector == @selector(setPasteboardURL:))
-        return @"setPasteboardURL";
-    else if (selector == @selector(setScrollAlwaysBounceVertical:))
-        return @"setScrollAlwaysBounceVertical";
-    else if (selector == @selector(setScrollIndicatorStyle:))
-        return @"setScrollIndicatorStyle";
     else if (selector == @selector(setToken:))
         return @"setToken";
-    else if (selector == @selector(setViewportWidth:))
-        return @"setViewportWidth";
-    else if (selector == @selector(statfs:))
-        return @"statfs";
-    else if (selector == @selector(supports:))
-        return @"supports";
-    else if (selector == @selector(unload))
-        return @"unload";
     else
         return nil;
 }
 
 + (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
     return [self webScriptNameForSelector:selector] == nil;
-}
-
-- (BOOL) supports:(NSString *)feature {
-    return [feature isEqualToString:@"window.open"];
-}
-
-- (void) unload {
-    [delegate_ performSelectorOnMainThread:@selector(unloadData) withObject:nil waitUntilDone:NO];
-}
-
-- (void) setScrollAlwaysBounceVertical:(NSNumber *)value {
-    [indirect_ performSelectorOnMainThread:@selector(setScrollAlwaysBounceVerticalNumber:) withObject:value waitUntilDone:NO];
-}
-
-- (void) setScrollIndicatorStyle:(NSString *)style {
-    [indirect_ performSelectorOnMainThread:@selector(setScrollIndicatorStyleWithName:) withObject:style waitUntilDone:NO];
-}
-
-- (void) addInternalRedirect:(NSString *)from :(NSString *)to {
-    [CydiaWebViewController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
 }
 
 - (NSDictionary *) getApplicationInfo:(NSString *)display value:(NSString *)key {
@@ -4643,42 +4330,10 @@ static _H<NSMutableSet> Diversions_;
     return [NSNumber numberWithInt:value];
 }
 
-- (NSString *) getKernelString:(NSString *)name {
-    const char *string([name UTF8String]);
-
-    size_t size;
-    if (sysctlbyname(string, NULL, &size, NULL, 0) == -1)
-        return (id) [NSNull null];
-
-    char value[size + 1];
-    if (sysctlbyname(string, value, &size, NULL, 0) == -1)
-        return (id) [NSNull null];
-
-    // XXX: just in case you request something ludicrous
-    value[size] = '\0';
-
-    return [NSString stringWithCString:value];
-}
-
-- (NSObject *) getIORegistryEntry:(NSString *)path :(NSString *)entry {
-    NSObject *value(CYIOGetValue([path UTF8String], entry));
-
-    if (value != nil)
-        if ([value isKindOfClass:[NSData class]])
-            value = CYHex((NSData *) value);
-
-    return value;
-}
-
 - (NSArray *) getMetadataKeys {
 @synchronized (Values_) {
     return [Values_ allKeys];
 } }
-
-- (void) registerFrame:(DOMHTMLIFrameElement *)iframe {
-    WebFrame *frame([iframe contentFrame]);
-    [indirect_ registerFrame:frame];
-}
 
 - (id) getMetadataValue:(NSString *)key {
 @synchronized (Values_) {
@@ -4707,20 +4362,14 @@ static _H<NSMutableSet> Diversions_;
 } }
 
 - (void) addBridgedHost:(NSString *)host {
-@synchronized (HostConfig_) {
+@synchronized (BridgedHosts_) {
     [BridgedHosts_ addObject:host];
 } }
 
 - (void) addInsecureHost:(NSString *)host {
-@synchronized (HostConfig_) {
+@synchronized (InsecureHosts_) {
     [InsecureHosts_ addObject:host];
 } }
-
-- (void) popViewController:(NSNumber *)value {
-    if (value == (id) [WebUndefined undefined])
-        value = [NSNumber numberWithBool:YES];
-    [indirect_ performSelectorOnMainThread:@selector(popViewControllerWithNumber:) withObject:value waitUntilDone:NO];
-}
 
 - (void) addSource:(NSString *)href :(NSString *)distribution :(WebScriptObject *)sections {
     NSMutableArray *array([NSMutableArray arrayWithCapacity:[sections count]]);
@@ -4775,27 +4424,6 @@ static _H<NSMutableSet> Diversions_;
         return (Package *) [NSNull null];
 }
 
-- (NSString *) getLocaleIdentifier {
-    return Locale_ == NULL ? (NSString *) [NSNull null] : (NSString *) CFLocaleGetIdentifier(Locale_);
-}
-
-- (NSArray *) getPreferredLanguages {
-    return Languages_;
-}
-
-- (NSArray *) statfs:(NSString *)path {
-    struct statfs stat;
-
-    if (path == nil || statfs([path UTF8String], &stat) == -1)
-        return nil;
-
-    return [NSArray arrayWithObjects:
-        [NSNumber numberWithUnsignedLong:stat.f_bsize],
-        [NSNumber numberWithUnsignedLong:stat.f_blocks],
-        [NSNumber numberWithUnsignedLong:stat.f_bfree],
-    nil];
-}
-
 - (NSNumber *) du:(NSString *)path {
     NSNumber *value(nil);
 
@@ -4815,14 +4443,6 @@ static _H<NSMutableSet> Diversions_;
     }
 
     return value;
-}
-
-- (void) close {
-    [indirect_ performSelectorOnMainThread:@selector(close) withObject:nil waitUntilDone:NO];
-}
-
-- (NSNumber *) isReachable:(NSString *)name {
-    return [NSNumber numberWithBool:IsReachable([name UTF8String])];
 }
 
 - (void) installPackages:(NSArray *)packages {
@@ -4846,79 +4466,8 @@ static _H<NSMutableSet> Diversions_;
     return [words componentsJoinedByString:@" "];
 }
 
-- (void) removeButton {
-    [indirect_ removeButton];
-}
-
-- (void) setButtonImage:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    [indirect_ setButtonImage:button withStyle:style toFunction:function];
-}
-
-- (void) setButtonTitle:(NSString *)button withStyle:(NSString *)style toFunction:(id)function {
-    [indirect_ setButtonTitle:button withStyle:style toFunction:function];
-}
-
-- (void) setBadgeValue:(id)value {
-    [indirect_ performSelectorOnMainThread:@selector(setBadgeValue:) withObject:value waitUntilDone:NO];
-}
-
-- (void) setAllowsNavigationAction:(NSString *)value {
-    [indirect_ performSelectorOnMainThread:@selector(setAllowsNavigationActionByNumber:) withObject:value waitUntilDone:NO];
-}
-
-- (void) setHidesBackButton:(NSString *)value {
-    [indirect_ performSelectorOnMainThread:@selector(setHidesBackButtonByNumber:) withObject:value waitUntilDone:NO];
-}
-
-- (void) setHidesNavigationBar:(NSString *)value {
-    [indirect_ performSelectorOnMainThread:@selector(setHidesNavigationBarByNumber:) withObject:value waitUntilDone:NO];
-}
-
-- (void) setNavigationBarStyle:(NSString *)value {
-    [indirect_ performSelectorOnMainThread:@selector(setNavigationBarStyle:) withObject:value waitUntilDone:NO];
-}
-
-- (void) setNavigationBarTintRed:(NSNumber *)red green:(NSNumber *)green blue:(NSNumber *)blue alpha:(NSNumber *)alpha {
-    float opacity(alpha == (id) [WebUndefined undefined] ? 1 : [alpha floatValue]);
-    UIColor *color([UIColor colorWithRed:[red floatValue] green:[green floatValue] blue:[blue floatValue] alpha:opacity]);
-    [indirect_ performSelectorOnMainThread:@selector(setNavigationBarTintColor:) withObject:color waitUntilDone:NO];
-}
-
-- (void) setPasteboardString:(NSString *)value {
-    [[objc_getClass("UIPasteboard") generalPasteboard] setString:value];
-}
-
-- (void) setPasteboardURL:(NSString *)value {
-    [[objc_getClass("UIPasteboard") generalPasteboard] setURL:[NSURL URLWithString:value]];
-}
-
 - (void) setToken:(NSString *)token {
     // XXX: the website expects this :/
-}
-
-- (void) scrollToBottom:(NSNumber *)animated {
-    [indirect_ performSelectorOnMainThread:@selector(scrollToBottomAnimated:) withObject:animated waitUntilDone:NO];
-}
-
-- (void) setViewportWidth:(float)width {
-    [indirect_ setViewportWidthOnMainThread:width];
-}
-
-- (NSString *) stringWithFormat:(NSString *)format arguments:(WebScriptObject *)arguments {
-    //NSLog(@"SWF:\"%@\" A:%@", format, [arguments description]);
-    unsigned count([arguments count]);
-    id values[count];
-    for (unsigned i(0); i != count; ++i)
-        values[i] = [arguments objectAtIndex:i];
-    return [[[NSString alloc] initWithFormat:format arguments:reinterpret_cast<va_list>(values)] autorelease];
-}
-
-- (NSString *) localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)table {
-    if (reinterpret_cast<id>(value) == [WebUndefined undefined])
-        value = nil;
-    if (reinterpret_cast<id>(table) == [WebUndefined undefined])
-        table = nil;
-    return [[NSBundle mainBundle] localizedStringForKey:key value:value table:table];
 }
 
 @end
@@ -4933,7 +4482,7 @@ static _H<NSMutableSet> Diversions_;
     if ([[[self scheme] lowercaseString] isEqualToString:@"https"])
         return true;
 
-    @synchronized (HostConfig_) {
+    @synchronized (InsecureHosts_) {
         if ([InsecureHosts_ containsObject:[self host]])
             return true;
     }
@@ -4953,16 +4502,6 @@ static _H<NSMutableSet> Diversions_;
         return nil;
 }
 
-+ (void) _initialize {
-    [super _initialize];
-
-    Diversions_ = [NSMutableSet setWithCapacity:0];
-}
-
-+ (void) addDiversion:(Diversion *)diversion {
-    [Diversions_ addObject:diversion];
-}
-
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:view didClearWindowObject:window forFrame:frame];
     [CydiaWebViewController didClearWindowObject:window forFrame:frame withCydia:cydia_];
@@ -4976,7 +4515,7 @@ static _H<NSMutableSet> Diversions_;
 
     bool bridged(false);
 
-    @synchronized (HostConfig_) {
+    @synchronized (BridgedHosts_) {
         if ([scheme isEqualToString:@"file"])
             bridged = true;
         else if ([scheme isEqualToString:@"https"])
@@ -4993,10 +4532,6 @@ static _H<NSMutableSet> Diversions_;
 
     system("/usr/bin/dpkg -l >/tmp/dpkgl.log");
     [controller addAttachmentData:[NSData dataWithContentsOfFile:@"/tmp/dpkgl.log"] mimeType:@"text/plain" fileName:@"dpkgl.log"];
-}
-
-- (NSURL *) URLWithURL:(NSURL *)url {
-    return [Diversion divertURL:url];
 }
 
 - (NSURLRequest *) webView:(WebView *)view resource:(id)resource willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source {
@@ -5032,7 +4567,7 @@ static _H<NSMutableSet> Diversions_;
     if (Machine_ != NULL && [copy valueForHTTPHeaderField:@"X-Machine"] == nil)
         [copy setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
 
-    bool bridged; @synchronized (HostConfig_) {
+    bool bridged; @synchronized (BridgedHosts_) {
         bridged = [BridgedHosts_ containsObject:host];
     }
 
@@ -5045,10 +4580,6 @@ static _H<NSMutableSet> Diversions_;
 - (void) setDelegate:(id)delegate {
     [super setDelegate:delegate];
     [cydia_ setDelegate:delegate];
-}
-
-- (NSString *) applicationNameForUserAgent {
-    return UserAgent_;
 }
 
 - (id) init {
@@ -5806,14 +5337,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 - (PackageCell *) init {
     CGRect frame(CGRectMake(0, 0, 320, 74));
     if ((self = [super initWithFrame:frame reuseIdentifier:@"Package"]) != nil) {
-        UIView *content([self contentView]);
-        CGRect bounds([content bounds]);
-
-        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
-        [self.content setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [content addSubview:self.content];
-
-        [self.content setDelegate:self];
         [self.content setOpaque:YES];
     } return self;
 }
@@ -6029,15 +5552,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         switch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)] autorelease];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
 
-        UIView *content([self contentView]);
-        CGRect bounds([content bounds]);
-
-        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
-        [self.content setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-        [content addSubview:self.content];
         [self.content setBackgroundColor:[UIColor whiteColor]];
-
-        [self.content setDelegate:self];
     } return self;
 }
 
@@ -6123,7 +5638,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* File Table {{{ */
-@interface FileTable : CyteViewController <
+@interface FileTable : CyteListController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -6131,11 +5646,9 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     _H<Package> package_;
     _H<NSString> name_;
     _H<NSMutableArray> files_;
-    _H<UITableView, 2> list_;
 }
 
-- (id) initWithDatabase:(Database *)database;
-- (void) setPackage:(Package *)package;
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name;
 
 @end
 
@@ -6167,47 +5680,36 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/files", [package_ id]]];
 }
 
-- (void) loadView {
-    list_ = [[[UITableView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease];
-    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [list_ setRowHeight:24.0f];
-    [(UITableView *) list_ setDataSource:self];
-    [list_ setDelegate:self];
-    [self setView:list_];
-}
-
-- (void) viewDidLoad {
-    [super viewDidLoad];
-
-    [[self navigationItem] setTitle:UCLocalize("INSTALLED_FILES")];
+- (CGFloat) rowHeight {
+    return 24;
 }
 
 - (void) releaseSubviews {
-    list_ = nil;
-
     package_ = nil;
     files_ = nil;
 
     [super releaseSubviews];
 }
 
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name {
+    if ((self = [super initWithTitle:UCLocalize("INSTALLED_FILES")]) != nil) {
         database_ = database;
+        name_ = name;
     } return self;
 }
 
-- (void) setPackage:(Package *)package {
-    package_ = nil;
-    name_ = nil;
+- (bool) shouldYield {
+    return false;
+}
 
-    files_ = [NSMutableArray arrayWithCapacity:32];
+- (void) _reloadData {
+    files_ = nil;
 
-    if (package != nil) {
-        package_ = package;
-        name_ = [package id];
+    package_ = [database_ packageWithName:name_];
+    if (package_ != nil) {
+        files_ = [NSMutableArray arrayWithCapacity:32];
 
-        if (NSArray *files = [package files])
+        if (NSArray *files = [package_ files])
             [files_ addObjectsFromArray:files];
 
         if ([files_ count] != 0) {
@@ -6232,13 +5734,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         }
     }
 
-    [list_ reloadData];
-}
-
-- (void) reloadData {
-    [super reloadData];
-
-    [self setPackage:[database_ packageWithName:name_]];
+    [super _reloadData];
 }
 
 @end
@@ -6439,7 +5935,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 /* }}} */
 
 /* Package List Controller {{{ */
-@interface PackageListController : CyteViewController <
+@interface PackageListController : CyteListController <
     UITableViewDataSource,
     UITableViewDelegate
 > {
@@ -6447,18 +5943,14 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     unsigned era_;
     _H<NSArray> packages_;
     _H<NSArray> sections_;
-    _H<UITableView, 2> list_;
 
     _H<NSArray> thumbs_;
     std::vector<NSInteger> offset_;
 
-    _H<NSString> title_;
     unsigned reloading_;
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title;
-- (void) resetCursor;
-- (void) clearData;
 
 - (NSArray *) sectionsForPackages:(NSMutableArray *)packages;
 
@@ -6476,95 +5968,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
 - (bool) showsSections {
     return true;
-}
-
-- (void) deselectWithAnimation:(BOOL)animated {
-    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
-}
-
-- (void) resizeForKeyboardBounds:(CGRect)bounds duration:(NSTimeInterval)duration curve:(UIViewAnimationCurve)curve {
-    CGRect base = [[self view] bounds];
-    base.size.height -= bounds.size.height;
-    base.origin = [list_ frame].origin;
-
-    [UIView beginAnimations:nil context:NULL];
-    [UIView setAnimationBeginsFromCurrentState:YES];
-    [UIView setAnimationCurve:curve];
-    [UIView setAnimationDuration:duration];
-    [list_ setFrame:base];
-    [UIView commitAnimations];
-}
-
-- (void) resizeForKeyboardBounds:(CGRect)bounds duration:(NSTimeInterval)duration {
-    [self resizeForKeyboardBounds:bounds duration:duration curve:UIViewAnimationCurveLinear];
-}
-
-- (void) resizeForKeyboardBounds:(CGRect)bounds {
-    [self resizeForKeyboardBounds:bounds duration:0];
-}
-
-- (void) getKeyboardCurve:(UIViewAnimationCurve *)curve duration:(NSTimeInterval *)duration forNotification:(NSNotification *)notification {
-    if (&UIKeyboardAnimationCurveUserInfoKey == NULL)
-        *curve = UIViewAnimationCurveEaseInOut;
-    else
-        [[[notification userInfo] objectForKey:UIKeyboardAnimationCurveUserInfoKey] getValue:curve];
-
-    if (&UIKeyboardAnimationDurationUserInfoKey == NULL)
-        *duration = 0.3;
-    else
-        [[[notification userInfo] objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:duration];
-}
-
-- (void) keyboardWillShow:(NSNotification *)notification {
-    CGRect bounds;
-    CGPoint center;
-    [[[notification userInfo] objectForKey:UIKeyboardBoundsUserInfoKey] getValue:&bounds];
-    [[[notification userInfo] objectForKey:UIKeyboardCenterEndUserInfoKey] getValue:&center];
-
-    NSTimeInterval duration;
-    UIViewAnimationCurve curve;
-    [self getKeyboardCurve:&curve duration:&duration forNotification:notification];
-
-    CGRect kbframe = CGRectMake(Retina(center.x - bounds.size.width / 2), Retina(center.y - bounds.size.height / 2), bounds.size.width, bounds.size.height);
-    UIViewController *base = self;
-    while ([base parentOrPresentingViewController] != nil)
-        base = [base parentOrPresentingViewController];
-    CGRect viewframe = [[base view] convertRect:[list_ frame] fromView:[list_ superview]];
-    CGRect intersection = CGRectIntersection(viewframe, kbframe);
-
-    if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) // XXX: _UIApplicationLinkedOnOrAfter(4)
-        intersection.size.height += CYStatusBarHeight();
-
-    [self resizeForKeyboardBounds:intersection duration:duration curve:curve];
-}
-
-- (void) keyboardWillHide:(NSNotification *)notification {
-    NSTimeInterval duration;
-    UIViewAnimationCurve curve;
-    [self getKeyboardCurve:&curve duration:&duration forNotification:notification];
-
-    [self resizeForKeyboardBounds:CGRectZero duration:duration curve:curve];
-}
-
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-
-    [self resizeForKeyboardBounds:CGRectZero];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
-}
-
-- (void) viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-
-    [self resizeForKeyboardBounds:CGRectZero];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
-}
-
-- (void) viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    [self deselectWithAnimation:animated];
 }
 
 - (void) didSelectPackage:(Package *)package {
@@ -6625,39 +6028,17 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     return offset_[index];
 }
 
-- (void) updateHeight {
-    [list_ setRowHeight:([self isSummarized] ? 38 : 73)];
+- (CGFloat) rowHeight {
+    return [self isSummarized] ? 38 : 73;
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title {
-    if ((self = [super init]) != nil) {
+    if ((self = [super initWithTitle:title]) != nil) {
         database_ = database;
-        title_ = [title copy];
-        [[self navigationItem] setTitle:title_];
     } return self;
 }
 
-- (void) loadView {
-    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
-    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-    [self setView:view];
-
-    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
-    [list_ setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    [view addSubview:list_];
-
-    // XXX: is 20 the most optimal number here?
-    [list_ setSectionIndexMinimumDisplayRowCount:20];
-
-    [(UITableView *) list_ setDataSource:self];
-    [list_ setDelegate:self];
-
-    [self updateHeight];
-}
-
 - (void) releaseSubviews {
-    list_ = nil;
-
     packages_ = nil;
     sections_ = nil;
 
@@ -6665,10 +6046,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     offset_.clear();
 
     [super releaseSubviews];
-}
-
-- (bool) shouldYield {
-    return false;
 }
 
 - (bool) shouldBlock {
@@ -6731,12 +6108,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         sections_ = [NSArray arrayWithObject:section];
     }
 
-    [self updateHeight];
-
-    _profile(PackageTable$reloadData$List)
-        [(UITableView *) list_ setDataSource:self];
-        [list_ reloadData];
-    _end
+    [super _reloadData];
 }
 
     PrintTimes();
@@ -6793,28 +6165,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     }
 
     return sections;
-}
-
-- (void) reloadData {
-    [super reloadData];
-
-    if ([self shouldYield])
-        [self performSelector:@selector(_reloadData) withObject:nil afterDelay:0];
-    else
-        [self _reloadData];
-}
-
-- (void) resetCursor {
-    [list_ scrollRectToVisible:CGRectMake(0, 0, 1, 1) animated:NO];
-}
-
-- (void) clearData {
-    [self updateHeight];
-
-    [list_ setDataSource:nil];
-    [list_ reloadData];
-
-    [self resetCursor];
 }
 
 @end
@@ -7073,61 +6423,18 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 /* }}} */
 
 /* Cydia:// Protocol {{{ */
-@interface CydiaURLProtocol : NSURLProtocol {
+@interface CydiaURLProtocol : CyteURLProtocol {
 }
 
 @end
 
 @implementation CydiaURLProtocol
 
-+ (BOOL) canInitWithRequest:(NSURLRequest *)request {
-    NSURL *url([request URL]);
-    if (url == nil)
-        return NO;
-
-    NSString *scheme([[url scheme] lowercaseString]);
-    if (scheme != nil && [scheme isEqualToString:@"cydia"])
-        return YES;
-    if ([[url absoluteString] hasPrefix:@"about:cydia-"])
-        return YES;
-
-    return NO;
++ (NSString *) scheme {
+    return @"cydia";
 }
 
-+ (NSURLRequest *) canonicalRequestForRequest:(NSURLRequest *)request {
-    return request;
-}
-
-- (void) _returnPNGWithImage:(UIImage *)icon forRequest:(NSURLRequest *)request {
-    id<NSURLProtocolClient> client([self client]);
-    if (icon == nil)
-        [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil]];
-    else {
-        NSData *data(UIImagePNGRepresentation(icon));
-
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
-        [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
-        [client URLProtocol:self didLoadData:data];
-        [client URLProtocolDidFinishLoading:self];
-    }
-}
-
-- (void) startLoading {
-    id<NSURLProtocolClient> client([self client]);
-    NSURLRequest *request([self request]);
-
-    NSURL *url([request URL]);
-    NSString *href([url absoluteString]);
-    NSString *scheme([[url scheme] lowercaseString]);
-
-    NSString *path;
-
-    if ([scheme isEqualToString:@"cydia"])
-        path = [href substringFromIndex:8];
-    else if ([scheme isEqualToString:@"about"])
-        path = [href substringFromIndex:12];
-    else _assert(false);
-
+- (bool) loadForPath:(NSString *)path ofRequest:(NSURLRequest *)request {
     NSRange slash([path rangeOfString:@"/"]);
 
     NSString *command;
@@ -7187,11 +6494,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
             icon = [UIImage imageNamed:@"unknown.png"];
         [self _returnPNGWithImage:icon forRequest:request];
     } else fail: {
-        [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]];
+        return [super loadForPath:path ofRequest:request];
     }
-}
 
-- (void) stopLoading {
+    return true;
 }
 
 @end
@@ -7649,8 +6955,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         [sections insertObject:ignored atIndex:0];
     if (upgrades_ != 0)
         [sections insertObject:upgradable atIndex:0];
-
-    [list_ reloadData];
 
     [[self navigationItem] setRightBarButtonItem:(upgrades_ == 0 ? nil : [[[UIBarButtonItem alloc]
         initWithTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("UPGRADE"), [NSString stringWithFormat:@"%u", upgrades_]]
@@ -8204,20 +7508,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
-        UIView *content([self contentView]);
-        CGRect bounds([content bounds]);
-
-        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
-        [self.content setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
         [self.content setBackgroundColor:[UIColor whiteColor]];
-        [content addSubview:self.content];
-
-        [self.content setDelegate:self];
         [self.content setOpaque:YES];
 
         indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGraySmall] autorelease];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin];// | UIViewAutoresizingFlexibleBottomMargin];
-        [content addSubview:indicator_];
+        [[self contentView] addSubview:indicator_];
 
         [[self.content layer] setContentsGravity:kCAGravityTopLeft];
     } return self;
@@ -8823,7 +8119,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     DatabaseDelegate,
     CydiaDelegate
 > {
-    _H<UIWindow> window_;
+    _H<CyteWindow> window_;
     _H<CydiaTabBarController> tabbar_;
     _H<CyteTabBarController> emulated_;
     _H<AppCacheController> appcache_;
@@ -8836,7 +8132,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     _H<NSURL> starturl_;
 
     unsigned locked_;
-    unsigned activity_;
 
     _H<StashController> stash_;
 
@@ -8876,7 +8171,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (bool) requestUpdate {
-    if (IsReachable("cydia.saurik.com")) {
+    if (CyteIsReachable("cydia.saurik.com")) {
         [self beginUpdate];
         return true;
     } else {
@@ -8958,13 +8253,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     return [controllers objectAtIndex:3];
 }
 
-- (void) unloadData {
-    [tabbar_ unloadData];
-}
-
 - (void) _updateData {
     [self _saveConfig];
-    [self unloadData];
+    [window_ unloadData];
 
     UINavigationController *navigation = [self queueNavigationController];
 
@@ -8993,7 +8284,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     //  - We already auto-refreshed this launch.
     //  - Auto-refresh is disabled.
     //  - Cydia's server is not reachable
-    if (recently || loaded_ || ManualRefresh || !IsReachable("cydia.saurik.com")) {
+    if (recently || loaded_ || ManualRefresh || !CyteIsReachable("cydia.saurik.com")) {
         // If we are cancelling, we need to make sure it knows it's already loaded.
         loaded_ = true;
 
@@ -9083,14 +8374,9 @@ _end
     if (emulated_ == nil)
         return;
 
-    if ([window_ respondsToSelector:@selector(setRootViewController:)])
-        [window_ setRootViewController:tabbar_];
-    else {
-        [window_ addSubview:[tabbar_ view]];
-        [[emulated_ view] removeFromSuperview];
-    }
-
+    [window_ setRootViewController:tabbar_];
     emulated_ = nil;
+
     [window_ setUserInteractionEnabled:YES];
 }
 
@@ -9264,25 +8550,6 @@ _end
     [self lockSuspend];
     [self detachNewProgressSelector:@selector(perform_) toTarget:self forController:navigation title:@"RUNNING"];
     [self unlockSuspend];
-}
-
-- (void) retainNetworkActivityIndicator {
-    if (activity_++ == 0)
-        [self setNetworkActivityIndicatorVisible:YES];
-
-#if TraceLogging
-    NSLog(@"retainNetworkActivityIndicator->%d", activity_);
-#endif
-}
-
-- (void) releaseNetworkActivityIndicator {
-    if (--activity_ == 0)
-        [self setNetworkActivityIndicatorVisible:NO];
-
-#if TraceLogging
-    NSLog(@"releaseNetworkActivityIndicator->%d", activity_);
-#endif
-
 }
 
 - (void) cancelAndClear:(bool)clear {
@@ -9547,10 +8814,7 @@ _end
             if ([arg2 isEqualToString:@"settings"]) {
                 controller = [[[PackageSettingsController alloc] initWithDatabase:database_ package:arg1] autorelease];
             } else if ([arg2 isEqualToString:@"files"]) {
-                if (Package *package = [database_ packageWithName:arg1]) {
-                    controller = [[[FileTable alloc] initWithDatabase:database_] autorelease];
-                    [(FileTable *)controller setPackage:package];
-                }
+                controller = [[[FileTable alloc] initWithDatabase:database_ forPackage:arg1] autorelease];
             }
         }
 
@@ -9625,7 +8889,7 @@ _end
     }
 
     if (interval <= -(15*60)) {
-        if (IsReachable("cydia.saurik.com")) {
+        if (CyteIsReachable("cydia.saurik.com")) {
             [tabbar_ beginUpdate];
             [appcache_ reloadURLWithCache:YES];
         }
@@ -9684,48 +8948,11 @@ _end
     [self reloadSpringBoard];
 }
 
-- (void) setupViewControllers {
-    tabbar_ = [[[CydiaTabBarController alloc] initWithDatabase:database_] autorelease];
-
-    NSMutableArray *items;
-    if (kCFCoreFoundationVersionNumber < 800) {
-        items = [NSMutableArray arrayWithObjects:
-            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage imageNamed:@"home.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage imageNamed:@"install.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage imageNamed:@"changes.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage imageNamed:@"manage.png"] tag:0] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage imageNamed:@"search.png"] tag:0] autorelease],
-        nil];
-    } else {
-        items = [NSMutableArray arrayWithObjects:
-            [[[UITabBarItem alloc] initWithTitle:@"Cydia" image:[UIImage imageNamed:@"home7.png"] selectedImage:[UIImage imageNamed:@"home7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SOURCES") image:[UIImage imageNamed:@"install7.png"] selectedImage:[UIImage imageNamed:@"install7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("CHANGES") image:[UIImage imageNamed:@"changes7.png"] selectedImage:[UIImage imageNamed:@"changes7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("INSTALLED") image:[UIImage imageNamed:@"manage7.png"] selectedImage:[UIImage imageNamed:@"manage7s.png"]] autorelease],
-            [[[UITabBarItem alloc] initWithTitle:UCLocalize("SEARCH") image:[UIImage imageNamed:@"search7.png"] selectedImage:[UIImage imageNamed:@"search7s.png"]] autorelease],
-        nil];
-    }
-
-    NSMutableArray *controllers([NSMutableArray array]);
-    for (UITabBarItem *item in items) {
-        UINavigationController *controller([[[UINavigationController alloc] init] autorelease]);
-        [controller setTabBarItem:item];
-        [controllers addObject:controller];
-    }
-    [tabbar_ setViewControllers:controllers];
-
-    [tabbar_ setUpdateDelegate:self];
-}
-
 - (void) applicationDidFinishLaunching:(id)unused {
     [super applicationDidFinishLaunching:unused];
-_trace();
+    [CyteWebViewController _initialize];
 
-    @synchronized (HostConfig_) {
-        [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
-    }
-
-    [CydiaWebViewController _initialize];
+    [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];
 
@@ -9746,7 +8973,7 @@ _trace();
     appcache_ = [[[AppCacheController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]] autorelease];
     [appcache_ reloadData];
 
-    window_ = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
+    window_ = [[[CyteWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
@@ -9793,7 +9020,18 @@ _trace();
     [database_ setDelegate:self];
 
     [window_ setUserInteractionEnabled:NO];
-    [self setupViewControllers];
+
+    tabbar_ = [[[CydiaTabBarController alloc] initWithDatabase:database_] autorelease];
+
+    [tabbar_ addViewControllers:nil,
+        @"Cydia", @"home.png", @"home7.png", @"home7s.png",
+        UCLocalize("SOURCES"), @"install.png", @"install7.png", @"install7s.png",
+        UCLocalize("CHANGES"), @"changes.png", @"changes7.png", @"changes7s.png",
+        UCLocalize("INSTALLED"), @"manage.png", @"manage7.png", @"manage7s.png",
+        UCLocalize("SEARCH"), @"search.png", @"search7.png", @"search7s.png",
+    nil];
+
+    [tabbar_ setUpdateDelegate:self];
 
     CydiaLoadingViewController *loading([[[CydiaLoadingViewController alloc] init] autorelease]);
     UINavigationController *navigation([[[UINavigationController alloc] init] autorelease]);
@@ -9806,10 +9044,7 @@ _trace();
     if ([emulated_ respondsToSelector:@selector(concealTabBarSelection)])
         [emulated_ concealTabBarSelection];
 
-    if ([window_ respondsToSelector:@selector(setRootViewController:)])
-        [window_ setRootViewController:emulated_];
-    else
-        [window_ addSubview:[emulated_ view]];
+    [window_ setRootViewController:emulated_];
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -9976,44 +9211,14 @@ int main(int argc, char *argv[]) {
 
     _trace();
 
+    CyteInitialize([NSString stringWithFormat:@"Cydia/%@", Cydia_]);
     UpdateExternalStatus(0);
 
-    UIScreen *screen([UIScreen mainScreen]);
-    if ([screen respondsToSelector:@selector(scale)])
-        ScreenScale_ = [screen scale];
-    else
-        ScreenScale_ = 1;
-
-    UIDevice *device([UIDevice currentDevice]);
-    if ([device respondsToSelector:@selector(userInterfaceIdiom)]) {
-        UIUserInterfaceIdiom idiom([device userInterfaceIdiom]);
-        if (idiom == UIUserInterfaceIdiomPad)
-            IsWildcat_ = true;
-    }
-
-    Idiom_ = IsWildcat_ ? @"ipad" : @"iphone";
-
-    RegEx pattern("([0-9]+\\.[0-9]+).*");
-
-    if (pattern([device systemVersion]))
-        Firmware_ = pattern[1];
-    if (pattern(Cydia_))
-        Major_ = pattern[1];
-
     SessionData_ = [NSMutableDictionary dictionaryWithCapacity:4];
+    BridgedHosts_ = [NSMutableSet setWithCapacity:4];
+    InsecureHosts_ = [NSMutableSet setWithCapacity:4];
 
-    HostConfig_ = [[[NSObject alloc] init] autorelease];
-    @synchronized (HostConfig_) {
-        BridgedHosts_ = [NSMutableSet setWithCapacity:4];
-        InsecureHosts_ = [NSMutableSet setWithCapacity:4];
-    }
-
-    NSString *ui(@"ui/ios");
-    if (Idiom_ != nil)
-        ui = [ui stringByAppendingString:[NSString stringWithFormat:@"~%@", Idiom_]];
-    ui = [ui stringByAppendingString:[NSString stringWithFormat:@"/%@", Major_]];
-    UI_ = CydiaURL(ui);
-
+    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@/1.1", IsWildcat_ ? @"ipad" : @"iphone"]);
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
     /* Set Locale {{{ */
@@ -10115,6 +9320,7 @@ int main(int argc, char *argv[]) {
 
     void *gestalt(dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_GLOBAL | RTLD_LAZY));
     $MGCopyAnswer = reinterpret_cast<CFStringRef (*)(CFStringRef)>(dlsym(gestalt, "MGCopyAnswer"));
+    UniqueID_ = UniqueIdentifier([UIDevice currentDevice]);
 
     /* System Information {{{ */
     size_t size;
@@ -10128,47 +9334,6 @@ int main(int argc, char *argv[]) {
         if (sysctlbyname("kern.maxproc", NULL, NULL, &maxproc, sizeof(maxproc)) == -1)
             perror("sysctlbyname(\"kern.maxproc\", #)");
     }
-
-    sysctlbyname("kern.osversion", NULL, &size, NULL, 0);
-    char *osversion = new char[size];
-    if (sysctlbyname("kern.osversion", osversion, &size, NULL, 0) == -1)
-        perror("sysctlbyname(\"kern.osversion\", ?)");
-    else
-        System_ = [NSString stringWithUTF8String:osversion];
-
-    sysctlbyname("hw.machine", NULL, &size, NULL, 0);
-    char *machine = new char[size];
-    if (sysctlbyname("hw.machine", machine, &size, NULL, 0) == -1)
-        perror("sysctlbyname(\"hw.machine\", ?)");
-    else
-        Machine_ = machine;
-
-    int64_t usermem(0);
-    size = sizeof(usermem);
-    if (sysctlbyname("hw.usermem", &usermem, &size, NULL, 0) == -1)
-        usermem = 0;
-
-    SerialNumber_ = (NSString *) CYIOGetValue("IOService:/", @"IOPlatformSerialNumber");
-    ChipID_ = [CYHex((NSData *) CYIOGetValue("IODeviceTree:/chosen", @"unique-chip-id"), true) uppercaseString];
-    BBSNum_ = CYHex((NSData *) CYIOGetValue("IOService:/AppleARMPE/baseband", @"snum"), false);
-
-    UniqueID_ = UniqueIdentifier(device);
-
-    if (NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:@"/Applications/MobileSafari.app/Info.plist"]) {
-        Product_ = [info objectForKey:@"SafariProductVersion"];
-        Safari_ = [info objectForKey:@"CFBundleVersion"];
-    }
-
-    NSString *agent([NSString stringWithFormat:@"Cydia/%@ CyF/%.2f", Cydia_, kCFCoreFoundationVersionNumber]);
-
-    if (RegEx match = RegEx("([0-9]+(\\.[0-9]+)+).*", Safari_))
-        agent = [NSString stringWithFormat:@"Safari/%@ %@", match[1], agent];
-    if (RegEx match = RegEx("([0-9]+[A-Z][0-9]+[a-z]?).*", System_))
-        agent = [NSString stringWithFormat:@"Mobile/%@ %@", match[1], agent];
-    if (RegEx match = RegEx("([0-9]+(\\.[0-9]+)+).*", Product_))
-        agent = [NSString stringWithFormat:@"Version/%@ %@", match[1], agent];
-
-    UserAgent_ = agent;
     /* }}} */
     /* Load Database {{{ */
     SectionMap_ = [[[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]] autorelease];
@@ -10281,6 +9446,10 @@ int main(int argc, char *argv[]) {
     // XXX: this timeout might be important :(
     //_config->Set("Acquire::http::Timeout", 15);
 
+    int64_t usermem(0);
+    size = sizeof(usermem);
+    if (sysctlbyname("hw.usermem", &usermem, &size, NULL, 0) == -1)
+        usermem = 0;
     _config->Set("Acquire::http::MaxParallel", usermem >= 384 * 1024 * 1024 ? 16 : 3);
 
     mkdir([Cache("archives") UTF8String], 0755);

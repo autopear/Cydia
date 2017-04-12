@@ -178,7 +178,7 @@ MobileCydia: sysroot $(object) entitlements.xml Objects/libapt64.a
 	@echo "[link] $@"
 	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit) -Wl,-sdk_version,8.0
 	@mkdir -p bins
-	@cp -a $@ bins/$@-$(version)
+	@cp -a $@ bins/$@-$(version)_$(shell date +%s)
 	@echo "[strp] $@"
 	@grep '~' <<<"$(version)" >/dev/null && echo "skipping..." || strip $@
 	@echo "[uikt] $@"

@@ -30,7 +30,8 @@
 #include "iPhonePrivate.h"
 #include <Menes/ObjectHandle.h>
 
-@implementation CyteApplication : UIApplication {
+@implementation CyteApplication {
+    unsigned activity_;
 }
 
 - (void) _sendMemoryWarningNotification {
@@ -64,6 +65,24 @@
         diskCapacity:10485760
         diskPath:[NSString stringWithFormat:@"%@/%@/%@", NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject, NSBundle.mainBundle.bundleIdentifier, @"SDURLCache"]
     ] autorelease]];
+}
+
+- (void) retainNetworkActivityIndicator {
+    if (activity_++ == 0)
+        [self setNetworkActivityIndicatorVisible:YES];
+
+#if TraceLogging
+    NSLog(@"retainNetworkActivityIndicator->%d", activity_);
+#endif
+}
+
+- (void) releaseNetworkActivityIndicator {
+    if (--activity_ == 0)
+        [self setNetworkActivityIndicatorVisible:NO];
+
+#if TraceLogging
+    NSLog(@"releaseNetworkActivityIndicator->%d", activity_);
+#endif
 }
 
 @end

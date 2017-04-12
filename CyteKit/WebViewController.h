@@ -30,6 +30,10 @@
 
 @class IndirectDelegate;
 
+@interface Diversion : NSObject
+- (id) initWithFrom:(NSString *)from to:(NSString *)to;
+@end
+
 @protocol CyteWebViewControllerDelegate
 - (void) retainNetworkActivityIndicator;
 - (void) releaseNetworkActivityIndicator;
@@ -67,6 +71,9 @@
 
 - (id) initWithWidth:(float)width;
 - (id) initWithWidth:(float)width ofClass:(Class)_class;
+
++ (void) setApplicationNameForUserAgent:(NSString *)userAgent;
+- (NSString *) applicationNameForUserAgent;
 
 - (void) callFunction:(WebScriptObject *)function;
 - (void) reloadURLWithCache:(BOOL)cache;
@@ -106,6 +113,8 @@
 - (void) setScrollIndicatorStyle:(UIScrollViewIndicatorStyle)style;
 
 - (void) registerFrame:(WebFrame *)frame;
+
++ (void) addDiversion:(Diversion *)diversion;
 
 @end
 

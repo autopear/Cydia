@@ -19,24 +19,15 @@
 **/
 /* }}} */
 
-#ifndef CyteKit_CyteKit_H
-#define CyteKit_CyteKit_H
+#ifndef CyteKit_Window_H
+#define CyteKit_Window_H
 
-#include "CyteKit/Application.h"
-#include "CyteKit/CyteObject.h"
-#include "CyteKit/ListController.h"
-#include "CyteKit/NavigationController.h"
-#include "CyteKit/TableViewCell.h"
-#include "CyteKit/TabBarController.h"
-#include "CyteKit/URLCache.h"
-#include "CyteKit/URLProtocol.h"
-#include "CyteKit/WebViewController.h"
-#include "CyteKit/WebViewTableViewCell.h"
-#include "CyteKit/Window.h"
+#include <UIKit/UIKit.h>
 
-#include "CyteKit/countByEnumeratingWithState.h"
-#include "CyteKit/extern.h"
-#include "CyteKit/stringWithUTF8Bytes.h"
-#include "CyteKit/webScriptObjectInContext.h"
+@interface CyteWindow : UIWindow
 
-#endif//CyteKit_CyteKit_H
+- (void) unloadData;
+
+@end
+
+#endif//CyteKit_Window_H

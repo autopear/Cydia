@@ -26,12 +26,10 @@
 
 #include <UIKit/UIKit.h>
 
-@interface UITabBarController (Cydia)
-@end
-
 @interface CyteTabBarController : UITabBarController
 
 - (NSArray *) navigationURLCollection;
+- (void) addViewControllers:(id)no, ...;
 - (UIViewController *) unselectedViewController;
 - (void) setUnselectedViewController:(UIViewController *)transient;
 

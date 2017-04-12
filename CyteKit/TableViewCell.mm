@@ -56,6 +56,19 @@
     bool highlighted_;
 }
 
+- (instancetype) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
+        UIView *content([self contentView]);
+        CGRect bounds([content bounds]);
+
+        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
+        [self.content setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        [content addSubview:self.content];
+
+        [self.content setDelegate:(id<CyteTableViewCellDelegate>)self];
+    } return self;
+}
+
 - (void) _updateHighlightColorsForView:(UIView *)view highlighted:(BOOL)highlighted {
     if (view == (UIView *) content_)
         highlighted_ = highlighted;

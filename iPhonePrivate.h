@@ -40,7 +40,6 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(
 @class DOMRGBColor;
 // }}}
 // @class Web*; {{{
-@class WebDataSource;
 @class WebScriptObject;
 @class WebView;
 // }}}
@@ -286,6 +285,11 @@ enum {
 - (void) setJavaScriptCanOpenWindowsAutomatically:(BOOL)value;
 @end
 
+@interface WebDataSource : NSObject
+- (NSURLRequest *) request;
+- (NSURLResponse *) response;
+@end
+
 @interface WebFrame : NSObject
 @property (nonatomic, readonly, copy) NSArray *childFrames;
 @property (nonatomic, readonly, strong) WebDataSource *dataSource;
@@ -334,6 +338,7 @@ enum {
 
 @interface NSObject (Apple)
 + (BOOL) isKeyExcludedFromWebScript:(const char *)name;
+- (NSArray *) attributeKeys;
 @end
 
 @interface NSString (Apple)

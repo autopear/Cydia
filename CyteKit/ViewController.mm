@@ -52,6 +52,13 @@
     return nil;
 }
 
+- (UIViewController *) rootViewController {
+    UIViewController *base(self);
+    while ([base parentOrPresentingViewController] != nil)
+        base = [base parentOrPresentingViewController];
+    return base;
+}
+
 - (NSURL *) navigationURL {
     return nil;
 }

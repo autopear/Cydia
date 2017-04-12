@@ -57,6 +57,57 @@ float CYScrollViewDecelerationRateNormal;
 
 @end
 
+// Diversion {{{
+static _H<NSMutableSet> Diversions_;
+
+@implementation Diversion {
+    RegEx pattern_;
+    _H<NSString> key_;
+    _H<NSString> format_;
+}
+
+- (id) initWithFrom:(NSString *)from to:(NSString *)to {
+    if ((self = [super init]) != nil) {
+        pattern_ = [from UTF8String];
+        key_ = from;
+        format_ = to;
+    } return self;
+}
+
+- (NSString *) divert:(NSString *)url {
+    return !pattern_(url) ? nil : pattern_->*format_;
+}
+
++ (NSURL *) divertURL:(NSURL *)url {
+  divert:
+    NSString *href([url absoluteString]);
+
+    for (Diversion *diversion in (id) Diversions_)
+        if (NSString *diverted = [diversion divert:href]) {
+#if !ForRelease
+            NSLog(@"div: %@", diverted);
+#endif
+            url = [NSURL URLWithString:diverted];
+            goto divert;
+        }
+
+    return url;
+}
+
+- (NSString *) key {
+    return key_;
+}
+
+- (NSUInteger) hash {
+    return [key_ hash];
+}
+
+- (BOOL) isEqual:(Diversion *)object {
+    return self == object || [self class] == [object class] && [key_ isEqual:[object key]];
+}
+
+@end
+// }}}
 /* Indirect Delegate {{{ */
 @implementation IndirectDelegate
 
@@ -178,6 +229,8 @@ float CYScrollViewDecelerationRateNormal;
         CYScrollViewDecelerationRateNormal = *_UIScrollViewDecelerationRateNormal;
     else // XXX: this actually might be fast on some older systems: we should look into this
         CYScrollViewDecelerationRateNormal = 0.998;
+
+    Diversions_ = [NSMutableSet setWithCapacity:0];
 }
 
 - (bool) retainsNetworkActivityIndicator {
@@ -215,8 +268,12 @@ float CYScrollViewDecelerationRateNormal;
     return (CyteWebViewController *) (IndirectDelegate *) indirect_;
 }
 
++ (void) addDiversion:(Diversion *)diversion {
+    [Diversions_ addObject:diversion];
+}
+
 - (NSURL *) URLWithURL:(NSURL *)url {
-    return url;
+    return [Diversion divertURL:url];
 }
 
 - (NSURLRequest *) requestWithURL:(NSURL *)url cachePolicy:(NSURLRequestCachePolicy)policy referrer:(NSString *)referrer {
@@ -981,8 +1038,13 @@ float CYScrollViewDecelerationRateNormal;
     } return self;
 }
 
+static _H<NSString> UserAgent_;
++ (void) setApplicationNameForUserAgent:(NSString *)userAgent {
+    UserAgent_ = userAgent;
+}
+
 - (NSString *) applicationNameForUserAgent {
-    return nil;
+    return UserAgent_;
 }
 
 - (void) loadView {
